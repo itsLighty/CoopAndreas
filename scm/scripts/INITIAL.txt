@@ -110,6 +110,9 @@ $prorerty_switch[29] = 29
 $prorerty_switch[30] = 30
 $prorerty_switch[31] = 31
 $zeros_property_bought = 0
+// Keep stock property initialization byte-for-byte compatible with offline and
+// existing saves. After authentication BUY_PRO suppresses peer-side for-sale
+// pickups; the host's radar and entry/exit snapshots become session authority.
 $propertyX[0] = -1969.27
 $propertyY[0] = 282.47
 $propertyZ[0] = 34.6

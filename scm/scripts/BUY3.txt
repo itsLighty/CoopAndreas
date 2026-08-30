@@ -1,11 +1,21 @@
 :BUY3
 script_name 'BUY3'
+gosub @BUY3_COOP_CAN_OWN_PROPERTY_STATE
+if
+  0@ == 1
+goto_if_false @BUY3_COOP_SUPPRESS_PEER_PICKUP
+
+:BUY3_COOP_CREATE_FOR_SALE
 $1655 = 80000
 Pickup.Remove($save_housepickup[2])
 $save_housepickup[2] = Pickup.CreateForSaleProperty('PROP_3', $propertyX[2], $propertyY[2], $propertyZ[2], $1655)
 
 :BUY3_52
 wait $mission_trigger_wait_time
+gosub @BUY3_COOP_CAN_OWN_PROPERTY_STATE
+if
+  0@ == 1
+goto_if_false @BUY3_COOP_SUPPRESS_PEER_PICKUP
 if 
   Player.IsPlaying($player1)
 goto_if_false @BUY3_135
@@ -22,4 +32,31 @@ terminate_this_script
 
 :BUY3_135
 goto @BUY3_52
+
+:BUY3_COOP_SUPPRESS_PEER_PICKUP
+Pickup.Remove($save_housepickup[2])
+
+:BUY3_COOP_WAIT_FOR_AUTHORITY
+wait 1000
+gosub @BUY3_COOP_CAN_OWN_PROPERTY_STATE
+if
+  0@ == 1
+goto_if_false @BUY3_COOP_WAIT_FOR_AUTHORITY
+goto @BUY3_COOP_CREATE_FOR_SALE
+
+:BUY3_COOP_CAN_OWN_PROPERTY_STATE
+0@ = 1
+if
+  Coop.IsNetworkAuthenticated()
+goto_if_false @BUY3_COOP_AUTHORITY_DONE
+if
+  Coop.IsHost()
+goto_if_false @BUY3_COOP_AUTHENTICATED_PEER
+return
+
+:BUY3_COOP_AUTHENTICATED_PEER
+0@ = 0
+
+:BUY3_COOP_AUTHORITY_DONE
+return
 

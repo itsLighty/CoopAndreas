@@ -3,9 +3,23 @@
 
 :BUYPRO1
 script_name 'BUYPRO1'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsNetworkAuthenticated()
+goto_if_false @BUYPRO1_COOP_AUTHORITATIVE_START
+if
+  Coop.IsHost()
+goto_if_false @BUYPRO1_COOP_REJECT_PEER_LAUNCH
+goto @BUYPRO1_COOP_AUTHORITATIVE_START
+
+:BUYPRO1_COOP_AUTHORITATIVE_START
 $onmission = 1
 wait 0
 34@ = 0
+// The authoritative launch preflight freezes this roster before mission 134
+// starts. The handles are retained for identity/reconnect semantics even though
+// marker, camera and result delivery use the session-aware network relays.
+35@, 36@, 37@ = Coop.CollectNetworkPlayersForTheMission()
 Camera.SetFadingColor(0, 0, 1)
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
@@ -422,3 +436,10 @@ Mission.Finish
 terminate_this_script 
 return 
 
+:BUYPRO1_COOP_REJECT_PEER_LAUNCH
+// Defense in depth: authenticated peers are never allowed to own price,
+// progress, save-state, unlock or reward mutations if mission preflight is
+// bypassed. No stock side effects have run at this point.
+$onmission = 0
+Mission.Finish
+terminate_this_script

@@ -3,6 +3,10 @@ script_name 'OPENUP'
 
 :OPENUP_11
 wait 2000
+gosub @OPENUP_COOP_CAN_OWN_PROPERTY_STATE
+if
+  0@ == 1
+goto_if_false @OPENUP_1653
 if 
   $Return_cities_passed > 0
 goto_if_false @OPENUP_311
@@ -201,3 +205,20 @@ Pickup.Remove($save_housepickup[28])
 Pickup.Remove($save_housepickup[29])
 return 
 
+:OPENUP_COOP_CAN_OWN_PROPERTY_STATE
+// Only the authenticated host mutates progression and creates for-sale
+// pickups. Offline/unauthenticated play keeps stock logic.
+0@ = 1
+if
+  Coop.IsNetworkAuthenticated()
+goto_if_false @OPENUP_COOP_AUTHORITY_DONE
+if
+  Coop.IsHost()
+goto_if_false @OPENUP_COOP_AUTHENTICATED_PEER
+return
+
+:OPENUP_COOP_AUTHENTICATED_PEER
+0@ = 0
+
+:OPENUP_COOP_AUTHORITY_DONE
+return

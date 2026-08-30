@@ -64866,6 +64866,18 @@
                         "is_static": true
                     },
                     "short_desc": "preflight an internal mission through the authoritative co-op session"
+                },
+                {
+                    "id": "1D1E",
+                    "name": "coop_is_network_authenticated",
+                    "num_params": 0,
+                    "class": "Coop",
+                    "member": "IsNetworkAuthenticated",
+                    "attrs": {
+                        "is_condition": true,
+                        "is_static": true
+                    },
+                    "short_desc": "returns true only after the client has completed network authentication"
                 }
             ]
         }

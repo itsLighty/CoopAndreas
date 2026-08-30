@@ -31,6 +31,7 @@
 #include "Commands/CCommandGetNetworkPlayerInternalId.h"
 #include "Commands/CCommandTeleportPlayersToHostSafely.h"
 #include "Commands/CCommandLaunchMissionForCoop.h"
+#include "Commands/CCommandIsNetworkAuthenticated.h"
 
 class CCustomCommandRegistrar
 {
@@ -67,5 +68,6 @@ public:
 		CCustomCommandMgr::RegisterCommand(0x1D1B, new CCommandGetNetworkPlayerInternalId());
 		CCustomCommandMgr::RegisterCommand(0x1D1C, new CCommandTeleportPlayersToHostSafely());
 		CCustomCommandMgr::RegisterCommand(0x1D1D, new CCommandLaunchMissionForCoop());
+		CCustomCommandMgr::RegisterCommand(0x1D1E, new CCommandIsNetworkAuthenticated());
 	}
 };

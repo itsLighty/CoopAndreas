@@ -3405,6 +3405,7 @@ PedTakeHost,1D1A,0,0,("char: Char" "allowReturnToPreviousHost: bool")
 GetNetworkPlayerInternalId,1D1B,0,0,("char: Char" "playerId: int")
 TeleportPlayersToHostSafely,1D1C,0,0,("player1: Char" "player2: Char" "player3: Char")
 LaunchMissionForCoop,1D1D,0,0,("missionId: int")
+IsNetworkAuthenticated,1D1E,1,0,()
 $END
 
 #EOF
