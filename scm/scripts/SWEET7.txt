@@ -5749,25 +5749,25 @@ for 579@ = 0 to 2
             not Char.IsDead(551@(579@,3i))
         then
             set_lvar_int_to_lvar_int 599@ = 551@(579@,3i)
-            600@ = 105@
+            set_lvar_int_to_lvar_int 600@ = 105@
             gosub @SWEET7_coop_target_enemy
-            600@ = 107@
+            set_lvar_int_to_lvar_int 600@ = 107@
             gosub @SWEET7_coop_target_enemy
-            600@ = 109@
+            set_lvar_int_to_lvar_int 600@ = 109@
             gosub @SWEET7_coop_target_enemy
-            600@ = 111@
+            set_lvar_int_to_lvar_int 600@ = 111@
             gosub @SWEET7_coop_target_enemy
-            600@ = 112@
+            set_lvar_int_to_lvar_int 600@ = 112@
             gosub @SWEET7_coop_target_enemy
-            600@ = 113@
+            set_lvar_int_to_lvar_int 600@ = 113@
             gosub @SWEET7_coop_target_enemy
-            600@ = 98@
+            set_lvar_int_to_lvar_int 600@ = 98@
             gosub @SWEET7_coop_target_enemy
-            600@ = 117@
+            set_lvar_int_to_lvar_int 600@ = 117@
             gosub @SWEET7_coop_target_enemy
-            600@ = 119@
+            set_lvar_int_to_lvar_int 600@ = 119@
             gosub @SWEET7_coop_target_enemy
-            600@ = 122@
+            set_lvar_int_to_lvar_int 600@ = 122@
             gosub @SWEET7_coop_target_enemy
         end
     end

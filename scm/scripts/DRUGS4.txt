@@ -10634,60 +10634,60 @@ if
   351@ == 3
 then
     386@ = 1
-    385@ = 47@
+    set_lvar_int_to_lvar_int 385@ = 47@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 48@
+    set_lvar_int_to_lvar_int 385@ = 48@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 51@
+    set_lvar_int_to_lvar_int 385@ = 51@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 52@
+    set_lvar_int_to_lvar_int 385@ = 52@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 53@
+    set_lvar_int_to_lvar_int 385@ = 53@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 54@
+    set_lvar_int_to_lvar_int 385@ = 54@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 68@
+    set_lvar_int_to_lvar_int 385@ = 68@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 69@
+    set_lvar_int_to_lvar_int 385@ = 69@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 70@
+    set_lvar_int_to_lvar_int 385@ = 70@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 71@
+    set_lvar_int_to_lvar_int 385@ = 71@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 72@
+    set_lvar_int_to_lvar_int 385@ = 72@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 73@
+    set_lvar_int_to_lvar_int 385@ = 73@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 74@
+    set_lvar_int_to_lvar_int 385@ = 74@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 75@
+    set_lvar_int_to_lvar_int 385@ = 75@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 76@
+    set_lvar_int_to_lvar_int 385@ = 76@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 77@
+    set_lvar_int_to_lvar_int 385@ = 77@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 78@
+    set_lvar_int_to_lvar_int 385@ = 78@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 79@
+    set_lvar_int_to_lvar_int 385@ = 79@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 80@
+    set_lvar_int_to_lvar_int 385@ = 80@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 81@
+    set_lvar_int_to_lvar_int 385@ = 81@
     gosub @DRUGS4_COOP_SYNC_PED
 end
 if
   351@ == 4
 then
     386@ = 1
-    385@ = 44@
+    set_lvar_int_to_lvar_int 385@ = 44@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 51@
+    set_lvar_int_to_lvar_int 385@ = 51@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 52@
+    set_lvar_int_to_lvar_int 385@ = 52@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 53@
+    set_lvar_int_to_lvar_int 385@ = 53@
     gosub @DRUGS4_COOP_SYNC_PED
-    385@ = 54@
+    set_lvar_int_to_lvar_int 385@ = 54@
     gosub @DRUGS4_COOP_SYNC_PED
 end
 if and
@@ -10695,21 +10695,21 @@ if and
   7 >= 351@
 then
     386@ = 1
-    385@ = 186@
+    set_lvar_int_to_lvar_int 385@ = 186@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 187@
+    set_lvar_int_to_lvar_int 385@ = 187@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 188@
+    set_lvar_int_to_lvar_int 385@ = 188@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 189@
+    set_lvar_int_to_lvar_int 385@ = 189@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 190@
+    set_lvar_int_to_lvar_int 385@ = 190@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 191@
+    set_lvar_int_to_lvar_int 385@ = 191@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 192@
+    set_lvar_int_to_lvar_int 385@ = 192@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
-    385@ = 193@
+    set_lvar_int_to_lvar_int 385@ = 193@
     gosub @DRUGS4_COOP_SYNC_VEHICLE
 end
 if
@@ -10928,13 +10928,13 @@ for $temp_int = 0 to 2
             then
                 Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet_car, True, BlipDisplay.Both, BlipColor.Blue, 3)
             end
-            385@ = 186@
+            set_lvar_int_to_lvar_int 385@ = 186@
             gosub @DRUGS4_COOP_ADD_CAR_BLIP
-            385@ = 187@
+            set_lvar_int_to_lvar_int 385@ = 187@
             gosub @DRUGS4_COOP_ADD_CAR_BLIP
-            385@ = 188@
+            set_lvar_int_to_lvar_int 385@ = 188@
             gosub @DRUGS4_COOP_ADD_CAR_BLIP
-            385@ = 189@
+            set_lvar_int_to_lvar_int 385@ = 189@
             gosub @DRUGS4_COOP_ADD_CAR_BLIP
         end
     end

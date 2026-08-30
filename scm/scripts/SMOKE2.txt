@@ -915,7 +915,7 @@ then
     Car.ChangeColor(204@, 98, 14)
     Car.SetHealth(204@, 1250)
     Car.SetCanBurstTires(204@, False)
-    207@ = 204@
+    set_lvar_int_to_lvar_int 207@ = 204@
     gosub @SMOKE2_COOP_WAIT_FOR_VEHICLE
     if
         211@ == 0
@@ -1391,7 +1391,7 @@ then
     gosub @SMOKE2_COOP_REGISTRATION_ABORT
 end
 for $temp_int = 0 to 1
-    207@ = 44@($temp_int,2i)
+    set_lvar_int_to_lvar_int 207@ = 44@($temp_int,2i)
     gosub @SMOKE2_COOP_WAIT_FOR_PED
     if
         211@ == 0

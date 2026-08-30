@@ -431,15 +431,15 @@ if
 then
     set_lvar_int_to_var_int 600@ = $catalina
     gosub @CAT3_COOP_WAIT_FOR_PED
-    600@ = 310@
+    set_lvar_int_to_lvar_int 600@ = 310@
     gosub @CAT3_COOP_WAIT_FOR_PED
-    600@ = 311@
+    set_lvar_int_to_lvar_int 600@ = 311@
     gosub @CAT3_COOP_WAIT_FOR_PED
-    600@ = 327@
+    set_lvar_int_to_lvar_int 600@ = 327@
     gosub @CAT3_COOP_WAIT_FOR_VEHICLE
-    600@ = 334@
+    set_lvar_int_to_lvar_int 600@ = 334@
     gosub @CAT3_COOP_WAIT_FOR_VEHICLE
-    600@ = 340@
+    set_lvar_int_to_lvar_int 600@ = 340@
     gosub @CAT3_COOP_WAIT_FOR_VEHICLE
 end
 Player.SetGroupRecruitment($player1, False)

@@ -229,7 +229,7 @@ then
     gosub @SWEET4_COOP_REGISTRATION_ABORT
 end
 for $temp_int = 0 to 3
-    556@ = 415@($temp_int,4i)
+    set_lvar_int_to_lvar_int 556@ = 415@($temp_int,4i)
     gosub @SWEET4_COOP_WAIT_FOR_PED
     if
         560@ == 0
@@ -314,7 +314,7 @@ then
     gosub @SWEET4_COOP_REGISTRATION_ABORT
 end
 for $temp_int = 0 to 3
-    556@ = 419@($temp_int,4i)
+    set_lvar_int_to_lvar_int 556@ = 419@($temp_int,4i)
     gosub @SWEET4_COOP_WAIT_FOR_PED
     if
         560@ == 0
@@ -386,7 +386,7 @@ goto_if_false @SWEET4_2501
 
 :SWEET4_2501
 for $temp_int = 0 to 3
-    556@ = 423@($temp_int,4i)
+    set_lvar_int_to_lvar_int 556@ = 423@($temp_int,4i)
     gosub @SWEET4_COOP_WAIT_FOR_PED
     if
         560@ == 0
@@ -459,7 +459,7 @@ goto_if_false @SWEET4_3022
 
 :SWEET4_3022
 for $temp_int = 0 to 3
-    556@ = 427@($temp_int,4i)
+    set_lvar_int_to_lvar_int 556@ = 427@($temp_int,4i)
     gosub @SWEET4_COOP_WAIT_FOR_PED
     if
         560@ == 0

@@ -1210,7 +1210,7 @@ for $temp_int = 0 to 2
         if
             Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 350.0, 350.0, 100.0, False)
         then
-            180@($temp_int,3i) = 168@
+            set_lvar_int_to_lvar_int 180@($temp_int,3i) = 168@
             180@($temp_int,3i) += 15000
         else
             if
@@ -1239,7 +1239,7 @@ for $temp_int = 0 to 2
                     Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 170@, 171@, 172@)
                 end
                 Coop.PrintNowForNetworkPlayer('CES1_04', 5000, 2, $NETWORK_PLAYER[$temp_int])
-                180@($temp_int,3i) = 168@
+                set_lvar_int_to_lvar_int 180@($temp_int,3i) = 168@
                 180@($temp_int,3i) += 15000
             end
         end
@@ -1678,7 +1678,7 @@ if and
     Char.LocateAnyMeans3D($scplayer, 0, 369.98, -2030.34, 5.55, 16.0, 16.0, 10.0)
 then
     49@ += 1
-    50@ = 49@
+    set_lvar_int_to_lvar_int 50@ = 49@
 end
 
 for $temp_int = 0 to 2
@@ -1729,7 +1729,7 @@ for $temp_int = 0 to 2
                 end
             end
 
-            57@ = 34@($temp_int,3i)
+            set_lvar_int_to_lvar_int 57@ = 34@($temp_int,3i)
             gosub @CESAR1_COOP_RESOLVE_ROUTE_POINT
             if
                 Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 54@, 55@, 56@, 12.0, 12.0, 8.0)
@@ -1739,12 +1739,12 @@ for $temp_int = 0 to 2
                     34@($temp_int,3i) > 11
                 then
                     49@ += 1
-                    76@($temp_int,3i) = 49@
+                    set_lvar_int_to_lvar_int 76@($temp_int,3i) = 49@
                     37@($temp_int,3i) = 2
                     Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
                     Coop.PrintBigForNetworkPlayer('RACES18', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
                 else
-                    57@ = 34@($temp_int,3i)
+                    set_lvar_int_to_lvar_int 57@ = 34@($temp_int,3i)
                     gosub @CESAR1_COOP_RESOLVE_ROUTE_POINT
                     Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
                     43@($temp_int,3f) = 0.0
@@ -1760,25 +1760,25 @@ for $temp_int = 0 to 2
                 then
                     61@, 62@, 63@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
                     69@ = Math.GetDistanceBetweenCoords3D(61@, 62@, 63@, 54@, 55@, 56@)
-                    68@ = 43@($temp_int,3f)
+                    set_lvar_float_to_lvar_float 68@ = 43@($temp_int,3f)
                     68@ += 75.0
                     if and
                         43@($temp_int,3f) > 0.0
-                        is_int_lvar_greater_than_int_lvar 69@ > 68@
+                        is_float_lvar_greater_than_float_lvar 69@ > 68@
                     then
                         // Increasing distance reasserts the correct route marker;
                         // it never fails or stalls another participant.
                         Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
                     end
-                    43@($temp_int,3f) = 69@
-                    40@($temp_int,3i) = 58@
+                    set_lvar_float_to_lvar_float 43@($temp_int,3f) = 69@
+                    set_lvar_int_to_lvar_int 40@($temp_int,3i) = 58@
                     40@($temp_int,3i) += 4000
                 end
 
                 if
                     Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 500.0, 500.0, 150.0, False)
                 then
-                    73@($temp_int,3i) = 58@
+                    set_lvar_int_to_lvar_int 73@($temp_int,3i) = 58@
                     73@($temp_int,3i) += 15000
                 else
                     if and
@@ -1820,7 +1820,7 @@ for $temp_int = 0 to 2
                             Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 61@, 62@, 63@)
                         end
                         Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
-                        73@($temp_int,3i) = 58@
+                        set_lvar_int_to_lvar_int 73@($temp_int,3i) = 58@
                         73@($temp_int,3i) += 15000
                     end
                 end

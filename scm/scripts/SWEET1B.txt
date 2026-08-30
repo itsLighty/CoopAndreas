@@ -1674,7 +1674,7 @@ then
     gosub @SWEET1B_COOP_REGISTRATION_ABORT
 end
 
-206@ = 37@
+set_lvar_int_to_lvar_int 206@ = 37@
 gosub @SWEET1B_COOP_WAIT_FOR_PED
 if
     210@ == 0

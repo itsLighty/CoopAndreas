@@ -415,9 +415,9 @@ if
     600@ > 0
 then
     Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
-    601@ = 34@
+    set_lvar_int_to_lvar_int 601@ = 34@
     gosub @GARAG1_COOP_WAIT_FOR_VEHICLE
-    601@ = 93@
+    set_lvar_int_to_lvar_int 601@ = 93@
     gosub @GARAG1_COOP_WAIT_FOR_PED
 end
 Camera.SetBehindPlayer

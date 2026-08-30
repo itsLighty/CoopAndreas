@@ -708,17 +708,17 @@ if
 then
     set_lvar_int_to_var_int 601@ = $catalina
     gosub @CAT1_COOP_WAIT_FOR_PED
-    601@ = 72@
+    set_lvar_int_to_lvar_int 601@ = 72@
     gosub @CAT1_COOP_WAIT_FOR_PED
-    601@ = 73@
+    set_lvar_int_to_lvar_int 601@ = 73@
     gosub @CAT1_COOP_WAIT_FOR_PED
-    601@ = 74@
+    set_lvar_int_to_lvar_int 601@ = 74@
     gosub @CAT1_COOP_WAIT_FOR_PED
-    601@ = 79@
+    set_lvar_int_to_lvar_int 601@ = 79@
     gosub @CAT1_COOP_WAIT_FOR_VEHICLE
-    601@ = 80@
+    set_lvar_int_to_lvar_int 601@ = 80@
     gosub @CAT1_COOP_WAIT_FOR_VEHICLE
-    601@ = 81@
+    set_lvar_int_to_lvar_int 601@ = 81@
     gosub @CAT1_COOP_WAIT_FOR_VEHICLE
 end
 134@ = 261.814

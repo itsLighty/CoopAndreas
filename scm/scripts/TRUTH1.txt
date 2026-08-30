@@ -579,15 +579,15 @@ Char.SetSenseRange(96@, 150.0)
 if
     600@ > 0
 then
-    601@ = 34@
+    set_lvar_int_to_lvar_int 601@ = 34@
     gosub @TRUTH1_COOP_WAIT_FOR_VEHICLE
-    601@ = 56@
+    set_lvar_int_to_lvar_int 601@ = 56@
     gosub @TRUTH1_COOP_WAIT_FOR_VEHICLE
-    601@ = 58@
+    set_lvar_int_to_lvar_int 601@ = 58@
     gosub @TRUTH1_COOP_WAIT_FOR_VEHICLE
-    601@ = 38@
+    set_lvar_int_to_lvar_int 601@ = 38@
     gosub @TRUTH1_COOP_WAIT_FOR_PED
-    601@ = 49@
+    set_lvar_int_to_lvar_int 601@ = 49@
     gosub @TRUTH1_COOP_WAIT_FOR_PED
 end
 117@ = 5

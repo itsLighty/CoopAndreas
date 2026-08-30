@@ -5205,7 +5205,7 @@ for $temp_int = 0 to 2
         Car.ChangeColor(520@($temp_int,3i), 98, 14)
         Car.SetCanBurstTires(520@($temp_int,3i), False)
         Car.SetHealth(520@($temp_int,3i), 1250)
-        534@ = 520@($temp_int,3i)
+        set_lvar_int_to_lvar_int 534@ = 520@($temp_int,3i)
         gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
         if
             538@ == 0
@@ -5269,7 +5269,7 @@ for $temp_int = 0 to 2
             Car.SetCoordinates(520@($temp_int,3i), 1514.0, -1663.0, 13.0)
         end
         Car.SetHeading(520@($temp_int,3i), 180.0)
-        534@ = 520@($temp_int,3i)
+        set_lvar_int_to_lvar_int 534@ = 520@($temp_int,3i)
         gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
         if
             538@ == 0
@@ -5312,7 +5312,7 @@ for $temp_int = 0 to 2
         Car.SetHeading(520@($temp_int,3i), 180.0)
         Car.SetCanBurstTires(520@($temp_int,3i), False)
         Car.SetHealth(520@($temp_int,3i), 1250)
-        534@ = 520@($temp_int,3i)
+        set_lvar_int_to_lvar_int 534@ = 520@($temp_int,3i)
         gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
         if
             538@ == 0
@@ -5449,7 +5449,7 @@ for $temp_int = 0 to 2
                 Coop.PrintNowForNetworkPlayer('SMK1_13', 8500, 1, $NETWORK_PLAYER[$temp_int])
                 Coop.UpdateCheckpointForNetworkPlayer(783.2, -1630.3, 12.2, 5.0, 5.0, 5.0, $NETWORK_PLAYER[$temp_int])
             end
-            523@($temp_int,3i) = 530@
+            set_lvar_int_to_lvar_int 523@($temp_int,3i) = 530@
         end
     end
 end

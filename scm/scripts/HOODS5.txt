@@ -356,7 +356,7 @@ goto_if_false @HOODS5_2062
 105@ = Car.Create(492, 2745.545, -1942.74, 12.5394)
 43@ = Char.Create(26, 12, 2751.282, -1948.867, 16.3125)
 
-409@ = 75@
+set_lvar_int_to_lvar_int 409@ = 75@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
@@ -364,7 +364,7 @@ then
     gosub @HOODS5_COOP_REGISTRATION_ABORT
 end
 
-409@ = 105@
+set_lvar_int_to_lvar_int 409@ = 105@
 gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
 if
     413@ == 0
@@ -372,7 +372,7 @@ then
     gosub @HOODS5_COOP_REGISTRATION_ABORT
 end
 
-409@ = 43@
+set_lvar_int_to_lvar_int 409@ = 43@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0

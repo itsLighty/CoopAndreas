@@ -531,7 +531,7 @@ Car.LockDoors(83@, CarLock.Locked)
 Car.SetProofs(83@, True, True, True, True, True)
 63@ = Char.Create(24, 290, 2451.834, -1976.811, 12.5469)
 
-210@ = 83@
+set_lvar_int_to_lvar_int 210@ = 83@
 gosub @SWEET2_COOP_WAIT_FOR_VEHICLE
 if
     214@ == 0
@@ -539,7 +539,7 @@ then
     gosub @SWEET2_COOP_REGISTRATION_ABORT
 end
 
-210@ = 63@
+set_lvar_int_to_lvar_int 210@ = 63@
 gosub @SWEET2_COOP_WAIT_FOR_PED
 if
     214@ == 0

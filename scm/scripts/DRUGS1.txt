@@ -8537,7 +8537,7 @@ gosub @DRUGS1_COOP_SYNC_PED
 gosub @DRUGS1_COOP_SYNC_PED
 $temp_int = 0
 while $temp_int < 23
-    291@ = 37@($temp_int,23i)
+    set_lvar_int_to_lvar_int 291@ = 37@($temp_int,23i)
     gosub @DRUGS1_COOP_SYNC_PED
     if
         Char.DoesExist(37@($temp_int,23i))
@@ -8560,7 +8560,7 @@ gosub @DRUGS1_COOP_SYNC_PED
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 $temp_int = 0
 while $temp_int < 25
-    291@ = 37@($temp_int,25i)
+    set_lvar_int_to_lvar_int 291@ = 37@($temp_int,25i)
     gosub @DRUGS1_COOP_SYNC_PED
     if
         Char.DoesExist(37@($temp_int,25i))
@@ -8571,7 +8571,7 @@ while $temp_int < 25
 end
 $temp_int = 0
 while $temp_int < 9
-    291@ = 177@($temp_int,9i)
+    set_lvar_int_to_lvar_int 291@ = 177@($temp_int,9i)
     gosub @DRUGS1_COOP_SYNC_PED
     if
         Char.DoesExist(177@($temp_int,9i))
@@ -8582,7 +8582,7 @@ while $temp_int < 9
 end
 $temp_int = 0
 while $temp_int < 2
-    291@ = 197@($temp_int,2i)
+    set_lvar_int_to_lvar_int 291@ = 197@($temp_int,2i)
     gosub @DRUGS1_COOP_SYNC_PED
     if
         Char.DoesExist(197@($temp_int,2i))
@@ -8593,7 +8593,7 @@ while $temp_int < 2
 end
 $temp_int = 0
 while $temp_int < 14
-    291@ = 163@($temp_int,14i)
+    set_lvar_int_to_lvar_int 291@ = 163@($temp_int,14i)
     gosub @DRUGS1_COOP_SYNC_VEHICLE
     if
         Car.DoesExist(163@($temp_int,14i))
@@ -8604,7 +8604,7 @@ while $temp_int < 14
 end
 $temp_int = 0
 while $temp_int < 9
-    291@ = 188@($temp_int,9i)
+    set_lvar_int_to_lvar_int 291@ = 188@($temp_int,9i)
     gosub @DRUGS1_COOP_SYNC_VEHICLE
     if
         Car.DoesExist(188@($temp_int,9i))
@@ -8615,7 +8615,7 @@ while $temp_int < 9
 end
 $temp_int = 0
 while $temp_int < 3
-    291@ = 206@($temp_int,3i)
+    set_lvar_int_to_lvar_int 291@ = 206@($temp_int,3i)
     gosub @DRUGS1_COOP_SYNC_VEHICLE
     if
         Car.DoesExist(206@($temp_int,3i))
@@ -9016,7 +9016,7 @@ gosub @DRUGS1_COOP_COMBAT_CONTRIBUTION
 if
     is_int_lvar_greater_or_equal_to_int_lvar 301@ >= 297@
 then
-    297@ = 301@
+    set_lvar_int_to_lvar_int 297@ = 301@
     297@ += 2000
     if
         90@ == 11
@@ -9038,7 +9038,7 @@ then
     if
         is_int_lvar_greater_or_equal_to_int_lvar 301@ >= 296@
     then
-        296@ = 301@
+        set_lvar_int_to_lvar_int 296@ = 301@
         296@ += 3000
         gosub @DRUGS1_COOP_REGROUP_CHASE
     end

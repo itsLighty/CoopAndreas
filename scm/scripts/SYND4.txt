@@ -2465,7 +2465,7 @@ return
 // without ever promoting a late joiner that inherited a stale actor slot.
 348@, 349@, 350@ = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
-    328@ = 333@($temp_int,3i)
+    set_lvar_int_to_lvar_int 328@ = 333@($temp_int,3i)
     333@($temp_int,3i) = 0
     gosub @SYND4_COOP_VALIDATE_SLOT
     if
@@ -2904,40 +2904,40 @@ end
 if
     30 >= 302@
 then
-    351@ = 62@
+    set_lvar_int_to_lvar_int 351@ = 62@
     gosub @SYND4_COOP_SYNC_VEHICLE
-    351@ = 63@
+    set_lvar_int_to_lvar_int 351@ = 63@
     gosub @SYND4_COOP_SYNC_VEHICLE
-    351@ = 49@
+    set_lvar_int_to_lvar_int 351@ = 49@
     gosub @SYND4_COOP_SYNC_PED
-    351@ = 50@
+    set_lvar_int_to_lvar_int 351@ = 50@
     gosub @SYND4_COOP_SYNC_PED
 end
 if
     Car.DoesExist(64@)
 then
-    351@ = 64@
+    set_lvar_int_to_lvar_int 351@ = 64@
     gosub @SYND4_COOP_SYNC_VEHICLE
-    322@ = 352@
+    set_lvar_int_to_lvar_int 322@ = 352@
 end
 if
     323@ == 1
 then
-    351@ = 39@
+    set_lvar_int_to_lvar_int 351@ = 39@
     gosub @SYND4_COOP_SYNC_PED
-    320@ = 352@
+    set_lvar_int_to_lvar_int 320@ = 352@
 end
 if
     Char.DoesExist(87@)
 then
-    351@ = 87@
+    set_lvar_int_to_lvar_int 351@ = 87@
     gosub @SYND4_COOP_SYNC_PED
-    321@ = 352@
+    set_lvar_int_to_lvar_int 321@ = 352@
 end
 if
     Char.DoesExist(44@)
 then
-    351@ = 44@
+    set_lvar_int_to_lvar_int 351@ = 44@
     gosub @SYND4_COOP_SYNC_PED
 end
 for 329@ = 0 to 3
@@ -3066,9 +3066,9 @@ end
 if
     20 >= 302@
 then
-    356@ = 49@
+    set_lvar_int_to_lvar_int 356@ = 49@
     gosub @SYND4_COOP_RETARGET_PED
-    356@ = 50@
+    set_lvar_int_to_lvar_int 356@ = 50@
     gosub @SYND4_COOP_RETARGET_PED
 end
 if
@@ -3136,11 +3136,11 @@ then
         set_lvar_int_to_lvar_int 356@ = 34@(329@,5i)
         gosub @SYND4_COOP_RETARGET_PED
     end
-    356@ = 87@
+    set_lvar_int_to_lvar_int 356@ = 87@
     gosub @SYND4_COOP_RETARGET_PED
-    356@ = 130@
+    set_lvar_int_to_lvar_int 356@ = 130@
     gosub @SYND4_COOP_RETARGET_PED
-    356@ = 131@
+    set_lvar_int_to_lvar_int 356@ = 131@
     gosub @SYND4_COOP_RETARGET_PED
     if
         Char.DoesExist(39@)
@@ -3222,7 +3222,7 @@ for $temp_int = 0 to 2
                     then
                         set_lvar_int_to_lvar_int 345@($temp_int,3i) = 355@
                     end
-                    359@ = 355@
+                    set_lvar_int_to_lvar_int 359@ = 355@
                     sub_int_lvar_from_int_lvar 359@ -= 345@($temp_int,3i)
                     if
                         359@ > 15000

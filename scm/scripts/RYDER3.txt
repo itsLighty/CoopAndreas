@@ -3509,7 +3509,7 @@ if or
     89@ == 4
 then
     for 206@ = 0 to 3
-        190@ = 130@(206@,6i)
+        set_lvar_int_to_lvar_int 190@ = 130@(206@,6i)
         gosub @RYDER3_COOP_RETARGET_ENEMY
     end
 end
@@ -3517,7 +3517,7 @@ if
     89@ == 8
 then
     for 206@ = 0 to 3
-        190@ = 151@(206@,4i)
+        set_lvar_int_to_lvar_int 190@ = 151@(206@,4i)
         gosub @RYDER3_COOP_RETARGET_ENEMY
     end
 end
@@ -3641,7 +3641,7 @@ for $temp_int = 0 to 2
             then
                 Coop.PrintNowForNetworkPlayer('RYD3101', 7000, 1, $NETWORK_PLAYER[$temp_int])
             end
-            208@($temp_int,3i) = 203@
+            set_lvar_int_to_lvar_int 208@($temp_int,3i) = 203@
         end
         if
             203@ == 0
