@@ -3,6 +3,7 @@
 
 :CASINO7
 script_name 'CASINO7'
+Coop.EnableSyncingThisScript()
 gosub @CASINO7_47
 if 
   has_deatharrest_been_executed 
@@ -17,11 +18,34 @@ terminate_this_script
 Text.LoadMissionText('CASINO7')
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+220@ = 0 // cooperative participant failure
+221@ = 0 // remote players are frozen for the cutscene
+222@ = 0 // cooperative cleanup guard
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 200@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    203@($temp_int,3i) = -1
+    206@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        203@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(200@($temp_int,3i))
+        206@($temp_int,3i) = 1
+    end
+end
+gosub @CASINO7_COOP_FREEZE_REMOTES
 wait 0
 Streaming.SetAreaVisible(11)
 Cutscene.Load('CAS_7B')
 
 :CASINO7_86
+gosub @CASINO7_COOP_UPDATE
+if
+  220@ > 0
+goto_if_false @CASINO7_COOP_LOAD_CONTINUE
+goto @CASINO7_301
+
+:CASINO7_COOP_LOAD_CONTINUE
 if 
   not Cutscene.HasLoaded
 goto_if_false @CASINO7_110
@@ -33,6 +57,13 @@ Cutscene.Start
 Camera.DoFade(1, 1000)
 
 :CASINO7_119
+gosub @CASINO7_COOP_UPDATE
+if
+  220@ > 0
+goto_if_false @CASINO7_COOP_CUTSCENE_CONTINUE
+goto @CASINO7_301
+
+:CASINO7_COOP_CUTSCENE_CONTINUE
 if 
   not Cutscene.HasFinished
 goto_if_false @CASINO7_143
@@ -44,6 +75,13 @@ Player.SetControl($player1, False)
 Camera.DoFade(0, Fade.Out)
 
 :CASINO7_156
+gosub @CASINO7_COOP_UPDATE
+if
+  220@ > 0
+goto_if_false @CASINO7_COOP_FADE_CONTINUE
+goto @CASINO7_301
+
+:CASINO7_COOP_FADE_CONTINUE
 if 
   Camera.GetFadingStatus
 goto_if_false @CASINO7_180
@@ -62,10 +100,13 @@ Char.SetHeading($scplayer, 279.83)
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
 Camera.DoFade(1, 2000)
+gosub @CASINO7_COOP_RELEASE_REMOTES
+gosub @CASINO7_COOP_NOTIFY_SUCCESS
 goto @CASINO7_319
 
 :CASINO7_301
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @CASINO7_COOP_NOTIFY_FAILURE
 return 
 
 :CASINO7_319
@@ -78,8 +119,195 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :CASINO7_360
+gosub @CASINO7_COOP_CLEANUP
 $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+:CASINO7_COOP_UPDATE_ROSTER
+230@, 231@, 232@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    206@($temp_int,3i) = 0
+    if and
+        203@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        223@ = Coop.GetNetworkPlayerInternalId(200@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 223@ == 203@($temp_int,3i)
+        then
+            206@($temp_int,3i) = 1
+        end
+    end
+    if and
+        203@($temp_int,3i) <> -1
+        206@($temp_int,3i) == 0
+    then
+        for 224@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(230@(224@,3i))
+            then
+                223@ = Coop.GetNetworkPlayerInternalId(230@(224@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 223@ == 203@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@($temp_int,3i) = 230@(224@,3i)
+                    206@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        206@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead(200@($temp_int,3i))
+        then
+            220@ = 1
+        end
+        if
+            221@ == 1
+        then
+            if
+                Char.IsInAnyCar(200@($temp_int,3i))
+            then
+                225@ = Char.StoreCarIsInNoSave(200@($temp_int,3i))
+                Task.LeaveCarImmediately(200@($temp_int,3i), 225@)
+            end
+            Char.ClearTasksImmediately(200@($temp_int,3i))
+            Char.FreezePosition(200@($temp_int,3i), True)
+            Char.SetProofs(200@($temp_int,3i), True, True, True, True, True)
+            Char.SetCollision(200@($temp_int,3i), True)
+            Char.SetVisible(200@($temp_int,3i), True)
+            Task.StandStill(200@($temp_int,3i), -1)
+        end
+    end
+end
+return
+
+:CASINO7_COOP_BUILD_ACTIVE_ARGS
+230@ = -1
+231@ = -1
+232@ = -1
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 230@($temp_int,3i) = 200@($temp_int,3i)
+    end
+end
+return
+
+:CASINO7_COOP_TELEPORT_ACTIVE
+gosub @CASINO7_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(230@, 231@, 232@)
+return
+
+:CASINO7_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(200@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@($temp_int,3i))
+    end
+end
+return
+
+:CASINO7_COOP_FREEZE_REMOTES
+221@ = 1
+gosub @CASINO7_COOP_UPDATE_ROSTER
+gosub @CASINO7_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        if
+            Char.IsInAnyCar(200@($temp_int,3i))
+        then
+            225@ = Char.StoreCarIsInNoSave(200@($temp_int,3i))
+            Task.LeaveCarImmediately(200@($temp_int,3i), 225@)
+        end
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        Char.FreezePosition(200@($temp_int,3i), True)
+        Char.SetProofs(200@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Task.StandStill(200@($temp_int,3i), -1)
+    end
+end
+return
+
+:CASINO7_COOP_RELEASE_REMOTES
+221@ = 0
+gosub @CASINO7_COOP_UPDATE_ROSTER
+gosub @CASINO7_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(200@($temp_int,3i), False)
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        Char.SetProofs(200@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Char.SetAreaVisible(200@($temp_int,3i), 0)
+        Task.StandStill(200@($temp_int,3i), 0)
+    end
+end
+return
+
+:CASINO7_COOP_UPDATE
+gosub @CASINO7_COOP_UPDATE_ROSTER
+return
+
+:CASINO7_COOP_NOTIFY_FAILURE
+gosub @CASINO7_COOP_UPDATE_ROSTER
+gosub @CASINO7_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@($temp_int,3i))
+    end
+end
+return
+
+:CASINO7_COOP_NOTIFY_SUCCESS
+gosub @CASINO7_COOP_UPDATE_ROSTER
+gosub @CASINO7_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@($temp_int,3i))
+    end
+end
+return
+
+:CASINO7_COOP_CLEANUP
+if
+    222@ == 1
+then
+    return
+end
+222@ = 1
+gosub @CASINO7_COOP_UPDATE_ROSTER
+221@ = 0
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(200@($temp_int,3i), False)
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        Char.SetProofs(200@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Char.SetAreaVisible(200@($temp_int,3i), 0)
+        Task.StandStill(200@($temp_int,3i), 0)
+    end
+    206@($temp_int,3i) = 0
+end
+return
 
