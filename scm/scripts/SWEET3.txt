@@ -3102,7 +3102,7 @@ then
     return
 end
 119@ = Clock.GetGameTimer()
-119@ -= 118@
+sub_int_lvar_from_int_lvar 119@ -= 118@
 if
     10000 > 119@
 then
@@ -3156,7 +3156,7 @@ then
     return
 end
 119@ = Clock.GetGameTimer()
-119@ -= 118@
+sub_int_lvar_from_int_lvar 119@ -= 118@
 if
     10000 > 119@
 then

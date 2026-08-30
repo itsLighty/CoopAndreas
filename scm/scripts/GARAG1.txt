@@ -3906,22 +3906,22 @@ set_lvar_int_to_lvar_int 608@ = 134@
 608@ *= 100
 set_lvar_int_to_lvar_int 609@ = 101@
 609@ *= 1
-608@ += 609@
+add_int_lvar_to_int_lvar 608@ += 609@
 set_lvar_int_to_lvar_int 609@ = 102@
 609@ *= 2
-608@ += 609@
+add_int_lvar_to_int_lvar 608@ += 609@
 set_lvar_int_to_lvar_int 609@ = 103@
 609@ *= 4
-608@ += 609@
+add_int_lvar_to_int_lvar 608@ += 609@
 set_lvar_int_to_lvar_int 609@ = 105@
 609@ *= 8
-608@ += 609@
+add_int_lvar_to_int_lvar 608@ += 609@
 set_lvar_int_to_lvar_int 609@ = 106@
 609@ *= 16
-608@ += 609@
+add_int_lvar_to_int_lvar 608@ += 609@
 set_lvar_int_to_lvar_int 609@ = 107@
 609@ *= 32
-608@ += 609@
+add_int_lvar_to_int_lvar 608@ += 609@
 if
     is_int_lvar_equal_to_int_lvar 606@ == 608@
 then
@@ -4003,7 +4003,7 @@ while 602@ == -1
     then
         wait 0
         604@ = Clock.GetGameTimer()
-        604@ -= 603@
+        sub_int_lvar_from_int_lvar 604@ -= 603@
         if
             604@ > 3000
         then
@@ -4033,7 +4033,7 @@ while 602@ == -1
     then
         wait 0
         604@ = Clock.GetGameTimer()
-        604@ -= 603@
+        sub_int_lvar_from_int_lvar 604@ -= 603@
         if
             604@ > 3000
         then

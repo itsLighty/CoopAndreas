@@ -3741,7 +3741,7 @@ then
     return
 end
 set_lvar_int_to_lvar_int 241@ = 201@
-241@ -= 209@
+sub_int_lvar_from_int_lvar 241@ -= 209@
 if
   241@ > 12000
 then

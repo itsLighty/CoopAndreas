@@ -4003,7 +4003,7 @@ then
         end
     end
     607@ = Clock.GetGameTimer()
-    607@ -= 606@
+    sub_int_lvar_from_int_lvar 607@ -= 606@
     if
       607@ > 20000
     then
@@ -4046,7 +4046,7 @@ then
         606@ = Clock.GetGameTimer()
     end
     607@ = Clock.GetGameTimer()
-    607@ -= 606@
+    sub_int_lvar_from_int_lvar 607@ -= 606@
     if
       607@ > 15000
     then

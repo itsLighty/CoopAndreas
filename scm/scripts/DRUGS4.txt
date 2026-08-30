@@ -11091,7 +11091,7 @@ then
     return
 end
 set_lvar_int_to_lvar_int 359@ = 363@
-359@ -= 355@
+sub_int_lvar_from_int_lvar 359@ -= 355@
 if
   359@ > 12000
 then

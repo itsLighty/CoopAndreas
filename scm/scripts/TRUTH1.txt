@@ -2579,7 +2579,7 @@ return
 :TRUTH1_COOP_UPDATE_OBJECTIVE
 set_lvar_int_to_lvar_int 608@ = 118@
 608@ *= 10
-608@ += 117@
+add_int_lvar_to_int_lvar 608@ += 117@
 if
     is_int_lvar_equal_to_int_lvar 606@ == 608@
 then
@@ -2646,7 +2646,7 @@ while 602@ == -1
     then
         wait 0
         604@ = Clock.GetGameTimer()
-        604@ -= 603@
+        sub_int_lvar_from_int_lvar 604@ -= 603@
         if
             604@ > 3000
         then
@@ -2676,7 +2676,7 @@ while 602@ == -1
     then
         wait 0
         604@ = Clock.GetGameTimer()
-        604@ -= 603@
+        sub_int_lvar_from_int_lvar 604@ -= 603@
         if
             604@ > 3000
         then

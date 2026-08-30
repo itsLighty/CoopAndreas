@@ -5007,7 +5007,7 @@ goto @MUSIC3_COOP_REGISTER_PED_DONE
 
 :MUSIC3_COOP_REGISTER_PED_TIME
 253@ = Clock.GetGameTimer()
-253@ -= 252@
+sub_int_lvar_from_int_lvar 253@ -= 252@
 if
   253@ > 250
 goto_if_false @MUSIC3_COOP_REGISTER_PED_WAIT
@@ -5036,7 +5036,7 @@ goto @MUSIC3_COOP_REGISTER_VEHICLE_DONE
 
 :MUSIC3_COOP_REGISTER_VEHICLE_TIME
 253@ = Clock.GetGameTimer()
-253@ -= 252@
+sub_int_lvar_from_int_lvar 253@ -= 252@
 if
   253@ > 250
 goto_if_false @MUSIC3_COOP_REGISTER_VEHICLE_WAIT

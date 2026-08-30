@@ -3347,7 +3347,7 @@ then
     return
 end
 209@ = Clock.GetGameTimer()
-209@ -= 208@
+sub_int_lvar_from_int_lvar 209@ -= 208@
 if
     10000 > 209@
 then
@@ -3401,7 +3401,7 @@ then
     return
 end
 209@ = Clock.GetGameTimer()
-209@ -= 208@
+sub_int_lvar_from_int_lvar 209@ -= 208@
 if
     10000 > 209@
 then

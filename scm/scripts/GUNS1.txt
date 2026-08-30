@@ -410,7 +410,7 @@ Car.SetHeading(102@, 48.737)
 while 307@ == -1
     wait 0
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if 298@ > 5000
     then
         break
@@ -422,7 +422,7 @@ end
 while 308@ == -1
     wait 0
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if 298@ > 5000
     then
         break
@@ -2021,7 +2021,7 @@ goto @GUNS1_12148
 while 309@ == -1
     wait 0
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if 298@ > 5000
     then
         break
@@ -5061,7 +5061,7 @@ Char.GiveWeapon(101@, WeaponType.Pistol, 3000)
 while 312@ == -1
     wait 0
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if 298@ > 5000
     then
         break
@@ -5073,7 +5073,7 @@ end
 while 313@ == -1
     wait 0
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if 298@ > 5000
     then
         break
@@ -5085,7 +5085,7 @@ end
 while 314@ == -1
     wait 0
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if 298@ > 5000
     then
         break
@@ -7486,7 +7486,7 @@ if
     295@ == 0
 then
     298@ = Clock.GetGameTimer()
-    298@ -= 297@
+    sub_int_lvar_from_int_lvar 298@ -= 297@
     if
         298@ > 20000
     then
@@ -7732,7 +7732,7 @@ then
                     then
                         305@ -= 20.0
                         305@ *= 0.45
-                        167@ += 305@
+                        add_float_lvar_to_float_lvar 167@ += 305@
                     end
                     if or
                         Char.HasBeenDamagedByChar(99@, $NETWORK_PLAYER[$temp_int])
@@ -7984,7 +7984,7 @@ then
             while 289@($temp_int,3i) == -1
                 wait 0
                 298@ = Clock.GetGameTimer()
-                298@ -= 297@
+                sub_int_lvar_from_int_lvar 298@ -= 297@
                 if
                     298@ > 5000
                 then
@@ -8056,7 +8056,7 @@ for $temp_int = 0 to 2
         while 289@($temp_int,3i) == -1
             wait 0
             298@ = Clock.GetGameTimer()
-            298@ -= 297@
+            sub_int_lvar_from_int_lvar 298@ -= 297@
             if
                 298@ > 5000
             then
@@ -8114,7 +8114,7 @@ for $temp_int = 0 to 2
                 end
             else
                 300@ = 60
-                300@ += 35@
+                add_int_lvar_to_int_lvar 300@ += 35@
                 if
                     301@ == 0
                 then

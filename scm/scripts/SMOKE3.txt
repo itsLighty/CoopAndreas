@@ -1584,7 +1584,7 @@ if and
   95@ == 0
 then
     146@ = Clock.GetGameTimer()
-    146@ -= 145@
+    sub_int_lvar_from_int_lvar 146@ -= 145@
     if
         146@ > 2000
     then
@@ -3476,7 +3476,7 @@ then
     return
 end
 141@ = Clock.GetGameTimer()
-141@ -= 140@
+sub_int_lvar_from_int_lvar 141@ -= 140@
 if
     5000 > 141@
 then
@@ -3503,7 +3503,7 @@ then
     return
 end
 141@ = Clock.GetGameTimer()
-141@ -= 140@
+sub_int_lvar_from_int_lvar 141@ -= 140@
 if
     5000 > 141@
 then

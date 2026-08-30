@@ -8647,7 +8647,7 @@ if
     300@ == 0
 then
     301@ = Clock.GetGameTimer()
-    301@ -= 295@
+    sub_int_lvar_from_int_lvar 301@ -= 295@
     if
         301@ > 60000
     then
@@ -8684,7 +8684,7 @@ if
     315@ == 0
 then
     301@ = Clock.GetGameTimer()
-    301@ -= 295@
+    sub_int_lvar_from_int_lvar 301@ -= 295@
     if
         301@ > 15000
     then

@@ -5190,7 +5190,7 @@ while 602@ == -1
     then
         wait 0
         604@ = Clock.GetGameTimer()
-        604@ -= 603@
+        sub_int_lvar_from_int_lvar 604@ -= 603@
         if
             604@ > 3000
         then
@@ -5220,7 +5220,7 @@ while 602@ == -1
     then
         wait 0
         604@ = Clock.GetGameTimer()
-        604@ -= 603@
+        sub_int_lvar_from_int_lvar 604@ -= 603@
         if
             604@ > 3000
         then

@@ -1366,7 +1366,7 @@ for $temp_int = 0 to 2
             set_lvar_int_to_var_int 234@ = $NETWORK_PLAYER[$temp_int]
             gosub @CRASH4_COOP_HAS_FIREARM
             233@ = Clock.GetGameTimer()
-            233@ -= 309@
+            sub_int_lvar_from_int_lvar 233@ -= 309@
             if and
               229@ == 0
               15000 > 233@
@@ -1486,7 +1486,7 @@ then
         end
     end
     232@ = Clock.GetGameTimer()
-    232@ -= 206@
+    sub_int_lvar_from_int_lvar 232@ -= 206@
     if
       232@ > 15000
     then
@@ -1612,8 +1612,8 @@ goto @CRASH4_COOP_REGISTER_PED_LOOP
 :CRASH4_COOP_SPAWN_WAVE
 gosub @CRASH4_COOP_RELEASE_WAVE
 215@ = 3
-215@ += 214@
-215@ += 200@
+add_int_lvar_to_int_lvar 215@ += 214@
+add_int_lvar_to_int_lvar 215@ += 200@
 if
   215@ > 9
 then
@@ -1708,7 +1708,7 @@ Char.SetDecisionMaker(250@(212@,12i), 43@)
 232@ = 40
 set_lvar_int_to_lvar_int 233@ = 214@
 233@ *= 10
-232@ += 233@
+add_int_lvar_to_int_lvar 232@ += 233@
 Char.SetAccuracy(250@(212@,12i), 232@)
 if
   214@ == 1
