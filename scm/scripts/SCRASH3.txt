@@ -3,6 +3,7 @@
 
 :SCRASH3
 script_name 'SCRASH3'
+Coop.EnableSyncingThisScript()
 gosub @SCRASH3_47
 if 
   has_deatharrest_been_executed 
@@ -16,6 +17,18 @@ terminate_this_script
 :SCRASH3_47
 Text.ClearThisPrint('M_FAIL')
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+600@ = 0 // identity-stable remote participant count
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        600@ += 1
+    end
+end
+605@ = 0 // cooperative participant failure
+606@ = -1 // last remote objective stage
+607@ = 0 // cooperative cleanup has run
 $playing_scrash1 = 1
 Stat.RegisterMissionGiven
 80@ = 1
@@ -72,6 +85,11 @@ goto @SCRASH3_284
 Cutscene.Clear
 Streaming.SetAreaVisible(0)
 Char.SetHeading($scplayer, 270.0)
+if
+    600@ > 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+end
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Streaming.RequestModel(415)
@@ -109,6 +127,14 @@ Text.Print('VAL_5', 10000, 1)
 
 :SCRASH3_636
 wait 0
+gosub @SCRASH3_COOP_CHECK_PLAYERS
+if
+    605@ == 1
+then
+    Text.PrintNow('M_FAIL', 3000, 1)
+    goto @SCRASH3_18128
+end
+gosub @SCRASH3_COOP_UPDATE_OBJECTIVE
 if 
   Player.IsWantedLevelGreater($player1, 0)
 goto_if_false @SCRASH3_672
@@ -2818,12 +2844,14 @@ goto @SCRASH3_18102
 return 
 
 :SCRASH3_18128
+gosub @SCRASH3_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 $valet_mission_terminate = 1
 $valet_unlocked = 0
 return 
 
 :SCRASH3_18160
+gosub @SCRASH3_COOP_CLEANUP
 Stat.SetInt(StatId.PassedZero1, 1)
 $valet_unlocked = 1
 $valet_oddjob_opened = 1
@@ -2841,6 +2869,7 @@ Blip.Remove($scrash_contact_blip)
 return 
 
 :SCRASH3_18272
+gosub @SCRASH3_COOP_CLEANUP
 Game.SetScriptLimitToGangSize(99)
 $playing_scrash1 = 0
 $freeze_creating_drop_off_cars = 0
@@ -2892,4 +2921,185 @@ $dont_clear_valets = 0
 $tell_player_to_kill_valet = 0
 Mission.Finish
 return 
+
+// The disguise, clothes, camera and wanted-level operations have no remote-player
+// API and remain canonical on the host. Remotes serve as synchronized lookouts and
+// escape support, receive every route transition, and can fight the shared police
+// response without blocking the infiltration state machine.
+:SCRASH3_COOP_CHECK_PLAYERS
+605@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            605@ = 1
+        end
+    end
+end
+return
+
+:SCRASH3_COOP_UPDATE_OBJECTIVE
+if
+    606@ == 65@
+then
+    return
+end
+set_lvar_int_to_lvar_int 606@ = 65@
+if
+    65@ >= 5
+then
+    if
+        Car.DoesExist($sc3_missioncar)
+    then
+        set_lvar_int_to_var_int 601@ = $sc3_missioncar
+        gosub @SCRASH3_COOP_WAIT_FOR_VEHICLE
+    end
+end
+if
+    65@ == 2
+then
+    if
+        Char.DoesExist($valet[2])
+    then
+        set_lvar_int_to_var_int 601@ = $valet[2]
+        gosub @SCRASH3_COOP_WAIT_FOR_PED
+    end
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            4 > 65@
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1748.402, 909.7514, 23.8906, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('VAL_5', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            65@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1759.026, 960.4122, 23.8905, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('VAL_A32', 6000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if and
+            65@ >= 5
+            7 > 65@
+        then
+            if
+                not Car.IsDead($sc3_missioncar)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sc3_missioncar, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+            65@ == 7
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-2045.252, 178.7994, 27.8359, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            if
+                not Car.IsDead($sc3_missioncar)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sc3_missioncar, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if or
+            65@ == 8
+            65@ == 9
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1780.069, 970.9553, 23.75, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            if
+                not Car.IsDead($sc3_missioncar)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sc3_missioncar, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+            65@ >= 10
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-2045.252, 178.7994, 27.8359, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+:SCRASH3_COOP_CLEANUP
+if
+    607@ == 1
+then
+    return
+end
+607@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SCRASH3_COOP_WAIT_FOR_PED
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Char.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Char.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetPedNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
+
+:SCRASH3_COOP_WAIT_FOR_VEHICLE
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Car.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Car.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetVehicleNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
 
