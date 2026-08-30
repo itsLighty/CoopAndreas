@@ -3,6 +3,50 @@
 
 :TORENO2
 script_name 'TORENO2'
+Coop.EnableSyncingThisScript()
+// Freeze the cooperative roster exactly once. Internal network identities keep a
+// disconnected slot from being inherited by a late joiner; matching reconnects
+// can resume their escort role without becoming an additional progression owner.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+300@ = 0 // frozen remote participant count
+for $temp_int = 0 to 2
+    301@($temp_int,3i) = -1 // immutable internal network identity
+    304@($temp_int,3i) = 0 // identity is currently connected
+    307@($temp_int,3i) = 0 // participant actor is currently alive
+    310@($temp_int,3i) = -1 // dedicated physical escort bike
+    313@($temp_int,3i) = -1 // escort bike network id
+    316@($temp_int,3i) = -1 // last objective signature sent to this peer
+    319@($temp_int,3i) = 0 // out-of-range grace timer
+    359@($temp_int,3i) = -1 // vehicle preserved across a cinematic
+    362@($temp_int,3i) = 0 // escort replacement model request state
+    365@($temp_int,3i) = 0 // escort replacement retry deadline
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        301@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            301@($temp_int,3i) <> -1
+        then
+            300@ += 1
+        end
+    end
+end
+322@ = -1 // PCJ-600 network id
+323@ = -1 // opening Savanna network id
+324@ = -1 // Cesar network id
+325@ = -1 // moving tanker cab network id
+326@ = -1 // tanker trailer network id
+327@ = -1 // scripted tanker driver network id
+328@ = 0 // idempotent cooperative cleanup guard
+329@ = 0 // cooperative result broadcast guard
+330@ = 0 // remote participants are staged for a cinematic
+331@ = -1 // last observed canonical host phase
+332@ = 0 // next nonblocking entity-registration retry
+333@ = 0 // next distance/regroup check
+341@ = 1 // force initial objective publication
+350@ = 0 // cooperative friendly-fire protection applied
+351@ = 0 // escort bikes deployed
+352@ = 0 // bounded registration timeout count
 gosub @TORENO2_47
 if 
   has_deatharrest_been_executed 
@@ -84,6 +128,7 @@ World.ClearArea(1, -685.1, 922.0, 10.9, 180.0)
 World.ClearArea(1, -692.2, 948.0, 11.2, 100.0)
 Weather.ForceNow(WeatherType.ExtraSunnyVegas)
 Player.MakeGangDisappear
+gosub @TORENO2_COOP_BEGIN_CINEMATIC
 Cutscene.Load('DESERT2')
 
 :TORENO2_646
@@ -179,13 +224,22 @@ World.ClearArea(1, -685.1, 922.0, 10.9, 180.0)
 World.ClearArea(1, -692.2, 948.0, 11.2, 100.0)
 Car.CustomPlateForNextCar(461, "PREACHER")
 36@ = Car.Create(461, -712.5, 943.5, 10.8)
+set_lvar_int_to_lvar_int 334@ = 36@
+gosub @TORENO2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 322@ = 335@
 Car.SetHeading(36@, 32.7)
 World.ClearArea(1, -709.0, 952.0, 11.2, 5.0)
 Car.CustomPlateForNextCar(567, "_LVA4L__")
 39@ = Car.Create(567, -709.0, 952.0, 11.2)
+set_lvar_int_to_lvar_int 334@ = 39@
+gosub @TORENO2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 323@ = 335@
 Car.SetHeading(39@, 240.7)
 Car.ChangeColor(39@, 3, 3)
 $cesar = Char.Create(24, 290, -703.7, 932.4, 11.4)
+set_lvar_int_to_var_int 334@ = $cesar
+gosub @TORENO2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 324@ = 335@
 Char.SetGetOutUpsideDownCar($cesar, False)
 Char.SetHeading($cesar, 214.6)
 Char.SetNeverTargeted($cesar, True)
@@ -227,6 +281,7 @@ Camera.DoFade(1, 500)
 
 :TORENO2_1616
 wait 0
+gosub @TORENO2_COOP_UPDATE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @TORENO2_1642
@@ -316,6 +371,8 @@ Player.MakeGangReappear
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
+gosub @TORENO2_COOP_DEPLOY_ESCORTS
+gosub @TORENO2_COOP_END_CINEMATIC
 if 
   43@ == 1
 goto_if_false @TORENO2_2168
@@ -353,13 +410,22 @@ if
   Char.IsInCar($scplayer, 36@)
 goto_if_false @TORENO2_2472
 34@ = Car.Create(514, -1687.8, 537.7, 36.8)
+set_lvar_int_to_lvar_int 334@ = 34@
+gosub @TORENO2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 325@ = 335@
 Car.SetHeading(34@, 137.0)
 37@ = Car.Create(584, -1679.5, 545.9, 36.9)
+set_lvar_int_to_lvar_int 334@ = 37@
+gosub @TORENO2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 326@ = 335@
 Car.SetHeading(37@, 137.0)
 Trailer.AttachToCab(37@, 34@)
 Car.SetCanBurstTires(34@, False)
 Car.LockDoors(34@, CarLock.LockoutPlayerOnly)
 35@ = Char.CreateRandomAsDriver(34@)
+set_lvar_int_to_lvar_int 334@ = 35@
+gosub @TORENO2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 327@ = 335@
 Car.SetOnlyDamagedByPlayer(34@, True)
 Char.SetCanBeShotInVehicle(35@, False)
 Car.SetCruiseSpeed(34@, 0.0)
@@ -618,6 +684,7 @@ if
   58@ > 3500
 goto_if_false @TORENO2_4127
 Player.SetControl($player1, False)
+gosub @TORENO2_COOP_BEGIN_CINEMATIC
 Car.AttachToCar(36@, 34@, -2.692, 2.484, -1.0, 0.0, 0.0, 0.0)
 42@ = 0
 54@ = 0
@@ -980,6 +1047,7 @@ Text.PrintNow('TOR1_11', 4000, 1)
 73@ = 0
 75@ = 0
 41@ = 4
+gosub @TORENO2_COOP_END_CINEMATIC
 
 :TORENO2_6884
 if 
@@ -1268,6 +1336,7 @@ if
   Car.Locate3D(34@, 1, -2016.5, 157.7, 26.7, 4.0, 4.0, 4.0)
 goto_if_false @TORENO2_8603
 Player.SetControl($player1, False)
+gosub @TORENO2_COOP_BEGIN_CINEMATIC
 42@ = 0
 41@ = 5
 
@@ -1513,6 +1582,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 73@ = 0
 Player.SetControl($player1, False)
+gosub @TORENO2_COOP_BEGIN_CINEMATIC
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
 Char.HideWeaponForScriptedCutscene($scplayer, True)
@@ -1557,6 +1627,10 @@ Sequence.Clear(125@)
 
 :TORENO2_10461
 Text.PrintNow('TOR1_12', 11000, 1)
+set_lvar_text_label 354@s = 'TOR1_12'
+356@ = 11000
+357@ = 1
+gosub @TORENO2_COOP_BROADCAST_TEXT
 Camera.DoFade(1, 1000)
 
 :TORENO2_10484
@@ -1598,6 +1672,10 @@ goto @TORENO2_10697
 :TORENO2_10658
 Text.ClearPrints
 Text.PrintNow('TOR1_12', 4000, 1)
+set_lvar_text_label 354@s = 'TOR1_12'
+356@ = 4000
+357@ = 1
+gosub @TORENO2_COOP_BROADCAST_TEXT
 goto @TORENO2_10697
 
 :TORENO2_10683
@@ -1606,6 +1684,8 @@ goto @TORENO2_1616
 
 :TORENO2_10697
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+358@ = 2
+gosub @TORENO2_COOP_BROADCAST_RESULT
 return 
 
 :TORENO2_10715
@@ -1618,9 +1698,12 @@ Player.ClearWantedLevel($player1)
 Stat.RegisterMissionPassed('DESERT2')
 Blip.Remove($desert_contact_blip)
 Stat.PlayerMadeProgress(1)
+358@ = 1
+gosub @TORENO2_COOP_BROADCAST_RESULT
 return 
 
 :TORENO2_10787
+gosub @TORENO2_COOP_CLEANUP
 if 
   is_var_text_label_empty s$shop_name
 goto_if_false @TORENO2_10805
@@ -1660,6 +1743,10 @@ if
 goto_if_false @TORENO2_10979
 Text.ClearPrints
 Text.PrintNow('TOR1_02', 4000, 1)
+set_lvar_text_label 354@s = 'TOR1_02'
+356@ = 4000
+357@ = 1
+gosub @TORENO2_COOP_BROADCAST_TEXT
 44@ = 1
 
 :TORENO2_10979
@@ -1671,6 +1758,10 @@ if
 goto_if_false @TORENO2_11038
 Text.ClearPrints
 Text.PrintNow('TOR1_14', 4000, 1)
+set_lvar_text_label 354@s = 'TOR1_14'
+356@ = 4000
+357@ = 1
+gosub @TORENO2_COOP_BROADCAST_TEXT
 44@ = 1
 
 :TORENO2_11038
@@ -1679,6 +1770,10 @@ if
 goto_if_false @TORENO2_11079
 Text.ClearPrints
 Text.PrintNow('TOR1_14', 4000, 1)
+set_lvar_text_label 354@s = 'TOR1_14'
+356@ = 4000
+357@ = 1
+gosub @TORENO2_COOP_BROADCAST_TEXT
 44@ = 1
 
 :TORENO2_11079
@@ -1687,6 +1782,10 @@ if
 goto_if_false @TORENO2_11120
 Text.ClearPrints
 Text.PrintNow('TOR1_03', 4000, 1)
+set_lvar_text_label 354@s = 'TOR1_03'
+356@ = 4000
+357@ = 1
+gosub @TORENO2_COOP_BROADCAST_TEXT
 44@ = 1
 
 :TORENO2_11120
@@ -2638,6 +2737,7 @@ if
 goto_if_false @TORENO2_16648
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow(76@(74@,8s), 4500, 1)
+gosub @TORENO2_COOP_BROADCAST_SUBTITLE
 101@ = 2
 
 :TORENO2_16648
@@ -2652,6 +2752,7 @@ if
 goto_if_false @TORENO2_16724
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow(76@(74@,8s), 4500, 1)
+gosub @TORENO2_COOP_BROADCAST_SUBTITLE
 102@ = 2
 
 :TORENO2_16724
@@ -2665,6 +2766,7 @@ if
   Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @TORENO2_16789
 Text.ClearThisPrint(76@(74@,8s))
+gosub @TORENO2_COOP_CLEAR_SUBTITLE
 74@ += 1
 104@ = 2
 101@ = 0
@@ -2677,10 +2779,1035 @@ if
   Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @TORENO2_16852
 Text.ClearThisPrint(76@(74@,8s))
+gosub @TORENO2_COOP_CLEAR_SUBTITLE
 74@ += 1
 104@ = 1
 102@ = 0
 
 :TORENO2_16852
 return 
+
+// Cooperative support is deliberately downstream of the stock mission state.
+// Only 41@ and its existing entities are observed here: the host remains the
+// sole owner of movement, Cesar's boarding, cinematics, failure, and rewards.
+:TORENO2_COOP_UPDATE
+if
+    328@ == 1
+then
+    return
+end
+gosub @TORENO2_COOP_UPDATE_ROSTER
+if
+    not is_int_lvar_equal_to_int_lvar 331@ == 41@
+then
+    if
+        41@ == 3
+    then
+        gosub @TORENO2_COOP_BEGIN_CINEMATIC
+    end
+    if
+        41@ == 4
+    then
+        gosub @TORENO2_COOP_END_CINEMATIC
+    end
+    if or
+        41@ == 5
+        41@ == 6
+    then
+        gosub @TORENO2_COOP_BEGIN_CINEMATIC
+    end
+    set_lvar_int_to_lvar_int 331@ = 41@
+    341@ = 1
+    for $temp_int = 0 to 2
+        316@($temp_int,3i) = -1
+        319@($temp_int,3i) = 0
+    end
+end
+337@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 337@ >= 332@
+then
+    set_lvar_int_to_lvar_int 332@ = 337@
+    332@ += 2500
+gosub @TORENO2_COOP_RETRY_REGISTRATIONS
+end
+gosub @TORENO2_COOP_APPLY_PROTECTIONS
+gosub @TORENO2_COOP_RECOVER_ESCORTS
+gosub @TORENO2_COOP_ENFORCE_ROLES
+gosub @TORENO2_COOP_UPDATE_REGROUP
+gosub @TORENO2_COOP_UPDATE_OBJECTIVES
+return
+
+// Refresh handles only when their immutable mission-start identity still
+// matches. Death does not fail the host mission; a respawn or same-ID reconnect
+// is safely restaged and receives the current objective again.
+:TORENO2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    304@($temp_int,3i) = 0
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if
+        346@ == 1
+    then
+        304@($temp_int,3i) = 1
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            307@($temp_int,3i) = 0
+            319@($temp_int,3i) = 0
+        else
+            if
+                307@($temp_int,3i) == 0
+            then
+                307@($temp_int,3i) = 1
+                316@($temp_int,3i) = -1
+                if
+                    351@ == 1
+                then
+                    if
+                        330@ == 1
+                    then
+                        gosub @TORENO2_COOP_STAGE_CURRENT
+                    else
+                        gosub @TORENO2_COOP_REJOIN_CURRENT
+                    end
+                end
+            end
+        end
+    else
+        307@($temp_int,3i) = 0
+        319@($temp_int,3i) = 0
+    end
+end
+return
+
+:TORENO2_COOP_VALIDATE_SLOT
+346@ = 0
+if and
+    301@($temp_int,3i) <> -1
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+then
+    342@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+    if
+        is_int_lvar_equal_to_int_lvar 342@ == 301@($temp_int,3i)
+    then
+        346@ = 1
+    end
+end
+return
+
+// Every frozen-roster peer gets a synchronized PCJ-600, so the ride to the
+// moving tanker and the delivery are physical escort/interception play rather
+// than a remote spectator camera. No peer can satisfy the stock boarding checks.
+:TORENO2_COOP_DEPLOY_ESCORTS
+if
+    351@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        301@($temp_int,3i) <> -1
+    then
+        343@ = -716.0
+        344@ = 946.0
+        345@ = 10.8
+        if
+            $temp_int == 1
+        then
+            343@ = -719.0
+            344@ = 949.0
+        end
+        if
+            $temp_int == 2
+        then
+            343@ = -722.0
+            344@ = 952.0
+        end
+        gosub @TORENO2_COOP_CREATE_ESCORT_CURRENT
+        gosub @TORENO2_COOP_VALIDATE_SLOT
+        if and
+            346@ == 1
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 310@($temp_int,3i))
+            Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, False, True)
+        end
+    end
+end
+351@ = 1
+341@ = 1
+return
+
+:TORENO2_COOP_CREATE_ESCORT_CURRENT
+// The bounded registration helper yields; preserve the shared loop index across
+// those frames so another script cannot redirect this participant's array write.
+set_lvar_int_to_var_int 338@ = $temp_int
+310@($temp_int,3i) = Car.Create(461, 343@, 344@, 345@)
+Car.SetHeading(310@($temp_int,3i), 32.7)
+Car.SetHealth(310@($temp_int,3i), 2500)
+Car.SetCanBurstTires(310@($temp_int,3i), False)
+Car.SetProofs(310@($temp_int,3i), True, True, True, False, True)
+set_lvar_int_to_lvar_int 334@ = 310@($temp_int,3i)
+gosub @TORENO2_COOP_REGISTER_VEHICLE
+set_var_int_to_lvar_int $temp_int = 338@
+set_lvar_int_to_lvar_int 313@($temp_int,3i) = 335@
+362@($temp_int,3i) = 0
+316@($temp_int,3i) = -1
+341@ = 1
+return
+
+// Remote players and their escort vehicles are hidden, non-colliding, and
+// frozen while the host camera or Cesar choreography owns the scene.
+:TORENO2_COOP_BEGIN_CINEMATIC
+if or
+    300@ == 0
+    330@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if and
+        346@ == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        gosub @TORENO2_COOP_STAGE_CURRENT
+    end
+end
+330@ = 1
+341@ = 1
+return
+
+:TORENO2_COOP_STAGE_CURRENT
+Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+359@($temp_int,3i) = -1
+if
+    Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+then
+    359@($temp_int,3i) = Char.GetCarIsUsing($NETWORK_PLAYER[$temp_int])
+end
+// Before the opening escort bikes exist, leave pre-mission network vehicles at
+// their original location instead of transporting them through Toreno's scene.
+if
+    351@ == 1
+then
+    gosub @TORENO2_COOP_TELEPORT_CURRENT
+end
+Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+if
+    359@($temp_int,3i) <> -1
+then
+    if
+        Car.DoesExist(359@($temp_int,3i))
+    then
+        Car.SetAsMissionCar(359@($temp_int,3i))
+        Car.SetVisible(359@($temp_int,3i), False)
+        Car.SetCollision(359@($temp_int,3i), False)
+        Car.FreezePosition(359@($temp_int,3i), True)
+    end
+end
+if
+    310@($temp_int,3i) <> -1
+then
+    if
+        Car.DoesExist(310@($temp_int,3i))
+    then
+        Car.SetProofs(310@($temp_int,3i), True, True, True, True, True)
+        Car.SetVisible(310@($temp_int,3i), False)
+        Car.SetCollision(310@($temp_int,3i), False)
+        Car.FreezePosition(310@($temp_int,3i), True)
+    end
+end
+return
+
+:TORENO2_COOP_END_CINEMATIC
+if or
+    300@ == 0
+    330@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    // Restore a staged vehicle even if its owner disconnected during the scene.
+    if
+        359@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(359@($temp_int,3i))
+        then
+            Car.FreezePosition(359@($temp_int,3i), False)
+            Car.SetVisible(359@($temp_int,3i), True)
+            Car.SetCollision(359@($temp_int,3i), True)
+        end
+    end
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if and
+        346@ == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            310@($temp_int,3i) <> -1
+        then
+            if
+                Car.DoesExist(310@($temp_int,3i))
+            then
+                Car.FreezePosition(310@($temp_int,3i), False)
+                Car.SetVisible(310@($temp_int,3i), True)
+                Car.SetCollision(310@($temp_int,3i), True)
+                Car.SetProofs(310@($temp_int,3i), True, True, True, False, True)
+            end
+        end
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, False, True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+        gosub @TORENO2_COOP_REJOIN_CURRENT
+        316@($temp_int,3i) = -1
+    end
+    359@($temp_int,3i) = -1
+end
+330@ = 0
+341@ = 1
+return
+
+// Teleport one validated slot at a time. Invalid/reused slots are never passed
+// to the transport opcode, so late joiners remain spectators.
+:TORENO2_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+end
+319@($temp_int,3i) = 0
+return
+
+:TORENO2_COOP_REJOIN_CURRENT
+gosub @TORENO2_COOP_TELEPORT_CURRENT
+if or
+    41@ == 1
+    41@ == 2
+    41@ == 4
+then
+    if and
+        310@($temp_int,3i) <> -1
+        Car.DoesExist(310@($temp_int,3i))
+        not Car.IsDead(310@($temp_int,3i))
+        not Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+    then
+        343@, 344@, 345@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        343@ += 2.5
+        if
+            $temp_int == 1
+        then
+            344@ += 2.5
+        end
+        if
+            $temp_int == 2
+        then
+            344@ -= 2.5
+        end
+        Car.SetCoordinates(310@($temp_int,3i), 343@, 344@, 345@)
+        Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 310@($temp_int,3i))
+    end
+end
+return
+
+// Peers may escort, block traffic, and physically intercept the moving target,
+// but a peer entering the canonical cab is immediately returned to their role.
+:TORENO2_COOP_ENFORCE_ROLES
+if or
+    2 > 41@
+    41@ > 4
+then
+    return
+end
+if
+    not Car.DoesExist(34@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        304@($temp_int,3i) == 1
+        307@($temp_int,3i) == 1
+        Char.IsInCar($NETWORK_PLAYER[$temp_int], 34@)
+    then
+        343@, 344@, 345@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 343@, 344@, 345@)
+        gosub @TORENO2_COOP_REJOIN_CURRENT
+    end
+end
+return
+
+// Stragglers get a grace period before an identity-checked regroup. Water or an
+// invalid world height is recovered immediately; no disconnect/death stalls the
+// host's moving-tanker state machine.
+:TORENO2_COOP_UPDATE_REGROUP
+if or
+    330@ == 1
+    1 > 41@
+    41@ > 4
+then
+    return
+end
+337@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 333@ > 337@
+then
+    return
+end
+set_lvar_int_to_lvar_int 333@ = 337@
+333@ += 1000
+for $temp_int = 0 to 2
+    if and
+        304@($temp_int,3i) == 1
+        307@($temp_int,3i) == 1
+    then
+        349@ = 0
+        343@, 344@, 345@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        if or
+            Char.IsInWater($NETWORK_PLAYER[$temp_int])
+            -20.0 > 345@
+        then
+            349@ = 1
+        end
+        if
+            349@ == 0
+        then
+            if
+                Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 450.0, 450.0, 120.0, False)
+            then
+                319@($temp_int,3i) = 0
+            else
+                if
+                    319@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 319@($temp_int,3i) = 337@
+                end
+                set_lvar_int_to_lvar_int 348@ = 337@
+                sub_int_lvar_from_int_lvar 348@ -= 319@($temp_int,3i)
+                if
+                    348@ > 15000
+                then
+                    349@ = 1
+                end
+            end
+        end
+        if
+            349@ == 1
+        then
+            gosub @TORENO2_COOP_REJOIN_CURRENT
+        end
+    end
+end
+return
+
+// Bullet/fire/explosion/melee proofing filters inappropriate peer friendly fire
+// while collision damage remains canonical, so the bike, cab, and trailer can
+// still fail through the original host-owned crash checks.
+:TORENO2_COOP_APPLY_PROTECTIONS
+if
+    300@ == 0
+then
+    return
+end
+if
+    not Char.IsDead($scplayer)
+then
+    Char.SetProofs($scplayer, True, True, True, False, True)
+end
+if
+    Char.DoesExist($cesar)
+then
+    if
+        not Char.IsDead($cesar)
+    then
+        Char.SetProofs($cesar, True, True, True, False, True)
+    end
+end
+if
+    Car.DoesExist(36@)
+then
+    if
+        not Car.IsDead(36@)
+    then
+        Car.SetProofs(36@, True, True, True, False, True)
+    end
+end
+if
+    Car.DoesExist(34@)
+then
+    if
+        not Car.IsDead(34@)
+    then
+        Car.SetProofs(34@, True, True, True, False, True)
+    end
+end
+if
+    Car.DoesExist(37@)
+then
+    if
+        not Car.IsDead(37@)
+    then
+        Car.SetProofs(37@, True, True, True, False, True)
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        304@($temp_int,3i) == 1
+        307@($temp_int,3i) == 1
+    then
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, False, True)
+    end
+end
+350@ = 1
+return
+
+// A collision-destroyed escort never stalls the mission. Model loading and retry
+// deadlines are polled from the host loop, and replacement entity registration
+// uses the same bounded handshake plus nonblocking network-id fallback.
+:TORENO2_COOP_RECOVER_ESCORTS
+if or
+    330@ == 1
+    1 > 41@
+    41@ > 4
+    41@ == 3
+then
+    return
+end
+337@ = Clock.GetGameTimer()
+for $temp_int = 0 to 2
+    if and
+        304@($temp_int,3i) == 1
+        307@($temp_int,3i) == 1
+    then
+        349@ = 0
+        if
+            310@($temp_int,3i) == -1
+        then
+            349@ = 1
+        else
+            if
+                not Car.DoesExist(310@($temp_int,3i))
+            then
+                349@ = 1
+            else
+                if
+                    Car.IsDead(310@($temp_int,3i))
+                then
+                    Car.MarkAsNoLongerNeeded(310@($temp_int,3i))
+                    349@ = 1
+                end
+            end
+        end
+        if
+            349@ == 1
+        then
+            if
+                362@($temp_int,3i) == 0
+            then
+                Streaming.RequestModel(461)
+                362@($temp_int,3i) = 1
+                set_lvar_int_to_lvar_int 365@($temp_int,3i) = 337@
+                365@($temp_int,3i) += 3000
+            end
+            if
+                362@($temp_int,3i) == 1
+            then
+                if
+                    Streaming.HasModelLoaded(461)
+                then
+                    343@, 344@, 345@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+                    343@ += 3.0
+                    gosub @TORENO2_COOP_CREATE_ESCORT_CURRENT
+                    if
+                        not Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+                    then
+                        Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 310@($temp_int,3i))
+                    end
+                else
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 337@ >= 365@($temp_int,3i)
+                    then
+                        362@($temp_int,3i) = 2
+                        set_lvar_int_to_lvar_int 365@($temp_int,3i) = 337@
+                        365@($temp_int,3i) += 10000
+                    end
+                end
+            else
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 337@ >= 365@($temp_int,3i)
+                then
+                    362@($temp_int,3i) = 0
+                end
+            end
+        else
+            362@($temp_int,3i) = 0
+        end
+    end
+end
+return
+
+// Per-peer UI follows the host phase. Network-id availability gates entity
+// blips; coordinate checkpoints remain a safe fallback while retry polling runs.
+:TORENO2_COOP_UPDATE_OBJECTIVES
+set_lvar_int_to_lvar_int 340@ = 41@
+340@ *= 10
+347@ = 0
+if
+    41@ == 4
+then
+    if and
+        Car.DoesExist(34@)
+        Car.DoesExist(37@)
+    then
+        if
+            Trailer.IsAttachedToCab(37@, 34@)
+        then
+            347@ = 1
+        end
+    end
+    if
+        347@ == 0
+    then
+        340@ += 1
+    end
+end
+if
+    330@ == 1
+then
+    340@ += 5
+end
+for $temp_int = 0 to 2
+    if and
+        304@($temp_int,3i) == 1
+        307@($temp_int,3i) == 1
+    then
+        if or
+            not is_int_lvar_equal_to_int_lvar 316@($temp_int,3i) == 340@
+            341@ == 1
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            if and
+                330@ == 0
+                313@($temp_int,3i) <> -1
+                310@($temp_int,3i) <> -1
+                Car.DoesExist(310@($temp_int,3i))
+                not Car.IsDead(310@($temp_int,3i))
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 310@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+            if and
+                41@ == 1
+                330@ == 0
+            then
+                if and
+                    322@ <> -1
+                    Car.DoesExist(36@)
+                    not Car.IsDead(36@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 36@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+                Coop.PrintNowForNetworkPlayer('TOR1_01', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if and
+                41@ == 2
+                330@ == 0
+            then
+                if and
+                    325@ <> -1
+                    Car.DoesExist(34@)
+                    not Car.IsDead(34@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 34@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+                Coop.PrintNowForNetworkPlayer('TOR1_10', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if and
+                41@ == 4
+                330@ == 0
+            then
+                if and
+                    325@ <> -1
+                    Car.DoesExist(34@)
+                    not Car.IsDead(34@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+                if and
+                    326@ <> -1
+                    Car.DoesExist(37@)
+                    not Car.IsDead(37@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 37@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+                Coop.UpdateCheckpointForNetworkPlayer(-2016.5, 157.7, 26.7, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+                if
+                    347@ == 1
+                then
+                    Coop.PrintNowForNetworkPlayer('TOR1_06', 5000, 1, $NETWORK_PLAYER[$temp_int])
+                else
+                    Coop.PrintNowForNetworkPlayer('TOR1_21', 5000, 1, $NETWORK_PLAYER[$temp_int])
+                end
+            end
+            set_lvar_int_to_lvar_int 316@($temp_int,3i) = 340@
+        end
+    end
+end
+341@ = 0
+return
+
+:TORENO2_COOP_BROADCAST_TEXT
+for $temp_int = 0 to 2
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if and
+        346@ == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(354@s, 356@, 357@, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:TORENO2_COOP_BROADCAST_SUBTITLE
+for $temp_int = 0 to 2
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if and
+        346@ == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(76@(74@,8s), 4500, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:TORENO2_COOP_CLEAR_SUBTITLE
+for $temp_int = 0 to 2
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if
+        346@ == 1
+    then
+        Coop.ClearThisPrintForNetworkPlayer(76@(74@,8s), $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+// Result fan-out is informational only. The untouched TORENO2_10715 block is
+// still the sole writer of money, stats, story flags, and mission progress.
+:TORENO2_COOP_BROADCAST_RESULT
+if
+    329@ <> 0
+then
+    return
+end
+set_lvar_int_to_lvar_int 329@ = 358@
+for $temp_int = 0 to 2
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if
+        346@ == 1
+    then
+        if
+            358@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        else
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+// Initial ID waits are finite. If replication is delayed, the main loop retries
+// without blocking host progression and republishes entity-backed objectives as
+// soon as the corresponding network id appears.
+:TORENO2_COOP_REGISTER_PED
+335@ = -1
+if
+    300@ == 0
+then
+    return
+end
+336@ = Clock.GetGameTimer()
+335@ = Coop.GetPedNetworkId(334@)
+while 335@ == -1
+    if
+        not Char.DoesExist(334@)
+    then
+        break
+    end
+    wait 0
+    337@ = Clock.GetGameTimer()
+    set_lvar_int_to_lvar_int 348@ = 337@
+    sub_int_lvar_from_int_lvar 348@ -= 336@
+    if
+        348@ > 1500
+    then
+        352@ += 1
+        break
+    end
+    335@ = Coop.GetPedNetworkId(334@)
+end
+return
+
+:TORENO2_COOP_REGISTER_VEHICLE
+335@ = -1
+if
+    300@ == 0
+then
+    return
+end
+336@ = Clock.GetGameTimer()
+335@ = Coop.GetVehicleNetworkId(334@)
+while 335@ == -1
+    if
+        not Car.DoesExist(334@)
+    then
+        break
+    end
+    wait 0
+    337@ = Clock.GetGameTimer()
+    set_lvar_int_to_lvar_int 348@ = 337@
+    sub_int_lvar_from_int_lvar 348@ -= 336@
+    if
+        348@ > 1500
+    then
+        352@ += 1
+        break
+    end
+    335@ = Coop.GetVehicleNetworkId(334@)
+end
+return
+
+:TORENO2_COOP_RETRY_REGISTRATIONS
+if and
+    322@ == -1
+    Car.DoesExist(36@)
+then
+    342@ = Coop.GetVehicleNetworkId(36@)
+    if
+        342@ <> -1
+    then
+        set_lvar_int_to_lvar_int 322@ = 342@
+        341@ = 1
+    end
+end
+if and
+    323@ == -1
+    Car.DoesExist(39@)
+then
+    342@ = Coop.GetVehicleNetworkId(39@)
+    if
+        342@ <> -1
+    then
+        set_lvar_int_to_lvar_int 323@ = 342@
+        341@ = 1
+    end
+end
+if and
+    324@ == -1
+    Char.DoesExist($cesar)
+then
+    342@ = Coop.GetPedNetworkId($cesar)
+    if
+        342@ <> -1
+    then
+        set_lvar_int_to_lvar_int 324@ = 342@
+        341@ = 1
+    end
+end
+if and
+    325@ == -1
+    Car.DoesExist(34@)
+then
+    342@ = Coop.GetVehicleNetworkId(34@)
+    if
+        342@ <> -1
+    then
+        set_lvar_int_to_lvar_int 325@ = 342@
+        341@ = 1
+    end
+end
+if and
+    326@ == -1
+    Car.DoesExist(37@)
+then
+    342@ = Coop.GetVehicleNetworkId(37@)
+    if
+        342@ <> -1
+    then
+        set_lvar_int_to_lvar_int 326@ = 342@
+        341@ = 1
+    end
+end
+if and
+    327@ == -1
+    Char.DoesExist(35@)
+then
+    342@ = Coop.GetPedNetworkId(35@)
+    if
+        342@ <> -1
+    then
+        set_lvar_int_to_lvar_int 327@ = 342@
+        341@ = 1
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        313@($temp_int,3i) == -1
+        310@($temp_int,3i) <> -1
+        Car.DoesExist(310@($temp_int,3i))
+    then
+        342@ = Coop.GetVehicleNetworkId(310@($temp_int,3i))
+        if
+            342@ <> -1
+        then
+            set_lvar_int_to_lvar_int 313@($temp_int,3i) = 342@
+            341@ = 1
+        end
+    end
+end
+return
+
+:TORENO2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if
+        346@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_01', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_02', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_03', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_04', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_06', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_10', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_12', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_14', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('TOR1_21', $NETWORK_PLAYER[$temp_int])
+    end
+    316@($temp_int,3i) = -1
+end
+return
+
+// Cleanup is safe to call from every stock exit. It restores only actors whose
+// frozen identity still matches and releases mission-created escort bikes.
+:TORENO2_COOP_CLEANUP
+if
+    328@ == 1
+then
+    return
+end
+328@ = 1
+gosub @TORENO2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        359@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(359@($temp_int,3i))
+        then
+            Car.FreezePosition(359@($temp_int,3i), False)
+            Car.SetVisible(359@($temp_int,3i), True)
+            Car.SetCollision(359@($temp_int,3i), True)
+        end
+    end
+    gosub @TORENO2_COOP_VALIDATE_SLOT
+    if and
+        346@ == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+    if
+        310@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(310@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(310@($temp_int,3i))
+            then
+                Car.FreezePosition(310@($temp_int,3i), False)
+                Car.SetVisible(310@($temp_int,3i), True)
+                Car.SetCollision(310@($temp_int,3i), True)
+                Car.SetProofs(310@($temp_int,3i), False, False, False, False, False)
+                Car.SetCanBurstTires(310@($temp_int,3i), True)
+            end
+            Car.MarkAsNoLongerNeeded(310@($temp_int,3i))
+        end
+    end
+    304@($temp_int,3i) = 0
+    307@($temp_int,3i) = 0
+    310@($temp_int,3i) = -1
+    313@($temp_int,3i) = -1
+    359@($temp_int,3i) = -1
+    362@($temp_int,3i) = 0
+    365@($temp_int,3i) = 0
+end
+if
+    not Char.IsDead($scplayer)
+then
+    Char.SetProofs($scplayer, False, False, False, False, False)
+end
+if
+    Char.DoesExist($cesar)
+then
+    if
+        not Char.IsDead($cesar)
+    then
+        Char.SetProofs($cesar, False, False, False, False, False)
+    end
+end
+if
+    Car.DoesExist(36@)
+then
+    if
+        not Car.IsDead(36@)
+    then
+        Car.SetProofs(36@, False, False, False, False, False)
+    end
+end
+if
+    Car.DoesExist(34@)
+then
+    if
+        not Car.IsDead(34@)
+    then
+        Car.SetProofs(34@, False, False, False, False, False)
+    end
+end
+if
+    Car.DoesExist(37@)
+then
+    if
+        not Car.IsDead(37@)
+    then
+        Car.SetProofs(37@, False, False, False, False, False)
+    end
+end
+330@ = 0
+return
 
