@@ -2638,7 +2638,7 @@ for $temp_int = 0 to 2
         Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
     then
         if
-            509@($temp_int,3i) <> 540@
+            not is_int_lvar_equal_to_int_lvar 509@($temp_int,3i) == 540@
         then
             if
                 540@ == 1
@@ -2926,20 +2926,20 @@ end
 gosub @SYN7_COOP_UPDATE_ROSTER
 gosub @SYN7_COOP_COMPUTE_PHASE
 if
-    548@ <> 540@
+    not is_int_lvar_equal_to_int_lvar 548@ == 540@
 then
     gosub @SYN7_COOP_PHASE_CHANGED
 end
 528@ = Clock.GetGameTimer()
 if
-    528@ > 524@
+    is_int_lvar_greater_than_int_lvar 528@ > 524@
 then
     gosub @SYN7_COOP_REFRESH_OBJECTIVES
     set_lvar_int_to_lvar_int 524@ = 528@
     524@ += 3000
 end
 if
-    528@ > 525@
+    is_int_lvar_greater_than_int_lvar 528@ > 525@
 then
     gosub @SYN7_COOP_SYNC_WORLD_PASS
     set_lvar_int_to_lvar_int 525@ = 528@
@@ -2954,7 +2954,7 @@ end
 if and
     540@ >= 2
     540@ <> 4
-    528@ > 526@
+    is_int_lvar_greater_than_int_lvar 528@ > 526@
 then
     gosub @SYN7_COOP_UPDATE_COMBAT
     set_lvar_int_to_lvar_int 526@ = 528@

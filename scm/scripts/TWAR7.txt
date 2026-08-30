@@ -5411,7 +5411,7 @@ for $temp_int = 0 to 2
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
         if
-            523@($temp_int,3i) <> 530@
+            not is_int_lvar_equal_to_int_lvar 523@($temp_int,3i) == 530@
         then
             Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
             Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])

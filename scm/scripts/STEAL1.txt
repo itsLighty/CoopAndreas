@@ -1506,21 +1506,21 @@ then
         505@ = 3
     end
     if
-        519@ <> 505@
+        not is_int_lvar_equal_to_int_lvar 519@ == 505@
     then
         gosub @STEAL1_COOP_PHASE_CHANGED
     end
 end
 513@ = Clock.GetGameTimer()
 if
-    513@ >= 507@
+    is_int_lvar_greater_or_equal_to_int_lvar 513@ >= 507@
 then
     gosub @STEAL1_COOP_REFRESH_OBJECTIVES
     set_lvar_int_to_lvar_int 507@ = 513@
     507@ += 2500
 end
 if
-    513@ >= 508@
+    is_int_lvar_greater_or_equal_to_int_lvar 513@ >= 508@
 then
     gosub @STEAL1_COOP_RETRY_ENTITY_IDS
     set_lvar_int_to_lvar_int 508@ = 513@
@@ -2048,7 +2048,7 @@ for $temp_int = 0 to 2
             end
         end
         if
-            526@($temp_int,3i) <> 505@
+            not is_int_lvar_equal_to_int_lvar 526@($temp_int,3i) == 505@
         then
             if
                 505@ == 1

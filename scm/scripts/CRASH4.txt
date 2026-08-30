@@ -1326,7 +1326,7 @@ then
 end
 232@ = Clock.GetGameTimer()
 if
-  204@ > 232@
+  is_int_lvar_greater_than_int_lvar 204@ > 232@
 then
     return
 end
@@ -1601,7 +1601,7 @@ then
 end
 232@ = Clock.GetGameTimer()
 if
-  232@ >= 207@
+  is_int_lvar_greater_or_equal_to_int_lvar 232@ >= 207@
 then
     226@ = 1
     return
@@ -1623,7 +1623,7 @@ end
 
 :CRASH4_COOP_SPAWN_WAVE_LOOP
 if
-  215@ > 212@
+  is_int_lvar_greater_than_int_lvar 215@ > 212@
 goto_if_false @CRASH4_COOP_SPAWN_WAVE_DONE
 235@ = 1971.0
 236@ = -1200.0
@@ -1783,7 +1783,7 @@ then
 end
 232@ = Clock.GetGameTimer()
 if
-  232@ >= 207@
+  is_int_lvar_greater_or_equal_to_int_lvar 232@ >= 207@
 then
     226@ = 1
     return
@@ -1795,7 +1795,7 @@ goto @CRASH4_COOP_REGISTER_WAVE_PASS
 232@ = Clock.GetGameTimer()
 233@ = 0
 if
-  232@ >= 205@
+  is_int_lvar_greater_or_equal_to_int_lvar 232@ >= 205@
 then
     233@ = 1
     205@ = Clock.GetGameTimer()

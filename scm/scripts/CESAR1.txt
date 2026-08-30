@@ -988,7 +988,7 @@ end
 203@ = Clock.GetGameTimer()
 if and
     205@ > 0
-    204@ > 203@
+    is_int_lvar_greater_than_int_lvar 204@ > 203@
 goto_if_false @CESAR1_COOP_SYNC_CESAR_CAR_DONE
 wait 0
 goto @CESAR1_COOP_SYNC_CESAR_CAR_LOOP
@@ -1098,7 +1098,7 @@ end
 210@ = Clock.GetGameTimer()
 if and
     208@ > 0
-    209@ > 210@
+    is_int_lvar_greater_than_int_lvar 209@ > 210@
 goto_if_false @CESAR1_COOP_SYNC_START_GRID_DONE
 wait 0
 goto @CESAR1_COOP_SYNC_START_GRID_LOOP
@@ -1167,7 +1167,7 @@ end
 168@ = Clock.GetGameTimer()
 if and
     167@ > 0
-    166@ > 168@
+    is_int_lvar_greater_than_int_lvar 166@ > 168@
 goto_if_false @CESAR1_COOP_SYNC_PLAYER_CARS_DONE
 wait 0
 goto @CESAR1_COOP_SYNC_PLAYER_CARS_LOOP
@@ -1214,7 +1214,7 @@ for $temp_int = 0 to 2
             180@($temp_int,3i) += 15000
         else
             if
-                168@ > 180@($temp_int,3i)
+                is_int_lvar_greater_than_int_lvar 168@ > 180@($temp_int,3i)
             then
                 170@, 171@, 172@ = Char.GetCoordinates($scplayer)
                 169@ = 0
@@ -1361,7 +1361,7 @@ goto @CESAR1_COOP_WAIT_FOR_GRID
 :CESAR1_COOP_CHECK_LAUNCH_TIMEOUT
 53@ = Clock.GetGameTimer()
 if
-    53@ > 52@
+    is_int_lvar_greater_than_int_lvar 53@ > 52@
 goto_if_false @CESAR1_COOP_WAIT_FOR_RACE_LAUNCH
 goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 
@@ -1389,7 +1389,7 @@ goto @CESAR1_COOP_PREPARE_GRID
 :CESAR1_COOP_CHECK_GRID_TIMEOUT
 53@ = Clock.GetGameTimer()
 if
-    53@ > 52@
+    is_int_lvar_greater_than_int_lvar 53@ > 52@
 goto_if_false @CESAR1_COOP_WAIT_FOR_GRID_LOOP
 goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 
@@ -1491,7 +1491,7 @@ end
 58@ = Clock.GetGameTimer()
 if and
     53@ > 0
-    52@ > 58@
+    is_int_lvar_greater_than_int_lvar 52@ > 58@
 goto_if_false @CESAR1_COOP_RACE_CAR_IDS_DONE
 wait 0
 goto @CESAR1_COOP_RACE_CAR_IDS_LOOP
@@ -1521,14 +1521,14 @@ then
 end
 66@ = $races_timer
 if and
-    66@ <> 64@
+    not is_int_lvar_equal_to_int_lvar 66@ == 64@
     66@ > $game_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_THREE
 end
 58@ = Clock.GetGameTimer()
 if
-    58@ > 65@
+    is_int_lvar_greater_than_int_lvar 58@ > 65@
 then
     goto @CESAR1_COOP_COUNTDOWN_FALLBACK_THREE
 end
@@ -1550,14 +1550,14 @@ then
 end
 66@ = $races_timer
 if and
-    66@ <> 64@
+    not is_int_lvar_equal_to_int_lvar 66@ == 64@
     66@ > $game_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_TWO
 end
 58@ = Clock.GetGameTimer()
 if
-    58@ > 65@
+    is_int_lvar_greater_than_int_lvar 58@ > 65@
 then
     goto @CESAR1_COOP_COUNTDOWN_FALLBACK_TWO
 end
@@ -1579,14 +1579,14 @@ then
 end
 66@ = $races_timer
 if and
-    66@ <> 64@
+    not is_int_lvar_equal_to_int_lvar 66@ == 64@
     66@ > $game_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_ONE
 end
 58@ = Clock.GetGameTimer()
 if
-    58@ > 65@
+    is_int_lvar_greater_than_int_lvar 58@ > 65@
 then
     goto @CESAR1_COOP_COUNTDOWN_FALLBACK_ONE
 end
@@ -1613,7 +1613,7 @@ then
 end
 58@ = Clock.GetGameTimer()
 if
-    58@ > 65@
+    is_int_lvar_greater_than_int_lvar 58@ > 65@
 then
     goto @CESAR1_COOP_COUNTDOWN_GO
 end
@@ -1756,7 +1756,7 @@ for $temp_int = 0 to 2
             then
                 58@ = Clock.GetGameTimer()
                 if
-                    58@ > 40@($temp_int,3i)
+                    is_int_lvar_greater_than_int_lvar 58@ > 40@($temp_int,3i)
                 then
                     61@, 62@, 63@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
                     69@ = Math.GetDistanceBetweenCoords3D(61@, 62@, 63@, 54@, 55@, 56@)
@@ -1764,7 +1764,7 @@ for $temp_int = 0 to 2
                     68@ += 75.0
                     if and
                         43@($temp_int,3f) > 0.0
-                        69@ > 68@
+                        is_int_lvar_greater_than_int_lvar 69@ > 68@
                     then
                         // Increasing distance reasserts the correct route marker;
                         // it never fails or stalls another participant.
@@ -1782,7 +1782,7 @@ for $temp_int = 0 to 2
                     73@($temp_int,3i) += 15000
                 else
                     if and
-                        58@ > 73@($temp_int,3i)
+                        is_int_lvar_greater_than_int_lvar 58@ > 73@($temp_int,3i)
                         not Char.IsDead($scplayer)
                     then
                         61@, 62@, 63@ = Char.GetCoordinates($scplayer)

@@ -4460,7 +4460,7 @@ then
 end
 772@ = Clock.GetGameTimer()
 if
-    875@ > 772@
+    is_int_lvar_greater_than_int_lvar 875@ > 772@
 then
     return
 end
@@ -4645,7 +4645,7 @@ then
 end
 772@ = Clock.GetGameTimer()
 if
-    876@ > 772@
+    is_int_lvar_greater_than_int_lvar 876@ > 772@
 then
     return
 end
@@ -4717,7 +4717,7 @@ then
 end
 772@ = Clock.GetGameTimer()
 if
-    766@ > 772@
+    is_int_lvar_greater_than_int_lvar 766@ > 772@
 then
     return
 end
@@ -4789,7 +4789,7 @@ then
 end
 772@ = Clock.GetGameTimer()
 if
-    760@ > 772@
+    is_int_lvar_greater_than_int_lvar 760@ > 772@
 then
     return
 end

@@ -8486,7 +8486,7 @@ then
         end
         301@ = Clock.GetGameTimer()
         if
-            301@ >= 293@
+            is_int_lvar_greater_or_equal_to_int_lvar 301@ >= 293@
         then
             return
         end
@@ -8516,7 +8516,7 @@ then
         end
         301@ = Clock.GetGameTimer()
         if
-            301@ >= 293@
+            is_int_lvar_greater_or_equal_to_int_lvar 301@ >= 293@
         then
             return
         end
@@ -9014,7 +9014,7 @@ end
 gosub @DRUGS1_COOP_COMBAT_CONTRIBUTION
 301@ = Clock.GetGameTimer()
 if
-    301@ >= 297@
+    is_int_lvar_greater_or_equal_to_int_lvar 301@ >= 297@
 then
     297@ = 301@
     297@ += 2000
@@ -9036,7 +9036,7 @@ if and
 then
     301@ = Clock.GetGameTimer()
     if
-        301@ >= 296@
+        is_int_lvar_greater_or_equal_to_int_lvar 301@ >= 296@
     then
         296@ = 301@
         296@ += 3000

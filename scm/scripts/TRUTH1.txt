@@ -2581,7 +2581,7 @@ return
 608@ *= 10
 608@ += 117@
 if
-    606@ == 608@
+    is_int_lvar_equal_to_int_lvar 606@ == 608@
 then
     return
 end

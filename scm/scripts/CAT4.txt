@@ -3836,7 +3836,7 @@ if
 then
     607@ = Clock.GetGameTimer()
     if
-      607@ >= 614@
+      is_int_lvar_greater_or_equal_to_int_lvar 607@ >= 614@
     then
         gosub @CAT4_COOP_OPEN_VAULT
     end
@@ -3916,7 +3916,7 @@ then
 end
 607@ = Clock.GetGameTimer()
 if
-  618@ > 607@
+  is_int_lvar_greater_than_int_lvar 618@ > 607@
 then
     return
 end
@@ -4101,7 +4101,7 @@ end
 set_lvar_int_to_lvar_int 604@ = 615@
 607@ = Clock.GetGameTimer()
 if
-  605@ > 607@
+  is_int_lvar_greater_than_int_lvar 605@ > 607@
 then
     return
 end
@@ -4404,7 +4404,7 @@ while 610@ == -1
     then
         607@ = Clock.GetGameTimer()
         if
-          607@ >= 611@
+          is_int_lvar_greater_or_equal_to_int_lvar 607@ >= 611@
         then
             625@ = 1
             break
@@ -4442,7 +4442,7 @@ while 610@ == -1
     then
         607@ = Clock.GetGameTimer()
         if
-          607@ >= 611@
+          is_int_lvar_greater_or_equal_to_int_lvar 607@ >= 611@
         then
             625@ = 1
             break

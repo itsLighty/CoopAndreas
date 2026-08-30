@@ -4504,7 +4504,7 @@ for $temp_int = 0 to 2
         Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
     then
         if
-            609@($temp_int,3i) <> 640@
+            not is_int_lvar_equal_to_int_lvar 609@($temp_int,3i) == 640@
         then
             if
                 640@ == 1
@@ -4687,20 +4687,20 @@ then
 end
 gosub @WUZI2_COOP_UPDATE_ROSTER
 if
-    648@ <> 640@
+    not is_int_lvar_equal_to_int_lvar 648@ == 640@
 then
     gosub @WUZI2_COOP_PHASE_CHANGED
 end
 628@ = Clock.GetGameTimer()
 if
-    628@ > 624@
+    is_int_lvar_greater_than_int_lvar 628@ > 624@
 then
     gosub @WUZI2_COOP_REFRESH_OBJECTIVES
     set_lvar_int_to_lvar_int 624@ = 628@
     624@ += 3000
 end
 if
-    628@ > 625@
+    is_int_lvar_greater_than_int_lvar 628@ > 625@
 then
     gosub @WUZI2_COOP_SYNC_WORLD_PASS
     set_lvar_int_to_lvar_int 625@ = 628@
@@ -4714,7 +4714,7 @@ then
 end
 if and
     640@ >= 2
-    628@ > 626@
+    is_int_lvar_greater_than_int_lvar 628@ > 626@
 then
     gosub @WUZI2_COOP_UPDATE_COMBAT
     set_lvar_int_to_lvar_int 626@ = 628@

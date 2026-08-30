@@ -6752,7 +6752,7 @@ if
   34@ == 5
 then
     if
-        127@ <> 485@
+        not is_int_lvar_equal_to_int_lvar 127@ == 485@
     then
         set_lvar_int_to_lvar_int 485@ = 127@
         for $temp_int = 0 to 2
@@ -6782,7 +6782,7 @@ then
     end
     if and
         482@ == 1
-        200@ > 127@
+        is_int_lvar_greater_than_int_lvar 200@ > 127@
         not Car.IsDead(95@)
         not Car.IsDead(99@)
     then

@@ -5114,7 +5114,7 @@ return
 610@ *= 10
 610@ += $cat1_pickups_collected
 if
-    606@ == 610@
+    is_int_lvar_equal_to_int_lvar 606@ == 610@
 then
     return
 end

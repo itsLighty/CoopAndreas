@@ -4044,7 +4044,7 @@ return
 :SCRASH2_COOP_POLL_REGISTRATIONS
 542@ = Clock.GetGameTimer()
 if
-    555@ > 542@
+    is_int_lvar_greater_than_int_lvar 555@ > 542@
 then
     return
 end
@@ -4398,7 +4398,7 @@ then
     558@ = 1
     542@ = Clock.GetGameTimer()
     if
-        542@ > 557@
+        is_int_lvar_greater_than_int_lvar 542@ > 557@
     then
         $g_SCrash2_spookKM += 3
         557@ = Clock.GetGameTimer()
@@ -4419,7 +4419,7 @@ return
 :SCRASH2_COOP_UPDATE_OBJECTIVES
 542@ = Clock.GetGameTimer()
 if
-    539@ > 542@
+    is_int_lvar_greater_than_int_lvar 539@ > 542@
 then
     return
 end

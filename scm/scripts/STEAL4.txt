@@ -6596,7 +6596,7 @@ for $temp_int = 0 to 2
         Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
     then
         if
-            509@($temp_int,3i) <> 34@
+            not is_int_lvar_equal_to_int_lvar 509@($temp_int,3i) == 34@
         then
             if
                 34@ == 1
@@ -6808,20 +6808,20 @@ then
 end
 gosub @STEAL4_COOP_UPDATE_ROSTER
 if
-    548@ <> 34@
+    not is_int_lvar_equal_to_int_lvar 548@ == 34@
 then
     gosub @STEAL4_COOP_PHASE_CHANGED
 end
 528@ = Clock.GetGameTimer()
 if
-    528@ > 524@
+    is_int_lvar_greater_than_int_lvar 528@ > 524@
 then
     gosub @STEAL4_COOP_REFRESH_OBJECTIVES
     set_lvar_int_to_lvar_int 524@ = 528@
     524@ += 3000
 end
 if
-    528@ > 525@
+    is_int_lvar_greater_than_int_lvar 528@ > 525@
 then
     gosub @STEAL4_COOP_SYNC_WORLD_PASS
     set_lvar_int_to_lvar_int 525@ = 528@
@@ -6834,7 +6834,7 @@ then
     end
 end
 if
-    528@ > 526@
+    is_int_lvar_greater_than_int_lvar 528@ > 526@
 then
     gosub @STEAL4_COOP_COMBAT_AND_PROTECTION
     set_lvar_int_to_lvar_int 526@ = 528@

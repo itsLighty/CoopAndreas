@@ -3139,7 +3139,7 @@ return
 
 :CAT3_COOP_UPDATE_OBJECTIVE
 if
-    606@ == 35@
+    is_int_lvar_equal_to_int_lvar 606@ == 35@
 then
     return
 end

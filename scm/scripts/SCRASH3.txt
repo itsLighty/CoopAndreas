@@ -2943,7 +2943,7 @@ return
 
 :SCRASH3_COOP_UPDATE_OBJECTIVE
 if
-    606@ == 65@
+    is_int_lvar_equal_to_int_lvar 606@ == 65@
 then
     return
 end
