@@ -4095,6 +4095,10 @@ end
 759@ = 2
 gosub @WUZI1_COOP_CLEAR_OBJECTIVES
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @WUZI1_COOP_NOTIFY_FAILURE
+return
+
+:WUZI1_COOP_NOTIFY_FAILURE
 for $temp_int = 0 to 2
     gosub @WUZI1_COOP_VALIDATE_SLOT
     if
@@ -4121,6 +4125,10 @@ Audio.PlayMissionPassedTune(1)
 Stat.PlayerMadeProgress(1)
 Stat.RegisterMissionPassed('WUZI_1')
 $flag_wuzi_mission_counter += 1
+gosub @WUZI1_COOP_NOTIFY_SUCCESS
+return
+
+:WUZI1_COOP_NOTIFY_SUCCESS
 for $temp_int = 0 to 2
     gosub @WUZI1_COOP_VALIDATE_SLOT
     if
@@ -4269,6 +4277,8 @@ return
 
 :WUZI1_COOP_UPDATE_ROSTER
 gosub @WUZI1_COOP_RECOLLECT_ROSTER
+// Deterministic connected cooperative participant death failure applies only after
+// the actor handle matches the slot's immutable frozen identity; disconnect is safe.
 763@ = 0
 783@ = 0
 for $temp_int = 0 to 2

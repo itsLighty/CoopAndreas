@@ -3391,7 +3391,8 @@ gosub @DRIV3_COOP_RELEASE_REMOTES
 519@ = 1
 return
 
-// Any connected frozen-roster participant death fails the shared attempt.
+// Deterministic connected cooperative participant death failure: only a validated
+// frozen-roster actor can fail the shared attempt; disconnected slots are ignored.
 // T-Bone and Toreno retain their original death failures; peer damage against
 // either protected ally, the host, or another active participant is also fatal.
 :DRIV3_COOP_CHECK_FAILURES

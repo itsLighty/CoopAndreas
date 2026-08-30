@@ -4210,7 +4210,9 @@ then
 end
 return
 
-// Participant death and intra-party friendly fire fail deterministically. Before
+// Deterministic connected cooperative participant death failure applies only to
+// identity-matched frozen actors; disconnected slots remain pending. Intra-party
+// friendly fire also fails. Before
 // the assassination stage, damaging the reporter, driver or taxi also preserves
 // the original "reporter spooked" failure semantics. At the pier, remote damage
 // instead makes both canonical targets react to that participant.
@@ -4704,51 +4706,7 @@ for $temp_int = 0 to 2
                 end
             end
         end
-        if
-            559@ == 1
-        then
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 544@)
-            if
-                45@ == 1
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_80', 5000, 1, 544@)
-            end
-            if
-                45@ == 2
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_81', 5000, 1, 544@)
-            end
-            if
-                45@ == 3
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_82', 5000, 1, 544@)
-            end
-            if
-                45@ == 4
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_83', 5000, 1, 544@)
-            end
-            if
-                45@ == 5
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_84', 5000, 1, 544@)
-            end
-            if
-                45@ == 6
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_85', 5000, 1, 544@)
-            end
-            if
-                45@ == 7
-            then
-                Coop.PrintNowForNetworkPlayer('SCR2_86', 5000, 1, 544@)
-            end
-        end
-        if
-            559@ == 2
-        then
-            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 544@)
-        end
+        gosub @SCRASH2_COOP_NOTIFY_RESULT
     end
     if
         527@($temp_int,3i) <> -1
@@ -4762,6 +4720,54 @@ for $temp_int = 0 to 2
     527@($temp_int,3i) = -1
     530@($temp_int,3i) = -1
     569@($temp_int,3i) = 0
+end
+return
+
+:SCRASH2_COOP_NOTIFY_RESULT
+if
+    559@ == 1
+then
+    Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 544@)
+    if
+        45@ == 1
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_80', 5000, 1, 544@)
+    end
+    if
+        45@ == 2
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_81', 5000, 1, 544@)
+    end
+    if
+        45@ == 3
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_82', 5000, 1, 544@)
+    end
+    if
+        45@ == 4
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_83', 5000, 1, 544@)
+    end
+    if
+        45@ == 5
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_84', 5000, 1, 544@)
+    end
+    if
+        45@ == 6
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_85', 5000, 1, 544@)
+    end
+    if
+        45@ == 7
+    then
+        Coop.PrintNowForNetworkPlayer('SCR2_86', 5000, 1, 544@)
+    end
+end
+if
+    559@ == 2
+then
+    Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 544@)
 end
 return
 

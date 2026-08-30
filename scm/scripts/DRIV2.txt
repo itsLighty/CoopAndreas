@@ -2165,6 +2165,8 @@ for $temp_int = 0 to 2
             506@($temp_int,3i) = 1
         end
     end
+    // Deterministic connected cooperative participant death failure; an invalid
+    // frozen slot is treated as disconnected and never fails the mission itself.
     if
         506@($temp_int,3i) == 1
     then
