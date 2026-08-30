@@ -3,6 +3,135 @@
 
 :HEIST9
 script_name 'HEIST9'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Breaking the Bank remains host-authoritative for canonical story state,
+// rewards, wanted level, inventory pickups, timers, and the final result. Only
+// entry-time internal identities participate; late joiners are spectators and
+// exact-identity reconnects recover the frozen slot without blocking the host.
+600@ = 0 // immutable participant count
+601@ = 0 // cooperative abort reason: 1 participant death, 2 stealth breach
+602@ = 0 // idempotent cooperative cleanup guard
+603@ = 0 // canonical cooperative result: 0 active, 1 failed, 2 passed
+604@ = 0 // cooperative free-play has begun
+605@ = 1 // participants are frozen for a host cinematic
+606@ = 0 // current cooperative objective token
+607@ = -1 // previous cooperative objective token
+608@ = 0 // next objective refresh
+609@ = 0 // next entity-registration poll
+610@ = 0 // next hostile-retarget poll
+611@ = 0 // next regroup poll
+612@ = 0 // currently connected frozen participants
+613@ = 0 // prior connection-state scratch
+614@ = 0 // reconnect candidate iterator
+615@ = -1 // internal network identity scratch
+616@ = -1 // participant actor scratch
+617@ = 0 // game timer scratch
+618@ = 0 // host health ledger
+619@ = 0 // current health scratch
+620@ = 0 // host armor ledger
+621@ = 0 // current armor scratch
+622@ = 0 // armor-restoration scratch
+623@ = 0 // nested participant iterator
+624@ = -1 // participant attacker scratch
+625@ = 0 // host visible-area scratch
+626@ = 0 // participant visible-area scratch
+627@ = 0 // boolean / regroup-reason scratch
+628@ = -1 // safe teleport argument zero
+629@ = -1 // safe teleport argument one
+630@ = -1 // safe teleport argument two
+631@ = 0.0 // coordinate scratch X
+632@ = 0.0 // coordinate scratch Y
+633@ = 0.0 // coordinate scratch Z
+634@ = 0 // unused weapon-model output / weapon scratch
+635@ = 0 // objective-token scratch
+636@ = 0 // result-notification guard
+637@ = 0 // cooperative role-briefing guard
+638@ = 0 // shared vault-regroup trigger
+639@ = 0 // shared garage-regroup trigger
+640@ = 0 // entity registry iterator
+641@ = -1 // entity handle scratch
+642@ = 0 // entity kind: 0 ped, 1 vehicle
+643@ = -1 // entity network-id scratch
+644@ = 0 // degraded registration bursts
+645@ = 0 // elapsed-time scratch
+646@ = 0 // shared keypad completion
+647@ = 0 // shared keycard completion
+648@ = 0 // role-availability scratch
+649@ = 0 // trigger timer scratch
+650@ = 0 // a cooperative subtitle is active
+651@ = 0 // combat/objective scratch
+652@ = 0 // current weapon-in-slot scratch
+653@ = 0 // current ammunition scratch
+654@ = 0 // cleanup scratch
+655@ = 0 // loadout-state scratch
+656@ = 0 // hostile iterator scratch
+657@ = 0 // cooperative state scratch
+658@ = 0 // cooperative state scratch
+659@ = 0 // cooperative state scratch
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 660@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // mutable actor handle
+    663@($temp_int,3i) = -1 // immutable entry-time internal identity
+    666@($temp_int,3i) = 0 // currently connected participant
+    669@($temp_int,3i) = 0 // reconnect requires phase-aware restaging
+    set_lvar_int_to_var_int 672@($temp_int,3i) = $temp_int // stable role: infiltrator, breacher, enforcer
+    672@($temp_int,3i) += 1
+    675@($temp_int,3i) = 0 // participant health ledger
+    678@($temp_int,3i) = 0 // participant armor ledger
+    681@($temp_int,3i) = 0 // pre-mission selected weapon
+    684@($temp_int,3i) = 0 // highest temporary loadout stage applied
+    687@($temp_int,3i) = 0 // out-of-range regroup grace timer
+    690@($temp_int,3i) = 0 // shared keycard hold timer
+    693@($temp_int,3i) = 0 // shared keypad hold timer
+    696@($temp_int,3i) = -1 // last objective token sent
+    699@($temp_int,3i) = 0 // inventory snapshot is valid
+    702@($temp_int,3i) = 0 // pre-mission melee weapon
+    705@($temp_int,3i) = 0 // pre-mission melee ammunition
+    708@($temp_int,3i) = 0 // pre-mission pistol weapon
+    711@($temp_int,3i) = 0 // pre-mission pistol ammunition
+    714@($temp_int,3i) = 0 // pre-mission SMG weapon
+    717@($temp_int,3i) = 0 // pre-mission SMG ammunition
+    720@($temp_int,3i) = 0 // pre-mission thrown weapon
+    723@($temp_int,3i) = 0 // pre-mission thrown ammunition
+    726@($temp_int,3i) = 0 // pre-mission special-slot weapon
+    729@($temp_int,3i) = 0 // pre-mission special-slot ammunition
+    911@($temp_int,3i) = 0 // pre-mission detonator-slot weapon
+    914@($temp_int,3i) = 0 // pre-mission detonator-slot ammunition
+    903@($temp_int,3i) = 0 // dangerous-weapon stealth warning timer
+    if
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        663@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(660@($temp_int,3i))
+        if
+            663@($temp_int,3i) <> -1
+        then
+            666@($temp_int,3i) = 1
+            600@ += 1
+            681@($temp_int,3i) = Char.GetCurrentWeapon(660@($temp_int,3i))
+            702@($temp_int,3i), 705@($temp_int,3i), 634@ = Char.GetWeaponInSlot(660@($temp_int,3i), WeaponSlot.Melee)
+            708@($temp_int,3i), 711@($temp_int,3i), 634@ = Char.GetWeaponInSlot(660@($temp_int,3i), WeaponSlot.Pistols)
+            714@($temp_int,3i), 717@($temp_int,3i), 634@ = Char.GetWeaponInSlot(660@($temp_int,3i), WeaponSlot.SMG)
+            720@($temp_int,3i), 723@($temp_int,3i), 634@ = Char.GetWeaponInSlot(660@($temp_int,3i), WeaponSlot.Thrown)
+            726@($temp_int,3i), 729@($temp_int,3i), 634@ = Char.GetWeaponInSlot(660@($temp_int,3i), WeaponSlot.Special)
+            911@($temp_int,3i), 914@($temp_int,3i), 634@ = Char.GetWeaponInSlot(660@($temp_int,3i), WeaponSlot.Detonator)
+            699@($temp_int,3i) = 1
+            675@($temp_int,3i) = Char.GetHealth(660@($temp_int,3i))
+            678@($temp_int,3i) = Char.GetArmor(660@($temp_int,3i))
+        end
+    end
+end
+for 640@ = 0 to 40
+    732@(640@,41i) = 0 // canonical entity handle
+    773@(640@,41i) = -1 // canonical entity network identity
+    814@(640@,41i) = 0 // attempts in the current bounded burst
+    855@(640@,41i) = 0 // next retry deadline after a degraded burst
+end
+for 640@ = 0 to 3
+    899@(640@,4i) = 0 // crew health ledger
+    907@(640@,4i) = 0 // crew handle associated with that ledger
+end
+906@ = 0 // shared roof-transition trigger
+gosub @HEIST9_COOP_FREEZE_REMOTES
 gosub @HEIST9_47
 if 
   has_deatharrest_been_executed 
@@ -48,6 +177,7 @@ $iSetCasinoPanic = 0
 231@ = 2
 $disable_mod_garage = 1
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   not Char.IsDead($scplayer)
 goto_if_false @HEIST9_340
@@ -68,6 +198,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @HEIST9_379
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_355
 
 :HEIST9_379
@@ -90,6 +221,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @HEIST9_529
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_505
 
 :HEIST9_529
@@ -103,6 +235,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @HEIST9_594
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_570
 
 :HEIST9_594
@@ -114,6 +247,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @HEIST9_632
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_608
 
 :HEIST9_632
@@ -147,6 +281,7 @@ if or
   not Streaming.HasModelLoaded(#BODYARMOUR)
 goto_if_false @HEIST9_875
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_834
 
 :HEIST9_875
@@ -157,6 +292,7 @@ if or
   not Streaming.HasModelLoaded(346)
 goto_if_false @HEIST9_922
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_875
 
 :HEIST9_922
@@ -247,6 +383,7 @@ if or
   not Streaming.HasSpecialCharacterLoaded(3)
 goto_if_false @HEIST9_2010
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_1971
 
 :HEIST9_2010
@@ -296,6 +433,7 @@ Camera.SetBehindPlayer
 
 :HEIST9_2390
 gosub @HEIST9_46358
+gosub @HEIST9_COOP_BEGIN_PLAY
 215@ = 1
 231@ = 2
 38@ = 1
@@ -320,6 +458,19 @@ if
   not Char.IsDead($scplayer)
 goto_if_false @HEIST9_43649
 wait 0
+gosub @HEIST9_COOP_UPDATE
+if
+  601@ == 1
+then
+  Text.PrintNow('HM9_9', 4000, 1)
+  goto @HEIST9_44468
+end
+if
+  601@ == 2
+then
+  Text.PrintNow('HM9_52', 4000, 1)
+  goto @HEIST9_44468
+end
 gosub @HEIST9_46391
 gosub @HEIST9_50668
 $h9_fuck_off = Streaming.GetAreaVisible()
@@ -585,6 +736,7 @@ if or
   not Streaming.HasModelLoaded(164)
 goto_if_false @HEIST9_4170
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_4138
 
 :HEIST9_4170
@@ -794,6 +946,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5513
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_5487
 
 :HEIST9_5513
@@ -806,6 +959,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5579
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_5572
@@ -830,6 +984,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5684
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_5658
 
 :HEIST9_5684
@@ -841,6 +996,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5745
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_5738
@@ -859,6 +1015,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5798
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_5772
 
 :HEIST9_5798
@@ -870,6 +1027,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5859
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_5852
@@ -888,6 +1046,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5912
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_5886
 
 :HEIST9_5912
@@ -899,6 +1058,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_5973
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_5966
@@ -917,6 +1077,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_6026
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_6000
 
 :HEIST9_6026
@@ -928,6 +1089,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_6087
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_6080
@@ -952,6 +1114,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_6193
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_6167
 
 :HEIST9_6193
@@ -963,6 +1126,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_6254
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_6247
@@ -1020,6 +1184,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
 goto_if_false @HEIST9_6569
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_6543
 
 :HEIST9_6569
@@ -1061,6 +1226,7 @@ if or
   not Streaming.HasModelLoaded(11)
 goto_if_false @HEIST9_6711
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_6680
 
 :HEIST9_6711
@@ -1343,6 +1509,7 @@ if
   not Streaming.HasModelLoaded(343)
 goto_if_false @HEIST9_8778
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_8751
 
 :HEIST9_8778
@@ -1410,6 +1577,7 @@ if
   1000 > TIMERB
 goto_if_false @HEIST9_9302
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_9295
@@ -1427,6 +1595,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9339
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_9313
 
 :HEIST9_9339
@@ -1438,6 +1607,7 @@ if
   1500 > TIMERB
 goto_if_false @HEIST9_9404
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_9397
@@ -1460,6 +1630,7 @@ if
   500 > TIMERB
 goto_if_false @HEIST9_9489
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_9482
@@ -1478,6 +1649,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9542
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_9516
 
 :HEIST9_9542
@@ -1489,6 +1661,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9603
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_9596
@@ -1520,6 +1693,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9811
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_9785
 
 :HEIST9_9811
@@ -1531,6 +1705,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9872
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_9865
@@ -1549,6 +1724,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9925
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_9899
 
 :HEIST9_9925
@@ -1560,6 +1736,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_9986
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_9979
@@ -1578,6 +1755,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_10039
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_10013
 
 :HEIST9_10039
@@ -1589,6 +1767,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_10100
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_10093
@@ -1699,6 +1878,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
 goto_if_false @HEIST9_10746
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_10720
 
 :HEIST9_10746
@@ -1831,6 +2011,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
 goto_if_false @HEIST9_11493
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_11467
 
 :HEIST9_11493
@@ -1857,6 +2038,7 @@ if
   58@ <> 33
 goto_if_false @HEIST9_11680
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
   Object.Rotate($h9_door_c, 180.0, 3.0, False)
 58@ += 1
 goto @HEIST9_11627
@@ -1888,6 +2070,7 @@ if
   not Streaming.HasModelLoaded(530)
 goto_if_false @HEIST9_11787
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_11760
 
 :HEIST9_11787
@@ -2124,6 +2307,7 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(487)
 goto_if_false @HEIST9_13221
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_13189
 
 :HEIST9_13221
@@ -2229,6 +2413,7 @@ if or
   not Streaming.HasModelLoaded(164)
 goto_if_false @HEIST9_13794
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_13752
 
 :HEIST9_13794
@@ -2241,6 +2426,7 @@ if
   3000 > TIMERB
 goto_if_false @HEIST9_13906
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_13899
@@ -2267,6 +2453,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14033
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_14007
 
 :HEIST9_14033
@@ -2278,6 +2465,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14094
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_14087
@@ -2366,6 +2554,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14610
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_14584
 
 :HEIST9_14610
@@ -2377,6 +2566,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14671
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_14664
@@ -2395,6 +2585,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14724
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_14698
 
 :HEIST9_14724
@@ -2406,6 +2597,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14785
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_14778
@@ -2424,6 +2616,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14838
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_14812
 
 :HEIST9_14838
@@ -2435,6 +2628,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_14899
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_14892
@@ -2455,6 +2649,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15003
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_14977
 
 :HEIST9_15003
@@ -2483,6 +2678,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15208
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_15201
@@ -2499,6 +2695,7 @@ if
   2500 > TIMERB
 goto_if_false @HEIST9_15269
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_15262
@@ -2516,6 +2713,7 @@ if
   1500 > TIMERB
 goto_if_false @HEIST9_15334
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_15327
@@ -2569,6 +2767,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15537
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_15511
 
 :HEIST9_15537
@@ -2580,6 +2779,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15598
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_15591
@@ -2608,6 +2808,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15736
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_15710
 
 :HEIST9_15736
@@ -2619,6 +2820,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15797
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_15790
@@ -2637,6 +2839,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15850
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_15824
 
 :HEIST9_15850
@@ -2648,6 +2851,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_15911
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_15904
@@ -2928,6 +3132,7 @@ if
   not Streaming.HasAnimationLoaded("BOMBER")
 goto_if_false @HEIST9_18044
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_18012
 
 :HEIST9_18044
@@ -3619,6 +3824,7 @@ if
   not Streaming.HasModelLoaded(163)
 goto_if_false @HEIST9_22422
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_22395
 
 :HEIST9_22422
@@ -3686,6 +3892,7 @@ if
   not Streaming.HasModelLoaded(163)
 goto_if_false @HEIST9_22880
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_22853
 
 :HEIST9_22880
@@ -4082,8 +4289,8 @@ if and
   121@ == 0
   119@ == 1
 goto_if_false @HEIST9_27722
-if 
-  Char.LocateAnyMeans3D($scplayer, 0, 2143.975, 1624.443, 992.5681, 20.0, 20.0, 2.0)
+if
+  638@ == 1
 goto_if_false @HEIST9_27722
 105@ = 10
 121@ = 1
@@ -4121,6 +4328,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26034
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_26008
 
 :HEIST9_26034
@@ -4132,6 +4340,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26088
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_26081
@@ -4149,6 +4358,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26141
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_26115
 
 :HEIST9_26141
@@ -4183,6 +4393,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26319
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_26312
@@ -4200,6 +4411,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26372
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_26346
 
 :HEIST9_26372
@@ -4211,6 +4423,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26426
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_26419
@@ -4254,6 +4467,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26762
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_26736
 
 :HEIST9_26762
@@ -4265,6 +4479,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_26816
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_26809
@@ -4461,6 +4676,7 @@ if or
   not Streaming.HasModelLoaded(125)
 goto_if_false @HEIST9_28250
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_28220
 
 :HEIST9_28250
@@ -5045,6 +5261,7 @@ if or
   not Streaming.HasModelLoaded(284)
 goto_if_false @HEIST9_32465
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_32429
 
 :HEIST9_32465
@@ -5056,6 +5273,7 @@ if
   not Streaming.HasCarRecordingBeenLoaded(494)
 goto_if_false @HEIST9_32510
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_32483
 
 :HEIST9_32510
@@ -5175,7 +5393,7 @@ Text.PrintNow('HM9_1F', 4000, 1)
 :HEIST9_33349
 if and
   257@ == 5
-  Char.LocateAnyMeans3D($scplayer, 0, 2220.205, 1585.422, 998.9717, 10.0, 10.0, 10.0)
+  639@ == 1
 goto_if_false @HEIST9_35092
 Text.ClearPrints
 gosub @HEIST9_46325
@@ -5273,6 +5491,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_33999
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_33973
 
 :HEIST9_33999
@@ -5284,6 +5503,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_34060
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_34053
@@ -5302,6 +5522,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_34113
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_34087
 
 :HEIST9_34113
@@ -5313,6 +5534,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_34174
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_34167
@@ -5368,6 +5590,7 @@ if
   8000 > TIMERB
 goto_if_false @HEIST9_34515
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_34508
@@ -5393,6 +5616,7 @@ if
   500 > TIMERB
 goto_if_false @HEIST9_34656
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_34649
@@ -5425,6 +5649,7 @@ if
   2000 > TIMERB
 goto_if_false @HEIST9_34841
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_34834
@@ -5517,6 +5742,7 @@ if or
   not Streaming.HasModelLoaded(127)
 goto_if_false @HEIST9_35193
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_35163
 
 :HEIST9_35193
@@ -5824,7 +6050,7 @@ gosub @HEIST9_50648
 
 :HEIST9_37352
 if and
-  Char.LocateAnyMeans3D($scplayer, 1, 2156.188, 1597.98, 998.9766, 1.2, 1.2, 2.0)
+  906@ == 1
   153@ == 0
 goto_if_false @HEIST9_37681
 if 
@@ -5861,6 +6087,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
 goto_if_false @HEIST9_37609
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_37583
 
 :HEIST9_37609
@@ -5871,6 +6098,7 @@ Audio.PlayMissionAudio(MissionAudioSlot.Slot3)
 
 :HEIST9_37628
 gosub @HEIST9_46358
+gosub @HEIST9_COOP_END_CINEMATIC
 if 
   not Char.IsDead($scplayer)
 goto_if_false @HEIST9_37658
@@ -5903,6 +6131,7 @@ if
   not Streaming.HasModelLoaded(371)
 goto_if_false @HEIST9_37830
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_37803
 
 :HEIST9_37830
@@ -5968,6 +6197,7 @@ if
   not Streaming.HasModelLoaded(497)
 goto_if_false @HEIST9_38356
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_38329
 
 :HEIST9_38356
@@ -5982,6 +6212,7 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(484)
 goto_if_false @HEIST9_38431
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_38399
 
 :HEIST9_38431
@@ -6423,6 +6654,7 @@ if or
   not Streaming.HasModelLoaded(284)
 goto_if_false @HEIST9_41427
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_41382
 
 :HEIST9_41427
@@ -6474,6 +6706,7 @@ if
   not Streaming.HasAnimationLoaded("FIGHT_B")
 goto_if_false @HEIST9_42004
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_41971
 
 :HEIST9_42004
@@ -6547,6 +6780,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42513
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42487
 
 :HEIST9_42513
@@ -6569,6 +6803,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42630
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42604
 
 :HEIST9_42630
@@ -6581,6 +6816,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42683
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42657
 
 :HEIST9_42683
@@ -6592,6 +6828,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42720
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42694
 
 :HEIST9_42720
@@ -6610,6 +6847,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42830
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42804
 
 :HEIST9_42830
@@ -6621,6 +6859,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42867
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42841
 
 :HEIST9_42867
@@ -6637,6 +6876,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_42988
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42962
 
 :HEIST9_42988
@@ -6648,6 +6888,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_43025
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_42999
 
 :HEIST9_43025
@@ -6661,6 +6902,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_43085
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_43059
 
 :HEIST9_43085
@@ -6672,6 +6914,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_43122
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_43096
 
 :HEIST9_43122
@@ -6893,6 +7136,12 @@ Text.PrintNow('HM9_8', 7000, 1)
 return 
 
 :HEIST9_44468
+if
+  603@ == 0
+then
+  603@ = 1
+end
+gosub @HEIST9_COOP_NOTIFY_RESULT
 if 
   not Char.IsDead($scplayer)
 goto_if_false @HEIST9_44498
@@ -6904,6 +7153,8 @@ Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :HEIST9_44516
+603@ = 2
+gosub @HEIST9_COOP_NOTIFY_RESULT
 $3253 = Pickup.CreateWithAmmo(368, 15, 1, 102.7728, 1899.192, 33.1572)
 $3254 = Pickup.CreateWithAmmo(368, 15, 1, 1274.301, -825.7809, 1085.079)
 $3255 = Pickup.CreateWithAmmo(368, 15, 1, -948.3487, 1858.023, 8.3237)
@@ -6972,6 +7223,7 @@ Streaming.RemoveCarRecording(484)
 return 
 
 :HEIST9_44948
+gosub @HEIST9_COOP_CLEANUP
 $disable_mod_garage = 0
 if 
   not Char.IsDead($scplayer)
@@ -7266,6 +7518,7 @@ World.SetCarDensityMultiplier(1.0)
 return 
 
 :HEIST9_46289
+gosub @HEIST9_COOP_BEGIN_CINEMATIC
 Text.ClearPrints
 Text.ClearHelp
 Hud.SwitchWidescreen(True)
@@ -7278,9 +7531,11 @@ Camera.SetBehindPlayer
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
 Camera.RestoreJumpcut
+gosub @HEIST9_COOP_END_CINEMATIC
 return 
 
 :HEIST9_46325
+gosub @HEIST9_COOP_BEGIN_CINEMATIC
 Camera.DoFade(0, 500)
 
 :HEIST9_46332
@@ -7288,6 +7543,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @HEIST9_46356
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_46332
 
 :HEIST9_46356
@@ -7301,6 +7557,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @HEIST9_46389
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_46365
 
 :HEIST9_46389
@@ -7383,6 +7640,7 @@ if or
   not Streaming.HasModelLoaded(330)
 goto_if_false @HEIST9_46908
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_46877
 
 :HEIST9_46908
@@ -7501,6 +7759,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47720
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47694
 
 :HEIST9_47720
@@ -7512,6 +7771,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47757
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47731
 
 :HEIST9_47757
@@ -7524,6 +7784,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47810
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47784
 
 :HEIST9_47810
@@ -7535,6 +7796,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47847
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47821
 
 :HEIST9_47847
@@ -7547,6 +7809,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47902
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47876
 
 :HEIST9_47902
@@ -7558,6 +7821,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47939
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47913
 
 :HEIST9_47939
@@ -7570,6 +7834,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_47992
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_47966
 
 :HEIST9_47992
@@ -7581,6 +7846,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_48029
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_48003
 
 :HEIST9_48029
@@ -7636,6 +7902,7 @@ if or
   not Streaming.HasModelLoaded(284)
 goto_if_false @HEIST9_48274
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_48225
 
 :HEIST9_48274
@@ -7646,6 +7913,7 @@ if
   not Streaming.HasCarRecordingBeenLoaded(494)
 goto_if_false @HEIST9_48306
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_48279
 
 :HEIST9_48306
@@ -7677,6 +7945,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_48626
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_48600
 
 :HEIST9_48626
@@ -7688,6 +7957,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_48687
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_48680
@@ -7706,6 +7976,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_48740
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_48714
 
 :HEIST9_48740
@@ -7717,6 +7988,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @HEIST9_48801
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_48794
@@ -7758,6 +8030,7 @@ if
   4000 > TIMERB
 goto_if_false @HEIST9_49078
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_49071
@@ -7788,6 +8061,7 @@ if
   4000 > TIMERB
 goto_if_false @HEIST9_49203
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_49196
@@ -7813,6 +8087,7 @@ if
   500 > TIMERB
 goto_if_false @HEIST9_49344
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_49337
@@ -7843,6 +8118,7 @@ if
   2000 > TIMERB
 goto_if_false @HEIST9_49515
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @HEIST9_49508
@@ -7930,6 +8206,7 @@ if or
   not Streaming.HasModelLoaded(284)
 goto_if_false @HEIST9_49864
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_49823
 
 :HEIST9_49864
@@ -7941,6 +8218,7 @@ if
   not Streaming.HasCarRecordingBeenLoaded(494)
 goto_if_false @HEIST9_49909
 wait 0
+gosub @HEIST9_COOP_CINEMATIC_TICK
 goto @HEIST9_49882
 
 :HEIST9_49909
@@ -8065,6 +8343,7 @@ return
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.LoadMissionAudio(232@, 1)
 231@ = 0
+gosub @HEIST9_COOP_PRINT_SUBTITLE
 return 
 
 :HEIST9_50668
@@ -8083,8 +8362,1744 @@ if and
 goto_if_false @HEIST9_50749
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Text.ClearThisPrint(288@s)
+gosub @HEIST9_COOP_CLEAR_SUBTITLE
 231@ = 2
 
 :HEIST9_50749
 return 
+
+// Cooperative controller. The stock mission remains the sole owner of story,
+// reward, inventory-pickup, wanted-level, and result transitions. These routines
+// admit validated peer actions, keep exact entry identities, and fan canonical
+// host state to those identities without ever waiting for a network handshake.
+:HEIST9_COOP_BEGIN_PLAY
+if or
+    604@ == 1
+    602@ == 1
+then
+    return
+end
+604@ = 1
+605@ = 0
+gosub @HEIST9_COOP_UPDATE_ROSTER
+gosub @HEIST9_COOP_RELEASE_REMOTES
+if
+    not Char.IsDead($scplayer)
+then
+    618@ = Char.GetHealth($scplayer)
+    620@ = Char.GetArmor($scplayer)
+end
+if and
+    600@ > 0
+    637@ == 0
+then
+    Coop.AddChatMessage("{00ff00}[Breaking the Bank]{ffffff} Infiltrator handles cards and vents; Breacher leads charges and vault regroups; Enforcer suppresses guards and covers the roof escape.")
+    637@ = 1
+end
+608@ = 0
+609@ = 0
+gosub @HEIST9_COOP_UPDATE_OBJECTIVES
+return
+
+:HEIST9_COOP_UPDATE
+if or
+    604@ == 0
+    602@ == 1
+    603@ <> 0
+then
+    return
+end
+gosub @HEIST9_COOP_CINEMATIC_TICK
+if
+    605@ == 1
+then
+    return
+end
+gosub @HEIST9_COOP_PROTECT_FRIENDLIES
+gosub @HEIST9_COOP_CHECK_PARTICIPANT_DEATHS
+gosub @HEIST9_COOP_CHECK_STEALTH
+if
+    601@ > 0
+then
+    return
+end
+gosub @HEIST9_COOP_APPLY_ACTIVE_LOADOUTS
+gosub @HEIST9_COOP_SHARED_TRIGGERS
+gosub @HEIST9_COOP_POLL_REGISTRATIONS
+gosub @HEIST9_COOP_RETARGET_HOSTILES
+gosub @HEIST9_COOP_REGROUP
+gosub @HEIST9_COOP_UPDATE_OBJECTIVES
+return
+
+// Safe inside stock fade/streaming/audio waits: exact reconnects are restaged,
+// while all other newly observed identities remain spectator-only.
+:HEIST9_COOP_CINEMATIC_TICK
+if
+    602@ == 1
+then
+    return
+end
+gosub @HEIST9_COOP_UPDATE_ROSTER
+gosub @HEIST9_COOP_STAGE_RECONNECTS
+return
+
+// Mutable actor handles are trusted only after matching the immutable identity
+// captured at mission entry. A recycled handle can never inherit a mission role.
+:HEIST9_COOP_UPDATE_ROSTER
+612@ = 0
+896@, 897@, 898@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 613@ = 666@($temp_int,3i)
+    666@($temp_int,3i) = 0
+    if
+        663@($temp_int,3i) <> -1
+    then
+        if
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        then
+            615@ = Coop.GetNetworkPlayerInternalId(660@($temp_int,3i))
+            if
+                is_int_lvar_equal_to_int_lvar 615@ == 663@($temp_int,3i)
+            then
+                666@($temp_int,3i) = 1
+            end
+        end
+        if
+            666@($temp_int,3i) == 0
+        then
+            for 614@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(896@(614@,3i))
+                then
+                    615@ = Coop.GetNetworkPlayerInternalId(896@(614@,3i))
+                    if
+                        is_int_lvar_equal_to_int_lvar 615@ == 663@($temp_int,3i)
+                    then
+                        set_lvar_int_to_lvar_int 660@($temp_int,3i) = 896@(614@,3i)
+                        666@($temp_int,3i) = 1
+                    end
+                end
+            end
+        end
+        if
+            666@($temp_int,3i) == 1
+        then
+            612@ += 1
+            if
+                613@ == 0
+            then
+                669@($temp_int,3i) = 1
+                684@($temp_int,3i) = 0
+                687@($temp_int,3i) = 0
+                690@($temp_int,3i) = 0
+                693@($temp_int,3i) = 0
+                696@($temp_int,3i) = -1
+                903@($temp_int,3i) = 0
+            end
+        end
+    end
+end
+return
+
+:HEIST9_COOP_BUILD_ACTIVE_ARGS
+628@ = -1
+629@ = -1
+630@ = -1
+for $temp_int = 0 to 2
+    if
+        666@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 628@($temp_int,3i) = 660@($temp_int,3i)
+    end
+end
+return
+
+:HEIST9_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(660@, -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 661@, -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 662@)
+end
+return
+
+:HEIST9_COOP_STAGE_RECONNECTS
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        669@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        if
+            Char.IsDead(660@($temp_int,3i))
+        then
+            if
+                604@ == 1
+            then
+                601@ = 1
+            end
+        else
+            gosub @HEIST9_COOP_TELEPORT_CURRENT
+            631@, 632@, 633@ = Char.GetCoordinates($scplayer)
+            if
+                $temp_int == 0
+            then
+                631@ += 1.5
+            end
+            if
+                $temp_int == 1
+            then
+                632@ += 1.5
+            end
+            if
+                $temp_int == 2
+            then
+                631@ -= 1.5
+            end
+            625@ = Char.GetAreaVisible($scplayer)
+            Char.ClearTasksImmediately(660@($temp_int,3i))
+            if
+                Char.IsInAnyCar(660@($temp_int,3i))
+            then
+                Char.WarpFromCarToCoord(660@($temp_int,3i), 631@, 632@, 633@)
+            else
+                Char.SetCoordinates(660@($temp_int,3i), 631@, 632@, 633@)
+            end
+            Char.SetAreaVisible(660@($temp_int,3i), 625@)
+            if
+                605@ == 1
+            then
+                Char.SetVisible(660@($temp_int,3i), False)
+                Char.SetCollision(660@($temp_int,3i), False)
+                Char.SetProofs(660@($temp_int,3i), True, True, True, True, True)
+                Char.FreezePosition(660@($temp_int,3i), True)
+                Task.StandStill(660@($temp_int,3i), -1)
+            else
+                Char.SetVisible(660@($temp_int,3i), True)
+                Char.SetCollision(660@($temp_int,3i), True)
+                Char.SetProofs(660@($temp_int,3i), False, False, False, False, False)
+                Char.FreezePosition(660@($temp_int,3i), False)
+                Task.StandStill(660@($temp_int,3i), 0)
+            end
+            gosub @HEIST9_COOP_APPLY_CURRENT_LOADOUT
+            675@($temp_int,3i) = Char.GetHealth(660@($temp_int,3i))
+            678@($temp_int,3i) = Char.GetArmor(660@($temp_int,3i))
+            669@($temp_int,3i) = 0
+            687@($temp_int,3i) = 0
+            696@($temp_int,3i) = -1
+        end
+    end
+end
+return
+
+:HEIST9_COOP_FREEZE_REMOTES
+if or
+    600@ == 0
+    602@ == 1
+then
+    return
+end
+gosub @HEIST9_COOP_UPDATE_ROSTER
+gosub @HEIST9_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(628@, 629@, 630@)
+631@, 632@, 633@ = Char.GetCoordinates($scplayer)
+625@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        not Char.IsDead(660@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(660@($temp_int,3i))
+        if
+            Char.IsInAnyCar(660@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(660@($temp_int,3i), 631@, 632@, 633@)
+        else
+            Char.SetCoordinates(660@($temp_int,3i), 631@, 632@, 633@)
+        end
+        Char.SetAreaVisible(660@($temp_int,3i), 625@)
+        Char.SetVisible(660@($temp_int,3i), False)
+        Char.SetCollision(660@($temp_int,3i), False)
+        Char.SetProofs(660@($temp_int,3i), True, True, True, True, True)
+        Char.FreezePosition(660@($temp_int,3i), True)
+        Task.StandStill(660@($temp_int,3i), -1)
+    end
+end
+605@ = 1
+return
+
+:HEIST9_COOP_RELEASE_REMOTES
+if
+    600@ == 0
+then
+    605@ = 0
+    return
+end
+gosub @HEIST9_COOP_UPDATE_ROSTER
+gosub @HEIST9_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(628@, 629@, 630@)
+625@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        not Char.IsDead(660@($temp_int,3i))
+    then
+        631@, 632@, 633@ = Char.GetCoordinates($scplayer)
+        if
+            $temp_int == 0
+        then
+            631@ += 1.5
+        end
+        if
+            $temp_int == 1
+        then
+            632@ += 1.5
+        end
+        if
+            $temp_int == 2
+        then
+            631@ -= 1.5
+        end
+        if
+            Char.IsInAnyCar(660@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(660@($temp_int,3i), 631@, 632@, 633@)
+        else
+            Char.SetCoordinates(660@($temp_int,3i), 631@, 632@, 633@)
+        end
+        Char.SetAreaVisible(660@($temp_int,3i), 625@)
+        Char.SetVisible(660@($temp_int,3i), True)
+        Char.SetCollision(660@($temp_int,3i), True)
+        Char.SetProofs(660@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(660@($temp_int,3i), False)
+        Task.StandStill(660@($temp_int,3i), 0)
+        gosub @HEIST9_COOP_APPLY_CURRENT_LOADOUT
+        675@($temp_int,3i) = Char.GetHealth(660@($temp_int,3i))
+        678@($temp_int,3i) = Char.GetArmor(660@($temp_int,3i))
+        669@($temp_int,3i) = 0
+        687@($temp_int,3i) = 0
+    end
+end
+if
+    not Char.IsDead($scplayer)
+then
+    618@ = Char.GetHealth($scplayer)
+    620@ = Char.GetArmor($scplayer)
+end
+605@ = 0
+return
+
+:HEIST9_COOP_BEGIN_CINEMATIC
+if or
+    602@ == 1
+    605@ == 1
+then
+    return
+end
+gosub @HEIST9_COOP_CLEAR_OBJECTIVES
+gosub @HEIST9_COOP_FREEZE_REMOTES
+return
+
+:HEIST9_COOP_END_CINEMATIC
+if
+    602@ == 1
+then
+    return
+end
+if
+    605@ == 1
+then
+    gosub @HEIST9_COOP_RELEASE_REMOTES
+    608@ = 0
+end
+return
+
+// Six affected weapon slots are snapshotted at entry. Reconnects reapply the
+// current role stage; cleanup removes whatever temporary weapon occupies each
+// slot and restores the exact original type, ammo, and selected weapon.
+:HEIST9_COOP_APPLY_ACTIVE_LOADOUTS
+for $temp_int = 0 to 2
+    if
+        666@($temp_int,3i) == 1
+    then
+        gosub @HEIST9_COOP_APPLY_CURRENT_LOADOUT
+    end
+end
+return
+
+:HEIST9_COOP_APPLY_CURRENT_LOADOUT
+if or
+    604@ == 0
+    666@($temp_int,3i) <> 1
+    not Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    Char.IsDead(660@($temp_int,3i))
+then
+    return
+end
+if
+    684@($temp_int,3i) == 0
+then
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.Knife, 1)
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.PistolSilenced, 300)
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.Teargas, 10)
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.NightVision, 1)
+    if
+        672@($temp_int,3i) >= 2
+    then
+        Char.GiveWeapon(660@($temp_int,3i), WeaponType.Mp5, 300)
+    end
+    if
+        672@($temp_int,3i) == 3
+    then
+        Char.GiveWeapon(660@($temp_int,3i), WeaponType.Mp5, 600)
+        Char.SetCurrentWeapon(660@($temp_int,3i), WeaponType.Knife)
+    else
+        Char.SetCurrentWeapon(660@($temp_int,3i), WeaponType.Teargas)
+    end
+    684@($temp_int,3i) = 1
+end
+if and
+    38@ >= 8
+    2 > 684@($temp_int,3i)
+then
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.Mp5, 600)
+    Char.SetCurrentWeapon(660@($temp_int,3i), WeaponType.Mp5)
+    684@($temp_int,3i) = 2
+end
+if and
+    38@ >= 13
+    3 > 684@($temp_int,3i)
+then
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.Satchel, 10)
+    if
+        672@($temp_int,3i) == 2
+    then
+        Char.SetCurrentWeapon(660@($temp_int,3i), WeaponType.Satchel)
+    end
+    684@($temp_int,3i) = 3
+end
+if and
+    38@ >= 17
+    4 > 684@($temp_int,3i)
+then
+    Char.GiveWeapon(660@($temp_int,3i), WeaponType.Parachute, 1)
+    Char.SetCurrentWeapon(660@($temp_int,3i), WeaponType.Parachute)
+    684@($temp_int,3i) = 4
+end
+return
+
+// Only participant-attributed damage is repaired. Hostile and world damage keep
+// driving the stock death/failure paths. Protected stealth NPC damage is handled
+// separately as a canonical mission breach, not silently repaired.
+:HEIST9_COOP_PROTECT_FRIENDLIES
+if
+    605@ == 1
+then
+    return
+end
+if
+    not Char.IsDead($scplayer)
+then
+    651@ = 0
+    for $temp_int = 0 to 2
+        if and
+            666@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        then
+            if
+                Char.HasBeenDamagedByChar($scplayer, 660@($temp_int,3i))
+            then
+                651@ = 1
+            end
+        end
+    end
+    619@ = Char.GetHealth($scplayer)
+    621@ = Char.GetArmor($scplayer)
+    if
+        651@ == 1
+    then
+        if
+            is_int_lvar_greater_than_int_lvar 618@ > 619@
+        then
+            Char.SetHealth($scplayer, 618@)
+        else
+            set_lvar_int_to_lvar_int 618@ = 619@
+        end
+        if
+            is_int_lvar_greater_than_int_lvar 620@ > 621@
+        then
+            set_lvar_int_to_lvar_int 622@ = 620@
+            sub_int_lvar_from_int_lvar 622@ -= 621@
+            Char.AddArmor($scplayer, 622@)
+        else
+            set_lvar_int_to_lvar_int 620@ = 621@
+        end
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    else
+        set_lvar_int_to_lvar_int 618@ = 619@
+        set_lvar_int_to_lvar_int 620@ = 621@
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        not Char.IsDead(660@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+        651@ = 0
+        if
+            Char.HasBeenDamagedByChar(616@, $scplayer)
+        then
+            651@ = 1
+        end
+        for 623@ = 0 to 2
+            if and
+                not is_int_lvar_equal_to_int_var 623@ == $temp_int
+                666@(623@,3i) == 1
+                Coop.IsNetworkPlayerActorValid(660@(623@,3i))
+            then
+                set_lvar_int_to_lvar_int 624@ = 660@(623@,3i)
+                if
+                    Char.HasBeenDamagedByChar(616@, 624@)
+                then
+                    651@ = 1
+                end
+            end
+        end
+        619@ = Char.GetHealth(616@)
+        621@ = Char.GetArmor(616@)
+        if
+            651@ == 1
+        then
+            if
+                is_int_lvar_greater_than_int_lvar 675@($temp_int,3i) > 619@
+            then
+                Char.SetHealth(616@, 675@($temp_int,3i))
+            else
+                set_lvar_int_to_lvar_int 675@($temp_int,3i) = 619@
+            end
+            if
+                is_int_lvar_greater_than_int_lvar 678@($temp_int,3i) > 621@
+            then
+                set_lvar_int_to_lvar_int 622@ = 678@($temp_int,3i)
+                sub_int_lvar_from_int_lvar 622@ -= 621@
+                Char.AddArmor(616@, 622@)
+            else
+                set_lvar_int_to_lvar_int 678@($temp_int,3i) = 621@
+            end
+            Char.ClearLastDamageEntity(616@)
+            Char.ClearLastWeaponDamage(616@)
+        else
+            set_lvar_int_to_lvar_int 675@($temp_int,3i) = 619@
+            set_lvar_int_to_lvar_int 678@($temp_int,3i) = 621@
+        end
+    end
+end
+for 656@ = 0 to 3
+    set_lvar_int_to_lvar_int 641@ = 54@(656@,4i)
+    if
+        not is_int_lvar_equal_to_int_lvar 907@(656@,4i) == 641@
+    then
+        set_lvar_int_to_lvar_int 907@(656@,4i) = 641@
+        899@(656@,4i) = 0
+    end
+    if and
+        Char.DoesExist(641@)
+        not Char.IsDead(641@)
+    then
+        if
+            899@(656@,4i) == 0
+        then
+            899@(656@,4i) = Char.GetHealth(641@)
+        end
+        651@ = 0
+        for $temp_int = 0 to 2
+            if and
+                666@($temp_int,3i) == 1
+                Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+                Char.HasBeenDamagedByChar(641@, 660@($temp_int,3i))
+            then
+                651@ = 1
+            end
+        end
+        619@ = Char.GetHealth(641@)
+        if and
+            651@ == 1
+            is_int_lvar_greater_than_int_lvar 899@(656@,4i) > 619@
+        then
+            Char.SetHealth(641@, 899@(656@,4i))
+            Char.ClearLastDamageEntity(641@)
+            Char.ClearLastWeaponDamage(641@)
+        else
+            set_lvar_int_to_lvar_int 899@(656@,4i) = 619@
+        end
+    end
+end
+return
+
+:HEIST9_COOP_CHECK_PARTICIPANT_DEATHS
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        Char.IsDead(660@($temp_int,3i))
+    then
+        601@ = 1
+    end
+end
+return
+
+// Peers obey the stock disguise rules. Damage to the croupier or security team
+// fails immediately; a visible dangerous weapon receives a deterministic
+// three-second warning window so transient weapon-selection animation is safe.
+:HEIST9_COOP_CHECK_STEALTH
+if or
+    38@ > 3
+    303@ <> 0
+then
+    for $temp_int = 0 to 2
+        903@($temp_int,3i) = 0
+    end
+    return
+end
+617@ = Clock.GetGameTimer()
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        not Char.IsDead(660@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+        if and
+            Char.DoesExist(111@)
+            Char.HasBeenDamagedByChar(111@, 616@)
+        then
+            601@ = 2
+        end
+        if and
+            Char.DoesExist(109@)
+            Char.HasBeenDamagedByChar(109@, 616@)
+        then
+            601@ = 2
+        end
+        if and
+            Char.DoesExist(110@)
+            Char.HasBeenDamagedByChar(110@, 616@)
+        then
+            601@ = 2
+        end
+        634@ = Char.GetCurrentWeapon(616@)
+        651@ = 0
+        if and
+            634@ <> 0
+            634@ <> 44
+            634@ <> 17
+            634@ <> 1
+            634@ <> 4
+        then
+            if and
+                Char.DoesExist(111@)
+                Char.HasSpottedChar(111@, 616@)
+            then
+                651@ = 1
+            end
+            if and
+                Char.DoesExist(109@)
+                Char.HasSpottedChar(109@, 616@)
+            then
+                651@ = 1
+            end
+            if and
+                Char.DoesExist(110@)
+                Char.HasSpottedChar(110@, 616@)
+            then
+                651@ = 1
+            end
+        end
+        if
+            651@ == 1
+        then
+            if
+                903@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 903@($temp_int,3i) = 617@
+                Coop.PrintNowForNetworkPlayer('HM9_99', 3000, 1, 616@)
+            end
+            set_lvar_int_to_lvar_int 645@ = 617@
+            sub_int_lvar_from_int_lvar 645@ -= 903@($temp_int,3i)
+            if
+                645@ > 3000
+            then
+                601@ = 2
+            end
+        else
+            903@($temp_int,3i) = 0
+        end
+    end
+end
+return
+
+// Shared interactions use role preference with a disconnected-role fallback.
+// A 1.5 second positional hold substitutes for remote input state and converts
+// only the same validated phase transition that the stock host path performs.
+:HEIST9_COOP_SHARED_TRIGGERS
+617@ = Clock.GetGameTimer()
+647@ = 0
+if and
+    38@ == 2
+    36@ == 0
+then
+    for $temp_int = 0 to 2
+        648@ = 0
+        if
+            666@ == 0
+        then
+            648@ = 1
+        end
+        if
+            $temp_int == 0
+        then
+            648@ = 1
+        end
+        if and
+            648@ == 1
+            666@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+            not Char.IsDead(660@($temp_int,3i))
+            Char.LocateAnyMeans3D(660@($temp_int,3i), False, 2149.008, 1605.299, 1005.172, 2.0, 2.0, 2.0)
+        then
+            if
+                690@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 690@($temp_int,3i) = 617@
+            end
+            set_lvar_int_to_lvar_int 645@ = 617@
+            sub_int_lvar_from_int_lvar 645@ -= 690@($temp_int,3i)
+            if
+                645@ > 1500
+            then
+                647@ = 1
+            end
+        else
+            690@($temp_int,3i) = 0
+        end
+    end
+else
+    for $temp_int = 0 to 2
+        690@($temp_int,3i) = 0
+    end
+end
+if
+    647@ == 1
+then
+    303@ = 1
+    36@ = 1
+    Text.ClearHelp
+end
+646@ = 0
+if
+    38@ == 3
+then
+    for $temp_int = 0 to 2
+        648@ = 0
+        if
+            666@ == 0
+        then
+            648@ = 1
+        end
+        if
+            $temp_int == 0
+        then
+            648@ = 1
+        end
+        if and
+            648@ == 1
+            666@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+            not Char.IsDead(660@($temp_int,3i))
+            Char.LocateAnyMeans3D(660@($temp_int,3i), False, 2167.599, 1617.412, 998.9715, 2.0, 2.0, 2.0)
+        then
+            if
+                693@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 693@($temp_int,3i) = 617@
+            end
+            set_lvar_int_to_lvar_int 645@ = 617@
+            sub_int_lvar_from_int_lvar 645@ -= 693@($temp_int,3i)
+            if
+                645@ > 1500
+            then
+                646@ = 1
+            end
+        else
+            693@($temp_int,3i) = 0
+        end
+    end
+else
+    for $temp_int = 0 to 2
+        693@($temp_int,3i) = 0
+    end
+end
+if
+    646@ == 1
+then
+    gosub @HEIST9_COOP_COMPLETE_KEYPAD
+end
+638@ = 0
+if and
+    38@ == 13
+    119@ == 1
+    121@ == 0
+then
+    if
+        Char.LocateAnyMeans3D($scplayer, False, 2143.975, 1624.443, 992.5681, 20.0, 20.0, 2.0)
+    then
+        638@ = 1
+    end
+    for $temp_int = 0 to 2
+        648@ = 0
+        if
+            667@ == 0
+        then
+            648@ = 1
+        end
+        if
+            $temp_int == 1
+        then
+            648@ = 1
+        end
+        if and
+            648@ == 1
+            666@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+            not Char.IsDead(660@($temp_int,3i))
+            Char.LocateAnyMeans3D(660@($temp_int,3i), False, 2143.975, 1624.443, 992.5681, 20.0, 20.0, 2.0)
+        then
+            638@ = 1
+        end
+    end
+end
+639@ = 0
+if and
+    38@ == 15
+    257@ == 5
+then
+    if
+        Char.LocateAnyMeans3D($scplayer, False, 2220.205, 1585.422, 998.9717, 10.0, 10.0, 10.0)
+    then
+        639@ = 1
+    end
+    for $temp_int = 0 to 2
+        648@ = 0
+        if
+            668@ == 0
+        then
+            648@ = 1
+        end
+        if
+            $temp_int == 2
+        then
+            648@ = 1
+        end
+        if and
+            648@ == 1
+            666@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+            not Char.IsDead(660@($temp_int,3i))
+            Char.LocateAnyMeans3D(660@($temp_int,3i), False, 2220.205, 1585.422, 998.9717, 10.0, 10.0, 10.0)
+        then
+            639@ = 1
+        end
+    end
+end
+906@ = 0
+if and
+    38@ == 17
+    153@ == 0
+then
+    if
+        Char.LocateAnyMeans3D($scplayer, True, 2156.188, 1597.98, 998.9766, 1.2, 1.2, 2.0)
+    then
+        906@ = 1
+    end
+    for $temp_int = 0 to 2
+        648@ = 0
+        if
+            668@ == 0
+        then
+            648@ = 1
+        end
+        if
+            $temp_int == 2
+        then
+            648@ = 1
+        end
+        if and
+            648@ == 1
+            666@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+            not Char.IsDead(660@($temp_int,3i))
+            Char.LocateAnyMeans3D(660@($temp_int,3i), True, 2156.188, 1597.98, 998.9766, 1.2, 1.2, 2.0)
+        then
+            906@ = 1
+        end
+    end
+end
+return
+
+:HEIST9_COOP_COMPLETE_KEYPAD
+for 656@ = 0 to 6
+    if
+        Char.DoesExist(218@(656@,10i))
+    then
+        Char.Delete(218@(656@,10i))
+    end
+end
+Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
+Streaming.MarkModelAsNoLongerNeeded(172)
+Streaming.MarkModelAsNoLongerNeeded(164)
+Streaming.MarkModelAsNoLongerNeeded(214)
+if
+    Blip.DoesExist(45@)
+then
+    Blip.Remove(45@)
+end
+if
+    Object.DoesExist($h9_door_c)
+then
+    Object.SetHeading($h9_door_c, 180.0)
+end
+38@ = 5
+215@ = 0
+TIMERA = 0
+Text.ClearHelp
+for $temp_int = 0 to 2
+    693@($temp_int,3i) = 0
+    696@($temp_int,3i) = -1
+end
+return
+
+// Registration is asynchronous and never blocks mission progress. Each live
+// entity receives at most eight probes per burst; a failed burst records degraded
+// state, falls back to host-owned handles/coordinate objectives, and retries five
+// seconds later. Reused stock handles reset their own independent registration.
+:HEIST9_COOP_POLL_REGISTRATIONS
+if
+    600@ == 0
+then
+    return
+end
+617@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 609@ > 617@
+then
+    return
+end
+set_lvar_int_to_lvar_int 609@ = 617@
+609@ += 250
+for 640@ = 0 to 40
+    gosub @HEIST9_COOP_LOAD_ENTITY
+    if
+        not is_int_lvar_equal_to_int_lvar 732@(640@,41i) == 641@
+    then
+        set_lvar_int_to_lvar_int 732@(640@,41i) = 641@
+        773@(640@,41i) = -1
+        814@(640@,41i) = 0
+        855@(640@,41i) = 0
+    end
+    if and
+        641@ > 0
+        773@(640@,41i) == -1
+        not is_int_lvar_greater_than_int_lvar 855@(640@,41i) > 617@
+    then
+        if
+            8 > 814@(640@,41i)
+        then
+            if
+                642@ == 0
+            then
+                if
+                    Char.DoesExist(641@)
+                then
+                    643@ = Coop.GetPedNetworkId(641@)
+                    set_lvar_int_to_lvar_int 773@(640@,41i) = 643@
+                    814@(640@,41i) += 1
+                end
+            else
+                if
+                    Car.DoesExist(641@)
+                then
+                    643@ = Coop.GetVehicleNetworkId(641@)
+                    set_lvar_int_to_lvar_int 773@(640@,41i) = 643@
+                    814@(640@,41i) += 1
+                end
+            end
+        else
+            644@ += 1
+            814@(640@,41i) = 0
+            set_lvar_int_to_lvar_int 855@(640@,41i) = 617@
+            855@(640@,41i) += 5000
+        end
+    end
+end
+return
+
+:HEIST9_COOP_LOAD_ENTITY
+641@ = -1
+642@ = 0
+if and
+    640@ >= 0
+    4 > 640@
+then
+    set_lvar_int_to_lvar_int 641@ = 54@(640@,4i)
+end
+if
+    640@ == 4
+then
+    set_lvar_int_to_lvar_int 641@ = 111@
+end
+if and
+    640@ >= 5
+    7 > 640@
+then
+    set_lvar_int_to_lvar_int 656@ = 640@
+    656@ -= 5
+    set_lvar_int_to_lvar_int 641@ = 109@(656@,2i)
+end
+if and
+    640@ >= 7
+    10 > 640@
+then
+    set_lvar_int_to_lvar_int 656@ = 640@
+    656@ -= 7
+    set_lvar_int_to_lvar_int 641@ = 315@(656@,3i)
+end
+if and
+    640@ >= 10
+    25 > 640@
+then
+    set_lvar_int_to_lvar_int 656@ = 640@
+    656@ -= 10
+    set_lvar_int_to_lvar_int 641@ = 335@(656@,15i)
+end
+if and
+    640@ >= 25
+    27 > 640@
+then
+    set_lvar_int_to_lvar_int 656@ = 640@
+    656@ -= 25
+    set_lvar_int_to_lvar_int 641@ = 295@(656@,2i)
+end
+if and
+    640@ >= 27
+    29 > 640@
+then
+    set_lvar_int_to_lvar_int 656@ = 640@
+    656@ -= 27
+    set_lvar_int_to_lvar_int 641@ = 292@(656@,2i)
+end
+if and
+    640@ >= 29
+    33 > 640@
+then
+    set_lvar_int_to_lvar_int 656@ = 640@
+    656@ -= 29
+    set_lvar_int_to_lvar_int 641@ = 380@(656@,4i)
+end
+if
+    640@ == 33
+then
+    set_lvar_int_to_lvar_int 641@ = 218@
+end
+if
+    640@ == 34
+then
+    set_lvar_int_to_lvar_int 641@ = 46@
+    642@ = 1
+end
+if
+    640@ == 35
+then
+    set_lvar_int_to_lvar_int 641@ = 51@
+    642@ = 1
+end
+if
+    640@ == 36
+then
+    set_lvar_int_to_lvar_int 641@ = 198@
+    642@ = 1
+end
+if
+    640@ == 37
+then
+    set_lvar_int_to_lvar_int 641@ = 377@
+    642@ = 1
+end
+if
+    640@ == 38
+then
+    set_lvar_int_to_lvar_int 641@ = 279@
+    642@ = 1
+end
+if
+    640@ == 39
+then
+    set_lvar_int_to_lvar_int 641@ = 280@
+    642@ = 1
+end
+if
+    640@ == 40
+then
+    set_lvar_int_to_lvar_int 641@ = 387@
+    642@ = 1
+end
+return
+
+// Once combat begins, host-owned guards acquire nearby attacking participants.
+// Registration failure does not stall combat: the canonical host handle remains
+// authoritative while per-player HUD falls back to the phase checkpoint.
+:HEIST9_COOP_RETARGET_HOSTILES
+if or
+    8 > 38@
+    38@ > 18
+then
+    return
+end
+617@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 610@ > 617@
+then
+    return
+end
+set_lvar_int_to_lvar_int 610@ = 617@
+610@ += 750
+for 640@ = 7 to 32
+    gosub @HEIST9_COOP_LOAD_ENTITY
+    if and
+        Char.DoesExist(641@)
+        not Char.IsDead(641@)
+    then
+        for $temp_int = 0 to 2
+            if and
+                666@($temp_int,3i) == 1
+                Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+                not Char.IsDead(660@($temp_int,3i))
+            then
+                set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+                if or
+                    Char.HasBeenDamagedByChar(641@, 616@)
+                    Char.LocateAnyMeansChar3D(616@, 641@, 24.0, 24.0, 12.0, False)
+                then
+                    Task.KillCharOnFoot(641@, 616@)
+                end
+            end
+        end
+    end
+end
+return
+
+// Wrong interiors and impossible terrain recover after ten seconds. Normal
+// tactical separation is preserved, disconnected identities never block, and
+// cinematics use their immediate freeze/regroup path instead.
+:HEIST9_COOP_REGROUP
+if or
+    605@ == 1
+    612@ == 0
+then
+    return
+end
+617@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 611@ > 617@
+then
+    return
+end
+set_lvar_int_to_lvar_int 611@ = 617@
+611@ += 1000
+625@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+        not Char.IsDead(660@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+        626@ = Char.GetAreaVisible(616@)
+        627@ = 0
+        if
+            not is_int_lvar_equal_to_int_lvar 626@ == 625@
+        then
+            627@ = 1
+        end
+        if
+            Char.IsInWater(616@)
+        then
+            627@ = 1
+        end
+        if
+            not Char.LocateAnyMeansChar3D(616@, $scplayer, 300.0, 300.0, 150.0, False)
+        then
+            627@ = 1
+        end
+        if
+            627@ == 0
+        then
+            687@($temp_int,3i) = 0
+        else
+            if
+                687@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 687@($temp_int,3i) = 617@
+            end
+            set_lvar_int_to_lvar_int 645@ = 617@
+            sub_int_lvar_from_int_lvar 645@ -= 687@($temp_int,3i)
+            if
+                645@ > 10000
+            then
+                gosub @HEIST9_COOP_TELEPORT_CURRENT
+                631@, 632@, 633@ = Char.GetCoordinates($scplayer)
+                if
+                    $temp_int == 0
+                then
+                    631@ += 1.5
+                end
+                if
+                    $temp_int == 1
+                then
+                    632@ += 1.5
+                end
+                if
+                    $temp_int == 2
+                then
+                    631@ -= 1.5
+                end
+                Char.ClearTasksImmediately(616@)
+                if
+                    Char.IsInAnyCar(616@)
+                then
+                    Char.WarpFromCarToCoord(616@, 631@, 632@, 633@)
+                else
+                    Char.SetCoordinates(616@, 631@, 632@, 633@)
+                end
+                Char.SetAreaVisible(616@, 625@)
+                Char.SetVisible(616@, True)
+                Char.SetCollision(616@, True)
+                Char.SetProofs(616@, False, False, False, False, False)
+                Char.FreezePosition(616@, False)
+                Task.StandStill(616@, 0)
+                gosub @HEIST9_COOP_APPLY_CURRENT_LOADOUT
+                675@($temp_int,3i) = Char.GetHealth(616@)
+                678@($temp_int,3i) = Char.GetArmor(616@)
+                687@($temp_int,3i) = 0
+                696@($temp_int,3i) = -1
+            end
+        end
+    end
+end
+return
+
+:HEIST9_COOP_UPDATE_OBJECTIVES
+if or
+    604@ == 0
+    605@ == 1
+then
+    return
+end
+617@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 608@ > 617@
+then
+    return
+end
+set_lvar_int_to_lvar_int 608@ = 617@
+608@ += 750
+635@ = 1
+if
+    38@ == 2
+then
+    635@ = 2
+    if
+        36@ == 1
+    then
+        635@ = 3
+    end
+end
+if
+    38@ == 3
+then
+    635@ = 4
+end
+if
+    38@ == 5
+then
+    635@ = 5
+end
+if
+    38@ == 6
+then
+    635@ = 6
+end
+if and
+    38@ >= 7
+    13 > 38@
+then
+    635@ = 7
+end
+if or
+    38@ == 13
+    38@ == 14
+then
+    635@ = 8
+    if
+        119@ == 1
+    then
+        635@ = 9
+    end
+end
+if
+    38@ == 15
+then
+    635@ = 10
+end
+if
+    38@ == 16
+then
+    635@ = 11
+end
+if
+    38@ == 17
+then
+    635@ = 12
+end
+if
+    38@ == 18
+then
+    635@ = 13
+end
+set_lvar_int_to_lvar_int 606@ = 635@
+if
+    not is_int_lvar_equal_to_int_lvar 607@ == 635@
+then
+    gosub @HEIST9_COOP_CLEAR_OBJECTIVES
+    set_lvar_int_to_lvar_int 607@ = 635@
+end
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+        if
+            not is_int_lvar_equal_to_int_lvar 696@($temp_int,3i) == 635@
+        then
+            if
+                635@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_28', 7000, 1, 616@)
+            end
+            if
+                635@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_2', 7000, 1, 616@)
+            end
+            if
+                635@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_49', 6000, 1, 616@)
+            end
+            if
+                635@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_12', 6000, 1, 616@)
+            end
+            if
+                635@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_51', 7000, 1, 616@)
+            end
+            if
+                635@ == 6
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_5', 6000, 1, 616@)
+            end
+            if
+                635@ == 7
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_14', 6000, 1, 616@)
+            end
+            if
+                635@ == 8
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_22', 6000, 1, 616@)
+            end
+            if
+                635@ == 9
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_58', 7000, 1, 616@)
+            end
+            if
+                635@ == 10
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_8', 7000, 1, 616@)
+            end
+            if
+                635@ == 11
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_10', 7000, 1, 616@)
+            end
+            if
+                635@ == 12
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_45', 6000, 1, 616@)
+            end
+            if
+                635@ == 13
+            then
+                Coop.PrintNowForNetworkPlayer('HM9_1J', 6000, 1, 616@)
+            end
+            set_lvar_int_to_lvar_int 696@($temp_int,3i) = 635@
+        end
+        if
+            635@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2196.715, 1677.198, 11.375, 8.0, 8.0, 6.0, 616@)
+        end
+        if
+            635@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2149.008, 1605.299, 1005.172, 2.0, 2.0, 2.0, 616@)
+        end
+        if
+            635@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2143.046, 1620.661, 999.968, 5.0, 5.0, 5.0, 616@)
+        end
+        if
+            635@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2168.173, 1616.986, 998.97, 2.0, 2.0, 2.0, 616@)
+        end
+        if
+            635@ == 5
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2173.621, 1585.964, 998.9722, 5.0, 5.0, 4.0, 616@)
+            if and
+                807@ <> -1
+                Car.DoesExist(46@)
+                not Car.IsDead(46@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(616@, 46@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+        end
+        if
+            635@ == 6
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2220.543, 1572.625, 998.9531, 7.0, 7.0, 5.0, 616@)
+        end
+        if
+            635@ == 7
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2144.101, 1623.453, 993.5677, 18.0, 18.0, 8.0, 616@)
+        end
+        if
+            635@ == 8
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2146.925, 1613.49, 999.9764, 8.0, 8.0, 4.0, 616@)
+        end
+        if
+            635@ == 9
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2144.152, 1636.462, 992.5703, 8.0, 8.0, 4.0, 616@)
+        end
+        if
+            635@ == 10
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2220.205, 1585.422, 998.9717, 10.0, 10.0, 6.0, 616@)
+        end
+        if
+            635@ == 11
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2156.188, 1597.98, 998.9766, 3.0, 3.0, 3.0, 616@)
+        end
+        if
+            635@ == 12
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2266.598, 1647.378, 1083.241, 7.0, 7.0, 6.0, 616@)
+        end
+        if
+            635@ == 13
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(365.5647, 2536.76, 15.6637, 8.0, 8.0, 6.0, 616@)
+            if and
+                809@ <> -1
+                Car.DoesExist(198@)
+                not Car.IsDead(198@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(616@, 198@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+        end
+        if or
+            635@ == 7
+            635@ == 10
+            635@ == 11
+            635@ == 12
+        then
+            for 640@ = 7 to 32
+                if
+                    773@(640@,41i) <> -1
+                then
+                    gosub @HEIST9_COOP_LOAD_ENTITY
+                    if and
+                        Char.DoesExist(641@)
+                        not Char.IsDead(641@)
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(616@, 641@, False, BlipDisplay.Both, BlipColor.Red, 2)
+                    end
+                end
+            end
+            for 640@ = 0 to 3
+                if
+                    773@(640@,41i) <> -1
+                then
+                    gosub @HEIST9_COOP_LOAD_ENTITY
+                    if and
+                        Char.DoesExist(641@)
+                        not Char.IsDead(641@)
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(616@, 641@, True, BlipDisplay.Both, BlipColor.Blue, 2)
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:HEIST9_COOP_PRINT_SUBTITLE
+if or
+    600@ == 0
+    602@ == 1
+then
+    return
+end
+gosub @HEIST9_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        Coop.PrintNowForNetworkPlayer(288@s, 20000, 1, 660@($temp_int,3i))
+    end
+end
+650@ = 1
+return
+
+:HEIST9_COOP_CLEAR_SUBTITLE
+if
+    650@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        Coop.ClearThisPrintForNetworkPlayer(288@s, 660@($temp_int,3i))
+    end
+end
+650@ = 0
+return
+
+:HEIST9_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+        615@ = Coop.GetNetworkPlayerInternalId(616@)
+        if
+            is_int_lvar_equal_to_int_lvar 615@ == 663@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(616@)
+            Coop.RemoveCheckpointForNetworkPlayer(616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_28', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_2', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_49', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_12', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_51', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_5', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_14', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_22', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_58', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_8', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_10', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_45', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_1J', 616@)
+            Coop.ClearThisPrintForNetworkPlayer('HM9_99', 616@)
+        end
+    end
+    696@($temp_int,3i) = -1
+end
+return
+
+:HEIST9_COOP_NOTIFY_RESULT
+if
+    636@ == 1
+then
+    return
+end
+636@ = 1
+gosub @HEIST9_COOP_UPDATE_ROSTER
+gosub @HEIST9_COOP_CLEAR_OBJECTIVES
+gosub @HEIST9_COOP_CLEAR_SUBTITLE
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        if
+            603@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 660@($temp_int,3i))
+        end
+        if
+            603@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 660@($temp_int,3i))
+        end
+    end
+end
+return
+
+// Restore every inventory slot touched by this mission, not merely the last
+// temporary weapon.  The saved current weapon is selected again only when it
+// still exists after restoration.  This routine is deliberately idempotent.
+:HEIST9_COOP_CLEANUP
+if
+    602@ == 1
+then
+    return
+end
+602@ = 1
+gosub @HEIST9_COOP_UPDATE_ROSTER
+gosub @HEIST9_COOP_CLEAR_OBJECTIVES
+gosub @HEIST9_COOP_CLEAR_SUBTITLE
+gosub @HEIST9_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(628@, 629@, 630@)
+625@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        666@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(660@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 616@ = 660@($temp_int,3i)
+        615@ = Coop.GetNetworkPlayerInternalId(616@)
+        if
+            is_int_lvar_equal_to_int_lvar 615@ == 663@($temp_int,3i)
+        then
+            Char.ClearTasksImmediately(616@)
+            Char.FreezePosition(616@, False)
+            Char.SetProofs(616@, False, False, False, False, False)
+            Char.SetCollision(616@, True)
+            Char.SetVisible(616@, True)
+            Char.SetAreaVisible(616@, 625@)
+            if
+                699@($temp_int,3i) == 1
+            then
+                659@ = 2
+                set_lvar_int_to_lvar_int 633@ = 702@($temp_int,3i)
+                set_lvar_int_to_lvar_int 658@ = 705@($temp_int,3i)
+                gosub @HEIST9_COOP_RESTORE_SLOT
+                659@ = 3
+                set_lvar_int_to_lvar_int 633@ = 708@($temp_int,3i)
+                set_lvar_int_to_lvar_int 658@ = 711@($temp_int,3i)
+                gosub @HEIST9_COOP_RESTORE_SLOT
+                659@ = 5
+                set_lvar_int_to_lvar_int 633@ = 714@($temp_int,3i)
+                set_lvar_int_to_lvar_int 658@ = 717@($temp_int,3i)
+                gosub @HEIST9_COOP_RESTORE_SLOT
+                659@ = 9
+                set_lvar_int_to_lvar_int 633@ = 720@($temp_int,3i)
+                set_lvar_int_to_lvar_int 658@ = 723@($temp_int,3i)
+                gosub @HEIST9_COOP_RESTORE_SLOT
+                659@ = 12
+                set_lvar_int_to_lvar_int 633@ = 726@($temp_int,3i)
+                set_lvar_int_to_lvar_int 658@ = 729@($temp_int,3i)
+                gosub @HEIST9_COOP_RESTORE_SLOT
+                659@ = 13
+                set_lvar_int_to_lvar_int 633@ = 911@($temp_int,3i)
+                set_lvar_int_to_lvar_int 658@ = 914@($temp_int,3i)
+                gosub @HEIST9_COOP_RESTORE_SLOT
+                if
+                    681@($temp_int,3i) == 0
+                then
+                    Char.SetCurrentWeapon(616@, WeaponType.Unarmed)
+                else
+                    if
+                        Char.HasGotWeapon(616@, 681@($temp_int,3i))
+                    then
+                        Char.SetCurrentWeapon(616@, 681@($temp_int,3i))
+                    end
+                end
+            end
+            Task.StandStill(616@, 0)
+        end
+    end
+    660@($temp_int,3i) = 0
+    663@($temp_int,3i) = -1
+    666@($temp_int,3i) = 0
+    669@($temp_int,3i) = 0
+    675@($temp_int,3i) = 0
+    678@($temp_int,3i) = 0
+    681@($temp_int,3i) = 0
+    684@($temp_int,3i) = -1
+    687@($temp_int,3i) = 0
+    690@($temp_int,3i) = 0
+    693@($temp_int,3i) = 0
+    696@($temp_int,3i) = -1
+    699@($temp_int,3i) = 0
+    903@($temp_int,3i) = 0
+end
+for 640@ = 0 to 40
+    732@(640@,41i) = 0
+    773@(640@,41i) = -1
+    814@(640@,41i) = 0
+    855@(640@,41i) = 0
+end
+600@ = 0
+604@ = 0
+605@ = 0
+638@ = 0
+639@ = 0
+906@ = 0
+return
+
+:HEIST9_COOP_RESTORE_SLOT
+657@, 634@, 635@ = Char.GetWeaponInSlot(616@, 659@)
+if
+    657@ <> 0
+then
+    Char.RemoveWeapon(657@, 616@)
+end
+if
+    633@ <> 0
+then
+    Char.GiveWeapon(616@, 633@, 658@)
+end
+return
 
