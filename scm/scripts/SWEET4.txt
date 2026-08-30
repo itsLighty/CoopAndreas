@@ -1121,7 +1121,7 @@ then
     Car.SetHeading($NETWORK_PLAYER_VEHICLE[0], 135.0)
     Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[0], False)
     Car.SetHealth($NETWORK_PLAYER_VEHICLE[0], 1450)
-    556@ = $NETWORK_PLAYER_VEHICLE[0]
+    set_lvar_int_to_var_int 556@ = $NETWORK_PLAYER_VEHICLE[0]
     gosub @SWEET4_COOP_WAIT_FOR_VEHICLE
     if
         560@ == 0
@@ -1144,7 +1144,7 @@ then
     Car.SetHeading($NETWORK_PLAYER_VEHICLE[1], 135.0)
     Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[1], False)
     Car.SetHealth($NETWORK_PLAYER_VEHICLE[1], 1450)
-    556@ = $NETWORK_PLAYER_VEHICLE[1]
+    set_lvar_int_to_var_int 556@ = $NETWORK_PLAYER_VEHICLE[1]
     gosub @SWEET4_COOP_WAIT_FOR_VEHICLE
     if
         560@ == 0
@@ -1167,7 +1167,7 @@ then
     Car.SetHeading($NETWORK_PLAYER_VEHICLE[2], 135.0)
     Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[2], False)
     Car.SetHealth($NETWORK_PLAYER_VEHICLE[2], 1450)
-    556@ = $NETWORK_PLAYER_VEHICLE[2]
+    set_lvar_int_to_var_int 556@ = $NETWORK_PLAYER_VEHICLE[2]
     gosub @SWEET4_COOP_WAIT_FOR_VEHICLE
     if
         560@ == 0

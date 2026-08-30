@@ -237,7 +237,7 @@ then
         Car.ChangeColor($NETWORK_PLAYER_VEHICLE[0], 98, 14)
         Car.SetHealth($NETWORK_PLAYER_VEHICLE[0], 1250)
         Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[0], False)
-        291@ = $NETWORK_PLAYER_VEHICLE[0]
+        set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[0]
         gosub @DRUGS1_COOP_SYNC_VEHICLE
     end
     if
@@ -248,7 +248,7 @@ then
         Car.ChangeColor($NETWORK_PLAYER_VEHICLE[1], 98, 14)
         Car.SetHealth($NETWORK_PLAYER_VEHICLE[1], 1250)
         Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[1], False)
-        291@ = $NETWORK_PLAYER_VEHICLE[1]
+        set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[1]
         gosub @DRUGS1_COOP_SYNC_VEHICLE
     end
     if
@@ -259,7 +259,7 @@ then
         Car.ChangeColor($NETWORK_PLAYER_VEHICLE[2], 98, 14)
         Car.SetHealth($NETWORK_PLAYER_VEHICLE[2], 1250)
         Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[2], False)
-        291@ = $NETWORK_PLAYER_VEHICLE[2]
+        set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[2]
         gosub @DRUGS1_COOP_SYNC_VEHICLE
     end
 end
@@ -2787,7 +2787,7 @@ then
         Car.SetHealth($NETWORK_PLAYER_VEHICLE[0], 2000)
         Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[0], False)
         Car.SetProofs($NETWORK_PLAYER_VEHICLE[0], False, True, True, True, True)
-        291@ = $NETWORK_PLAYER_VEHICLE[0]
+        set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[0]
         gosub @DRUGS1_COOP_SYNC_VEHICLE
     end
     if
@@ -2798,7 +2798,7 @@ then
         Car.SetHealth($NETWORK_PLAYER_VEHICLE[1], 2000)
         Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[1], False)
         Car.SetProofs($NETWORK_PLAYER_VEHICLE[1], False, True, True, True, True)
-        291@ = $NETWORK_PLAYER_VEHICLE[1]
+        set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[1]
         gosub @DRUGS1_COOP_SYNC_VEHICLE
     end
     if
@@ -2809,7 +2809,7 @@ then
         Car.SetHealth($NETWORK_PLAYER_VEHICLE[2], 2000)
         Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[2], False)
         Car.SetProofs($NETWORK_PLAYER_VEHICLE[2], False, True, True, True, True)
-        291@ = $NETWORK_PLAYER_VEHICLE[2]
+        set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[2]
         gosub @DRUGS1_COOP_SYNC_VEHICLE
     end
     for $temp_int = 0 to 2
@@ -8957,7 +8957,7 @@ for $temp_int = 0 to 2
                 Car.SetHealth($NETWORK_PLAYER_VEHICLE[$temp_int], 2000)
                 Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[$temp_int], False)
                 Car.SetProofs($NETWORK_PLAYER_VEHICLE[$temp_int], False, True, True, True, True)
-                291@ = $NETWORK_PLAYER_VEHICLE[$temp_int]
+                set_lvar_int_to_var_int 291@ = $NETWORK_PLAYER_VEHICLE[$temp_int]
                 gosub @DRUGS1_COOP_SYNC_VEHICLE
             end
             if

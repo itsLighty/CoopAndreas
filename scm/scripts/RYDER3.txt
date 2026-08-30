@@ -3548,7 +3548,7 @@ for $temp_int = 0 to 2
             if
                 Char.HasBeenDamagedByChar(190@, $NETWORK_PLAYER[$temp_int])
             then
-                191@ = $NETWORK_PLAYER[$temp_int]
+                set_lvar_int_to_var_int 191@ = $NETWORK_PLAYER[$temp_int]
                 198@ = 0.0
             else
                 195@, 196@, 197@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
@@ -3556,7 +3556,7 @@ for $temp_int = 0 to 2
                 if
                     is_float_lvar_greater_than_float_lvar 198@ > 199@
                 then
-                    191@ = $NETWORK_PLAYER[$temp_int]
+                    set_lvar_int_to_var_int 191@ = $NETWORK_PLAYER[$temp_int]
                     set_lvar_float_to_lvar_float 198@ = 199@
                 end
             end

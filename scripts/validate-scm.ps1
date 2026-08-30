@@ -22,9 +22,9 @@ if (-not (Test-Path -LiteralPath $sannyExecutable -PathType Leaf)) {
 }
 
 $unsupportedShorthandPatterns = @(
-    '^\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\s*=\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\s*(?://.*)?$',
-    '^\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\s*(?:>=|>|==|<>)\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\s*$',
-    '^\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\s*(?:\+=|-=|\*=|/=)\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\s*(?://.*)?$'
+    '^\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\]|\([^)]*\))?)\s*=\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\]|\([^)]*\))?)\s*(?://.*)?$',
+    '^\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\]|\([^)]*\))?)\s*(?:>=|>|==|<>)\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\]|\([^)]*\))?)\s*$',
+    '^\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\]|\([^)]*\))?)\s*(?:\+=|-=|\*=|/=)\s*(?:[0-9]+@(?:\([^)]*\))?|\$[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\]|\([^)]*\))?)\s*(?://.*)?$'
 )
 $unsupportedShorthand = @(
     Get-ChildItem -LiteralPath (Join-Path $sourceScm 'scripts') -Filter '*.txt' -File |
@@ -34,7 +34,7 @@ if ($unsupportedShorthand.Count -gt 0) {
     $details = $unsupportedShorthand |
         Select-Object -First 20 |
         ForEach-Object { "$($_.Path):$($_.LineNumber) $($_.Line.Trim())" }
-    throw "Unsupported local-to-local Sanny shorthand detected. Use explicit typed directives:`n$($details -join "`n")"
+    throw "Unsupported variable-to-variable Sanny shorthand detected. Use explicit typed directives:`n$($details -join "`n")"
 }
 
 $compilerLockPath = Join-Path $sannyBuilderPath '.coopandreas-compile.lock'
