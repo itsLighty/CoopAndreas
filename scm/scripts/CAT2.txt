@@ -1,4 +1,5 @@
 :CAT2
+Coop.EnableSyncingThisScript()
 gosub @CAT2_36
 if 
   has_deatharrest_been_executed 
@@ -23,12 +24,57 @@ DecisionMakerGroup.AddEventResponse(37@, 36, 1516, 0.0, 100.0, 0.0, 0.0, True, F
 DecisionMakerChar.AddEventResponse(38@, 36, 1000, 0.0, 100.0, 0.0, 0.0, True, True)
 36@ = 32
 $onmission = 1
+// Freeze the mission roster once. Internal player identities keep a late joiner
+// from inheriting a disconnected participant's slot.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+640@ = 0 // frozen remote participant count
+641@ = 0 // idempotent cooperative cleanup guard
+642@ = 0 // participant-death failure
+643@ = -1 // published cooperative objective phase
+644@ = 0 // next objective refresh
+645@ = 0 // next combat retarget
+646@ = 0 // remotes staged for a host cutscene
+647@ = 0 // entity registration deadline
+648@ = -1 // entity network id
+649@ = 0 // degraded entity registration observed
+// 668@ is the ped passed to the registration helper.
+669@ = 1 // all active remotes regrouped at the final marker
+670@ = 0 // calculated objective phase
+671@ = 0 // current active participant count, including host
+672@ = 1 // entity registration succeeded
+673@ = 0 // next regroup update
+674@ = 0 // temporary internal network player id
+// 675@ is the ped passed to remote targeting/combat helpers.
+676@ = 0 // a valid remote is targeting the supplied ped
+677@ = 0 // helper iterator
+678@ = -1 // selected cooperative combat target
+679@ = 0 // temporary clock value
+680@ = 1 // final regroup gate used by the host state machine
+681@ = -1 // cooperative support vehicle
+682@ = 0 // cooperative objective changed this refresh
+// 683@ is the vehicle passed to the registration helper.
+for $temp_int = 0 to 2
+    650@($temp_int,3i) = -1 // frozen internal network identity
+    653@($temp_int,3i) = 0 // active frozen-roster participant
+    656@($temp_int,3i) = 0 // out-of-regroup-range deadline
+    659@($temp_int,3i) = 0 // mission shotgun granted
+    662@($temp_int,3i) = -1 // active teleport argument
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        650@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        653@($temp_int,3i) = 1
+        640@ += 1
+    end
+end
 Player.AlterWantedLevel($player1, 0)
 if 
   $onmission == 69
 goto_if_false @CAT2_256
 add_continuous_sound 82@ 65535 2320.043 -8.5501 27.2047
 298@ = Char.Create(23, 294, 682.8292, -477.8332, 15.3359)
+set_lvar_int_to_lvar_int 668@ = 298@
+gosub @CAT2_COOP_REGISTER_PED
 
 :CAT2_256
 script_name 'CAT2'
@@ -62,6 +108,8 @@ goto @CAT2_346
 
 :CAT2_385
 $catalina = Char.Create(23, 294, 682.8292, -477.8332, 15.3359)
+set_lvar_int_to_var_int 668@ = $catalina
+gosub @CAT2_COOP_REGISTER_PED
 Streaming.UnloadSpecialCharacter(5)
 Char.SetAnimGroup($catalina, "WOMAN")
 Char.SetOnlyDamagedByPlayer($catalina, True)
@@ -121,6 +169,7 @@ Char.SetCoordinates($scplayer, 2297.786, -15.5166, 26.2964)
 
 :CAT2_802
 Char.SetHeading($scplayer, 162.229)
+gosub @CAT2_COOP_FREEZE_REMOTES
 Streaming.RequestModel(283)
 Streaming.RequestModel(346)
 Streaming.RequestModel(349)
@@ -215,6 +264,14 @@ Streaming.MarkModelAsNoLongerNeeded(71)
 Char.SetHeading(66@, 90.0)
 Char.SetDecisionMaker(66@, 62@)
 Char.GiveWeapon(66@, WeaponType.Pistol, 9999)
+set_lvar_int_to_lvar_int 668@ = 63@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 64@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 65@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 66@
+gosub @CAT2_COOP_REGISTER_PED
 Player.SetControl($player1, False)
 Game.SetEveryoneIgnorePlayer($player1, True)
 Hud.SwitchWidescreen(True)
@@ -306,6 +363,8 @@ goto @CAT2_1965
 
 :CAT2_1992
 69@ = Car.Create(402, 857.4263, -29.5418, 62.1858)
+set_lvar_int_to_lvar_int 683@ = 69@
+gosub @CAT2_COOP_REGISTER_VEHICLE
 Char.WarpIntoCar($scplayer, 69@)
 if 
   not Char.IsDead($catalina)
@@ -314,6 +373,17 @@ Char.WarpIntoCarAsPassenger($catalina, 69@, 0)
 
 :CAT2_2049
 wait 0
+gosub @CAT2_COOP_UPDATE_ROSTER
+if
+  642@ == 1
+then
+    goto @CAT2_30119
+end
+gosub @CAT2_COOP_UPDATE_REGROUP
+gosub @CAT2_COOP_CHECK_FINAL_REGROUP
+gosub @CAT2_COOP_APPLY_BANK_FALLBACK
+gosub @CAT2_COOP_UPDATE_COMBAT
+gosub @CAT2_COOP_UPDATE_OBJECTIVES
 if 
   Char.IsDead($catalina)
 goto_if_false @CAT2_2094
@@ -905,6 +975,7 @@ Hud.SwitchWidescreen(False)
 Game.SetAllCarsCanBeDamaged(True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
+gosub @CAT2_COOP_RELEASE_REMOTES
 Char.ClearTasksImmediately($catalina)
 Char.SetCurrentWeapon($catalina, WeaponType.Unarmed)
 Task.PlayAnim($catalina, "CAT_SAFE_ROB", "ROB_BANK", 1000.0, True, False, False, False, -2)
@@ -937,15 +1008,23 @@ Task.KillCharOnFoot(66@, $scplayer)
 goto @CAT2_7038
 
 :CAT2_6728
+set_lvar_int_to_lvar_int 675@ = 66@
+gosub @CAT2_COOP_REMOTE_TARGETS_PED
 if and
-  Player.IsTargetingChar($player1, 66@)
   not Char.IsCurrentWeapon($scplayer, WeaponType.Unarmed)
+  Player.IsTargetingChar($player1, 66@)
 goto_if_false @CAT2_6771
 add_timed_val_to_float_lvar 57@ += frame_delta_time * 0.02
 goto @CAT2_6779
 
 :CAT2_6771
+if
+  676@ == 1
+then
+    add_timed_val_to_float_lvar 57@ += frame_delta_time * 0.02
+else
 sub_timed_float_lvar_from_float_lvar 57@ -= frame_delta_time * 81@
+end
 
 :CAT2_6779
 if 
@@ -1010,15 +1089,23 @@ Task.Duck(63@, 1410065407)
 goto @CAT2_7479
 
 :CAT2_7169
+set_lvar_int_to_lvar_int 675@ = 63@
+gosub @CAT2_COOP_REMOTE_TARGETS_PED
 if and
-  Player.IsTargetingChar($player1, 63@)
   not Char.IsCurrentWeapon($scplayer, WeaponType.Unarmed)
+  Player.IsTargetingChar($player1, 63@)
 goto_if_false @CAT2_7212
 add_timed_val_to_float_lvar 58@ += frame_delta_time * 0.023
 goto @CAT2_7220
 
 :CAT2_7212
+if
+  676@ == 1
+then
+    add_timed_val_to_float_lvar 58@ += frame_delta_time * 0.023
+else
 sub_timed_float_lvar_from_float_lvar 58@ -= frame_delta_time * 81@
+end
 
 :CAT2_7220
 if 
@@ -1083,15 +1170,23 @@ Task.Duck(64@, 1410065407)
 goto @CAT2_7920
 
 :CAT2_7610
+set_lvar_int_to_lvar_int 675@ = 64@
+gosub @CAT2_COOP_REMOTE_TARGETS_PED
 if and
-  Player.IsTargetingChar($player1, 64@)
   not Char.IsCurrentWeapon($scplayer, WeaponType.Unarmed)
+  Player.IsTargetingChar($player1, 64@)
 goto_if_false @CAT2_7653
 add_timed_val_to_float_lvar 59@ += frame_delta_time * 0.026
 goto @CAT2_7661
 
 :CAT2_7653
+if
+  676@ == 1
+then
+    add_timed_val_to_float_lvar 59@ += frame_delta_time * 0.026
+else
 sub_timed_float_lvar_from_float_lvar 59@ -= frame_delta_time * 81@
+end
 
 :CAT2_7661
 if 
@@ -1156,15 +1251,23 @@ Task.Duck(65@, 1410065407)
 goto @CAT2_8361
 
 :CAT2_8051
+set_lvar_int_to_lvar_int 675@ = 65@
+gosub @CAT2_COOP_REMOTE_TARGETS_PED
 if and
-  Player.IsTargetingChar($player1, 65@)
   not Char.IsCurrentWeapon($scplayer, WeaponType.Unarmed)
+  Player.IsTargetingChar($player1, 65@)
 goto_if_false @CAT2_8094
 add_timed_val_to_float_lvar 60@ += frame_delta_time * 0.025
 goto @CAT2_8102
 
 :CAT2_8094
+if
+  676@ == 1
+then
+    add_timed_val_to_float_lvar 60@ += frame_delta_time * 0.025
+else
 sub_timed_float_lvar_from_float_lvar 60@ -= frame_delta_time * 81@
+end
 
 :CAT2_8102
 if 
@@ -1290,6 +1393,7 @@ goto_if_false @CAT2_9672
 Streaming.RemoveAnimation("OTB")
 Streaming.RemoveAnimation("SHOP")
 Text.ClearSmallPrints
+gosub @CAT2_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Char.HideWeaponForScriptedCutscene($scplayer, True)
 Game.SetEveryoneIgnorePlayer($player1, True)
@@ -1344,6 +1448,26 @@ Task.PlayAnim(-1, "SEAT_IDLE", "PED", 4.0, True, False, False, False, 10000)
 Sequence.Close(43@)
 Char.PerformSequence(93@, 43@)
 Sequence.Clear(43@)
+set_lvar_int_to_lvar_int 683@ = 85@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 86@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 88@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 90@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 668@ = 87@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 89@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 91@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 92@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 93@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 94@
+gosub @CAT2_COOP_REGISTER_PED
 set_lvar_int_to_lvar_int 42@ = TIMERA
 42@ += 1000
 41@ += 1
@@ -1820,6 +1944,10 @@ Car.FreezePosition(95@, True)
 96@ = Car.Create(427, 2337.9, 23.4, 25.4766)
 Car.SetHeading(96@, 270.0)
 Car.FreezePosition(96@, True)
+set_lvar_int_to_lvar_int 683@ = 95@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 96@
+gosub @CAT2_COOP_REGISTER_VEHICLE
 101@ = 0
 
 :CAT2_12770
@@ -1853,6 +1981,7 @@ Game.SetAllCarsCanBeDamaged(True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Camera.DoFade(1, 500)
+gosub @CAT2_COOP_RELEASE_REMOTES
 if 
   not Char.IsDead(92@)
 goto_if_false @CAT2_12954
@@ -2096,6 +2225,7 @@ if
   Char.LocateAnyMeans3D($scplayer, 0, 2315.558, 70.7181, 31.4998, 11.4, 8.4, 6.0)
 goto_if_false @CAT2_14952
 DecisionMakerChar.ClearEventResponse(38@, 36)
+gosub @CAT2_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Char.HideWeaponForScriptedCutscene($scplayer, True)
 Game.SetEveryoneIgnorePlayer($player1, True)
@@ -2143,6 +2273,14 @@ Car.SetProofs(88@, True, True, True, True, True)
 89@ = Char.CreateInsideCar(PedType.CivMale, 283, 88@)
 Char.SetDecisionMaker(89@, 62@)
 Car.StartPlayback(88@, 124)
+set_lvar_int_to_lvar_int 683@ = 86@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 88@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 668@ = 87@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 89@
+gosub @CAT2_COOP_REGISTER_PED
 41@ += 1
 
 :CAT2_14952
@@ -2206,6 +2344,7 @@ Game.SetAllCarsCanBeDamaged(True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Camera.DoFade(1, 500)
+gosub @CAT2_COOP_RELEASE_REMOTES
 41@ += 1
 
 :CAT2_15250
@@ -2277,6 +2416,7 @@ goto_if_false @CAT2_16307
 if 
   not Camera.GetFadingStatus
 goto_if_false @CAT2_16307
+gosub @CAT2_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Char.HideWeaponForScriptedCutscene($scplayer, True)
 Game.SetEveryoneIgnorePlayer($player1, True)
@@ -2343,6 +2483,10 @@ World.ClearArea(1, 2320.634, 79.9329, 27.9897, 100.0)
 Car.SetHeading(86@, 34.6853)
 88@ = Car.Create(523, 2323.166, 70.1374, 26.0405)
 Car.SetHeading(88@, 345.7562)
+set_lvar_int_to_lvar_int 683@ = 86@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 88@
+gosub @CAT2_COOP_REGISTER_VEHICLE
 43@ = Sequence.Open()
 Task.StandStill(-1, 750)
 Task.EnterCarAsDriver(-1, 86@, -2)
@@ -2436,6 +2580,19 @@ Hud.SwitchWidescreen(False)
 Game.SetAllCarsCanBeDamaged(True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
+gosub @CAT2_COOP_RELEASE_REMOTES
+if
+  640@ > 0
+then
+    if
+        not Car.DoesExist(681@)
+    then
+        681@ = Car.Create(599, 2327.5, 77.0, 25.4766)
+        Car.SetHeading(681@, 180.0)
+        set_lvar_int_to_lvar_int 683@ = 681@
+        gosub @CAT2_COOP_REGISTER_VEHICLE
+    end
+end
 122@ = Car.Create(599, 1307.095, 280.2934, 18.4062)
 123@ = Car.Create(599, 1307.095, 290.2934, 18.4062)
 124@ = Car.Create(599, 1307.095, 300.2934, 18.4062)
@@ -2452,6 +2609,32 @@ Car.FreezePosition(124@, True)
 134@ = Char.CreateAsPassenger(PedType.Mission1, 283, 124@, 0)
 135@ = Char.CreateInsideCar(PedType.Mission2, 283, 146@)
 136@ = Char.CreateInsideCar(PedType.Mission2, 283, 147@)
+set_lvar_int_to_lvar_int 683@ = 122@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 123@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 124@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 146@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 683@ = 147@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 668@ = 129@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 130@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 131@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 132@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 133@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 134@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 135@
+gosub @CAT2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 668@ = 136@
+gosub @CAT2_COOP_REGISTER_PED
 Char.SetRelationship(135@, RelationshipType.Hate, PedType.Player1)
 Char.SetRelationship(136@, RelationshipType.Hate, PedType.Player1)
 166@ = DecisionMakerChar.Copy(65539)
@@ -2843,6 +3026,7 @@ goto @CAT2_19482
 280@(279@,18i) = 1
 set_lvar_int_to_lvar_int 316@(279@,18i) = 278@
 298@(278@,9i) = Char.Create(4, 283, 171@(279@,18f), 189@(279@,18f), 207@(279@,18f))
+gosub @CAT2_COOP_REGISTER_ARRAY_PED
 Char.SetShootRate(298@(278@,9i), 40)
 Char.SetAccuracy(298@(278@,9i), 60)
 set_lvar_int_to_lvar_int 307@(278@,9i) = 251@(279@,18i)
@@ -3451,6 +3635,10 @@ goto_if_false @CAT2_23694
 Car.SwitchSiren(353@, True)
 Car.SetHeading(353@, 270.0)
 354@ = Char.CreateInsideCar(PedType.Mission1, 283, 353@)
+set_lvar_int_to_lvar_int 683@ = 353@
+gosub @CAT2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 668@ = 354@
+gosub @CAT2_COOP_REGISTER_PED
 Char.GiveWeapon(354@, WeaponType.Pistol, 9999)
 355@ = Sequence.Open()
 Task.CarDriveToCoord(-1, 353@, 2105.236, 179.1932, 0.5812, 15.0, DriveMode.Straightline, 0, DrivingMode.StopForCars)
@@ -4042,8 +4230,10 @@ set_lvar_int_to_constant 541@ = 8732
 if and
   Char.LocateAnyMeans3D($scplayer, 1, 863.6693, -30.852, 62.1615, 4.0, 4.0, 4.0)
   Char.LocateAnyMeans3D($catalina, 0, 863.6693, -30.852, 62.1615, 4.0, 4.0, 4.0)
+  680@ == 1
 goto_if_false @CAT2_27418
 Blip.Remove(40@)
+gosub @CAT2_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 56@ = 9
 
@@ -4475,6 +4665,7 @@ Task.TurnCharToFaceChar($catalina, $scplayer)
 return 
 
 :CAT2_30119
+gosub @CAT2_COOP_FAIL_REMOTES
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 wait 2000
 if 
@@ -4510,6 +4701,7 @@ Camera.DoFade(1, 600)
 return 
 
 :CAT2_30343
+gosub @CAT2_COOP_PASS_REMOTES
 $cat_counter += 1
 $cat_getaway_dialogue += 1
 Stat.SetInt(StatId.PassedCat2, 1)
@@ -4536,6 +4728,7 @@ $cat_liquor_banter = 2
 return 
 
 :CAT2_30482
+gosub @CAT2_COOP_CLEANUP
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 if 
   Object.DoesExist($pc_door)
@@ -4700,6 +4893,15 @@ goto_if_false @CAT2_31317
 Char.MarkAsNoLongerNeeded(94@)
 
 :CAT2_31317
+if
+  Car.DoesExist(681@)
+then
+    if
+        not Car.IsDead(681@)
+    then
+        Car.MarkAsNoLongerNeeded(681@)
+    end
+end
 Sound.Remove(82@)
 $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
@@ -5188,4 +5390,788 @@ goto @CAT2_34497
 
 :CAT2_34497
 return 
+
+// Identity-stable cooperative layer. A disconnected frozen slot is ignored;
+// reconnecting or late-joining actors cannot replace it. A death by any active
+// participant fails the shared run through the original host failure path.
+:CAT2_COOP_UPDATE_ROSTER
+671@ = 1
+for $temp_int = 0 to 2
+    653@($temp_int,3i) = 0
+    if
+        650@($temp_int,3i) <> -1
+    then
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            674@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+            if
+                is_int_lvar_equal_to_int_lvar 674@ == 650@($temp_int,3i)
+            then
+                if
+                    Char.IsDead($NETWORK_PLAYER[$temp_int])
+                then
+                    642@ = 1
+                else
+                    653@($temp_int,3i) = 1
+                    671@ += 1
+                end
+            end
+        end
+    end
+end
+return
+
+:CAT2_COOP_BUILD_ACTIVE_ARGS
+662@ = -1
+663@ = -1
+664@ = -1
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_var_int 662@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    end
+end
+return
+
+:CAT2_COOP_TELEPORT_ACTIVE
+if
+  640@ == 0
+then
+    return
+end
+gosub @CAT2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(662@, 663@, 664@)
+return
+
+:CAT2_COOP_FREEZE_REMOTES
+if
+  646@ == 1
+then
+    return
+end
+gosub @CAT2_COOP_UPDATE_ROSTER
+gosub @CAT2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+    end
+end
+gosub @CAT2_COOP_TELEPORT_ACTIVE
+646@ = 1
+return
+
+:CAT2_COOP_RELEASE_REMOTES
+if
+  646@ == 0
+then
+    return
+end
+gosub @CAT2_COOP_UPDATE_ROSTER
+gosub @CAT2_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+        if
+            659@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Shotgun, 48)
+            Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Shotgun)
+            659@($temp_int,3i) = 1
+        end
+    end
+end
+646@ = 0
+643@ = -1
+return
+
+// Participants who become separated are given ten seconds to regroup. The
+// bounded host teleport prevents a disconnected/streaming peer from deadlocking
+// either the bank escape or the final safehouse gate.
+:CAT2_COOP_UPDATE_REGROUP
+if or
+  640@ == 0
+  646@ == 1
+then
+    return
+end
+679@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_than_int_lvar 673@ > 679@
+then
+    return
+end
+673@ = Clock.GetGameTimer()
+673@ += 1000
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        682@ = 0
+        if
+            126@ == 5
+        then
+            if
+                not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 863.6693, -30.852, 62.1615, 20.0, 20.0, 10.0)
+            then
+                682@ = 1
+            end
+        else
+            if
+                not Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 200.0, 200.0, 100.0, False)
+            then
+                682@ = 1
+            end
+        end
+        if
+            682@ == 1
+        then
+            if
+                656@($temp_int,3i) == 0
+            then
+                656@($temp_int,3i) = Clock.GetGameTimer()
+                656@($temp_int,3i) += 10000
+                Coop.PrintNowForNetworkPlayer('CAT2_14', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            else
+                679@ = Clock.GetGameTimer()
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 679@ >= 656@($temp_int,3i)
+                then
+                    if
+                      $temp_int == 0
+                    then
+                        Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+                    end
+                    if
+                      $temp_int == 1
+                    then
+                        Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+                    end
+                    if
+                      $temp_int == 2
+                    then
+                        Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+                    end
+                    656@($temp_int,3i) = 0
+                end
+            end
+        else
+            656@($temp_int,3i) = 0
+        end
+    else
+        656@($temp_int,3i) = 0
+    end
+end
+return
+
+:CAT2_COOP_CHECK_FINAL_REGROUP
+680@ = 1
+if
+  126@ <> 5
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 863.6693, -30.852, 62.1615, 20.0, 20.0, 10.0)
+        then
+            680@ = 0
+        end
+    end
+end
+return
+
+// Remote player IDs are used with the stock targeting conditional, matching the
+// engine's player-handle semantics. Thus every armed participant can hold the
+// bank customers at gunpoint instead of merely watching the host do it.
+:CAT2_COOP_REMOTE_TARGETS_PED
+676@ = 0
+if or
+  640@ == 0
+  646@ == 1
+then
+    return
+end
+if
+    not Char.DoesExist(675@)
+then
+    return
+end
+if
+    Char.IsDead(675@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        if
+            not Char.IsCurrentWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Unarmed)
+        then
+            if
+                Player.IsTargetingChar(650@($temp_int,3i), 675@)
+            then
+                676@ = 1
+            end
+        end
+    end
+end
+return
+
+// Objects and pickups have no Coop network-ID primitive. Destructible bank
+// props therefore stay canonical on the host, while nearby remote gunfire is a
+// conservative host-side fallback for ATM and security-door damage. Money
+// pickup collection and all rewards remain host-authoritative.
+:CAT2_COOP_APPLY_BANK_FALLBACK
+if or
+  640@ == 0
+  646@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        if
+            Char.IsShooting($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                41@ == 27
+            then
+                for 677@ = 0 to 2
+                    if and
+                        Object.DoesExist(72@(677@,4i))
+                        Object.DoesExist(76@(677@,4i))
+                        Char.LocateAnyMeansObject3D($NETWORK_PLAYER[$temp_int], 72@(677@,4i), 6.0, 6.0, 5.0, False)
+                    then
+                        Object.SetHealth(76@(677@,4i), 450)
+                    end
+                end
+            end
+            if and
+                34@ == 0
+                56@ > 4
+                Object.DoesExist($2661)
+                Char.LocateAnyMeansObject3D($NETWORK_PLAYER[$temp_int], $2661, 6.0, 6.0, 5.0, False)
+            then
+                Object.SetHealth($2661, 0)
+                34@ = 1
+                560@ = 21
+                set_lvar_int_to_lvar_int 639@ = TIMERA
+                639@ += 2500
+                561@ = 3
+            end
+        end
+    end
+end
+return
+
+// Mission enemies retain their original tasks, but damage or close pressure
+// from a valid remote retargets them so police combat is shared across clients.
+:CAT2_COOP_UPDATE_COMBAT
+if or
+  640@ == 0
+  646@ == 1
+then
+    return
+end
+if and
+  5 > 56@
+  35 > 41@
+then
+    return
+end
+679@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_than_int_lvar 645@ > 679@
+then
+    return
+end
+645@ = Clock.GetGameTimer()
+645@ += 750
+set_lvar_int_to_lvar_int 675@ = 87@
+gosub @CAT2_COOP_RETARGET_PED
+set_lvar_int_to_lvar_int 675@ = 89@
+gosub @CAT2_COOP_RETARGET_PED
+set_lvar_int_to_lvar_int 675@ = 354@
+gosub @CAT2_COOP_RETARGET_PED
+for 677@ = 0 to 8
+    set_lvar_int_to_lvar_int 675@ = 298@(677@,9i)
+    gosub @CAT2_COOP_RETARGET_PED
+end
+for 677@ = 0 to 7
+    set_lvar_int_to_lvar_int 675@ = 129@(677@,8i)
+    gosub @CAT2_COOP_RETARGET_PED
+end
+return
+
+:CAT2_COOP_RETARGET_PED
+if
+    not Char.DoesExist(675@)
+then
+    return
+end
+if
+    Char.IsDead(675@)
+then
+    return
+end
+678@ = -1
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        if
+            Char.HasBeenDamagedByChar(675@, $NETWORK_PLAYER[$temp_int])
+        then
+            set_lvar_int_to_var_int 678@ = $NETWORK_PLAYER[$temp_int]
+            Char.ClearLastDamageEntity(675@)
+        else
+            if and
+                678@ == -1
+                Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], 675@, 45.0, 45.0, 20.0, False)
+            then
+                set_lvar_int_to_var_int 678@ = $NETWORK_PLAYER[$temp_int]
+            end
+        end
+    end
+end
+if
+  678@ <> -1
+then
+    Task.KillCharOnFoot(675@, 678@)
+end
+return
+
+:CAT2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        653@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CAT2_05', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CAT2_06', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CAT2_14', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CAT2_16', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CAT2_19', $NETWORK_PLAYER[$temp_int])
+    end
+end
+643@ = -1
+return
+
+:CAT2_COOP_UPDATE_OBJECTIVES
+if or
+  640@ == 0
+  646@ == 1
+then
+    return
+end
+670@ = 0
+if and
+  41@ >= 9
+  11 > 41@
+then
+    670@ = 1
+end
+if and
+  41@ > 10
+  31 > 41@
+then
+    670@ = 2
+end
+if or
+  56@ == 5
+  56@ == 6
+then
+    670@ = 3
+end
+if and
+  41@ >= 31
+  41 > 41@
+then
+    670@ = 3
+end
+if
+  41@ >= 41
+then
+    670@ = 4
+end
+if
+  126@ == 5
+then
+    670@ = 5
+end
+if
+  56@ == 9
+then
+    670@ = 0
+end
+682@ = 0
+if
+  not is_int_lvar_equal_to_int_lvar 643@ == 670@
+then
+    682@ = 1
+end
+679@ = Clock.GetGameTimer()
+if and
+  682@ == 0
+  is_int_lvar_greater_than_int_lvar 644@ > 679@
+then
+    return
+end
+set_lvar_int_to_lvar_int 643@ = 670@
+644@ = Clock.GetGameTimer()
+644@ += 3000
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+          670@ == 1
+        then
+            for 677@ = 0 to 3
+                if and
+                    Char.DoesExist(63@(677@,4i))
+                    not Char.IsDead(63@(677@,4i))
+                then
+                    648@ = Coop.GetPedNetworkId(63@(677@,4i))
+                    if
+                      648@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 63@(677@,4i), False, BlipDisplay.Both, BlipColor.Purple, 3)
+                    end
+                end
+            end
+            if
+              682@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CAT2_05', 4000, 1, $NETWORK_PLAYER[$temp_int])
+                Coop.PrintNowForNetworkPlayer('CAT2_06', 8000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+        if
+          670@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2312.0, -8.0, 25.75, 18.0, 18.0, 8.0, $NETWORK_PLAYER[$temp_int])
+            if
+              682@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CAT2_19', 4000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+        if
+          670@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2319.237, 64.4156, 25.4766, 18.0, 18.0, 10.0, $NETWORK_PLAYER[$temp_int])
+            for 677@ = 0 to 8
+                if and
+                    Char.DoesExist(298@(677@,9i))
+                    not Char.IsDead(298@(677@,9i))
+                then
+                    648@ = Coop.GetPedNetworkId(298@(677@,9i))
+                    if
+                      648@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 298@(677@,9i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+            set_lvar_int_to_lvar_int 675@ = 87@
+            gosub @CAT2_COOP_OBJECTIVE_ENEMY
+            set_lvar_int_to_lvar_int 675@ = 89@
+            gosub @CAT2_COOP_OBJECTIVE_ENEMY
+            if and
+                Char.DoesExist($catalina)
+                not Char.IsDead($catalina)
+            then
+                648@ = Coop.GetPedNetworkId($catalina)
+                if
+                  648@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $catalina, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+        if
+          670@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1287.5, 249.2, 19.22, 60.0, 60.0, 30.0, $NETWORK_PLAYER[$temp_int])
+            if and
+                Char.DoesExist($catalina)
+                not Char.IsDead($catalina)
+            then
+                648@ = Coop.GetPedNetworkId($catalina)
+                if
+                  648@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $catalina, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if and
+                Car.DoesExist(681@)
+                not Car.IsDead(681@)
+            then
+                648@ = Coop.GetVehicleNetworkId(681@)
+                if
+                  648@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 681@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+            end
+            for 677@ = 0 to 7
+                if and
+                    Char.DoesExist(129@(677@,8i))
+                    not Char.IsDead(129@(677@,8i))
+                then
+                    648@ = Coop.GetPedNetworkId(129@(677@,8i))
+                    if
+                      648@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 129@(677@,8i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+            if
+              682@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CAT2_16', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+        if
+          670@ == 5
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(863.6693, -30.852, 62.1615, 20.0, 20.0, 10.0, $NETWORK_PLAYER[$temp_int])
+            if and
+                Char.DoesExist($catalina)
+                not Char.IsDead($catalina)
+            then
+                648@ = Coop.GetPedNetworkId($catalina)
+                if
+                  648@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $catalina, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+              682@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CAT2_16', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+    end
+end
+return
+
+// Input 675@ is already known to exist and be alive by the caller's checks.
+:CAT2_COOP_OBJECTIVE_ENEMY
+if
+    Char.DoesExist(675@)
+then
+    if
+        not Char.IsDead(675@)
+    then
+        648@ = Coop.GetPedNetworkId(675@)
+        if
+          648@ <> -1
+        then
+            Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 675@, False, BlipDisplay.Both, BlipColor.Red, 3)
+        end
+    end
+end
+return
+
+:CAT2_COOP_FAIL_REMOTES
+gosub @CAT2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+gosub @CAT2_COOP_CLEANUP
+return
+
+:CAT2_COOP_PASS_REMOTES
+gosub @CAT2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        653@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+gosub @CAT2_COOP_CLEANUP
+return
+
+:CAT2_COOP_CLEANUP
+if
+  641@ == 1
+then
+    return
+end
+641@ = 1
+gosub @CAT2_COOP_CLEAR_OBJECTIVES
+gosub @CAT2_COOP_RELEASE_REMOTES
+return
+
+// Peds and vehicles that affect shared gameplay are registered through bounded
+// 1.5-second handshakes. Existence/death is checked every frame; timeout merely
+// degrades remote presentation and never blocks host story progression.
+:CAT2_COOP_REGISTER_PED
+672@ = 1
+if
+  640@ == 0
+then
+    return
+end
+672@ = 0
+648@ = -1
+647@ = Clock.GetGameTimer()
+while 648@ == -1
+    if
+        not Char.DoesExist(668@)
+    then
+        break
+    end
+    if
+        Char.IsDead(668@)
+    then
+        break
+    end
+    648@ = Coop.GetPedNetworkId(668@)
+    if
+      648@ == -1
+    then
+        679@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 679@ -= 647@
+        if
+          679@ >= 1500
+        then
+            break
+        end
+        wait 0
+    end
+end
+if
+  648@ <> -1
+then
+    672@ = 1
+else
+    649@ = 1
+end
+return
+
+:CAT2_COOP_REGISTER_VEHICLE
+672@ = 1
+if
+  640@ == 0
+then
+    return
+end
+672@ = 0
+648@ = -1
+647@ = Clock.GetGameTimer()
+while 648@ == -1
+    if
+        not Car.DoesExist(683@)
+    then
+        break
+    end
+    if
+        Car.IsDead(683@)
+    then
+        break
+    end
+    648@ = Coop.GetVehicleNetworkId(683@)
+    if
+      648@ == -1
+    then
+        679@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 679@ -= 647@
+        if
+          679@ >= 1500
+        then
+            break
+        end
+        wait 0
+    end
+end
+if
+  648@ <> -1
+then
+    672@ = 1
+else
+    649@ = 1
+end
+return
+
+:CAT2_COOP_REGISTER_ARRAY_PED
+672@ = 1
+if
+  640@ == 0
+then
+    return
+end
+672@ = 0
+648@ = -1
+647@ = Clock.GetGameTimer()
+while 648@ == -1
+    if
+        not Char.DoesExist(298@(278@,9i))
+    then
+        break
+    end
+    if
+        Char.IsDead(298@(278@,9i))
+    then
+        break
+    end
+    648@ = Coop.GetPedNetworkId(298@(278@,9i))
+    if
+      648@ == -1
+    then
+        679@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 679@ -= 647@
+        if
+          679@ >= 1500
+        then
+            break
+        end
+        wait 0
+    end
+end
+if
+  648@ <> -1
+then
+    672@ = 1
+else
+    649@ = 1
+end
+return
 
