@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include <CWeatherSync.h>
 #include <CMoonSync.h>
+#include <CGangZoneWarSyncManager.h>
 #include <game_sa/CTagManager.h>
 
 PACKET_HANDLER(ePacketType::GAME_WEATHER_TIME, Packets::World::GameWeatherTime* pGameWeatherTime)
@@ -66,4 +67,14 @@ PACKET_HANDLER(ePacketType::UPDATE_ALL_TAGS, Packets::World::UpdateAllTags* pUpd
 PACKET_HANDLER(ePacketType::UPDATE_MOON_SIZE, Packets::World::UpdateMoonSize* pUpdateMoonSize)
 {
 	CMoonSync::HandlePacket(pUpdateMoonSize);
+}
+
+PACKET_HANDLER(ePacketType::GANG_ZONE_STATE, Packets::World::GangZoneState* pGangZoneState)
+{
+    CGangZoneWarSyncManager::HandleZoneState(*pGangZoneState);
+}
+
+PACKET_HANDLER(ePacketType::GANG_WAR_STATE, Packets::World::GangWarState* pGangWarState)
+{
+    CGangZoneWarSyncManager::HandleWarState(*pGangWarState);
 }

@@ -3,6 +3,7 @@
 #include "CKeySync.h"
 #include <CCutsceneMgr.h>
 #include <CCutsceneVoteManager.h>
+#include <CGangZoneWarSyncManager.h>
 #include <CWeatherSync.h>
 #include <CCoronas.h>
 
@@ -115,6 +116,20 @@ static void __cdecl CTheZones__Update_Hook()
     GetPacketFactory().Send(keyPressed);
 }
 
+static void __cdecl CGangWars__Update_Hook()
+{
+    CGangZoneWarSyncManager::ProcessGangWars();
+}
+
+static void __cdecl CGangWars__EndGangWar_Hook(bool bEnd)
+{
+    if (CNetwork::m_bAuthenticated && !CLocalPlayer::m_bIsHost)
+    {
+        return;
+    }
+    CGangWars::EndGangWar(bEnd);
+}
+
 bool CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook()
 {
     const bool result = plugin::CallAndReturn<bool, 0x4D5D10>();
@@ -188,6 +203,17 @@ void GameHooks::InjectHooks()
     // it is necessary for the menu to be processed correctly
     CTheZones__Update_Dest = injector::GetBranchDestination(0x53BF49).as_int();
     patch::RedirectCall(0x53BF49, CTheZones__Update_Hook);
+
+    // CGame::Process has one audited CGangWars::Update call. The manager preserves it verbatim offline and
+    // suppresses the peer-side lifecycle online so only host-created attack-wave entities enter entity sync.
+    patch::RedirectCall(0x53C122, CGangWars__Update_Hook);
+
+    // Audited 1.0 US references from SetGangWarsActive, CGangWars::Update, restart/load, and pre-save paths.
+    // An authenticated peer must not release actors or mutate territory by replaying a local end transition.
+    const int CGangWars__EndGangWar_Addresses[] = {0x4465D4, 0x446631, 0x56E5C3, 0x56E5FE, 0x618F87};
+    patch::RedirectCall(std::vector<int>(CGangWars__EndGangWar_Addresses,
+                            CGangWars__EndGangWar_Addresses + ARRAY_SIZE(CGangWars__EndGangWar_Addresses)),
+        CGangWars__EndGangWar_Hook);
 
     patch::RedirectCall(0x5B1947, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
     patch::RedirectCall(0x469F0E, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);

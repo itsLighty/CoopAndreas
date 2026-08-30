@@ -6,6 +6,7 @@
 #include <CWeatherSync.h>
 #include <CMoonSync.h>
 #include <game_sa/CTagManager.h>
+#include <CGangZoneWarSyncManager.h>
 
 PACKET_HANDLER(ePacketType::PLAYER_CONNECTED, Packets::System::PlayerConnected* pPlayerConnected)
 {
@@ -104,6 +105,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
         CNetworkPedManager::AssignHost();
         CWeatherSync::SyncCurrentState();
         CTagSync::SyncCurrentState();
+        CGangZoneWarSyncManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, true);
         CChat::AddMessage("[Player] You are the host now");
         return;
     }
@@ -122,6 +124,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
     }
 
     CLocalPlayer::m_bIsHost = false;
+    CGangZoneWarSyncManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
 }
 
 PACKET_HANDLER(ePacketType::PLAYER_CHAT_MESSAGE, Packets::System::ChatMessage* pChatMessage)

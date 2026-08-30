@@ -1,6 +1,7 @@
 #include "CNetworkPlayerManager.h"
 #include "CMissionSessionServer.h"
 #include "CCutsceneVoteManager.h"
+#include "CGangZoneWarAuthorityManager.h"
 #include "CRTTBroadcastManager.h"
 #include "CPacketFactory.h"
 #include "logger.h"
@@ -510,6 +511,7 @@ void CNetwork::CompletePlayerConnection(
     // spectators never receive the cached EnEx packet, so cross-channel delivery cannot expose it to them first.
     CMissionSessionServer::SendSnapshot(pNewNetworkPlayer);
     CCutsceneVoteManager::SendSnapshot(pNewNetworkPlayer);
+    CGangZoneWarAuthorityManager::SendSnapshot(pNewNetworkPlayer);
 
     const bool mayReceiveCachedEnEx = !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
     if (mayReceiveCachedEnEx && Packets::Scripts::g_pLastEnExPlayerOwner)

@@ -83,6 +83,8 @@ enum class ePacketType : uint16_t
     CUTSCENE_VOTE_REQUEST,
     CUTSCENE_END_REQUEST,
     CUTSCENE_VOTE_STATE,
+    GANG_ZONE_STATE,
+    GANG_WAR_STATE,
     PACKET_ID_MAX
 };
 
@@ -107,7 +109,8 @@ extern inline const char* ePacketType_ToString(ePacketType packetType)
         "ENEX_TRANSITION", "RTT_BROADCAST", "UPDATE_MOON_SIZE", "MISSION_SESSION_REQUEST",
         "MISSION_SESSION_STATE", "PLAYER_RECONNECT_REQUEST", "PLAYER_RECONNECT_CREDENTIAL",
         "PLAYER_RECONNECT_CREDENTIAL_ACK", "PLAYER_GAMEPLAY_STATE", "CUTSCENE_START_REQUEST",
-        "CUTSCENE_VOTE_REQUEST", "CUTSCENE_END_REQUEST", "CUTSCENE_VOTE_STATE"};
+        "CUTSCENE_VOTE_REQUEST", "CUTSCENE_END_REQUEST", "CUTSCENE_VOTE_STATE", "GANG_ZONE_STATE",
+        "GANG_WAR_STATE"};
 
     static_assert(sizeof(array) / sizeof(array[0]) == static_cast<size_t>(ePacketType::PACKET_ID_MAX),
         "Every packet type must have exactly one debug name");

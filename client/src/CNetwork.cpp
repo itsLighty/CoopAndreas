@@ -12,6 +12,7 @@
 #include "enet/enet.h"
 #include "stdafx.h"
 #include "CPlayerGameplayStateSync.h"
+#include "CGangZoneWarSyncManager.h"
 #include "../shared/semver.h"
 #include <cassert>
 #include <windows.h>
@@ -241,6 +242,7 @@ void CNetwork::ResetConnectionState()
     CMissionSessionClient::Reset();
     CStatsSync::ResetNetworkState();
     CPlayerGameplayStateSync::ResetNetworkState();
+    CGangZoneWarSyncManager::ResetNetworkState();
 
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();

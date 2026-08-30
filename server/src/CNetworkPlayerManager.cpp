@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "CGangZoneWarAuthorityManager.h"
 
 std::vector<CNetworkPlayer*> CNetworkPlayerManager::m_pPlayers;
 
@@ -67,13 +68,20 @@ CNetworkPlayer* CNetworkPlayerManager::GetHost()
 void CNetworkPlayerManager::AssignHostToFirstPlayer()
 {
     if (CNetworkPlayerManager::m_pPlayers.size() <= 0)
+    {
+        CGangZoneWarAuthorityManager::ResetForAuthorityChange();
         return;
+    }
 
     CNetworkPlayer* player = CNetworkPlayerManager::m_pPlayers.front();
     CNetworkPlayer* host = CNetworkPlayerManager::GetHost();
 
     if (player == host)
         return;
+
+    // Cached world state belongs to one concrete authority. Never let a replacement host inherit a stale
+    // revision stream; its first fresh snapshot establishes the new cache.
+    CGangZoneWarAuthorityManager::ResetForAuthorityChange();
 
     if (host != nullptr)
         host->m_bIsHost = false;
