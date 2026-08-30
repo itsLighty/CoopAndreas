@@ -239,7 +239,8 @@ void CMissionSessionClient::ReportScmMissionResult(eMissionSessionResult result)
 {
     if ((result != eMissionSessionResult::SUCCEEDED && result != eMissionSessionResult::FAILED) ||
         !CNetwork::m_bAuthenticated || !CLocalPlayer::m_bIsHost ||
-        (!IsLocalPlayerSessionHost() && !m_bLaunchRequestPending))
+        (!IsLocalPlayerSessionHost() && !m_bLaunchRequestPending) ||
+        m_ObservedScmMissionResult != eMissionSessionResult::NONE)
     {
         return;
     }
@@ -265,7 +266,8 @@ void CMissionSessionClient::CancelPendingMissionMedia()
     {
         if (COpCodeSync::ms_abLoadingMissionAudio[slot])
         {
-            Command<Commands::CLEAR_MISSION_AUDIO>(slot);
+            // The audio-engine arrays are zero-based; the SCM opcode uses slots 1 through 4.
+            Command<Commands::CLEAR_MISSION_AUDIO>(slot + 1);
         }
         COpCodeSync::ms_abLoadingMissionAudio[slot] = false;
         COpCodeSync::ms_anLoadingMissionAudioSessionIds[slot] = 0;

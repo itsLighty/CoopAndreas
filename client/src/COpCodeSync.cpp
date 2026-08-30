@@ -366,26 +366,6 @@ std::vector<uint8_t> COpCodeSync::SerializeOpcode(int idx, int& outSize)
 
 void BuildAndSendOpcode()
 {
-    if (lastProcessedScript && lastProcessedScript->m_bIsMission)
-    {
-        if (lastOpCodeProcessed == COMMAND_REGISTER_MISSION_PASSED)
-        {
-            CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
-        }
-        else if ((lastOpCodeProcessed == COMMAND_PRINT_BIG ||
-                  lastOpCodeProcessed == COMMAND_PRINT_WITH_NUMBER_BIG) && textParamCount > 0)
-        {
-            if (_strnicmp(textParamBuffer[0], "M_FAIL", 6) == 0)
-            {
-                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::FAILED);
-            }
-            else if (_strnicmp(textParamBuffer[0], "M_PASS", 6) == 0)
-            {
-                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
-            }
-        }
-    }
-
     if (!CTaskSequenceSync::OnOpCodeExecuted((eScriptCommands)lastOpCodeProcessed))
     {
         memset(textParamBuffer, 0, sizeof textParamBuffer);
@@ -411,6 +391,28 @@ void BuildAndSendOpcode()
     int idx = 0;
     if (!COpCodeSync::IsOpcodeSyncable(lastOpCodeProcessed, &idx))
         return;
+
+    // Observe only host opcodes emitted by a script registered for synchronization. The result is latched here
+    // and published when the mission flag clears, so stock SCM cleanup still runs to completion.
+    if (lastProcessedScript && lastProcessedScript->m_bIsMission)
+    {
+        if (lastOpCodeProcessed == COMMAND_REGISTER_MISSION_PASSED)
+        {
+            CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+        }
+        else if ((lastOpCodeProcessed == COMMAND_PRINT_BIG ||
+                  lastOpCodeProcessed == COMMAND_PRINT_WITH_NUMBER_BIG) && textParamCount > 0)
+        {
+            if (_strnicmp(textParamBuffer[0], "M_FAIL", 6) == 0)
+            {
+                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::FAILED);
+            }
+            else if (_strnicmp(textParamBuffer[0], "M_PASS", 6) == 0)
+            {
+                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+            }
+        }
+    }
 
     int dataSize = 0;
     std::vector<uint8_t> buffer = COpCodeSync::SerializeOpcode(idx, dataSize);

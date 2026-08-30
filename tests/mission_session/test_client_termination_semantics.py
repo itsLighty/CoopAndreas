@@ -25,6 +25,15 @@ class ClientTerminationSemanticsTests(unittest.TestCase):
         self.assertIn('"M_FAIL"', self.opcodes)
         self.assertIn('"M_PASS"', self.opcodes)
         self.assertIn("ReportScmMissionResult", self.styled_text)
+        self.assertIn(
+            "m_ObservedScmMissionResult != eMissionSessionResult::NONE",
+            self.session,
+        )
+        self.assertLess(
+            self.opcodes.index("if (!COpCodeSync::IsOpcodeSyncable"),
+            self.opcodes.index("Observe only host opcodes"),
+        )
+        self.assertIn("script->m_bIsMission", self.styled_text)
 
     def test_cleanup_cancels_and_untags_all_deferred_media(self):
         cleanup = re.search(
@@ -32,7 +41,7 @@ class ClientTerminationSemanticsTests(unittest.TestCase):
             self.session,
             re.S,
         ).group(1)
-        self.assertIn("Command<Commands::CLEAR_MISSION_AUDIO>(slot)", cleanup)
+        self.assertIn("Command<Commands::CLEAR_MISSION_AUDIO>(slot + 1)", cleanup)
         self.assertIn("Command<Commands::CLEAR_CUTSCENE>()", cleanup)
         self.assertIn("ms_anLoadingMissionAudioSessionIds[slot] = 0", cleanup)
         self.assertIn("ms_nLoadingCutsceneSessionId = 0", cleanup)
