@@ -5112,7 +5112,7 @@ for $temp_int = 0 to 2
         end
 
         if
-            not is_int_lvar_equal_to_lvar_int 235@($temp_int,3i) == 254@
+            not is_int_lvar_equal_to_int_lvar 235@($temp_int,3i) == 254@
         then
             Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
             Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
