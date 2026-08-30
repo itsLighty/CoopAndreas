@@ -3,6 +3,7 @@
 
 :DESERT4
 script_name 'DESERT4'
+Coop.EnableSyncingThisScript()
 gosub @DESERT4_47
 if 
   has_deatharrest_been_executed 
@@ -16,6 +17,22 @@ terminate_this_script
 :DESERT4_47
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+220@ = 0 // cooperative participant failure
+221@ = 0 // remote players are frozen for the cutscene
+222@ = 0 // cooperative cleanup guard
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 200@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    203@($temp_int,3i) = -1
+    206@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        203@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(200@($temp_int,3i))
+        206@($temp_int,3i) = 1
+    end
+end
+gosub @DESERT4_COOP_FREEZE_REMOTES
 wait 0
 Text.LoadMissionText('DSERT4')
 Weather.Force(WeatherType.ExtraSunnyDesert)
@@ -23,6 +40,13 @@ World.ClearArea(1, -688.1717, 937.9888, 12.6328, 10.0)
 Cutscene.Load('DESERT4')
 
 :DESERT4_110
+gosub @DESERT4_COOP_UPDATE
+if
+  220@ > 0
+goto_if_false @DESERT4_COOP_LOAD_CONTINUE
+goto @DESERT4_292
+
+:DESERT4_COOP_LOAD_CONTINUE
 if 
   not Cutscene.HasLoaded
 goto_if_false @DESERT4_134
@@ -34,6 +58,13 @@ Cutscene.Start
 Camera.DoFade(1, 1000)
 
 :DESERT4_143
+gosub @DESERT4_COOP_UPDATE
+if
+  220@ > 0
+goto_if_false @DESERT4_COOP_CUTSCENE_CONTINUE
+goto @DESERT4_292
+
+:DESERT4_COOP_CUTSCENE_CONTINUE
 if 
   not Cutscene.HasFinished
 goto_if_false @DESERT4_167
@@ -44,6 +75,13 @@ goto @DESERT4_143
 Camera.DoFade(0, Fade.Out)
 
 :DESERT4_173
+gosub @DESERT4_COOP_UPDATE
+if
+  220@ > 0
+goto_if_false @DESERT4_COOP_FADE_CONTINUE
+goto @DESERT4_292
+
+:DESERT4_COOP_FADE_CONTINUE
 if 
   Camera.GetFadingStatus
 goto_if_false @DESERT4_197
@@ -61,10 +99,13 @@ Streaming.LoadScene(-696.0359, 948.1198, 11.276)
 Camera.DoFade(1, 1000)
 wait 1000
 Text.PrintNow('BUY_AIR', 10000, 1)
+gosub @DESERT4_COOP_RELEASE_REMOTES
+gosub @DESERT4_COOP_NOTIFY_SUCCESS
 goto @DESERT4_310
 
 :DESERT4_292
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @DESERT4_COOP_NOTIFY_FAILURE
 return 
 
 :DESERT4_310
@@ -86,8 +127,195 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :DESERT4_429
+gosub @DESERT4_COOP_CLEANUP
 $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+:DESERT4_COOP_UPDATE_ROSTER
+230@, 231@, 232@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    206@($temp_int,3i) = 0
+    if and
+        203@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        223@ = Coop.GetNetworkPlayerInternalId(200@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 223@ == 203@($temp_int,3i)
+        then
+            206@($temp_int,3i) = 1
+        end
+    end
+    if and
+        203@($temp_int,3i) <> -1
+        206@($temp_int,3i) == 0
+    then
+        for 224@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(230@(224@,3i))
+            then
+                223@ = Coop.GetNetworkPlayerInternalId(230@(224@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 223@ == 203@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@($temp_int,3i) = 230@(224@,3i)
+                    206@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        206@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead(200@($temp_int,3i))
+        then
+            220@ = 1
+        end
+        if
+            221@ == 1
+        then
+            if
+                Char.IsInAnyCar(200@($temp_int,3i))
+            then
+                225@ = Char.StoreCarIsInNoSave(200@($temp_int,3i))
+                Task.LeaveCarImmediately(200@($temp_int,3i), 225@)
+            end
+            Char.ClearTasksImmediately(200@($temp_int,3i))
+            Char.FreezePosition(200@($temp_int,3i), True)
+            Char.SetProofs(200@($temp_int,3i), True, True, True, True, True)
+            Char.SetCollision(200@($temp_int,3i), True)
+            Char.SetVisible(200@($temp_int,3i), True)
+            Task.StandStill(200@($temp_int,3i), -1)
+        end
+    end
+end
+return
+
+:DESERT4_COOP_BUILD_ACTIVE_ARGS
+230@ = -1
+231@ = -1
+232@ = -1
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 230@($temp_int,3i) = 200@($temp_int,3i)
+    end
+end
+return
+
+:DESERT4_COOP_TELEPORT_ACTIVE
+gosub @DESERT4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(230@, 231@, 232@)
+return
+
+:DESERT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(200@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BUY_AIR', 200@($temp_int,3i))
+    end
+end
+return
+
+:DESERT4_COOP_FREEZE_REMOTES
+221@ = 1
+gosub @DESERT4_COOP_UPDATE_ROSTER
+gosub @DESERT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        if
+            Char.IsInAnyCar(200@($temp_int,3i))
+        then
+            225@ = Char.StoreCarIsInNoSave(200@($temp_int,3i))
+            Task.LeaveCarImmediately(200@($temp_int,3i), 225@)
+        end
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        Char.FreezePosition(200@($temp_int,3i), True)
+        Char.SetProofs(200@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Task.StandStill(200@($temp_int,3i), -1)
+    end
+end
+return
+
+:DESERT4_COOP_RELEASE_REMOTES
+221@ = 0
+gosub @DESERT4_COOP_UPDATE_ROSTER
+gosub @DESERT4_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(200@($temp_int,3i), False)
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        Char.SetProofs(200@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Task.StandStill(200@($temp_int,3i), 0)
+    end
+end
+return
+
+:DESERT4_COOP_UPDATE
+gosub @DESERT4_COOP_UPDATE_ROSTER
+return
+
+:DESERT4_COOP_NOTIFY_FAILURE
+gosub @DESERT4_COOP_UPDATE_ROSTER
+gosub @DESERT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@($temp_int,3i))
+    end
+end
+return
+
+:DESERT4_COOP_NOTIFY_SUCCESS
+gosub @DESERT4_COOP_UPDATE_ROSTER
+gosub @DESERT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('BUY_AIR', 10000, 1, 200@($temp_int,3i))
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@($temp_int,3i))
+    end
+end
+return
+
+:DESERT4_COOP_CLEANUP
+if
+    222@ == 1
+then
+    return
+end
+222@ = 1
+gosub @DESERT4_COOP_UPDATE_ROSTER
+221@ = 0
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(200@($temp_int,3i), False)
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        Char.SetProofs(200@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Task.StandStill(200@($temp_int,3i), 0)
+    end
+    206@($temp_int,3i) = 0
+end
+return
 
