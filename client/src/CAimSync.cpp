@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "CAimSync.h"
+#include "CLaserScopeDotSync.h"
 #include <CPacketBuffer.h>
 #include <CServerTime.h>
 
@@ -39,6 +40,7 @@ void CollectState(Packets::Players::PlayerCameraSync* pOut)
     }
 
     pOut->orientation = TheCamera.m_fOrientation;
+    CLaserScopeDotSync::AppendLocalState(*pOut);
 }
 
 void ApplyPacketToGame(const Packets::Players::PlayerCameraSync& packet)
@@ -243,6 +245,8 @@ void CAimSync::ProcessSyncing()
     static uint32_t lastPlayerCameraSyncTick = 0;
     static Packets::Players::PlayerCameraSync lastSentState{};
 
+    CLaserScopeDotSync::Process();
+
     uint32_t tickCount = CTimer::m_snTimeInMilliseconds;
     CPlayerPed* pPlayerPed = FindPlayerPed(0);
 
@@ -264,9 +268,13 @@ void CAimSync::ProcessSyncing()
 
         Packets::Players::PlayerCameraSync cameraState;
         CollectState(&cameraState);
-        cameraState.bFullUpdate = requireFullUpdate;
+        // MODE_SNIPER_RUNABOUT is not part of the generic first-person camera list, but the native laser path
+        // still supports it. Active laser state always carries the full camera payload required by its semantic
+        // contract; the following inactive state remains a distinct packet and therefore emits a stop update.
+        cameraState.bFullUpdate = requireFullUpdate || cameraState.bLaserScopeDotActive;
 
-        if (cameraState != lastSentState)
+        if (cameraState != lastSentState ||
+            CLaserScopeDotSync::ShouldSendHeartbeat(cameraState, tickCount, lastPlayerCameraSyncTick))
         {
             GetPacketFactory().Send(cameraState);
             lastSentState = cameraState;

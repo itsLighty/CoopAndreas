@@ -127,6 +127,7 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
 
 void CNetworkPlayer::DestroyPed()
 {
+    ClearLaserScopeDotState();
     if (!m_pPed)
     {
         return;
@@ -529,6 +530,17 @@ void CNetworkPlayer::ClearSyncedAnimationState()
     m_bHasSyncedAnimationSequence = false;
 }
 
+void CNetworkPlayer::ClearLaserScopeDotState()
+{
+    m_cameraSnapshotOld.bLaserScopeDotActive = false;
+    m_cameraSnapshotOld.laserScopeDotPosition = {};
+    m_cameraSnapshotOld.laserScopeDotSize = 0.0f;
+    m_cameraSnapshot.bLaserScopeDotActive = false;
+    m_cameraSnapshot.laserScopeDotPosition = {};
+    m_cameraSnapshot.laserScopeDotSize = 0.0f;
+    m_nLaserScopeDotReceivedAt = 0;
+}
+
 void CNetworkPlayer::ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot)
 {
     if (m_pPed == nullptr)
@@ -537,6 +549,10 @@ void CNetworkPlayer::ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weap
     }
 
     m_onFootSnapshotInterpolated.weaponSnapshot = weaponSnapshot;
+    if (weaponSnapshot.iWeaponType != WEAPON_SNIPERRIFLE)
+    {
+        ClearLaserScopeDotState();
+    }
     // TODO refactor CUtil
     CUtil::GiveWeaponByPacket(this, weaponSnapshot.iWeaponType, weaponSnapshot.nAmmo);
     m_pPed->m_aWeapons[m_pPed->m_nActiveWeaponSlot].m_nState = static_cast<eWeaponState>(weaponSnapshot.iWeaponState);

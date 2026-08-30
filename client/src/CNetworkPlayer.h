@@ -11,6 +11,7 @@ public:
 	uint32_t m_startedInterpolatingCameraAt = 0;
 	Packets::Players::PlayerCameraSync m_cameraSnapshotOld{};
 	Packets::Players::PlayerCameraSync m_cameraSnapshot{};
+	uint32_t m_nLaserScopeDotReceivedAt = 0;
 	
 	signed short m_oShockButtonL;
 	signed short m_lShockButtonL;
@@ -58,6 +59,7 @@ public:
 	void ApplySyncedAnimation();
 	void FadeSyncedAnimation();
 	void ClearSyncedAnimationState();
+	void ClearLaserScopeDotState();
 	void ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot);
 	void ApplyGameplayState(const Packets::Players::PlayerGameplayState& gameplayState);
 };

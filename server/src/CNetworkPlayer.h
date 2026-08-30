@@ -26,6 +26,9 @@ public:
     Packets::Players::PlayerGameplayState m_gameplayState{};
     Packets::Players::PlayerPlaceWaypoint m_waypointState{};
     CPedClothesDesc m_pPedClothesDesc{};
+    bool m_bHasOnFootSnapshot = false;
+    bool m_bIsAlive = false;
+    eWeaponType m_eLastWeaponType = WEAPON_UNARMED;
 
     struct
     {

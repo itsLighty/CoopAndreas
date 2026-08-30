@@ -16,6 +16,7 @@
 #include <network/eNetworkEntityType.h>
 #include <ePedBones.h>
 #include <CPedClothesDesc.h>
+#include <cmath>
 
 // NOLINTBEGIN(readability-simplify-boolean-expr)
 // NOLINTBEGIN(readability-isolate-declaration)
@@ -241,6 +242,9 @@ class PlayerCameraSync : public Packet
     DEFINE_PACKET_TYPE(PlayerCameraSync, ePacketType::PLAYER_CAMERA_SYNC, ePacketChannel::SYNC);
 
 public:
+    static constexpr float LASER_DOT_MIN_SIZE = 0.001f;
+    static constexpr float LASER_DOT_MAX_SIZE = 64.0f;
+
     SenderPlayerId playerid{};
     bool bFullUpdate = true;
     uint16_t cameraMode = MODE_NONE;
@@ -250,6 +254,27 @@ public:
     NormalizedVector up{};
     float lookPitch = 0.0f;
     RadianAngleCompressed orientation{};
+    bool bLaserScopeDotActive = false;
+    WorldPositionCompressed laserScopeDotPosition{};
+    float laserScopeDotSize = 0.0f;
+
+    bool IsLaserScopeDotSemanticallyValid() const
+    {
+        if (!bLaserScopeDotActive)
+        {
+            return laserScopeDotSize == 0.0f;
+        }
+
+        const bool sniperCamera = cameraMode == MODE_SNIPER || cameraMode == MODE_SNIPER_RUNABOUT;
+        const bool positionInWorld = std::isfinite(laserScopeDotPosition.x) &&
+                                     std::isfinite(laserScopeDotPosition.y) &&
+                                     std::isfinite(laserScopeDotPosition.z) &&
+                                     laserScopeDotPosition.x >= -3000.0f && laserScopeDotPosition.x <= 3000.0f &&
+                                     laserScopeDotPosition.y >= -3000.0f && laserScopeDotPosition.y <= 3000.0f &&
+                                     laserScopeDotPosition.z >= -120.0f && laserScopeDotPosition.z <= 1000.0f;
+        return bFullUpdate && sniperCamera && positionInWorld && std::isfinite(laserScopeDotSize) &&
+               laserScopeDotSize >= LASER_DOT_MIN_SIZE && laserScopeDotSize <= LASER_DOT_MAX_SIZE;
+    }
 
     template <typename Stream>
     bool Serialize(Stream& stream)
@@ -299,13 +324,36 @@ public:
             }
         }
 
+        serialize_bool(stream, bLaserScopeDotActive);
+        if (bLaserScopeDotActive)
+        {
+            if (Stream::IsWriting && !IsLaserScopeDotSemanticallyValid())
+            {
+                return false;
+            }
+            serialize_object(stream, laserScopeDotPosition);
+            serialize_compressed_float(
+                stream, laserScopeDotSize, LASER_DOT_MIN_SIZE, LASER_DOT_MAX_SIZE, 0.001f);
+            if (Stream::IsReading && !IsLaserScopeDotSemanticallyValid())
+            {
+                return false;
+            }
+        }
+        else if (Stream::IsReading)
+        {
+            laserScopeDotPosition = {};
+            laserScopeDotSize = 0.0f;
+        }
+
         return true;
     }
 
     bool operator==(const PlayerCameraSync& rhs) const
     {
         return cameraMode == rhs.cameraMode && cameraFov == rhs.cameraFov && front == rhs.front &&
-               source == rhs.source && up == rhs.up && lookPitch == rhs.lookPitch && orientation == rhs.orientation;
+               source == rhs.source && up == rhs.up && lookPitch == rhs.lookPitch && orientation == rhs.orientation &&
+               bLaserScopeDotActive == rhs.bLaserScopeDotActive &&
+               laserScopeDotPosition == rhs.laserScopeDotPosition && laserScopeDotSize == rhs.laserScopeDotSize;
     }
 
     bool operator!=(const PlayerCameraSync& rhs) const { return !(*this == rhs); }

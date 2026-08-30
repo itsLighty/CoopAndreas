@@ -11,6 +11,8 @@ namespace
 {
 constexpr uint32_t ANIMATION_RATE_WINDOW_MS = 1000;
 constexpr uint16_t MAX_ANIMATION_EVENTS_PER_WINDOW = 20;
+constexpr uint32_t LASER_DOT_RATE_WINDOW_MS = 1000;
+constexpr uint16_t MAX_LASER_DOT_UPDATES_PER_WINDOW = 30;
 
 struct AnimationRateSlot
 {
@@ -21,6 +23,16 @@ struct AnimationRateSlot
 };
 
 AnimationRateSlot g_animationRateSlots[Config::MAX_SERVER_PLAYERS]{};
+
+struct LaserDotRateSlot
+{
+    CNetworkPlayer* owner = nullptr;
+    uint32_t connectId = 0;
+    uint32_t windowStartedAt = 0;
+    uint16_t updateCount = 0;
+};
+
+LaserDotRateSlot g_laserDotRateSlots[Config::MAX_SERVER_PLAYERS]{};
 
 bool CanRelayAnimationEvent(CNetworkPlayer* player)
 {
@@ -51,6 +63,35 @@ bool CanRelayAnimationEvent(CNetworkPlayer* player)
     return true;
 }
 
+bool CanRelayLaserScopeDotUpdate(CNetworkPlayer* player)
+{
+    if (!player || player->m_iPlayerId < 0 || player->m_iPlayerId >= Config::MAX_SERVER_PLAYERS ||
+        !player->m_pPeer)
+    {
+        return false;
+    }
+
+    LaserDotRateSlot& slot = g_laserDotRateSlots[player->m_iPlayerId];
+    const uint32_t now = enet_time_get();
+    const uint32_t connectId = player->m_pPeer->connectID;
+    if (slot.owner != player || slot.connectId != connectId ||
+        now - slot.windowStartedAt >= LASER_DOT_RATE_WINDOW_MS)
+    {
+        slot.owner = player;
+        slot.connectId = connectId;
+        slot.windowStartedAt = now;
+        slot.updateCount = 0;
+    }
+
+    if (slot.updateCount >= MAX_LASER_DOT_UPDATES_PER_WINDOW)
+    {
+        return false;
+    }
+
+    ++slot.updateCount;
+    return true;
+}
+
 template <typename PacketT>
 void RelayPlayerGameplayState(PacketT& packet, CNetworkPlayer* pSourcePlayer)
 {
@@ -73,6 +114,9 @@ void RelayPlayerGameplayState(PacketT& packet, CNetworkPlayer* pSourcePlayer)
 PACKET_HANDLER(
     ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate* pOnFootUpdate, CNetworkPlayer* pNetworkPlayer)
 {
+    pNetworkPlayer->m_bHasOnFootSnapshot = true;
+    pNetworkPlayer->m_bIsAlive = pOnFootUpdate->healthSnapshot.iHealth > 0;
+    pNetworkPlayer->m_eLastWeaponType = static_cast<eWeaponType>(pOnFootUpdate->weaponSnapshot.iWeaponType);
     pOnFootUpdate->playerid.value = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pOnFootUpdate, pNetworkPlayer);
 }
@@ -85,6 +129,18 @@ PACKET_HANDLER(ePacketType::PLAYER_KEY_SYNC, Packets::Players::KeyPressed* pKeyP
 
 PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSync* pPlayerCameraSync, CNetworkPlayer* pNetworkPlayer)
 {
+    if (!pPlayerCameraSync->IsLaserScopeDotSemanticallyValid())
+    {
+        return;
+    }
+    if (pPlayerCameraSync->bLaserScopeDotActive &&
+        (!pNetworkPlayer->m_bHasOnFootSnapshot || !pNetworkPlayer->m_bIsAlive ||
+            pNetworkPlayer->m_eLastWeaponType != WEAPON_SNIPERRIFLE || pNetworkPlayer->m_nVehicleId >= 0 ||
+            !CanRelayLaserScopeDotUpdate(pNetworkPlayer)))
+    {
+        return;
+    }
+
     pPlayerCameraSync->playerid = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pPlayerCameraSync, pNetworkPlayer);
 }
@@ -121,6 +177,9 @@ PACKET_HANDLER(ePacketType::PLAYER_PLACE_WAYPOINT, Packets::Players::PlayerPlace
 
 PACKET_HANDLER(ePacketType::RESPAWN_PLAYER, Packets::Players::RespawnPlayer* pRespawnPlayer, CNetworkPlayer* pNetworkPlayer)
 {
+    pNetworkPlayer->m_bHasOnFootSnapshot = false;
+    pNetworkPlayer->m_bIsAlive = false;
+    pNetworkPlayer->m_eLastWeaponType = WEAPON_UNARMED;
     pRespawnPlayer->playerid = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pRespawnPlayer, pNetworkPlayer);
 }

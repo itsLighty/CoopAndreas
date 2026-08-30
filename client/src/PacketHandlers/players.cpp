@@ -2,6 +2,7 @@
 #include "network/packet_types.h"
 #include "stdafx.h"
 #include <CAimSync.h>
+#include <CLaserScopeDotSync.h>
 #include <CEntryExitTransitionSync.h>
 #include <CProjectileInfo.h>
 #include <CMissionSessionClient.h>
@@ -99,6 +100,11 @@ PACKET_HANDLER(ePacketType::PLAYER_KEY_SYNC, Packets::Players::KeyPressed* pKeyP
 
 PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSync* pPlayerCameraSync)
 {
+    if (!pPlayerCameraSync->IsLaserScopeDotSemanticallyValid())
+    {
+        return;
+    }
+
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pPlayerCameraSync->playerid);
     if (pNetworkPlayer == nullptr)
     {
@@ -118,6 +124,7 @@ PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSy
         pNetworkPlayer->m_cameraSnapshot.front.x = pPlayerCameraSync->front.x;
         pNetworkPlayer->m_cameraSnapshot.front.y = pPlayerCameraSync->front.y;
     }
+    CLaserScopeDotSync::HandleRemoteState(pNetworkPlayer, *pPlayerCameraSync);
 }
 
 PACKET_HANDLER(ePacketType::SET_PLAYER_TASK, Packets::Players::SetPlayerTask* pSetPlayerTask)
