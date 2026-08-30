@@ -197,7 +197,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] proper seat sync
   - [ ] radio sync
   - [X] drive by shooting
-- [ ] fixes
+- [X] fixes
   - [X] mouse
   - [X] widescreen
   - [X] fast load
