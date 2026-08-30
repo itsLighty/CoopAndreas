@@ -2,6 +2,55 @@
 #include "network/packet_types.h"
 #include "stdafx.h"
 
+namespace
+{
+bool HasValidTaskTarget(const CNetworkPed* owner, const Packets::Peds::SPedTaskSnapshot& task)
+{
+    if (task.type != Packets::Peds::ePedTaskSyncType::KILL_PED_ON_FOOT)
+        return true;
+
+    if (task.target.entityType == NETWORK_ENTITY_TYPE_PLAYER)
+        return CNetworkPlayerManager::GetPlayer(task.target.entityId) != nullptr;
+    if (task.target.entityType == NETWORK_ENTITY_TYPE_PED)
+    {
+        CNetworkPed* target = CNetworkPedManager::GetPed(task.target.entityId);
+        return target != nullptr && target != owner;
+    }
+    return false;
+}
+
+void CanonicalizeTaskSnapshot(CNetworkPed* ped, Packets::Peds::SPedTaskSnapshot& incoming)
+{
+    incoming.revision = 0;
+    if (!ped->m_bTaskSnapshotInitialized || !incoming.HasSamePayload(ped->m_taskSnapshot))
+    {
+        ++ped->m_nTaskRevision;
+        if (ped->m_nTaskRevision == 0)
+            ++ped->m_nTaskRevision;
+        incoming.revision = ped->m_nTaskRevision;
+        ped->m_taskSnapshot = incoming;
+        ped->m_bTaskSnapshotInitialized = true;
+    }
+    else
+    {
+        incoming.revision = ped->m_nTaskRevision;
+    }
+}
+
+bool CanOwnPedDriverVehicle(CNetworkPed* ped, CNetworkVehicle* vehicle, CNetworkPlayer* player)
+{
+    if (!ped || !vehicle || vehicle->m_pSyncer != player || vehicle->m_pPlayers[0] != nullptr)
+        return false;
+
+    for (auto* other : CNetworkPedManager::m_pPeds)
+    {
+        if (other != ped && other->m_nVehicleId == vehicle->m_nVehicleId)
+            return false;
+    }
+    return true;
+}
+}
+
 PACKET_HANDLER(ePacketType::PED_SPAWN, Packets::Peds::PedSpawn* pPedSpawn, CNetworkPlayer* pNetworkPlayer)
 {
     static char allowedSpecialActors[52][8] = {"ANDRE", "BBTHIN", "BB", "CAT", "CESAR", "COPGRL1", "COPGRL2", "COPGRL3",
@@ -68,6 +117,9 @@ PACKET_HANDLER(ePacketType::PED_REMOVE, Packets::Peds::PedRemove* pPedRemove, CN
             // assign ped's syncer to this player
             pNetworkPed->m_pSyncer = p;
 
+            if (auto* vehicle = CNetworkVehicleManager::GetVehicle(pNetworkPed->m_nVehicleId))
+                vehicle->ReassignSyncer(p);
+
             // send ASSIGN_PED packet to the new host player to notify them they now own the ped
             Packets::Peds::AssignPedSyncer assignPedPacket{};
             assignPedPacket.pedid = pNetworkPed->m_nPedId;
@@ -113,6 +165,13 @@ PACKET_HANDLER(ePacketType::PED_REMOVE, Packets::Peds::PedRemove* pPedRemove, CN
 
 PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot, CNetworkPlayer* pNetworkPlayer)
 {
+    if (!pPedOnFoot->HasValidAimState() || !pPedOnFoot->task.HasValidSemantics() ||
+        !pPedOnFoot->task.FitsSerializedBudget())
+    {
+        logger::warn("%s sent invalid ped aim/task state", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
     CNetworkPed* pPed = CNetworkPedManager::GetPed(pPedOnFoot->pedid);
     if (pPed)
     {
@@ -122,6 +181,15 @@ PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot, CN
             return;
         }
 
+        if (!HasValidTaskTarget(pPed, pPedOnFoot->task))
+        {
+            logger::warn("%s sent a missing or self-referential ped task target",
+                pNetworkPlayer->GetName().c_str());
+            return;
+        }
+
+        CNetworkPedManager::ReleaseVehicleUsage(pPed);
+        CanonicalizeTaskSnapshot(pPed, pPedOnFoot->task);
         pPed->m_vecPos = pPedOnFoot->pos;
         GetPacketFactory().SendToAll(*pPedOnFoot, pNetworkPlayer);
     }
@@ -148,7 +216,24 @@ PACKET_HANDLER(
         return;
     }
 
+    if (!CanOwnPedDriverVehicle(pNetworkPed, pNetworkVehicle, pNetworkPlayer))
+    {
+        logger::warn("%s sent a ped driver update for an unowned or occupied vehicle",
+            pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    if (pPedDriverUpdate->bSiren && !Packets::Peds::IsSirenCapableVehicleModel(pNetworkVehicle->m_nModelId))
+    {
+        logger::warn("%s enabled a siren on an unsupported vehicle", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    if (pNetworkPed->m_nVehicleId != pNetworkVehicle->m_nVehicleId)
+        CNetworkPedManager::ReleaseVehicleUsage(pNetworkPed);
+
     pNetworkVehicle->m_bUsedByPed = true;
+    pNetworkPed->m_nVehicleId = pNetworkVehicle->m_nVehicleId;
     pNetworkVehicle->m_vecPosition = pPedDriverUpdate->pos;
     pNetworkVehicle->m_vecRotation = pPedDriverUpdate->rot;
 
@@ -169,6 +254,15 @@ PACKET_HANDLER(ePacketType::PED_PASSENGER_UPDATE, Packets::Peds::PedPassengerSyn
         logger::warn("%s tries to update (passenger) someone else's ped", pNetworkPlayer->GetName().c_str());
         return;
     }
+
+    CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pPedPassengerSync->vehicleid);
+    if (!pNetworkVehicle)
+    {
+        logger::warn("%s sent a ped passenger update for an invalid vehicle", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    CNetworkPedManager::ReleaseVehicleUsage(pNetworkPed);
 
     GetPacketFactory().SendToAll(*pPedPassengerSync, pNetworkPlayer);
 }
@@ -257,6 +351,8 @@ PACKET_HANDLER(ePacketType::PED_RESET_ALL_CLAIMS, Packets::Peds::PedResetAllClai
                 GetPacketFactory().Send(assignPedPacket, pNetworkPed->m_pSyncer);  // unassign old
 
                 pNetworkPed->m_pSyncer = pNetworkPlayer;
+                if (auto* vehicle = CNetworkVehicleManager::GetVehicle(pNetworkPed->m_nVehicleId))
+                    vehicle->ReassignSyncer(pNetworkPlayer);
             }
 
             for (auto p : CNetworkPlayerManager::m_pPlayers)
@@ -302,6 +398,8 @@ PACKET_HANDLER(ePacketType::PED_TAKE_HOST, Packets::Peds::PedTakeHost* pPedTakeH
             }
 
             pNetworkPed->m_pSyncer = pNetworkPlayer;
+            if (auto* vehicle = CNetworkVehicleManager::GetVehicle(pNetworkPed->m_nVehicleId))
+                vehicle->ReassignSyncer(pNetworkPlayer);
         }
     }
 }

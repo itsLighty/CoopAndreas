@@ -132,6 +132,9 @@ void CNetworkPedManager::Update()
                 packet.gasPedal = pVehicle->m_fGasPedal;
                 packet.breakPedal = pVehicle->m_fBreakPedal;
                 packet.steerAngle = pVehicle->m_fSteerAngle;
+                packet.bHorn = pPed->m_fHealth > 0.0f && pVehicle->m_nHornCounter != 0;
+                packet.bSiren = pPed->m_fHealth > 0.0f && pVehicle->UsesSiren() &&
+                                pVehicle->m_nVehicleFlags.bSirenOrAlarm;
 
                 GetPacketFactory().Send(packet);
             }
@@ -194,6 +197,7 @@ void CNetworkPedManager::Update()
             }
 
             packet.fightingStyle = pPed->m_nFightingStyle;
+            pNetworkPed->CaptureTaskSnapshot(packet.task);
 
             GetPacketFactory().Send(packet);
         }
@@ -212,11 +216,32 @@ void CNetworkPedManager::Process()
         if (ped == nullptr)
             continue;
 
+        if (ped->m_fHealth <= 0.0f)
+        {
+            networkPed->ResetRemoteSyncState(true);
+            continue;
+        }
+
+        networkPed->ValidateRemoteTaskTarget();
+
+        if (networkPed->m_pRemoteSignalVehicle &&
+            (!ped->m_nPedFlags.bInVehicle || ped->m_pVehicle != networkPed->m_pRemoteSignalVehicle ||
+                !IsVehiclePointerValid(ped->m_pVehicle) ||
+                ped->m_pVehicle->m_pDriver != ped))
+        {
+            networkPed->ClearDriverSignals();
+        }
+
         if (!ped->m_nPedFlags.bInVehicle)
         {
             ped->m_fAimingRotation = networkPed->m_fAimingRotation;
             ped->m_fCurrentRotation = networkPed->m_fCurrentRotation;
             ped->m_fLookDirection = networkPed->m_fLookDirection;
+        }
+        else
+        {
+            networkPed->ClearRemoteAim();
+            networkPed->ClearRemoteTask();
         }
     }
 }

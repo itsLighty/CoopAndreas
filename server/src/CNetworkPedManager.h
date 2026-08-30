@@ -13,5 +13,6 @@ public:
     static void Remove(CNetworkPed* ped);
     static CNetworkPed* GetPed(int pedid);
     static int GetFreeId();
+    static void ReleaseVehicleUsage(CNetworkPed* ped);
     static void RemoveAllHostedAndNotify(CNetworkPlayer* player);
 };

@@ -4,9 +4,191 @@
 #include <CPed.h>
 #include <CVehicle.h>
 #include <eGlobalSpeechContexts.h>
+#include <cmath>
 
 namespace Packets::Peds
 {
+enum class ePedTaskSyncType
+{
+    NONE = 0,
+    STAND_STILL,
+    WANDER,
+    KILL_PED_ON_FOOT,
+    JUMP,
+    CLIMB,
+};
+
+inline bool IsFiniteWorldPosition(const WorldPositionCompressed& position)
+{
+    return std::isfinite(position.x) && std::isfinite(position.y) && std::isfinite(position.z) &&
+           position.x >= -3000.0f && position.x <= 3000.0f && position.y >= -3000.0f &&
+           position.y <= 3000.0f && position.z >= -120.0f && position.z <= 1000.0f;
+}
+
+inline bool IsAimCapableWeapon(uint8_t weaponType)
+{
+    return weaponType >= WEAPON_PISTOL && weaponType <= WEAPON_CAMERA && weaponType != WEAPON_SATCHEL_CHARGE &&
+           weaponType != WEAPON_DETONATOR;
+}
+
+inline bool IsSirenCapableVehicleModel(int modelId)
+{
+    // Mirrors GTA SA CVehicle::UsesSiren (0x6D8470): the three explicit service models plus
+    // IsLawEnforcementVehicle(), except for its explicit RHINO exclusion.
+    switch (modelId)
+    {
+    case MODEL_FIRETRUK:
+    case MODEL_AMBULAN:
+    case MODEL_MRWHOOP:
+    case MODEL_ENFORCER:
+    case MODEL_PREDATOR:
+    case MODEL_BARRACKS:
+    case MODEL_FBIRANCH:
+    case MODEL_COPBIKE:
+    case MODEL_FBITRUCK:
+    case MODEL_COPCARLA:
+    case MODEL_COPCARSF:
+    case MODEL_COPCARVG:
+    case MODEL_COPCARRU:
+    case MODEL_SWATVAN:
+        return true;
+    default:
+        return false;
+    }
+}
+
+struct SPedTaskSnapshot
+{
+    static constexpr size_t MAX_SERIALIZED_BYTES = 32;
+
+    uint16_t revision = 0;
+    ePedTaskSyncType type = ePedTaskSyncType::NONE;
+
+    int standTime = 0;
+    bool standLooped = false;
+    bool standUseIdleStance = false;
+
+    eMoveState wanderMoveState = PEDMOVE_STILL;
+    uint8_t wanderDirection = 0;
+    bool wanderSensibly = true;
+    float wanderRadius = 0.5f;
+
+    CNetworkEntitySerializer target{};
+    int killTime = -1;
+    uint8_t killAttackFlags = 0;
+    int killActionDelay = 0;
+    uint8_t killActionChance = 0;
+    bool killUnknownFlag = false;
+
+    uint8_t jumpType = 0;
+
+    bool HasSamePayload(const SPedTaskSnapshot& other) const
+    {
+        if (type != other.type)
+            return false;
+
+        switch (type)
+        {
+        case ePedTaskSyncType::NONE:
+        case ePedTaskSyncType::CLIMB:
+            return true;
+        case ePedTaskSyncType::STAND_STILL:
+            return standTime == other.standTime && standLooped == other.standLooped &&
+                   standUseIdleStance == other.standUseIdleStance;
+        case ePedTaskSyncType::WANDER:
+            return wanderMoveState == other.wanderMoveState && wanderDirection == other.wanderDirection &&
+                   wanderSensibly == other.wanderSensibly && std::abs(wanderRadius - other.wanderRadius) < 0.001f;
+        case ePedTaskSyncType::KILL_PED_ON_FOOT:
+            return target.entityType == other.target.entityType && target.entityId == other.target.entityId &&
+                   killTime == other.killTime && killAttackFlags == other.killAttackFlags &&
+                   killActionDelay == other.killActionDelay && killActionChance == other.killActionChance &&
+                   killUnknownFlag == other.killUnknownFlag;
+        case ePedTaskSyncType::JUMP:
+            return jumpType == other.jumpType;
+        }
+        return false;
+    }
+
+    bool HasValidSemantics() const
+    {
+        switch (type)
+        {
+        case ePedTaskSyncType::NONE:
+        case ePedTaskSyncType::CLIMB:
+            return true;
+        case ePedTaskSyncType::STAND_STILL:
+            return standTime >= -1 && standTime <= 600000;
+        case ePedTaskSyncType::WANDER:
+            return wanderMoveState >= PEDMOVE_STILL && wanderMoveState <= PEDMOVE_SPRINT && wanderDirection <= 7 &&
+                   std::isfinite(wanderRadius) && wanderRadius >= 0.1f && wanderRadius <= 50.0f;
+        case ePedTaskSyncType::KILL_PED_ON_FOOT:
+            return (target.entityType == NETWORK_ENTITY_TYPE_PLAYER || target.entityType == NETWORK_ENTITY_TYPE_PED) &&
+                   killTime >= -1 && killTime <= 600000 && killActionDelay >= 0 && killActionDelay <= 60000 &&
+                   killActionChance <= 100;
+        case ePedTaskSyncType::JUMP:
+            return jumpType <= 1;
+        }
+        return false;
+    }
+
+    size_t MeasureSerializedBytes() const
+    {
+        SPedTaskSnapshot measured = *this;
+        serialize::MeasureStream stream;
+        if (!measured.Serialize(stream))
+            return 0;
+        return stream.GetBytesProcessed();
+    }
+
+    bool FitsSerializedBudget() const
+    {
+        const size_t measuredBytes = MeasureSerializedBytes();
+        return measuredBytes > 0 && measuredBytes <= MAX_SERIALIZED_BYTES;
+    }
+
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint16(stream, revision);
+        serialize_int(stream, (int&)type, (int)ePedTaskSyncType::NONE, (int)ePedTaskSyncType::CLIMB);
+
+        switch (type)
+        {
+        case ePedTaskSyncType::NONE:
+        case ePedTaskSyncType::CLIMB:
+            // CTaskComplexClimb has a zero-argument constructor; the game derives ledge geometry from the ped and
+            // nearby collision data. Serializing engine pointers or transient climb probes would be unsafe.
+            break;
+        case ePedTaskSyncType::STAND_STILL:
+            serialize_int(stream, standTime, -1, 600000);
+            serialize_bool(stream, standLooped);
+            serialize_bool(stream, standUseIdleStance);
+            break;
+        case ePedTaskSyncType::WANDER:
+            serialize_int(stream, (int&)wanderMoveState, PEDMOVE_STILL, PEDMOVE_SPRINT);
+            serialize_int(stream, wanderDirection, 0, 7);
+            serialize_bool(stream, wanderSensibly);
+            serialize_compressed_float(stream, wanderRadius, 0.1f, 50.0f, 0.1f);
+            break;
+        case ePedTaskSyncType::KILL_PED_ON_FOOT:
+            serialize_object(stream, target);
+            serialize_int(stream, killTime, -1, 600000);
+            serialize_uint8(stream, killAttackFlags);
+            serialize_int(stream, killActionDelay, 0, 60000);
+            serialize_int(stream, killActionChance, 0, 100);
+            serialize_bool(stream, killUnknownFlag);
+            break;
+        case ePedTaskSyncType::JUMP:
+            serialize_int(stream, jumpType, 0, 1);
+            break;
+        }
+
+        return !Stream::IsReading || HasValidSemantics();
+    }
+};
+
+static_assert(SPedTaskSnapshot::MAX_SERIALIZED_BYTES <= 64, "NPC task snapshots must remain bounded for SYNC packets");
+
 class PedSpawn : public Packet
 {
     DEFINE_PACKET_TYPE(PedSpawn, ePacketType::PED_SPAWN, ePacketChannel::EVENT);
@@ -104,6 +286,13 @@ public:
     bool bAiming = false;
     uint8_t fightingStyle = 4;
     WorldPositionCompressed weaponAim{};
+    SPedTaskSnapshot task{};
+
+    bool HasValidAimState() const
+    {
+        return !bAiming || (healthSnapshot.iHealth > 0 && IsAimCapableWeapon(weaponSnapshot.iWeaponType) &&
+                              IsFiniteWorldPosition(weaponAim));
+    }
 
 private:
     template <typename Stream>
@@ -125,7 +314,9 @@ private:
         {
             serialize_object(stream, weaponAim);
         }
-        return true;
+        serialize_object(stream, task);
+        return !Stream::IsReading || (HasValidAimState() && task.HasValidSemantics() && task.FitsSerializedBudget() &&
+                                         (healthSnapshot.iHealth > 0 || task.type == ePedTaskSyncType::NONE));
     }
 };
 
@@ -163,6 +354,8 @@ public:
     float controlPedaling{};        // bmx
     float planeGearState{};         // plane
     uint16_t miscComponentAngle{};  // automobile/mtruck/plane
+    bool bHorn = false;
+    bool bSiren = false;
 
 private:
     template <typename Stream>
@@ -281,7 +474,10 @@ private:
         }
 #pragma endregion
 
-        return true;
+        serialize_bool(stream, bHorn);
+        serialize_bool(stream, bSiren);
+
+        return !Stream::IsReading || pedHealth.iHealth > 0 || (!bHorn && !bSiren);
     }
 };
 

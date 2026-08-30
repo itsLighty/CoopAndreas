@@ -63,6 +63,7 @@ PACKET_HANDLER(ePacketType::ASSIGN_PED, Packets::Peds::AssignPedSyncer* pAssignP
 #ifdef PACKET_DEBUG_MESSAGES
         CChat::AddMessage("NOT SYNCING PED %d ANYMORE", pAssignPedSyncer->pedid);
 #endif
+        pNetworkPed->ResetRemoteSyncState(false);
         pNetworkPed->m_bSyncing = false;
 
         if (auto pPed = pNetworkPed->m_pPed)
@@ -75,6 +76,7 @@ PACKET_HANDLER(ePacketType::ASSIGN_PED, Packets::Peds::AssignPedSyncer* pAssignP
 #ifdef PACKET_DEBUG_MESSAGES
         CChat::AddMessage("SYNCING VEHICLE %d", pAssignPedSyncer->pedid);
 #endif
+        pNetworkPed->ResetRemoteSyncState(false);
         pNetworkPed->m_bSyncing = true;
         pNetworkPed->m_bClaimOnRelease = false;
 
@@ -87,6 +89,9 @@ PACKET_HANDLER(ePacketType::ASSIGN_PED, Packets::Peds::AssignPedSyncer* pAssignP
 
 PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot)
 {
+    if (!pPedOnFoot->HasValidAimState() || !pPedOnFoot->task.HasValidSemantics())
+        return;
+
     CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pPedOnFoot->pedid);
 
     if (!pNetworkPed)
@@ -129,29 +134,14 @@ PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot)
         task.ProcessPed(pPed);
     }
 
-    // TODO reimplement ped aim sync
-    if (pPedOnFoot->bAiming)
+    if (pPed->m_fHealth <= 0.0f)
     {
-        CTaskSimpleUseGun* useGun = pPed->m_pIntelligence->GetTaskUseGun();
-        if (!useGun)
-        {
-            auto* taskUseGun = new CTaskSimpleUseGun(pPed->m_pTargetedObject, CVector(0.0f, 0.0f, 0.f), 1, 1, false);
-            pPed->m_pIntelligence->m_TaskMgr.SetTaskSecondary(taskUseGun, TASK_SECONDARY_ATTACK);
-        }
-
-        useGun = pPed->m_pIntelligence->GetTaskUseGun();
-
-        if (useGun)
-        {
-            useGun->m_vecTarget = pPedOnFoot->weaponAim;
-        }
+        pNetworkPed->ResetRemoteSyncState(true);
     }
     else
     {
-        if (auto useGun = pPed->m_pIntelligence->GetTaskUseGun())
-        {
-            useGun->MakeAbortable(pPed, ABORT_PRIORITY_URGENT, nullptr);
-        }
+        pNetworkPed->ApplyAimSnapshot(pPedOnFoot->bAiming, pPedOnFoot->weaponAim);
+        pNetworkPed->ApplyTaskSnapshot(pPedOnFoot->task);
     }
 
     pPed->m_nFightingStyle = pPedOnFoot->fightingStyle;
@@ -187,6 +177,8 @@ PACKET_HANDLER(ePacketType::PED_DRIVER_UPDATE, Packets::Peds::PedDriverUpdate* p
     {
         pNetworkPed->WarpIntoVehicleDriver(pVehicle);
     }
+    pNetworkPed->ClearRemoteAim();
+    pNetworkPed->ClearRemoteTask();
     pVehicle->m_matrix->pos = pPedDriverUpdate->pos;
     pVehicle->m_matrix->right = pPedDriverUpdate->roll;
     pVehicle->m_matrix->up = pPedDriverUpdate->rot;
@@ -233,6 +225,10 @@ PACKET_HANDLER(ePacketType::PED_DRIVER_UPDATE, Packets::Peds::PedDriverUpdate* p
     pVehicle->m_fGasPedal = pNetworkPed->m_fGasPedal = pPedDriverUpdate->gasPedal;
     pVehicle->m_fBreakPedal = pNetworkPed->m_fBreakPedal = pPedDriverUpdate->breakPedal;
     pVehicle->m_fSteerAngle = pNetworkPed->m_fSteerAngle = pPedDriverUpdate->steerAngle;
+    pNetworkPed->ApplyDriverSignals(pVehicle, pPedDriverUpdate->bHorn, pPedDriverUpdate->bSiren);
+
+    if (pPed->m_fHealth <= 0.0f)
+        pNetworkPed->ResetRemoteSyncState(true);
 }
 
 PACKET_HANDLER(ePacketType::PED_PASSENGER_UPDATE, Packets::Peds::PedPassengerSync* pPedPassengerSync)
@@ -256,6 +252,10 @@ PACKET_HANDLER(ePacketType::PED_PASSENGER_UPDATE, Packets::Peds::PedPassengerSyn
     {
         pNetworkPed->WarpIntoVehiclePassenger(pNetworkVehicle->m_pVehicle, pPedPassengerSync->seatid);
     }
+
+    pNetworkPed->ClearDriverSignals();
+    pNetworkPed->ClearRemoteAim();
+    pNetworkPed->ClearRemoteTask();
 
     pNetworkPed->ApplyWeaponSnapshot(pPedPassengerSync->weaponSnapshot);
 

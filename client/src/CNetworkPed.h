@@ -1,4 +1,7 @@
 #pragma once
+class CTask;
+class CTaskSimpleUseGun;
+
 class CNetworkPed
 {
 private:
@@ -23,6 +26,11 @@ public:
 	float m_fHealth = 100.0f;
 	int m_nBlipHandle = -1;
 	bool m_bClaimOnRelease = false;
+	Packets::Peds::SPedTaskSnapshot m_lastRemoteTask{};
+	bool m_bRemoteTaskInitialized = false;
+	CTask* m_pRemotePrimaryTask = nullptr;
+	CTaskSimpleUseGun* m_pRemoteAimTask = nullptr;
+	CVehicle* m_pRemoteSignalVehicle = nullptr;
 
 	static CNetworkPed* CreateHosted(CPed* ped);
 	void WarpIntoVehicleDriver(CVehicle* vehicle);
@@ -32,6 +40,15 @@ public:
 	void CancelClaim();
 
 	void ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot);
+	void CaptureTaskSnapshot(Packets::Peds::SPedTaskSnapshot& snapshot) const;
+	void ApplyTaskSnapshot(const Packets::Peds::SPedTaskSnapshot& snapshot);
+	void ApplyAimSnapshot(bool aiming, const CVector& target);
+	void ApplyDriverSignals(CVehicle* vehicle, bool horn, bool siren);
+	void ClearRemoteTask(bool resetRevision = true);
+	void ClearRemoteAim();
+	void ClearDriverSignals();
+	void ResetRemoteSyncState(bool abortTasks = true);
+	void ValidateRemoteTaskTarget();
 
 	CNetworkPed(int pedid, int modelId, ePedType pedType, CVector pos, unsigned char createdBy, char specialModelName[]);
 	~CNetworkPed();
