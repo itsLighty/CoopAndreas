@@ -3,6 +3,7 @@
 
 :STEAL1
 script_name 'STEAL1'
+Coop.EnableSyncingThisScript()
 gosub @STEAL1_581
 if 
   has_deatharrest_been_executed 
@@ -43,6 +44,14 @@ Car.LockDoors(435@, CarLock.LockoutPlayerOnly)
 Car.SetOnlyDamagedByPlayer(435@, True)
 443@ = Char.Create(5, 41, 445@, 446@, 447@)
 Char.SetHeading(443@, 448@)
+set_lvar_int_to_lvar_int 510@ = 435@
+gosub @STEAL1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 550@ = 511@
+517@ = 1
+set_lvar_int_to_lvar_int 510@ = 443@
+gosub @STEAL1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 551@ = 511@
+518@ = 1
 Car.SetLoadCollisionFlag(435@, False)
 436@ = Blip.AddForCarOld(435@, 4, 1)
 Car.ChangeColor(435@, 5, 1)
@@ -98,6 +107,40 @@ return
 :STEAL1_581
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+500@ = 0 // frozen cooperative roster size
+501@ = 0 // idempotent cooperative cleanup guard
+502@ = 0 // cooperative outcome fanout: 0 active, 1 pass, 2 fail
+503@ = 0 // cooperative failure reason
+504@ = 0 // remotes are frozen for a host cinematic
+505@ = 0 // cooperative phase
+506@ = -1 // last cooperative phase
+507@ = 0 // next per-peer objective refresh
+508@ = 0 // next bounded entity-id retry pass
+509@ = 0 // entity-id handshake timeout counter
+514@ = 0 // pursuit/escort play has begun
+515@ = 0 // support cars prepared
+516@ = 0 // force objective refresh
+517@ = 0 // target-car id attempts
+518@ = 0 // target-driver id attempts
+550@ = -1 // target-car network id
+551@ = -1 // target-driver network id
+for $temp_int = 0 to 2
+    520@($temp_int,3i) = -1 // frozen internal network identity
+    523@($temp_int,3i) = 0 // connected matching participant
+    526@($temp_int,3i) = -1 // last objective phase shown
+    529@($temp_int,3i) = -1 // participant support car
+    532@($temp_int,3i) = -1 // support-car network id
+    535@($temp_int,3i) = 0 // support-car id attempts
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        520@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        523@($temp_int,3i) = 1
+        500@ += 1
+    end
+end
+gosub @STEAL1_COOP_FREEZE_REMOTES
 wait 0
 34@ = 0
 36@ = 0
@@ -256,6 +299,12 @@ Player.SetControl($player1, False)
 
 :STEAL1_1816
 wait 0
+gosub @STEAL1_COOP_UPDATE
+if
+  503@ > 0
+then
+  goto @STEAL1_7641
+end
 if 
   400@ <> 0
 goto_if_false @STEAL1_2159
@@ -590,6 +639,7 @@ Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Char.Delete(454@)
 Streaming.UnloadSpecialCharacter(1)
+gosub @STEAL1_COOP_PREPARE_SUPPORTS
 Streaming.MarkModelAsNoLongerNeeded(602)
 Hud.SwitchWidescreen(False)
 Camera.DoFade(1, 500)
@@ -602,6 +652,7 @@ wait 0
 goto @STEAL1_3910
 
 :STEAL1_3934
+gosub @STEAL1_COOP_STAGE_PURSUIT
 Player.SetControl($player1, True)
 34@ = 1
 
@@ -963,6 +1014,7 @@ goto_if_false @STEAL1_6437
 if 
   Char.IsSittingInCar($scplayer, 435@)
 goto_if_false @STEAL1_6437
+gosub @STEAL1_COOP_BEGIN_FINAL_CINEMATIC
 World.ClearArea(1, 352@, 353@, 354@, 25.0)
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
@@ -1179,10 +1231,12 @@ Blip.SetAsFriendly(436@, True)
 goto @STEAL1_1816
 
 :STEAL1_7641
+gosub @STEAL1_COOP_FAIL_REMOTES
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :STEAL1_7659
+gosub @STEAL1_COOP_PASS_REMOTES
 $flag_steal_mission_counter += 1
 CarGenerator.Switch($steal_car_cargen1, 101)
 Stat.RegisterMissionPassed('STEAL_1')
@@ -1195,6 +1249,7 @@ Player.ClearWantedLevel($player1)
 return 
 
 :STEAL1_7730
+gosub @STEAL1_COOP_CLEANUP
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 Blip.Remove(436@)
 Blip.Remove(53@)
@@ -1417,4 +1472,841 @@ return
 241@ = 2316.442
 301@ = 4.5491
 return 
+
+// Cooperative Zeroing In layer. CJ remains the sole authority for the PIT
+// result, driver state, target-car theft, garage acceptance, rewards, stats,
+// failure, and cinematics. Frozen-roster peers pursue and escort in dedicated
+// support cars, but their proximity and route results never advance host flags.
+:STEAL1_COOP_UPDATE
+if
+    500@ == 0
+then
+    return
+end
+gosub @STEAL1_COOP_UPDATE_ROSTER
+gosub @STEAL1_COOP_CHECK_FAILURES
+if
+    503@ > 0
+then
+    return
+end
+if
+    504@ == 0
+then
+    set_lvar_int_to_lvar_int 519@ = 505@
+    505@ = 1
+    if
+        34@ == 3
+    then
+        505@ = 2
+    end
+    if
+        50@ >= 2
+    then
+        505@ = 3
+    end
+    if
+        519@ <> 505@
+    then
+        gosub @STEAL1_COOP_PHASE_CHANGED
+    end
+end
+513@ = Clock.GetGameTimer()
+if
+    513@ >= 507@
+then
+    gosub @STEAL1_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 507@ = 513@
+    507@ += 2500
+end
+if
+    513@ >= 508@
+then
+    gosub @STEAL1_COOP_RETRY_ENTITY_IDS
+    set_lvar_int_to_lvar_int 508@ = 513@
+    508@ += 5000
+end
+return
+
+// Slot membership is immutable. The live actor in a slot must retain the
+// internal identity captured at mission entry; recycled handles and late joins
+// therefore remain spectators, while the same identity can reconnect safely.
+:STEAL1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    559@ = 0
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if
+        559@ == 1
+    then
+        if
+            523@($temp_int,3i) == 0
+        then
+            523@($temp_int,3i) = 1
+            526@($temp_int,3i) = -1
+            Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            if
+                not Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
+                if
+                    504@ == 1
+                then
+                    Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                    if
+                        Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+                    then
+                        552@, 553@, 554@ = Char.GetCoordinates($scplayer)
+                        Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 552@, 553@, 554@)
+                    end
+                    Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                    Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                    Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+                    Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+                    if
+                        514@ == 1
+                    then
+                        gosub @STEAL1_COOP_TELEPORT_CURRENT
+                    end
+                else
+                    Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                    Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+                    Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+                    Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+                    if
+                        514@ == 1
+                    then
+                        gosub @STEAL1_COOP_TELEPORT_CURRENT
+                        gosub @STEAL1_COOP_STAGE_CURRENT_SUPPORT
+                    end
+                end
+            end
+        end
+    else
+        523@($temp_int,3i) = 0
+        526@($temp_int,3i) = -1
+    end
+end
+return
+
+:STEAL1_COOP_VALIDATE_SLOT
+559@ = 0
+if and
+    520@($temp_int,3i) <> -1
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+then
+    513@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+    if
+        is_int_lvar_equal_to_int_lvar 513@ == 520@($temp_int,3i)
+    then
+        559@ = 1
+    end
+end
+return
+
+// Connected participant death and friendly fire fail the shared attempt.
+// The target driver and vehicle are protected from remote damage because only
+// host actions may decide the canonical PIT, escape, and theft transitions.
+:STEAL1_COOP_CHECK_FAILURES
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            503@ = 1
+            return
+        end
+        if and
+            Car.DoesExist(435@)
+            Car.HasBeenDamagedByChar(435@, $NETWORK_PLAYER[$temp_int])
+        then
+            503@ = 2
+            return
+        end
+        if and
+            Char.DoesExist(443@)
+            Char.HasBeenDamagedByChar(443@, $NETWORK_PLAYER[$temp_int])
+        then
+            503@ = 2
+            return
+        end
+        if and
+            Car.DoesExist(435@)
+            Char.IsInCar($NETWORK_PLAYER[$temp_int], 435@)
+        then
+            Task.LeaveCarImmediately($NETWORK_PLAYER[$temp_int], 435@)
+        end
+        if or
+            Char.HasBeenDamagedByChar($scplayer, $NETWORK_PLAYER[$temp_int])
+            Char.HasBeenDamagedByChar($NETWORK_PLAYER[$temp_int], $scplayer)
+        then
+            503@ = 3
+            return
+        end
+        set_lvar_int_to_var_int 560@ = $NETWORK_PLAYER[$temp_int]
+        for 563@ = 0 to 2
+            if and
+                520@(563@,3i) <> -1
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[563@])
+            then
+                562@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[563@])
+                if
+                    is_int_lvar_equal_to_int_lvar 562@ == 520@(563@,3i)
+                then
+                    set_lvar_int_to_var_int 561@ = $NETWORK_PLAYER[563@]
+                    if and
+                        not is_int_lvar_equal_to_int_lvar 560@ == 561@
+                        Char.HasBeenDamagedByChar(560@, 561@)
+                    then
+                        503@ = 3
+                        return
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:STEAL1_COOP_BUILD_ACTIVE_ARGS
+556@ = -1
+557@ = -1
+558@ = -1
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            set_lvar_int_to_var_int 556@ = $NETWORK_PLAYER[0]
+        end
+        if
+            $temp_int == 1
+        then
+            set_lvar_int_to_var_int 557@ = $NETWORK_PLAYER[1]
+        end
+        if
+            $temp_int == 2
+        then
+            set_lvar_int_to_var_int 558@ = $NETWORK_PLAYER[2]
+        end
+    end
+end
+return
+
+:STEAL1_COOP_TELEPORT_ACTIVE
+if
+    500@ == 0
+then
+    return
+end
+gosub @STEAL1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(556@, 557@, 558@)
+return
+
+:STEAL1_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+end
+return
+
+// Support cars let every participant contribute to the pursuit and return
+// escort independently. They are synchronized mission entities but cannot
+// trigger the host-only target-car state checks above.
+:STEAL1_COOP_PREPARE_SUPPORTS
+if or
+    500@ == 0
+    515@ == 1
+then
+    return
+end
+if
+    not Streaming.HasModelLoaded(602)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        520@($temp_int,3i) <> -1
+    then
+        gosub @STEAL1_COOP_CREATE_CURRENT_SUPPORT
+    end
+end
+515@ = 1
+return
+
+:STEAL1_COOP_CREATE_CURRENT_SUPPORT
+552@, 553@, 554@ = Char.GetCoordinates($scplayer)
+555@ = Char.GetHeading($scplayer)
+if
+    Char.IsInAnyCar($scplayer)
+then
+    564@ = Char.GetCarIsUsing($scplayer)
+    if
+        Car.DoesExist(564@)
+    then
+        552@, 553@, 554@ = Car.GetCoordinates(564@)
+        555@ = Car.GetHeading(564@)
+    end
+end
+552@ += 5.0
+if
+    $temp_int == 0
+then
+    553@ -= 6.0
+end
+if
+    $temp_int == 1
+then
+    552@ += 4.0
+end
+if
+    $temp_int == 2
+then
+    553@ += 6.0
+end
+529@($temp_int,3i) = Car.Create(602, 552@, 553@, 554@)
+Car.SetHeading(529@($temp_int,3i), 555@)
+Car.SetHealth(529@($temp_int,3i), 1500)
+Car.SetCanBurstTires(529@($temp_int,3i), False)
+Car.ChangeColor(529@($temp_int,3i), 6, 6)
+Car.LockDoors(529@($temp_int,3i), CarLock.Unlocked)
+Car.SetAsMissionCar(529@($temp_int,3i))
+Car.FreezePosition(529@($temp_int,3i), True)
+Car.SetCollision(529@($temp_int,3i), False)
+Car.SetVisible(529@($temp_int,3i), False)
+set_lvar_int_to_lvar_int 510@ = 529@($temp_int,3i)
+gosub @STEAL1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 532@($temp_int,3i) = 511@
+535@($temp_int,3i) = 1
+return
+
+:STEAL1_COOP_STAGE_PURSUIT
+514@ = 1
+505@ = 1
+506@ = -1
+if
+    500@ == 0
+then
+    504@ = 0
+    return
+end
+gosub @STEAL1_COOP_UPDATE_ROSTER
+gosub @STEAL1_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        gosub @STEAL1_COOP_STAGE_CURRENT_SUPPORT
+    end
+end
+504@ = 0
+gosub @STEAL1_COOP_RELEASE_REMOTES
+516@ = 1
+507@ = 0
+return
+
+:STEAL1_COOP_STAGE_CURRENT_SUPPORT
+if
+    529@($temp_int,3i) == -1
+then
+    return
+end
+if
+    not Car.DoesExist(529@($temp_int,3i))
+then
+    return
+end
+if
+    Car.IsDead(529@($temp_int,3i))
+then
+    return
+end
+552@, 553@, 554@ = Char.GetCoordinates($scplayer)
+555@ = Char.GetHeading($scplayer)
+if
+    Char.IsInAnyCar($scplayer)
+then
+    564@ = Char.GetCarIsUsing($scplayer)
+    if
+        Car.DoesExist(564@)
+    then
+        552@, 553@, 554@ = Car.GetCoordinates(564@)
+        555@ = Car.GetHeading(564@)
+    end
+end
+552@ += 5.0
+if
+    $temp_int == 0
+then
+    553@ -= 6.0
+end
+if
+    $temp_int == 1
+then
+    552@ += 4.0
+end
+if
+    $temp_int == 2
+then
+    553@ += 6.0
+end
+Car.SetCoordinates(529@($temp_int,3i), 552@, 553@, 554@)
+Car.SetHeading(529@($temp_int,3i), 555@)
+Car.FreezePosition(529@($temp_int,3i), False)
+Car.SetCollision(529@($temp_int,3i), True)
+Car.SetVisible(529@($temp_int,3i), True)
+Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+if
+    Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+then
+    554@ += 1.0
+    Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 552@, 553@, 554@)
+end
+Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 529@($temp_int,3i))
+return
+
+// Remote cameras cannot follow host cutscenes. Participants and support cars are
+// therefore regrouped, hidden, collision-disabled, invulnerable, and frozen.
+:STEAL1_COOP_FREEZE_REMOTES
+if or
+    500@ == 0
+    504@ == 1
+then
+    return
+end
+504@ = 1
+gosub @STEAL1_COOP_UPDATE_ROSTER
+gosub @STEAL1_COOP_CLEAR_OBJECTIVES
+552@, 553@, 554@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        529@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(529@($temp_int,3i))
+        then
+            Car.FreezePosition(529@($temp_int,3i), True)
+            Car.SetCollision(529@($temp_int,3i), False)
+            Car.SetVisible(529@($temp_int,3i), False)
+        end
+    end
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 552@, 553@, 554@)
+        end
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+        Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+    end
+end
+return
+
+:STEAL1_COOP_RELEASE_REMOTES
+if
+    500@ == 0
+then
+    return
+end
+gosub @STEAL1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        529@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(529@($temp_int,3i))
+        then
+            Car.FreezePosition(529@($temp_int,3i), False)
+            Car.SetCollision(529@($temp_int,3i), True)
+            Car.SetVisible(529@($temp_int,3i), True)
+        end
+    end
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+return
+
+:STEAL1_COOP_BEGIN_FINAL_CINEMATIC
+if
+    504@ == 1
+then
+    return
+end
+505@ = 4
+gosub @STEAL1_COOP_FREEZE_REMOTES
+gosub @STEAL1_COOP_TELEPORT_ACTIVE
+return
+
+:STEAL1_COOP_PHASE_CHANGED
+gosub @STEAL1_COOP_CLEAR_OBJECTIVES
+set_lvar_int_to_lvar_int 506@ = 505@
+516@ = 1
+507@ = 0
+return
+
+// Entity IDs gate entity blips. Coordinate checkpoints remain available when a
+// bounded handshake times out, so network presentation can degrade without ever
+// blocking or changing canonical mission progression.
+:STEAL1_COOP_REFRESH_OBJECTIVES
+if or
+    500@ == 0
+    504@ == 1
+then
+    return
+end
+if
+    Car.DoesExist(435@)
+then
+    552@, 553@, 554@ = Car.GetCoordinates(435@)
+else
+    552@, 553@, 554@ = Char.GetCoordinates($scplayer)
+end
+if
+    505@ == 3
+then
+    552@ = -2033.175
+    553@ = 178.6755
+    554@ = 27.8516
+end
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+    then
+        Coop.UpdateCheckpointForNetworkPlayer(552@, 553@, 554@, 10.0, 10.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        if and
+            550@ <> -1
+            Car.DoesExist(435@)
+            not Car.IsDead(435@)
+        then
+            if
+                505@ == 1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 435@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            else
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 435@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if and
+            532@($temp_int,3i) <> -1
+            529@($temp_int,3i) <> -1
+        then
+            if
+                Car.DoesExist(529@($temp_int,3i))
+            then
+                if
+                    not Car.IsDead(529@($temp_int,3i))
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 529@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 2)
+                end
+            end
+        end
+        if
+            526@($temp_int,3i) <> 505@
+        then
+            if
+                505@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('STL1_03', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                505@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('STL1_05', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                505@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('STL1_06', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            set_lvar_int_to_lvar_int 526@($temp_int,3i) = 505@
+        end
+    end
+end
+516@ = 0
+return
+
+:STEAL1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if
+        559@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('STL1_03', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('STL1_02', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('STL1_05', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('STL1_06', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('STL1_11', $NETWORK_PLAYER[$temp_int])
+        526@($temp_int,3i) = -1
+    end
+end
+return
+
+// Initial handshakes are guarded and hard-bounded to one second. Five later
+// one-shot retries are timer-gated; after that the corresponding UI stays on its
+// coordinate fallback, with no unbounded network wait or gameplay stall.
+:STEAL1_COOP_RETRY_ENTITY_IDS
+if
+    500@ == 0
+then
+    return
+end
+if and
+    550@ == -1
+    517@ < 6
+    Car.DoesExist(435@)
+then
+    517@ += 1
+    550@ = Coop.GetVehicleNetworkId(435@)
+end
+if and
+    551@ == -1
+    518@ < 6
+    Char.DoesExist(443@)
+then
+    if
+        not Char.IsDead(443@)
+    then
+        518@ += 1
+        551@ = Coop.GetPedNetworkId(443@)
+        if
+            551@ <> -1
+        then
+            Coop.PedTakeHost(443@, True)
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        532@($temp_int,3i) == -1
+        535@($temp_int,3i) < 6
+        529@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(529@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(529@($temp_int,3i))
+            then
+                535@($temp_int,3i) += 1
+                532@($temp_int,3i) = Coop.GetVehicleNetworkId(529@($temp_int,3i))
+            end
+        end
+    end
+end
+return
+
+:STEAL1_COOP_REGISTER_PED
+511@ = -1
+if
+    500@ == 0
+then
+    return
+end
+512@ = Clock.GetGameTimer()
+while 511@ == -1
+    if
+        not Char.DoesExist(510@)
+    then
+        break
+    end
+    if
+        Char.IsDead(510@)
+    then
+        break
+    end
+    511@ = Coop.GetPedNetworkId(510@)
+    if
+        511@ == -1
+    then
+        513@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 513@ -= 512@
+        if
+            513@ >= 1000
+        then
+            509@ += 1
+            break
+        end
+        wait 0
+    else
+        Coop.PedTakeHost(510@, True)
+    end
+end
+return
+
+:STEAL1_COOP_REGISTER_VEHICLE
+511@ = -1
+if
+    500@ == 0
+then
+    return
+end
+512@ = Clock.GetGameTimer()
+while 511@ == -1
+    if
+        not Car.DoesExist(510@)
+    then
+        break
+    end
+    if
+        Car.IsDead(510@)
+    then
+        break
+    end
+    511@ = Coop.GetVehicleNetworkId(510@)
+    if
+        511@ == -1
+    then
+        513@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 513@ -= 512@
+        if
+            513@ >= 1000
+        then
+            509@ += 1
+            break
+        end
+        wait 0
+    end
+end
+return
+
+:STEAL1_COOP_FAIL_REMOTES
+if
+    502@ <> 0
+then
+    return
+end
+502@ = 2
+gosub @STEAL1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+gosub @STEAL1_COOP_CLEAR_OBJECTIVES
+return
+
+:STEAL1_COOP_PASS_REMOTES
+if
+    502@ <> 0
+then
+    return
+end
+502@ = 1
+gosub @STEAL1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+gosub @STEAL1_COOP_CLEAR_OBJECTIVES
+return
+
+// Repeat-safe across pass, fail, death/arrest, skipped cinematics, disconnects,
+// and partial support/entity setup. Only identity-validated participants are
+// restored; late joiners are never mutated by this mission layer.
+:STEAL1_COOP_CLEANUP
+if
+    501@ == 1
+then
+    return
+end
+501@ = 1
+gosub @STEAL1_COOP_UPDATE_ROSTER
+gosub @STEAL1_COOP_CLEAR_OBJECTIVES
+504@ = 0
+for $temp_int = 0 to 2
+    gosub @STEAL1_COOP_VALIDATE_SLOT
+    if and
+        559@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+    if
+        529@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(529@($temp_int,3i))
+        then
+            Car.FreezePosition(529@($temp_int,3i), False)
+            Car.SetCollision(529@($temp_int,3i), True)
+            Car.SetVisible(529@($temp_int,3i), True)
+            Car.MarkAsNoLongerNeeded(529@($temp_int,3i))
+        end
+    end
+    523@($temp_int,3i) = 0
+    526@($temp_int,3i) = -1
+    529@($temp_int,3i) = -1
+    532@($temp_int,3i) = -1
+    535@($temp_int,3i) = 0
+end
+514@ = 0
+515@ = 0
+550@ = -1
+551@ = -1
+return
 
