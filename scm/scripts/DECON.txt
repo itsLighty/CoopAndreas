@@ -3433,6 +3433,8 @@ return
 
 :DECON_COOP_UPDATE_ROSTER
 gosub @DECON_COOP_RECOLLECT_ROSTER
+// COOP_PARTICIPANT_DEATH: an identity-matched connected participant death
+// deterministically latches 522@ for the stock mission failure path.
 for $temp_int = 0 to 2
     506@($temp_int,3i) = 0
     if

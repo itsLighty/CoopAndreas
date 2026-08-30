@@ -5392,8 +5392,9 @@ goto @CAT2_34497
 return 
 
 // Identity-stable cooperative layer. A disconnected frozen slot is ignored;
-// reconnecting or late-joining actors cannot replace it. A death by any active
-// participant fails the shared run through the original host failure path.
+// reconnecting or late-joining actors cannot replace it.
+// COOP_PARTICIPANT_DEATH: deterministic connected-participant death failure
+// routes the shared run through the original host failure path.
 :CAT2_COOP_RECOLLECT_ROSTER
 690@, 691@, 692@ = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2

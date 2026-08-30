@@ -2852,6 +2852,7 @@ goto @SCRASH3_18102
 return 
 
 :SCRASH3_18128
+gosub @SCRASH3_COOP_NOTIFY_FAILURE
 gosub @SCRASH3_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 $valet_mission_terminate = 1
@@ -2859,6 +2860,7 @@ $valet_unlocked = 0
 return 
 
 :SCRASH3_18160
+gosub @SCRASH3_COOP_NOTIFY_PASS
 gosub @SCRASH3_COOP_CLEANUP
 Stat.SetInt(StatId.PassedZero1, 1)
 $valet_unlocked = 1
@@ -2985,6 +2987,8 @@ return
 :SCRASH3_COOP_CHECK_PLAYERS
 gosub @SCRASH3_COOP_REFRESH_ROSTER
 605@ = 0
+// COOP_PARTICIPANT_DEATH: only an identity-matched connected frozen actor can
+// deterministically select the mission's normal failure and cleanup path.
 for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
@@ -2994,6 +2998,30 @@ for $temp_int = 0 to 2
         then
             605@ = 1
         end
+    end
+end
+return
+
+:SCRASH3_COOP_NOTIFY_PASS
+gosub @SCRASH3_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if and
+        623@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SCRASH3_COOP_NOTIFY_FAILURE
+gosub @SCRASH3_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if and
+        623@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
     end
 end
 return

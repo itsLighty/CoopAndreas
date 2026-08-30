@@ -3773,6 +3773,7 @@ Text.ClearThisPrint($garage1_text(348@,106s))
 return 
 
 :GARAG1_24446
+gosub @GARAG1_COOP_NOTIFY_PASS
 gosub @GARAG1_COOP_CLEANUP
 Text.PrintWithNumberBig('M_PASSD', 0, 5000, TextStyle.Middle)
 Player.ClearWantedLevel($player1)
@@ -3785,6 +3786,7 @@ $flag_garage_mission_counter += 1
 return 
 
 :GARAG1_24512
+gosub @GARAG1_COOP_NOTIFY_FAILURE
 gosub @GARAG1_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
@@ -3945,6 +3947,8 @@ return
 :GARAG1_COOP_CHECK_PLAYERS
 gosub @GARAG1_COOP_REFRESH_ROSTER
 605@ = 0
+// COOP_PARTICIPANT_DEATH: only an identity-matched connected frozen actor can
+// deterministically select the mission's normal failure and cleanup path.
 for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
@@ -3954,6 +3958,30 @@ for $temp_int = 0 to 2
         then
             605@ = 1
         end
+    end
+end
+return
+
+:GARAG1_COOP_NOTIFY_PASS
+gosub @GARAG1_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if and
+        623@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:GARAG1_COOP_NOTIFY_FAILURE
+gosub @GARAG1_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if and
+        623@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
     end
 end
 return
