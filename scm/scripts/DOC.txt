@@ -27,7 +27,7 @@ goto_if_false @DOC_180
 $onmission = 1
 Text.PrintBig('DOC_2', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(95) // Madd Dogg
+Coop.LaunchMissionForCoop(95) // Madd Dogg
 
 :DOC_180
 goto @DOC_11

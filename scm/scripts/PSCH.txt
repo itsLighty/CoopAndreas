@@ -42,7 +42,7 @@ Player.SetControl($player1, False)
 LITCAS_267()
 
 :PSCH_235
-Mission.LoadAndLaunchInternal(83) // Learning to Fly
+Coop.LaunchMissionForCoop(83) // Learning to Fly; approved native path uses Mission.LoadAndLaunchInternal(83)
 
 :PSCH_239
 goto @PSCH_11

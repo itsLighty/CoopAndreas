@@ -27,7 +27,7 @@ goto_if_false @VCRASH_180
 $onmission = 1
 Text.PrintBig('VCRASH1', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(93) // Misappropriation
+Coop.LaunchMissionForCoop(93) // Misappropriation
 
 :VCRASH_180
 if and
@@ -40,7 +40,7 @@ goto_if_false @VCRASH_287
 $onmission = 1
 Text.PrintBig('VCRASH2', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(94) // High Noon
+Coop.LaunchMissionForCoop(94) // High Noon
 
 :VCRASH_287
 goto @VCRASH_11

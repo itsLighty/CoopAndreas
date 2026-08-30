@@ -22,7 +22,7 @@ goto_if_false @BCESAR_116
 if 
   $start_the_bcesar_race == 0
 goto_if_false @BCESAR_116
-Mission.LoadAndLaunchInternal(48) // Wu Zi Mu / Farewell, My Love...
+Coop.LaunchMissionForCoop(48) // Wu Zi Mu / Farewell, My Love...
 
 :BCESAR_116
 if 
@@ -54,7 +54,7 @@ $flag_bcesar_mission_counter = 0
 $onmission = 1
 Text.PrintBig('BCESAR4', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(48) // Wu Zi Mu / Farewell, My Love...
+Coop.LaunchMissionForCoop(48) // Wu Zi Mu / Farewell, My Love...
 goto @BCESAR_359
 
 :BCESAR_343
@@ -73,7 +73,7 @@ goto_if_false @BCESAR_425
 $flag_bcesar_mission_counter = 4
 $onmission = 1
 LITCAS_267()
-Mission.LoadAndLaunchInternal(48) // Wu Zi Mu / Farewell, My Love...
+Coop.LaunchMissionForCoop(48) // Wu Zi Mu / Farewell, My Love...
 
 :BCESAR_425
 if and
@@ -106,7 +106,7 @@ $flag_bcesar_mission_counter = 5
 $onmission = 1
 Text.PrintBig('BCES4_2', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(48) // Wu Zi Mu / Farewell, My Love...
+Coop.LaunchMissionForCoop(48) // Wu Zi Mu / Farewell, My Love...
 
 :BCESAR_652
 if 
@@ -115,7 +115,7 @@ goto_if_false @BCESAR_695
 $flag_bcesar_mission_counter = 9
 $onmission = 1
 LITCAS_267()
-Mission.LoadAndLaunchInternal(48) // Wu Zi Mu / Farewell, My Love...
+Coop.LaunchMissionForCoop(48) // Wu Zi Mu / Farewell, My Love...
 
 :BCESAR_695
 if and
@@ -136,7 +136,7 @@ goto_if_false @BCESAR_823
 $flag_bcesar_mission_counter = 2
 set_var_int_to_constant $race_selection = 7
 $show_race_selection = 0
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 $start_the_bcesar_race = 0
 
 :BCESAR_823
@@ -147,7 +147,7 @@ $flag_bcesar_mission_counter = 7
 set_var_int_to_constant $race_selection = 8
 $show_race_selection = 0
 Stat.SetInt(StatId.StartedCrash1, 1)
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 $start_the_bcesar_race = 0
 
 :BCESAR_880

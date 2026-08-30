@@ -31,7 +31,7 @@ $onmission = 1
 Text.PrintBig('INTRO_1', 1000, TextStyle.BottomRight)
 PSAVE1_1140()
 Text.ClearHelp
-Mission.LoadAndLaunchInternal(11) // Big Smoke
+Coop.LaunchMissionForCoop(11) // Big Smoke
 
 :INT_182
 if 
@@ -46,7 +46,7 @@ goto_if_false @INT_292
 $onmission = 1
 Text.PrintBig('INTRO_2', 1000, TextStyle.BottomRight)
 PSAVE1_1498()
-Mission.LoadAndLaunchInternal(12) // Ryder
+Coop.LaunchMissionForCoop(12) // Ryder
 
 :INT_292
 goto @INT_11

@@ -33,7 +33,7 @@ Camera.SetFadingColor(0, 0, 0)
 Text.PrintBig('FAR_1', 1000, TextStyle.BottomRight)
 Player.SetControl($player1, False)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(71) // Back to School
+Coop.LaunchMissionForCoop(71) // Back to School
 
 :TRACE_263
 goto @TRACE_395
@@ -53,7 +53,7 @@ Camera.SetFadingColor(0, 0, 0)
 Text.PrintBig('FAR_1', 1000, TextStyle.BottomRight)
 Player.SetControl($player1, False)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(71) // Back to School
+Coop.LaunchMissionForCoop(71) // Back to School
 
 :TRACE_395
 if 
@@ -73,7 +73,7 @@ Player.SetControl($player1, False)
 Text.PrintBig('TRACE_1', 1000, TextStyle.BottomRight)
 $show_race_selection = 1
 set_var_int_to_constant $menu_mode = 0
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 
 :TRACE_535
 if 
@@ -84,7 +84,7 @@ Player.SetControl($player1, False)
 Text.PrintBig('TRACE_1', 1000, TextStyle.BottomRight)
 $show_race_selection = 1
 set_var_int_to_constant $menu_mode = 1
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 
 :TRACE_625
 if 
@@ -95,7 +95,7 @@ Player.SetControl($player1, False)
 Text.PrintBig('TRACE_1', 1000, TextStyle.BottomRight)
 $show_race_selection = 1
 set_var_int_to_constant $menu_mode = 2
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 
 :TRACE_715
 if 
@@ -106,7 +106,7 @@ Player.SetControl($player1, False)
 Text.PrintBig('TRACE_1', 1000, TextStyle.BottomRight)
 $show_race_selection = 1
 set_var_int_to_constant $menu_mode = 3
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 
 :TRACE_805
 goto @TRACE_11

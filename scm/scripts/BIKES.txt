@@ -17,7 +17,7 @@ if
 goto_if_false @BIKES_125
 Player.SetControl($player1, False)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(120) // Bike School
+Coop.LaunchMissionForCoop(120) // Bike School
 
 :BIKES_125
 goto @BIKES_11

@@ -27,7 +27,7 @@ goto_if_false @GROVE_180
 $onmission = 1
 Text.PrintBig('GROVE_1', 1000, TextStyle.BottomRight)
 PSAVE1_1140()
-Mission.LoadAndLaunchInternal(106) // Beat Down on B Dup
+Coop.LaunchMissionForCoop(106) // Beat Down on B Dup
 
 :GROVE_180
 if 
@@ -39,7 +39,7 @@ goto_if_false @GROVE_274
 $onmission = 1
 Text.PrintBig('GROVE_2', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(107) // Grove 4 Life
+Coop.LaunchMissionForCoop(107) // Grove 4 Life
 
 :GROVE_274
 goto @GROVE_11

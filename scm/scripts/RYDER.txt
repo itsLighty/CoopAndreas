@@ -33,7 +33,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('RYDER_1', 1000, TextStyle.BottomRight)
 PSAVE1_1498()
-Mission.LoadAndLaunchInternal(24) // Home Invasion
+Coop.LaunchMissionForCoop(24) // Home Invasion
 goto @RYDER_238
 
 :RYDER_222
@@ -46,7 +46,7 @@ goto_if_false @RYDER_290
 $onmission = 1
 Text.PrintBig('RYDER_3', 1000, TextStyle.BottomRight)
 PSAVE1_1498()
-Mission.LoadAndLaunchInternal(25) // Catalyst
+Coop.LaunchMissionForCoop(25) // Catalyst
 
 :RYDER_290
 if 
@@ -55,7 +55,7 @@ goto_if_false @RYDER_342
 $onmission = 1
 Text.PrintBig('RYDER_2', 1000, TextStyle.BottomRight)
 PSAVE1_1498()
-Mission.LoadAndLaunchInternal(26) // Robbing Uncle Sam
+Coop.LaunchMissionForCoop(26) // Robbing Uncle Sam
 
 :RYDER_342
 goto @RYDER_11

@@ -27,7 +27,7 @@ goto_if_false @MANSION_180
 $onmission = 1
 Text.PrintBig('MAN_1', 1000, TextStyle.BottomRight)
 PSAVE1_3245()
-Mission.LoadAndLaunchInternal(102) // A Home In The Hills
+Coop.LaunchMissionForCoop(102) // A Home In The Hills
 
 :MANSION_180
 if 
@@ -39,7 +39,7 @@ goto_if_false @MANSION_274
 $onmission = 1
 Text.PrintBig('MAN_2', 1000, TextStyle.BottomRight)
 PSAVE1_4427()
-Mission.LoadAndLaunchInternal(103) // Vertical Bird
+Coop.LaunchMissionForCoop(103) // Vertical Bird
 
 :MANSION_274
 if 
@@ -48,7 +48,7 @@ goto_if_false @MANSION_326
 $onmission = 1
 Text.PrintBig('MAN_3', 1000, TextStyle.BottomRight)
 PSAVE1_4427()
-Mission.LoadAndLaunchInternal(104) // Home Coming
+Coop.LaunchMissionForCoop(104) // Home Coming
 
 :MANSION_326
 if 
@@ -57,7 +57,7 @@ goto_if_false @MANSION_378
 $onmission = 1
 Text.PrintBig('MAN_5', 1000, TextStyle.BottomRight)
 PSAVE1_4427()
-Mission.LoadAndLaunchInternal(105) // Cut Throat Business
+Coop.LaunchMissionForCoop(105) // Cut Throat Business
 
 :MANSION_378
 goto @MANSION_11

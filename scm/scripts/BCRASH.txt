@@ -27,7 +27,7 @@ goto_if_false @BCRASH_180
 $onmission = 1
 Text.PrintBig('BCRASH1', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(39) // Badlands
+Coop.LaunchMissionForCoop(39) // Badlands
 
 :BCRASH_180
 goto @BCRASH_11

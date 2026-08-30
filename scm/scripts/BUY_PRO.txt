@@ -17,7 +17,7 @@ if
 goto_if_false @BUY_PRO_145
 set_var_int_to_var_int $buying_property_switch = $prorerty_switch($save_house_index,32i)
 Audio.ReportMissionAudioEventAtPosition($propertyX($save_house_index,32f), $propertyY($save_house_index,32f), $propertyZ($save_house_index,32f), 1149)
-Mission.LoadAndLaunchInternal(134) // Buy Properties Mission
+Coop.LaunchMissionForCoop(134) // Buy Properties Mission
 $already_bought_house($save_house_index,32i) = 1
 
 :BUY_PRO_145

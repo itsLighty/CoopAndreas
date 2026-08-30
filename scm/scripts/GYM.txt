@@ -31,7 +31,7 @@ $main_visible_area_char = Char.GetAreaVisible($scplayer)
 if 
   $main_visible_area_char == 5
 goto_if_false @GYM_225
-Mission.LoadAndLaunchInternal(114) // Los Santos Gym Fight School
+Coop.LaunchMissionForCoop(114) // Los Santos Gym Fight School
 
 :GYM_225
 if 
@@ -41,7 +41,7 @@ $main_visible_area_char = Char.GetAreaVisible($scplayer)
 if 
   $main_visible_area_char == 6
 goto_if_false @GYM_303
-Mission.LoadAndLaunchInternal(115) // San Fierro Gym Fight School
+Coop.LaunchMissionForCoop(115) // San Fierro Gym Fight School
 
 :GYM_303
 if 
@@ -51,7 +51,7 @@ $main_visible_area_char = Char.GetAreaVisible($scplayer)
 if 
   $main_visible_area_char == 7
 goto_if_false @GYM_381
-Mission.LoadAndLaunchInternal(116) // Las Venturas Gym Fight School
+Coop.LaunchMissionForCoop(116) // Las Venturas Gym Fight School
 
 :GYM_381
 goto @GYM_488

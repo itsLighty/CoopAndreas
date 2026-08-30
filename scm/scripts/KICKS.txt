@@ -29,7 +29,7 @@ Text.PrintBig('STAD_01', 1000, TextStyle.BottomRight)
 LITCAS_267()
 set_var_int_to_constant $race_selection = 26
 $show_race_selection = 0
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 goto @KICKS_236
 
 :KICKS_220
@@ -41,7 +41,7 @@ goto @KICKS_271
 :KICKS_243
 Text.PrintBig('STAD_02', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(129) // Arena Mission: Kickstart
+Coop.LaunchMissionForCoop(129) // Arena Mission: Kickstart
 
 :KICKS_271
 goto @KICKS_11

@@ -27,7 +27,7 @@ goto_if_false @WUZI_180
 $onmission = 1
 Text.PrintBig('WUZI_1', 1000, TextStyle.BottomRight)
 PSAVE1_3085()
-Mission.LoadAndLaunchInternal(53) // Mountain Cloud Boys
+Coop.LaunchMissionForCoop(53) // Mountain Cloud Boys
 
 :WUZI_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @WUZI_232
 $onmission = 1
 Text.PrintBig('FAR_4', 1000, TextStyle.BottomRight)
 PSAVE1_3085()
-Mission.LoadAndLaunchInternal(54) // Ran Fa Li
+Coop.LaunchMissionForCoop(54) // Ran Fa Li
 
 :WUZI_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @WUZI_284
 $onmission = 1
 Text.PrintBig('FAR_5', 1000, TextStyle.BottomRight)
 PSAVE1_3085()
-Mission.LoadAndLaunchInternal(55) // Lure
+Coop.LaunchMissionForCoop(55) // Lure
 
 :WUZI_284
 if 
@@ -64,7 +64,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('WUZI_2', 1000, TextStyle.BottomRight)
 PSAVE1_3085()
-Mission.LoadAndLaunchInternal(56) // Amphibious Assault
+Coop.LaunchMissionForCoop(56) // Amphibious Assault
 goto @WUZI_420
 
 :WUZI_404
@@ -78,7 +78,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('WUZI_2', 1000, TextStyle.BottomRight)
 PSAVE1_3085()
-Mission.LoadAndLaunchInternal(56) // Amphibious Assault
+Coop.LaunchMissionForCoop(56) // Amphibious Assault
 
 :WUZI_463
 if 
@@ -87,7 +87,7 @@ goto_if_false @WUZI_515
 $onmission = 1
 Text.PrintBig('WUZI_4', 1000, TextStyle.BottomRight)
 PSAVE1_3085()
-Mission.LoadAndLaunchInternal(57) // The Da Nang Thang
+Coop.LaunchMissionForCoop(57) // The Da Nang Thang
 
 :WUZI_515
 goto @WUZI_11

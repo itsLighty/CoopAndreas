@@ -58,6 +58,12 @@ wrap-aware comparisons. State updates are accepted only when they are newer or r
 an acknowledgement cannot invent a state transition. Spectators do not receive mission effects, and non-host clients
 cannot publish authoritative script effects.
 
+Production SCM launchers call `Coop.LaunchMissionForCoop(missionId)` (`1D1D`) instead of opcode `0417` directly.
+While authenticated, the command suppresses peer launches and asks the server to freeze the authoritative roster;
+only an accepted host request executes the native internal-mission opcode. Duplicate launcher ticks cannot create a
+second request, and a rejected SCM request rolls back its speculative mission flag. Before authentication, the command
+uses the native opcode directly so `MAIN` missions 0 and 1 and offline startup cannot deadlock on a network response.
+
 The host normally ends the session as completed, succeeded, or failed after the SCM path reaches its terminal state.
 A host abort or host disconnect terminates the session without transferring story authority to another player.
 

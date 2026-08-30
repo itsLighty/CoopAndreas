@@ -19,7 +19,7 @@ Player.SetControl($player1, False)
 Text.DrawOddjobTitleBeforeFade(False)
 Text.PrintBig('TRUCK', 3000, TextStyle.MiddleSmallerHigher)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(117) // Trucking
+Coop.LaunchMissionForCoop(117) // Trucking
 
 :TRUCKS_146
 goto @TRUCKS_11

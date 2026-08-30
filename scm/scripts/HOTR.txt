@@ -23,7 +23,7 @@ Text.PrintBig('STAD_03', 1000, TextStyle.BottomRight)
 LITCAS_267()
 set_var_int_to_constant $race_selection = 25
 $show_race_selection = 0
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 
 :HOTR_176
 goto @HOTR_199

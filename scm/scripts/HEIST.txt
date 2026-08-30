@@ -27,7 +27,7 @@ goto_if_false @HEIST_180
 $onmission = 1
 Text.PrintBig('HEIST_1', 1000, TextStyle.BottomRight)
 PSAVE1_3405()
-Mission.LoadAndLaunchInternal(96) // Architectural Espionage
+Coop.LaunchMissionForCoop(96) // Architectural Espionage
 
 :HEIST_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @HEIST_232
 $onmission = 1
 Text.PrintBig('HEIST_3', 1000, TextStyle.BottomRight)
 PSAVE1_3405()
-Mission.LoadAndLaunchInternal(97) // Key To Her Heart
+Coop.LaunchMissionForCoop(97) // Key To Her Heart
 
 :HEIST_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @HEIST_284
 $onmission = 1
 Text.PrintBig('HEIST_2', 1000, TextStyle.BottomRight)
 PSAVE1_3405()
-Mission.LoadAndLaunchInternal(98) // Dam And Blast
+Coop.LaunchMissionForCoop(98) // Dam And Blast
 
 :HEIST_284
 if 
@@ -54,7 +54,7 @@ goto_if_false @HEIST_336
 $onmission = 1
 Text.PrintBig('HEIST_4', 1000, TextStyle.BottomRight)
 PSAVE1_3405()
-Mission.LoadAndLaunchInternal(99) // Cop Wheels
+Coop.LaunchMissionForCoop(99) // Cop Wheels
 
 :HEIST_336
 if 
@@ -69,7 +69,7 @@ $onmission = 1
 Text.ClearPrints
 Text.PrintBig('HEIST_5', 1000, TextStyle.BottomRight)
 PSAVE1_3405()
-Mission.LoadAndLaunchInternal(100) // Up, Up and Away!
+Coop.LaunchMissionForCoop(100) // Up, Up and Away!
 goto @HEIST_446
 
 :HEIST_430
@@ -86,7 +86,7 @@ goto_if_false @HEIST_530
 $onmission = 1
 Text.PrintBig('HEIST_9', 1000, TextStyle.BottomRight)
 PSAVE1_3405()
-Mission.LoadAndLaunchInternal(101) // Breaking the Bank at Caligula's
+Coop.LaunchMissionForCoop(101) // Breaking the Bank at Caligula's
 goto @HEIST_546
 
 :HEIST_530

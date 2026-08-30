@@ -23,7 +23,7 @@ if
 goto_if_false @CESAR_130
 set_var_int_to_constant $race_selection = 0
 $show_race_selection = 0
-Mission.LoadAndLaunchInternal(35) // Race Tournament / 8-track / Dirt Track
+Coop.LaunchMissionForCoop(35) // Race Tournament / 8-track / Dirt Track
 $cs1_race_is_go = 2
 
 :CESAR_130
@@ -49,7 +49,7 @@ goto_if_false @CESAR_298
 $onmission = 1
 Text.PrintBig('CESAR_1', 1000, TextStyle.BottomRight)
 PSAVE1_2334()
-Mission.LoadAndLaunchInternal(36) // Lowrider (High Stakes)
+Coop.LaunchMissionForCoop(36) // Lowrider (High Stakes)
 
 :CESAR_298
 goto @CESAR_321

@@ -49,7 +49,7 @@ goto_if_false @TRI_403
 $triathalon_selection = 2
 
 :TRI_403
-Mission.LoadAndLaunchInternal(130) // Beat the Cock!
+Coop.LaunchMissionForCoop(130) // Beat the Cock!
 
 :TRI_408
 goto @TRI_451

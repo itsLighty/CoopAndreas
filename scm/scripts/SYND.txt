@@ -27,7 +27,7 @@ goto_if_false @SYND_180
 $onmission = 1
 Text.PrintBig('SYND_1', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(58) // Photo Opportunity
+Coop.LaunchMissionForCoop(58) // Photo Opportunity
 
 :SYND_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @SYND_232
 $onmission = 1
 Text.PrintBig('SYND_2', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(59) // Jizzy
+Coop.LaunchMissionForCoop(59) // Jizzy
 
 :SYND_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @SYND_284
 $onmission = 1
 Text.PrintBig('SYND_3', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(60) // Outrider
+Coop.LaunchMissionForCoop(60) // Outrider
 
 :SYND_284
 if and
@@ -61,7 +61,7 @@ $onmission = 1
 Text.ClearPrints
 Text.PrintBig('SYND_4', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(61) // Ice Cold Killa
+Coop.LaunchMissionForCoop(61) // Ice Cold Killa
 goto @SYND_401
 
 :SYND_385
@@ -74,7 +74,7 @@ goto_if_false @SYND_453
 $onmission = 1
 Text.PrintBig('SYND_6', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(62) // Toreno's Last Flight
+Coop.LaunchMissionForCoop(62) // Toreno's Last Flight
 
 :SYND_453
 if and
@@ -84,7 +84,7 @@ goto_if_false @SYND_512
 $onmission = 1
 Text.PrintBig('SYND_7', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(63) // Yay Ka-Boom-Boom
+Coop.LaunchMissionForCoop(63) // Yay Ka-Boom-Boom
 
 :SYND_512
 if 
@@ -102,7 +102,7 @@ goto_if_false @SYND_644
 $onmission = 1
 Text.PrintBig('SYND_5', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(64) // Pier 69
+Coop.LaunchMissionForCoop(64) // Pier 69
 
 :SYND_644
 if 
@@ -120,7 +120,7 @@ goto_if_false @SYND_770
 $onmission = 1
 Text.PrintBig('SYND_2', 1000, TextStyle.BottomRight)
 PSAVE1_3725()
-Mission.LoadAndLaunchInternal(59) // Jizzy
+Coop.LaunchMissionForCoop(59) // Jizzy
 
 :SYND_770
 if 
@@ -129,7 +129,7 @@ goto_if_false @SYND_822
 $onmission = 1
 Text.PrintBig('FAR_2', 1000, TextStyle.BottomRight)
 PSAVE1_3725()
-Mission.LoadAndLaunchInternal(65) // T-Bone Mendez
+Coop.LaunchMissionForCoop(65) // T-Bone Mendez
 
 :SYND_822
 if 
@@ -138,7 +138,7 @@ goto_if_false @SYND_874
 $onmission = 1
 Text.PrintBig('FAR_3', 1000, TextStyle.BottomRight)
 PSAVE1_3725()
-Mission.LoadAndLaunchInternal(66) // Mike Toreno
+Coop.LaunchMissionForCoop(66) // Mike Toreno
 
 :SYND_874
 goto @SYND_11

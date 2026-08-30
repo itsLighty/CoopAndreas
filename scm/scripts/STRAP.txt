@@ -33,7 +33,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('STRAP_1', 1000, TextStyle.BottomRight)
 PSAVE1_2014()
-Mission.LoadAndLaunchInternal(31) // Life's a Beach
+Coop.LaunchMissionForCoop(31) // Life's a Beach
 goto @STRAP_238
 
 :STRAP_222
@@ -46,7 +46,7 @@ goto_if_false @STRAP_290
 $onmission = 1
 Text.PrintBig('STRAP_2', 1000, TextStyle.BottomRight)
 PSAVE1_2014()
-Mission.LoadAndLaunchInternal(32) // Madd Dogg's Rhymes
+Coop.LaunchMissionForCoop(32) // Madd Dogg's Rhymes
 
 :STRAP_290
 if 
@@ -61,7 +61,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('STRAP_3', 1000, TextStyle.BottomRight)
 PSAVE1_2014()
-Mission.LoadAndLaunchInternal(33) // Management Issues
+Coop.LaunchMissionForCoop(33) // Management Issues
 goto @STRAP_400
 
 :STRAP_384
@@ -74,7 +74,7 @@ goto_if_false @STRAP_452
 $onmission = 1
 PSAVE1_2014()
 Text.PrintBig('STRAP_4', 1000, TextStyle.BottomRight)
-Mission.LoadAndLaunchInternal(34) // House Party
+Coop.LaunchMissionForCoop(34) // House Party
 
 :STRAP_452
 if 
@@ -95,7 +95,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('STRAP_4', 1000, TextStyle.BottomRight)
 PSAVE1_2174()
-Mission.LoadAndLaunchInternal(34) // House Party
+Coop.LaunchMissionForCoop(34) // House Party
 goto @STRAP_620
 
 :STRAP_604

@@ -27,7 +27,7 @@ goto_if_false @SMOKE_180
 $onmission = 1
 Text.PrintBig('SMOKE_1', 1000, TextStyle.BottomRight)
 PSAVE1_1676()
-Mission.LoadAndLaunchInternal(27) // OG Loc
+Coop.LaunchMissionForCoop(27) // OG Loc
 
 :SMOKE_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @SMOKE_232
 $onmission = 1
 Text.PrintBig('SMOKE_2', 1000, TextStyle.BottomRight)
 PSAVE1_1676()
-Mission.LoadAndLaunchInternal(28) // Running Dog
+Coop.LaunchMissionForCoop(28) // Running Dog
 
 :SMOKE_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @SMOKE_284
 $onmission = 1
 Text.PrintBig('SMOKE_3', 1000, TextStyle.BottomRight)
 PSAVE1_1676()
-Mission.LoadAndLaunchInternal(29) // Wrong Side of the Tracks
+Coop.LaunchMissionForCoop(29) // Wrong Side of the Tracks
 
 :SMOKE_284
 if 
@@ -54,7 +54,7 @@ goto_if_false @SMOKE_336
 $onmission = 1
 Text.PrintBig('SMOKE_4', 1000, TextStyle.BottomRight)
 PSAVE1_1676()
-Mission.LoadAndLaunchInternal(30) // Just Business
+Coop.LaunchMissionForCoop(30) // Just Business
 
 :SMOKE_336
 goto @SMOKE_11

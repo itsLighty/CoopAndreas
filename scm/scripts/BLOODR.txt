@@ -17,7 +17,7 @@ if
 goto_if_false @BLOODR_136
 LITCAS_267()
 Text.PrintBig('STAD_04', 1000, TextStyle.BottomRight)
-Mission.LoadAndLaunchInternal(128) // Arena Mission: Blood Ring
+Coop.LaunchMissionForCoop(128) // Arena Mission: Blood Ring
 
 :BLOODR_136
 goto @BLOODR_11

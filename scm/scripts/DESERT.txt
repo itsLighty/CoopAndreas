@@ -27,7 +27,7 @@ goto_if_false @DESERT_180
 $onmission = 1
 Text.PrintBig('DESERT1', 1000, TextStyle.BottomRight)
 PSAVE1_3885()
-Mission.LoadAndLaunchInternal(75) // Monster
+Coop.LaunchMissionForCoop(75) // Monster
 
 :DESERT_180
 if 
@@ -39,7 +39,7 @@ goto_if_false @DESERT_250
 $onmission = 1
 Text.PrintBig('DESERT2', 1000, TextStyle.BottomRight)
 PSAVE1_3885()
-Mission.LoadAndLaunchInternal(76) // Highjack
+Coop.LaunchMissionForCoop(76) // Highjack
 
 :DESERT_250
 if 
@@ -51,7 +51,7 @@ goto_if_false @DESERT_320
 $onmission = 1
 Text.PrintBig('DESERT3', 1000, TextStyle.BottomRight)
 PSAVE1_3885()
-Mission.LoadAndLaunchInternal(77) // Interdiction
+Coop.LaunchMissionForCoop(77) // Interdiction
 
 :DESERT_320
 if 
@@ -60,7 +60,7 @@ goto_if_false @DESERT_372
 $onmission = 1
 Text.PrintBig('DESERT4', 1000, TextStyle.BottomRight)
 PSAVE1_3885()
-Mission.LoadAndLaunchInternal(78) // Verdant Meadows
+Coop.LaunchMissionForCoop(78) // Verdant Meadows
 
 :DESERT_372
 if 
@@ -78,7 +78,7 @@ goto_if_false @DESERT_500
 $onmission = 1
 Text.PrintBig('DESERT6', 1000, TextStyle.BottomRight)
 PSAVE1_4156()
-Mission.LoadAndLaunchInternal(79) // N.O.E.
+Coop.LaunchMissionForCoop(79) // N.O.E.
 
 :DESERT_500
 if 
@@ -87,7 +87,7 @@ goto_if_false @DESERT_552
 $onmission = 1
 Text.PrintBig('DESERT9', 1000, TextStyle.BottomRight)
 PSAVE1_4156()
-Mission.LoadAndLaunchInternal(80) // Stowaway
+Coop.LaunchMissionForCoop(80) // Stowaway
 
 :DESERT_552
 if 
@@ -102,7 +102,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('DESERT8', 1000, TextStyle.BottomRight)
 PSAVE1_4156()
-Mission.LoadAndLaunchInternal(81) // Black Project
+Coop.LaunchMissionForCoop(81) // Black Project
 goto @DESERT_662
 
 :DESERT_646
@@ -116,7 +116,7 @@ goto_if_false @DESERT_721
 $onmission = 1
 Text.PrintBig('DESER10', 1000, TextStyle.BottomRight)
 PSAVE1_4156()
-Mission.LoadAndLaunchInternal(82) // Green Goo
+Coop.LaunchMissionForCoop(82) // Green Goo
 
 :DESERT_721
 goto @DESERT_11

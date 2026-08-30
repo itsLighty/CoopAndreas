@@ -17,7 +17,7 @@ if
 goto_if_false @BUY3_135
 set_var_int_to_constant $buying_property_switch = 2
 Audio.ReportMissionAudioEventAtPosition($propertyX[2], $propertyY[2], $propertyZ[2], 1149)
-Mission.LoadAndLaunchInternal(134) // Buy Properties Mission
+Coop.LaunchMissionForCoop(134) // Buy Properties Mission
 terminate_this_script 
 
 :BUY3_135

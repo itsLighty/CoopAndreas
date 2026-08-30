@@ -47,9 +47,9 @@ $Players_Group = Player.GetGroup($player1)
 $scplayer = Player.GetChar($player1)
 Camera.SetBehindPlayer
 Char.SetHeading($scplayer, 262.0)
-Mission.LoadAndLaunchInternal(0) // Initial 1
+Coop.LaunchMissionForCoop(0) // Initial 1
 wait 0
-Mission.LoadAndLaunchInternal(1) // Initial 2
+Coop.LaunchMissionForCoop(1) // Initial 2
 $show_race_selection = 0
 $wasted_help1 = Pickup.Create(#INFO, 3, 2027.77, -1420.52, 16.49)
 $wasted_help2 = Pickup.Create(#INFO, 3, 1180.85, -1325.57, 13.08)
@@ -384,7 +384,7 @@ Player.StoreClothesState
 Camera.SetFadingColor(0, 0, 0)
 Camera.DoFade(0, Fade.Out)
 $game_starts_from_scratch = 0
-Mission.LoadAndLaunchInternal(2) // Intro
+Coop.LaunchMissionForCoop(2) // Intro
 $activate_mobile_phone = 1
 if 
   Player.IsPlaying($player1)
@@ -616,44 +616,44 @@ switch_continued 7 @MAIN_5447 -1 @MAIN_5488 -1 @MAIN_5488 -1 @MAIN_5488 -1 @MAIN
 
 :MAIN_5321
 $onmission = 1
-Mission.LoadAndLaunchInternal(3) // Video Game: They Crawled From Uranus
+Coop.LaunchMissionForCoop(3) // Video Game: They Crawled From Uranus
 goto @MAIN_5488
 
 :MAIN_5339
 $onmission = 1
-Mission.LoadAndLaunchInternal(4) // Video Game: Duality
+Coop.LaunchMissionForCoop(4) // Video Game: Duality
 goto @MAIN_5488
 
 :MAIN_5357
 $onmission = 1
-Mission.LoadAndLaunchInternal(5) // Video Game: Go Go Space Monkey
+Coop.LaunchMissionForCoop(5) // Video Game: Go Go Space Monkey
 goto @MAIN_5488
 
 :MAIN_5375
 $onmission = 1
-Mission.LoadAndLaunchInternal(6) // Video Game: Let's Get Ready To Bumble
+Coop.LaunchMissionForCoop(6) // Video Game: Let's Get Ready To Bumble
 goto @MAIN_5488
 
 :MAIN_5393
 $onmission = 1
-Mission.LoadAndLaunchInternal(7) // Video Game: Inside Track Betting
+Coop.LaunchMissionForCoop(7) // Video Game: Inside Track Betting
 goto @MAIN_5488
 
 :MAIN_5411
 $onmission = 1
-Mission.LoadAndLaunchInternal(8) // Pool
+Coop.LaunchMissionForCoop(8) // Pool
 goto @MAIN_5488
 
 :MAIN_5429
 $onmission = 1
-Mission.LoadAndLaunchInternal(9) // Lowrider (Bet And Dance)
+Coop.LaunchMissionForCoop(9) // Lowrider (Bet And Dance)
 goto @MAIN_5488
 
 :MAIN_5447
 $onmission = 1
 Text.PrintBig('BEEFY', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(10) // Beefy Baron
+Coop.LaunchMissionForCoop(10) // Beefy Baron
 goto @MAIN_5488
 
 :MAIN_5488

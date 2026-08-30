@@ -32,7 +32,7 @@ if
 goto_if_false @SHOOT_217
 $onmission = 1
 set_var_int_to_var_int $SR_range_id = $sr_i
-Mission.LoadAndLaunchInternal(113) // Shooting range
+Coop.LaunchMissionForCoop(113) // Shooting range
 
 :SHOOT_217
 $sr_i += 1

@@ -20,6 +20,7 @@ bool CMissionSessionClient::m_bObservedMissionFlagInitialized = false;
 bool CMissionSessionClient::m_bLastObservedMissionFlag = false;
 bool CMissionSessionClient::m_bLaunchRequestPending = false;
 bool CMissionSessionClient::m_bLaunchLocallyOnApproval = false;
+bool CMissionSessionClient::m_bScmLaunchRequestPending = false;
 uint16_t CMissionSessionClient::m_nPendingMissionId = MISSION_ID_UNKNOWN;
 uint32_t CMissionSessionClient::m_nPendingLaunchRequestId = 0;
 uint8_t CMissionSessionClient::m_nLaunchRetryCount = 0;
@@ -175,6 +176,50 @@ bool CMissionSessionClient::RequestLaunch(uint16_t missionId, bool bLaunchLocall
     if (!SendPendingLaunchRequest())
     {
         ClearPendingLaunch();
+        return false;
+    }
+    return true;
+}
+
+bool CMissionSessionClient::RequestScmLaunch(int missionId)
+{
+    if (missionId < 0 || missionId > MISSION_ID_MAX || missionId >= CTheScripts::NumberOfMissionScripts)
+    {
+        RollbackScmMissionLaunch();
+        return false;
+    }
+
+    const uint16_t validatedMissionId = static_cast<uint16_t>(missionId);
+
+    // MAIN launches its two bootstrap missions before multiplayer authentication can be guaranteed.
+    // Keeping the native fallback here preserves offline/pre-network game initialization without
+    // creating an authenticated path around the authoritative mission-session handshake.
+    if (!CNetwork::m_bAuthenticated)
+    {
+        Command<Commands::LOAD_AND_LAUNCH_MISSION_INTERNAL>(validatedMissionId);
+        return true;
+    }
+
+    // A repeated launcher tick must not disturb the request/session that already owns $onmission.
+    // This also prevents an unrelated ambient launcher from clearing an active co-op mission.
+    if (m_State.IsActive() || IsLaunchPending())
+    {
+        return (m_bLaunchRequestPending && m_bLaunchLocallyOnApproval &&
+                m_nPendingMissionId == validatedMissionId) ||
+               (m_bApprovedLocalLaunchPending && m_nApprovedLocalMissionId == validatedMissionId);
+    }
+
+    if (!CLocalPlayer::m_bIsHost)
+    {
+        RollbackScmMissionLaunch();
+        return false;
+    }
+
+    m_bScmLaunchRequestPending = true;
+    if (!RequestLaunch(validatedMissionId, true))
+    {
+        // RequestLaunch clears all pending-launch metadata when sending fails.
+        RollbackScmMissionLaunch();
         return false;
     }
     return true;
@@ -376,8 +421,13 @@ void CMissionSessionClient::ApplyState(const MissionSessionState& state)
         else
         {
             const bool bRejectedLocalLaunch = m_bLaunchLocallyOnApproval;
+            const bool bRejectedScmLaunch = m_bScmLaunchRequestPending;
             ClearPendingLaunch();
             m_PendingEndAfterLaunchResult = eMissionSessionResult::NONE;
+            if (bRejectedScmLaunch && !state.IsActive())
+            {
+                RollbackScmMissionLaunch();
+            }
             if (bRejectedLocalLaunch && state.IsActive() && bLocalPlayerIsHost && CTheScripts::OnAMissionFlag &&
                 !static_cast<bool>(CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag]))
             {
@@ -451,6 +501,11 @@ void CMissionSessionClient::ApplyLocalMissionFlag(bool bOnMission)
 
     m_bObservedMissionFlagInitialized = true;
     m_bLastObservedMissionFlag = bOnMission;
+}
+
+void CMissionSessionClient::RollbackScmMissionLaunch()
+{
+    ApplyLocalMissionFlag(false);
 }
 
 void CMissionSessionClient::CleanupLocalMissionState()
@@ -608,6 +663,7 @@ void CMissionSessionClient::ClearPendingLaunch()
 {
     m_bLaunchRequestPending = false;
     m_bLaunchLocallyOnApproval = false;
+    m_bScmLaunchRequestPending = false;
     m_nPendingMissionId = MISSION_ID_UNKNOWN;
     m_nPendingLaunchRequestId = 0;
     m_nLaunchRetryCount = 0;

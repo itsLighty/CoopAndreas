@@ -19,7 +19,7 @@ Player.SetControl($player1, False)
 Text.DrawOddjobTitleBeforeFade(False)
 Text.PrintBig('QUARRY', 3000, TextStyle.MiddleSmallerHigher)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(118) // Quarry
+Coop.LaunchMissionForCoop(118) // Quarry
 
 :QUARRYS_145
 goto @QUARRYS_11

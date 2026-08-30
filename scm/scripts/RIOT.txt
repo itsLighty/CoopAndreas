@@ -27,7 +27,7 @@ goto_if_false @RIOT_180
 $onmission = 1
 Text.PrintBig('RIOT_1', 1000, TextStyle.BottomRight)
 PSAVE1_4427()
-Mission.LoadAndLaunchInternal(108) // Riot
+Coop.LaunchMissionForCoop(108) // Riot
 
 :RIOT_180
 if 
@@ -46,7 +46,7 @@ goto_if_false @RIOT_320
 $onmission = 1
 Text.PrintBig('RIOT_2', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(109) // Los Desperados
+Coop.LaunchMissionForCoop(109) // Los Desperados
 goto @RIOT_372
 
 :RIOT_320
@@ -70,7 +70,7 @@ goto_if_false @RIOT_460
 $onmission = 1
 Text.PrintBig('RIOT_4', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(110) // End Of The Line (1)
+Coop.LaunchMissionForCoop(110) // End Of The Line (1)
 
 :RIOT_460
 goto @RIOT_483
@@ -85,7 +85,7 @@ goto_if_false @RIOT_535
 $onmission = 1
 Text.PrintBig('RIOT_4', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(111) // End Of The Line (2)
+Coop.LaunchMissionForCoop(111) // End Of The Line (2)
 
 :RIOT_535
 if 
@@ -94,7 +94,7 @@ goto_if_false @RIOT_587
 $onmission = 1
 Text.PrintBig('RIOT_4', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(112) // End Of The Line (3)
+Coop.LaunchMissionForCoop(112) // End Of The Line (3)
 
 :RIOT_587
 if and
@@ -103,7 +103,7 @@ if and
 goto_if_false @RIOT_630
 $finaleB_played_first_time_round = 1
 $onmission = 1
-Mission.LoadAndLaunchInternal(111) // End Of The Line (2)
+Coop.LaunchMissionForCoop(111) // End Of The Line (2)
 
 :RIOT_630
 if and
@@ -112,7 +112,7 @@ if and
 goto_if_false @RIOT_673
 $finaleB_played_first_time_round = 2
 $onmission = 1
-Mission.LoadAndLaunchInternal(112) // End Of The Line (3)
+Coop.LaunchMissionForCoop(112) // End Of The Line (3)
 
 :RIOT_673
 goto @RIOT_11

@@ -27,7 +27,7 @@ goto_if_false @TRU_180
 $onmission = 1
 Text.PrintBig('TRUTH_1', 1000, TextStyle.BottomRight)
 PSAVE1_2445()
-Mission.LoadAndLaunchInternal(46) // Body Harvest
+Coop.LaunchMissionForCoop(46) // Body Harvest
 
 :TRU_180
 if and
@@ -40,7 +40,7 @@ goto_if_false @TRU_281
 $onmission = 1
 Text.PrintBig('TRUTH_2', 1000, TextStyle.BottomRight)
 PSAVE1_2605()
-Mission.LoadAndLaunchInternal(47) // Are you going to San Fierro?
+Coop.LaunchMissionForCoop(47) // Are you going to San Fierro?
 
 :TRU_281
 goto @TRU_11

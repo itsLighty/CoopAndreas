@@ -22,7 +22,7 @@ goto_if_false @CAT_157
 $onmission = 1
 CAT_641()
 CAT_779()
-Mission.LoadAndLaunchInternal(40) // First Date
+Coop.LaunchMissionForCoop(40) // First Date
 
 :CAT_157
 goto @CAT_249
@@ -37,32 +37,32 @@ goto_if_false @CAT_249
 $onmission = 1
 CAT_641()
 CAT_922()
-Mission.LoadAndLaunchInternal(40) // First Date
+Coop.LaunchMissionForCoop(40) // First Date
 
 :CAT_249
 switch_start $load_and_launch_catalina_mission total_jumps 4 default_jump 0 @CAT_412 jumps 0 @CAT_312 1 @CAT_337 2 @CAT_362 3 @CAT_387 -1 @CAT_412 -1 @CAT_412 -1 @CAT_412
 
 :CAT_312
 $onmission = 1
-Mission.LoadAndLaunchInternal(41) // Local Liquor Store
+Coop.LaunchMissionForCoop(41) // Local Liquor Store
 goto @CAT_18
 goto @CAT_412
 
 :CAT_337
 $onmission = 1
-Mission.LoadAndLaunchInternal(42) // Small Town Bank
+Coop.LaunchMissionForCoop(42) // Small Town Bank
 goto @CAT_18
 goto @CAT_412
 
 :CAT_362
 $onmission = 1
-Mission.LoadAndLaunchInternal(43) // Tanker Commander
+Coop.LaunchMissionForCoop(43) // Tanker Commander
 goto @CAT_18
 goto @CAT_412
 
 :CAT_387
 $onmission = 1
-Mission.LoadAndLaunchInternal(44) // Against All Odds
+Coop.LaunchMissionForCoop(44) // Against All Odds
 goto @CAT_18
 goto @CAT_412
 
@@ -98,7 +98,7 @@ goto_if_false @CAT_609
 $onmission = 1
 Text.PrintBig('TRAILER', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(45) // King in Exile
+Coop.LaunchMissionForCoop(45) // King in Exile
 $flag_trigger_trailor_cut = 2
 
 :CAT_609

@@ -27,7 +27,7 @@ goto_if_false @GARAGE_180
 $onmission = 1
 Text.PrintBig('GAR_1', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(49) // Wear Flowers In Your Hair
+Coop.LaunchMissionForCoop(49) // Wear Flowers In Your Hair
 
 :GARAGE_180
 if 
@@ -39,7 +39,7 @@ goto_if_false @GARAGE_250
 $onmission = 1
 Text.PrintBig('GAR_2', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(50) // Deconstruction
+Coop.LaunchMissionForCoop(50) // Deconstruction
 
 :GARAGE_250
 goto @GARAGE_11

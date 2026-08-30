@@ -11,6 +11,7 @@ public:
     static void Reset();
 
     static bool RequestLaunch(uint16_t missionId, bool bLaunchLocallyOnApproval = false);
+    static bool RequestScmLaunch(int missionId);
     static bool RequestStage(uint32_t stage);
     static bool RequestEnd(Packets::Scripts::eMissionSessionResult result);
     static bool RequestAbort();
@@ -31,6 +32,7 @@ private:
     static bool m_bLastObservedMissionFlag;
     static bool m_bLaunchRequestPending;
     static bool m_bLaunchLocallyOnApproval;
+    static bool m_bScmLaunchRequestPending;
     static uint16_t m_nPendingMissionId;
     static uint32_t m_nPendingLaunchRequestId;
     static uint8_t m_nLaunchRetryCount;
@@ -52,6 +54,7 @@ private:
 
     static void ApplyState(const Packets::Scripts::MissionSessionState& state);
     static void ApplyLocalMissionFlag(bool bOnMission);
+    static void RollbackScmMissionLaunch();
     static void CleanupLocalMissionState();
     static bool ShouldAcceptState(const Packets::Scripts::MissionSessionState& current,
         const Packets::Scripts::MissionSessionState& candidate, bool& bIsNewerRevision);

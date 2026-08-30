@@ -64849,6 +64849,23 @@
                         "is_static": true
                     },
                     "short_desc": "args can be ignored by passing -1 or invalid (IsNetworkPlayerActorValid) char variable"
+                },
+                {
+                    "input": [
+                        {
+                            "name": "missionId",
+                            "type": "int"
+                        }
+                    ],
+                    "id": "1D1D",
+                    "name": "coop_launch_mission_for_coop",
+                    "num_params": 1,
+                    "class": "Coop",
+                    "member": "LaunchMissionForCoop",
+                    "attrs": {
+                        "is_static": true
+                    },
+                    "short_desc": "preflight an internal mission through the authoritative co-op session"
                 }
             ]
         }

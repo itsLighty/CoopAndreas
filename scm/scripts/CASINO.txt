@@ -27,7 +27,7 @@ goto_if_false @CASINO_180
 $onmission = 1
 Text.PrintBig('CASINO1', 1000, TextStyle.BottomRight)
 PSAVE1_3245()
-Mission.LoadAndLaunchInternal(84) // Fender Ketchup
+Coop.LaunchMissionForCoop(84) // Fender Ketchup
 
 :CASINO_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @CASINO_232
 $onmission = 1
 Text.PrintBig('CASEEN2', 1000, TextStyle.BottomRight)
 PSAVE1_3245()
-Mission.LoadAndLaunchInternal(85) // Explosive Situation
+Coop.LaunchMissionForCoop(85) // Explosive Situation
 
 :CASINO_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @CASINO_284
 $onmission = 1
 Text.PrintBig('CASINO3', 1000, TextStyle.BottomRight)
 PSAVE1_3245()
-Mission.LoadAndLaunchInternal(86) // You've Had Your Chips
+Coop.LaunchMissionForCoop(86) // You've Had Your Chips
 
 :CASINO_284
 if 
@@ -54,7 +54,7 @@ goto_if_false @CASINO_336
 $onmission = 1
 Text.PrintBig('CASINO7', 1000, TextStyle.BottomRight)
 PSAVE1_3245()
-Mission.LoadAndLaunchInternal(87) // Fish in a Barrel
+Coop.LaunchMissionForCoop(87) // Fish in a Barrel
 
 :CASINO_336
 if 
@@ -66,7 +66,7 @@ goto_if_false @CASINO_436
 $onmission = 1
 Text.PrintBig('CASINO4', 1000, TextStyle.BottomRight)
 PSAVE1_3565()
-Mission.LoadAndLaunchInternal(88) // Don Peyote
+Coop.LaunchMissionForCoop(88) // Don Peyote
 
 :CASINO_436
 if 
@@ -79,7 +79,7 @@ goto_if_false @CASINO_537
 $onmission = 1
 Text.PrintBig('CASINO5', 1000, TextStyle.BottomRight)
 PSAVE1_4267()
-Mission.LoadAndLaunchInternal(89) // Intensive Care
+Coop.LaunchMissionForCoop(89) // Intensive Care
 
 :CASINO_537
 if 
@@ -88,7 +88,7 @@ goto_if_false @CASINO_589
 $onmission = 1
 Text.PrintBig('CASINO6', 1000, TextStyle.BottomRight)
 PSAVE1_4267()
-Mission.LoadAndLaunchInternal(90) // The Meat Business
+Coop.LaunchMissionForCoop(90) // The Meat Business
 
 :CASINO_589
 if and
@@ -98,7 +98,7 @@ goto_if_false @CASINO_648
 $onmission = 1
 Text.PrintBig('CASINO9', 1000, TextStyle.BottomRight)
 PSAVE1_4267()
-Mission.LoadAndLaunchInternal(91) // Freefall
+Coop.LaunchMissionForCoop(91) // Freefall
 
 :CASINO_648
 if and
@@ -108,7 +108,7 @@ goto_if_false @CASINO_707
 $onmission = 1
 Text.PrintBig('CASIN10', 1000, TextStyle.BottomRight)
 PSAVE1_4267()
-Mission.LoadAndLaunchInternal(92) // Saint Mark's Bistro
+Coop.LaunchMissionForCoop(92) // Saint Mark's Bistro
 
 :CASINO_707
 goto @CASINO_11

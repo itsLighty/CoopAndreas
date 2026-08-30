@@ -95,7 +95,7 @@ goto @R3_321
 :R3_447
 Text.PrintBig('TAXI_M', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(121) // Taxi-Driver Sub-Mission
+Coop.LaunchMissionForCoop(121) // Taxi-Driver Sub-Mission
 $flag_taxiodd_mission_launched = 1
 goto @R3_11
 
@@ -142,7 +142,7 @@ goto @R3_509
 :R3_635
 Text.PrintBig('TAXI_M', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(121) // Taxi-Driver Sub-Mission
+Coop.LaunchMissionForCoop(121) // Taxi-Driver Sub-Mission
 $flag_taxiodd_mission_launched = 1
 goto @R3_11
 
@@ -205,7 +205,7 @@ goto @R3_794
 :R3_923
 Text.PrintBig('AMBUL_M', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(122) // Paramedic Sub-Mission
+Coop.LaunchMissionForCoop(122) // Paramedic Sub-Mission
 goto @R3_11
 
 :R3_954
@@ -251,7 +251,7 @@ goto @R3_978
 :R3_1107
 Text.PrintBig('AMBUL_M', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(122) // Paramedic Sub-Mission
+Coop.LaunchMissionForCoop(122) // Paramedic Sub-Mission
 goto @R3_11
 
 :R3_1138
@@ -313,7 +313,7 @@ goto @R3_1259
 :R3_1388
 Text.PrintBig('FIRE_M', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(123) // Firefighter Sub-Mission
+Coop.LaunchMissionForCoop(123) // Firefighter Sub-Mission
 goto @R3_11
 
 :R3_1419
@@ -359,7 +359,7 @@ goto @R3_1443
 :R3_1572
 Text.PrintBig('FIRE_M', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(123) // Firefighter Sub-Mission
+Coop.LaunchMissionForCoop(123) // Firefighter Sub-Mission
 goto @R3_11
 
 :R3_1603
@@ -441,7 +441,7 @@ Text.PrintBig('COP_M', 6000, TextStyle.MiddleSmallerHigher)
 
 :R3_1963
 wait 0
-Mission.LoadAndLaunchInternal(124) // Vigilante Sub-Mission
+Coop.LaunchMissionForCoop(124) // Vigilante Sub-Mission
 goto @R3_11
 
 :R3_1978
@@ -509,7 +509,7 @@ Text.PrintBig('COP_M', 6000, TextStyle.MiddleSmallerHigher)
 
 :R3_2254
 wait 0
-Mission.LoadAndLaunchInternal(124) // Vigilante Sub-Mission
+Coop.LaunchMissionForCoop(124) // Vigilante Sub-Mission
 goto @R3_11
 
 :R3_2269
@@ -582,7 +582,7 @@ goto @R3_2456
 Text.DrawOddjobTitleBeforeFade(False)
 Text.PrintBig('BURGLAR', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(125) // Burglary Sub-Mission
+Coop.LaunchMissionForCoop(125) // Burglary Sub-Mission
 $flag_player_on_burglary_mission = 1
 goto @R3_11
 goto @R3_2650
@@ -639,7 +639,7 @@ goto @R3_2707
 Text.DrawOddjobTitleBeforeFade(False)
 Text.PrintBig('BURGLAR', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(125) // Burglary Sub-Mission
+Coop.LaunchMissionForCoop(125) // Burglary Sub-Mission
 $flag_player_on_burglary_mission = 1
 goto @R3_11
 goto @R3_2901
@@ -720,7 +720,7 @@ goto @R3_3077
 
 :R3_3232
 wait 0
-Mission.LoadAndLaunchInternal(126) // Freight Train Sub-Mission
+Coop.LaunchMissionForCoop(126) // Freight Train Sub-Mission
 $been_in_freight_before = 1
 goto @R3_11
 
@@ -772,7 +772,7 @@ goto @R3_3278
 
 :R3_3433
 wait 0
-Mission.LoadAndLaunchInternal(126) // Freight Train Sub-Mission
+Coop.LaunchMissionForCoop(126) // Freight Train Sub-Mission
 $been_in_freight_before = 1
 goto @R3_11
 
@@ -844,7 +844,7 @@ goto @R3_3600
 :R3_3747
 Text.PrintBig('PIMP', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(127) // Pimping Sub-Mission
+Coop.LaunchMissionForCoop(127) // Pimping Sub-Mission
 $flag_pimping_trigger = 1
 goto @R3_11
 
@@ -896,7 +896,7 @@ goto @R3_3809
 :R3_3956
 Text.PrintBig('PIMP', 6000, TextStyle.MiddleSmallerHigher)
 wait 0
-Mission.LoadAndLaunchInternal(127) // Pimping Sub-Mission
+Coop.LaunchMissionForCoop(127) // Pimping Sub-Mission
 $flag_pimping_trigger = 1
 goto @R3_11
 

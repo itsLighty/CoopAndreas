@@ -27,7 +27,7 @@ goto_if_false @ZERO_180
 $onmission = 1
 Text.PrintBig('ZERO_1', 1000, TextStyle.BottomRight)
 PSAVE1_4587()
-Mission.LoadAndLaunchInternal(72) // Air Raid
+Coop.LaunchMissionForCoop(72) // Air Raid
 
 :ZERO_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @ZERO_232
 $onmission = 1
 Text.PrintBig('ZERO_2', 1000, TextStyle.BottomRight)
 PSAVE1_4587()
-Mission.LoadAndLaunchInternal(73) // Supply Lines...
+Coop.LaunchMissionForCoop(73) // Supply Lines...
 
 :ZERO_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @ZERO_284
 $onmission = 1
 Text.PrintBig('ZERO_4', 1000, TextStyle.BottomRight)
 PSAVE1_4587()
-Mission.LoadAndLaunchInternal(74) // New Model Army
+Coop.LaunchMissionForCoop(74) // New Model Army
 
 :ZERO_284
 goto @ZERO_11

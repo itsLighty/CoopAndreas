@@ -27,7 +27,7 @@ goto_if_false @SWEET_180
 $onmission = 1
 Text.PrintBig('SWEET_1', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(13) // Tagging Up Turf
+Coop.LaunchMissionForCoop(13) // Tagging Up Turf
 
 :SWEET_180
 if 
@@ -36,7 +36,7 @@ goto_if_false @SWEET_232
 $onmission = 1
 Text.PrintBig('SWEET1B', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(14) // Cleaning The Hood
+Coop.LaunchMissionForCoop(14) // Cleaning The Hood
 
 :SWEET_232
 if 
@@ -45,7 +45,7 @@ goto_if_false @SWEET_284
 $onmission = 1
 Text.PrintBig('SWEET_3', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(15) // Drive-Thru
+Coop.LaunchMissionForCoop(15) // Drive-Thru
 
 :SWEET_284
 if 
@@ -54,7 +54,7 @@ goto_if_false @SWEET_336
 $onmission = 1
 Text.PrintBig('SWEET_2', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(16) // Nines And AK's
+Coop.LaunchMissionForCoop(16) // Nines And AK's
 
 :SWEET_336
 if 
@@ -63,7 +63,7 @@ goto_if_false @SWEET_388
 $onmission = 1
 Text.PrintBig('SWEET_4', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(17) // Drive-By
+Coop.LaunchMissionForCoop(17) // Drive-By
 
 :SWEET_388
 if 
@@ -72,7 +72,7 @@ goto_if_false @SWEET_440
 $onmission = 1
 Text.PrintBig('SWEET_5', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(18) // Sweet's Girl
+Coop.LaunchMissionForCoop(18) // Sweet's Girl
 
 :SWEET_440
 if 
@@ -81,7 +81,7 @@ goto_if_false @SWEET_492
 $onmission = 1
 Text.PrintBig('SWEET_6', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(19) // Cesar Vialpando
+Coop.LaunchMissionForCoop(19) // Cesar Vialpando
 
 :SWEET_492
 if 
@@ -100,7 +100,7 @@ Text.ClearPrints
 $onmission = 1
 Text.PrintBig('SWEET_7', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(20) // Los Sepulcros
+Coop.LaunchMissionForCoop(20) // Los Sepulcros
 goto @SWEET_625
 
 :SWEET_609
@@ -131,7 +131,7 @@ goto_if_false @SWEET_807
 $onmission = 1
 Text.PrintBig('CRASH_2', 1000, TextStyle.BottomRight)
 LITCAS_267()
-Mission.LoadAndLaunchInternal(21) // Doberman
+Coop.LaunchMissionForCoop(21) // Doberman
 
 :SWEET_807
 goto @SWEET_11

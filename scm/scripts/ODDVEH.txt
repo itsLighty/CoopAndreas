@@ -46,7 +46,7 @@ if
   $flag_courier_trigger == 0
 goto_if_false @ODDVEH_335
 Text.PrintBig('COUR1', 1000, TextStyle.BottomRight)
-Mission.LoadAndLaunchInternal(131) // Courier
+Coop.LaunchMissionForCoop(131) // Courier
 $flag_courier_trigger = 1
 
 :ODDVEH_335
@@ -57,7 +57,7 @@ if
   $flag_courier_trigger == 0
 goto_if_false @ODDVEH_400
 Text.PrintBig('COUR1', 1000, TextStyle.BottomRight)
-Mission.LoadAndLaunchInternal(131) // Courier
+Coop.LaunchMissionForCoop(131) // Courier
 $flag_courier_trigger = 1
 
 :ODDVEH_400
@@ -68,7 +68,7 @@ if
   $flag_courier_trigger == 0
 goto_if_false @ODDVEH_465
 Text.PrintBig('COUR1', 1000, TextStyle.BottomRight)
-Mission.LoadAndLaunchInternal(131) // Courier
+Coop.LaunchMissionForCoop(131) // Courier
 $flag_courier_trigger = 1
 
 :ODDVEH_465
@@ -96,7 +96,7 @@ if and
   18 > $hours
 goto_if_false @ODDVEH_656
 Text.PrintBig('MOUNTN', 1000, TextStyle.BottomRight)
-Mission.LoadAndLaunchInternal(132) // The Chiliad Challenge
+Coop.LaunchMissionForCoop(132) // The Chiliad Challenge
 $flag_mtbike_trigger = 1
 goto @ODDVEH_672
 
@@ -142,7 +142,7 @@ if
 goto_if_false @ODDVEH_910
 Text.PrintBig('BMX', 1000, TextStyle.BottomRight)
 $stunt_course = 0
-Mission.LoadAndLaunchInternal(133) // BMX / NRG-500 STUNT Mission
+Coop.LaunchMissionForCoop(133) // BMX / NRG-500 STUNT Mission
 $flag_bmx_trigger = 1
 goto @ODDVEH_946
 
@@ -178,7 +178,7 @@ if and
 goto_if_false @ODDVEH_1107
 Text.PrintBig('NRG500', 1000, TextStyle.BottomRight)
 $stunt_course = 1
-Mission.LoadAndLaunchInternal(133) // BMX / NRG-500 STUNT Mission
+Coop.LaunchMissionForCoop(133) // BMX / NRG-500 STUNT Mission
 $flag_nrg500_trigger = 1
 
 :ODDVEH_1107

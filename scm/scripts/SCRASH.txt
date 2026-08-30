@@ -27,7 +27,7 @@ goto_if_false @SCRASH_180
 $onmission = 1
 Text.PrintBig('SCRA_1', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(51) // 555 WE TIP
+Coop.LaunchMissionForCoop(51) // 555 WE TIP
 
 :SCRASH_180
 if and
@@ -37,7 +37,7 @@ goto_if_false @SCRASH_239
 $onmission = 1
 Text.PrintBig('SCRA_2', 1000, TextStyle.BottomRight)
 PSAVE1_2765()
-Mission.LoadAndLaunchInternal(52) // Snail Trail
+Coop.LaunchMissionForCoop(52) // Snail Trail
 
 :SCRASH_239
 goto @SCRASH_11

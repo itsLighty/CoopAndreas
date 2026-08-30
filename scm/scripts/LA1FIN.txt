@@ -45,7 +45,7 @@ goto_if_false @LA1FIN_288
 $onmission = 1
 Text.PrintBig('LA1FIN1', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(37) // Reuniting The Families
+Coop.LaunchMissionForCoop(37) // Reuniting The Families
 
 :LA1FIN_288
 if 
@@ -54,7 +54,7 @@ goto_if_false @LA1FIN_340
 $onmission = 1
 Text.PrintBig('LA1FIN2', 1000, TextStyle.BottomRight)
 PSAVE1_1320()
-Mission.LoadAndLaunchInternal(38) // The Green Sabre
+Coop.LaunchMissionForCoop(38) // The Green Sabre
 
 :LA1FIN_340
 goto @LA1FIN_11

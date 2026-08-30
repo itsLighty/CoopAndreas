@@ -3389,5 +3389,6 @@ PrintNowForNetworkPlayer,1D0A,0,0,("key: gxt_key" "time: int" "flag: int" "playe
 PrintHelpForNetworkPlayer,1D0B,0,0,("key: gxt_key" "player_actor: Char")
 ClearThisPrintForNetworkPlayer,1D0C,0,0,("key: gxt_key" "player_actor: Char")
 ClearAllEntityBlipsForNetworkPlayer,1D0D,0,0,("player_actor: Char")
+LaunchMissionForCoop,1D1D,0,0,("missionId: int")
 $END
 #EOF
