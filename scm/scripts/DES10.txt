@@ -1,4 +1,5 @@
 :DES10
+Coop.EnableSyncingThisScript()
 gosub @DES10_36
 if 
   has_deatharrest_been_executed 
@@ -15,6 +16,114 @@ Stat.RegisterMissionGiven
 script_name 'DES10'
 wait 0
 Text.LoadMissionText('DSERT10')
+// Cooperative Green Goo is additive around the original host mission. The
+// stock train, carriage/crate state, goo counters, return, asset unlock,
+// revenue, reward, stats and story writes remain canonical on the host.
+// Mission-entry actor handles are paired with immutable network identities;
+// only matching reconnects can reclaim a frozen slot and late joiners spectate.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+560@ = 0 // immutable frozen remote-roster size
+561@ = 0 // deterministic cooperative failure requested
+562@ = 0 // idempotent cooperative cleanup guard
+563@ = 0 // shared outcome: 0 active, 1 failed, 2 passed
+564@ = 0 // remotes are frozen for a host cinematic
+565@ = 0 // cooperative phase: 0 intro, 1 assault, 2 collect, 3 return, 4 result
+566@ = 0 // next peer objective refresh
+567@ = 0 // next nonblocking entity-id poll
+568@ = 0 // next full guard retarget pass
+569@ = 0 // current timer scratch
+570@ = -1 // identity/integer scratch
+571@ = -1 // actor/entity scratch
+572@ = 0 // reconnect observed this update
+573@ = -1 // safe-teleport argument one
+574@ = -1 // safe-teleport argument two
+575@ = -1 // safe-teleport argument three
+576@ = 0 // host visible-area scratch
+577@ = 0 // boolean/shared-trigger scratch
+578@ = 0 // health/integer scratch
+579@ = 0 // prior host health for friendly-fire repair
+580@ = -1 // derived cooperative objective phase
+581@ = 0 // entity/index scratch
+582@ = -1 // selected hostile target
+583@ = 0.0 // coordinate scratch X
+584@ = 0.0 // coordinate scratch Y
+585@ = 0.0 // coordinate scratch Z
+586@ = 0.0 // candidate coordinate X
+587@ = 0.0 // candidate coordinate Y
+588@ = 0.0 // candidate coordinate Z
+589@ = 0.0 // candidate distance
+590@ = 99999.0 // best target distance
+591@ = 0 // vehicle-health scratch
+593@ = 0 // bounded registration degradation count
+594@ = 0 // remote collector slot plus one
+595@ = 0 // host-authoritative shared return trigger
+596@ = 0 // currently connected frozen participants
+597@ = 0 // outcome notification guard
+598@ = 0 // next phase-aware regroup pass
+599@ = 0 // next expired-registration rearm
+600@ = -1 // host-player ped network id
+601@ = 0 // host-player ped registration deadline
+602@ = -1 // last deployed cooperative phase
+603@ = 0 // objective refresh forced by phase transition
+604@ = 0 // vehicle-registration index scratch
+605@ = -1 // network-id scratch
+607@ = 0 // result staging guard
+608@ = -1 // current canonical vehicle handle
+609@ = 0 // cooperative failure reason: 1 participant death
+610@ = 0 // current participant-friendly-fire flag
+611@ = -1 // current guard handle
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // frozen actor handle
+    503@($temp_int,3i) = -1 // immutable mission-entry network identity
+    506@($temp_int,3i) = 0 // currently connected matching participant
+    509@($temp_int,3i) = 0 // reconnect requires phase-safe staging
+    512@($temp_int,3i) = -1 // last objective phase sent
+    515@($temp_int,3i) = 0 // pre-mission selected weapon
+    518@($temp_int,3i) = 0 // pre-mission Micro SMG ammo
+    521@($temp_int,3i) = 0 // pre-mission visible area
+    524@($temp_int,3i) = 0 // mission jetpack/loadout applied
+    527@($temp_int,3i) = 0 // normal player bullet-proof baseline
+    530@($temp_int,3i) = 0 // normal player fire-proof baseline
+    533@($temp_int,3i) = 0 // normal player explosion-proof baseline
+    536@($temp_int,3i) = 0 // normal player collision-proof baseline
+    539@($temp_int,3i) = 0 // normal player melee-proof baseline
+    542@($temp_int,3i) = 0 // prior health for friendly-fire repair
+    545@($temp_int,3i) = 0 // next conservative crate-damage credit
+    548@($temp_int,3i) = 0 // peer holds host-authoritative goo credit
+    551@($temp_int,3i) = 0 // phase-aware regroup deadline
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 571@ = 500@($temp_int,3i)
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(571@)
+        if
+            503@($temp_int,3i) <> -1
+        then
+            506@($temp_int,3i) = 1
+            515@($temp_int,3i) = Char.GetCurrentWeapon(571@)
+            518@($temp_int,3i) = Char.GetAmmoInWeapon(571@, 28)
+            521@($temp_int,3i) = Char.GetAreaVisible(571@)
+            542@($temp_int,3i) = Char.GetHealth(571@)
+            Char.ClearLastDamageEntity(571@)
+            Char.ClearLastWeaponDamage(571@)
+            560@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 11
+    620@($temp_int,12i) = -1 // all twelve train-guard network ids
+    632@($temp_int,12i) = 0 // guard registration deadlines
+end
+for $temp_int = 0 to 6
+    644@($temp_int,7i) = -1 // engine, five carriages and attached tank ids
+    651@($temp_int,7i) = 0 // canonical vehicle registration deadlines
+    658@($temp_int,7i) = 0 // canonical vehicle friendly-fire health ledger
+end
+for $temp_int = 0 to 3
+    665@($temp_int,4i) = -1 // host plus frozen participant ped network ids
+    669@($temp_int,4i) = 0 // supported participant registration deadlines
+end
+gosub @DES10_COOP_BEGIN_CINEMATIC
 Weather.ForceNow(WeatherType.ExtraSunnyDesert)
 Player.MakeGangDisappear
 57@ = Stat.GetInt(21)
@@ -158,6 +267,10 @@ Car.LockDoors(58@, CarLock.Locked)
 Train.SetSpeed(58@, 5.0)
 Train.SetCruiseSpeed(58@, 5.0)
 Text.PrintNow('DE10_01', 5000, 1)
+set_lvar_text_label 720@s = 'DE10_01'
+722@ = 5000
+723@ = 1
+gosub @DES10_COOP_BROADCAST_SUBTITLE
 $x, $y, $z = Car.GetCoordinates(58@)
 $z += 10.0
 44@ = 0
@@ -245,6 +358,12 @@ Object.AttachToCar(100@, 63@, 0.8877, 0.1707, -1.0564, 0.0, 0.0, 177.5167)
 Object.AttachToCar(101@, 63@, -0.6907, 0.205, -1.0662, 0.0, 0.0, 179.6863)
 102@ = Object.CreateNoOffset(#K_CARGO1, $x, $y, $z)
 Object.AttachToCar(102@, 63@, 0.0036, 2.2326, -1.0644, 0.0, 0.0, 267.6086)
+565@ = 1
+579@ = Char.GetHealth($scplayer)
+Char.ClearLastDamageEntity($scplayer)
+Char.ClearLastWeaponDamage($scplayer)
+gosub @DES10_COOP_SEED_VEHICLE_HEALTH
+gosub @DES10_COOP_STAGE_ASSAULT
 104@ = 0
 105@ = 0
 106@ = 0
@@ -259,6 +378,13 @@ Audio.LoadMissionAudio(40600, 3)
 
 :DES10_2651
 wait 0
+gosub @DES10_COOP_UPDATE
+if
+  561@ == 1
+goto_if_false @DES10_COOP_MAIN_CONTINUE
+goto @DES10_4112
+
+:DES10_COOP_MAIN_CONTINUE
 $game_timer = Clock.GetGameTimer()
 if 
 is_ps2_keyboard_key_pressed 83
@@ -279,6 +405,10 @@ if
   Char.LocateAnyMeansCar2D($scplayer, 58@, 150.0, 150.0, False)
 goto_if_false @DES10_2780
 Text.PrintNow('DE10_06', 5000, 1)
+set_lvar_text_label 720@s = 'DE10_06'
+722@ = 5000
+723@ = 1
+gosub @DES10_COOP_BROADCAST_SUBTITLE
 109@ += 1
 
 :DES10_2780
@@ -352,6 +482,10 @@ Object.AttachToCar(78@(44@,3i), 63@, -0.0485, 5.578, -0.0661, 0.0, 0.0, 90.1967)
 Object.SetCollision(78@(44@,3i), False)
 81@(44@,3i) = Blip.AddForObject(78@(44@,3i))
 Text.PrintNow('DE10_02', 5000, 1)
+set_lvar_text_label 720@s = 'DE10_02'
+722@ = 5000
+723@ = 1
+gosub @DES10_COOP_BROADCAST_SUBTITLE
 Audio.LoadMissionAudio(40600, 3)
 if 
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
@@ -366,6 +500,10 @@ goto @DES10_3393
 :DES10_3357
 Object.MarkAsNoLongerNeeded(78@(44@,3i))
 Text.PrintNow('DE10_03', 5000, 1)
+set_lvar_text_label 720@s = 'DE10_03'
+722@ = 5000
+723@ = 1
+gosub @DES10_COOP_BROADCAST_SUBTITLE
 104@(44@,3i) += 1
 
 :DES10_3393
@@ -388,12 +526,21 @@ goto_if_false @DES10_3513
 
 :DES10_3513
 Fx.DrawWeaponshopCorona($x, $y, $z, 110@, CoronaType.Moon, FlareType.Headlights, 0, 255, 0)
-if 
+// Exact shared-trigger rewrite: a frozen peer physically touching this host-
+// canonical goo object may satisfy the same one-shot 104@ state transition.
+// Object/network pickup authority and the original 35@ counter remain host-only.
+gosub @DES10_COOP_REMOTE_GOO_PICKUP
+if or
   Char.LocateAnyMeans3D($scplayer, 0, $x, $y, $z, 1.5, 1.5, 1.5)
+  577@ == 1
 goto_if_false @DES10_3660
 Object.Delete(78@(44@,3i))
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 Text.PrintNow('DE10_04', 5000, 1)
+set_lvar_text_label 720@s = 'DE10_04'
+722@ = 5000
+723@ = 1
+gosub @DES10_COOP_BROADCAST_SUBTITLE
 Blip.Remove(81@(44@,3i))
 81@(44@,3i) = Blip.AddForCoord(408.7383, 2515.838, 15.4918)
 104@(44@,3i) += 1
@@ -403,9 +550,16 @@ Blip.Remove(81@(44@,3i))
 if 
   104@(44@,3i) == 5
 goto_if_false @DES10_3984
-if 
+// Exact shared-trigger rewrite: only the immutable peer credited by the host
+// for collecting goo may satisfy return proximity. The host still evaluates
+// the trigger and enters the unchanged canonical return/pass path exactly once.
+gosub @DES10_COOP_REMOTE_RETURN
+if or
   Char.LocateAnyMeans3D($scplayer, 1, 408.7383, 2515.838, 15.4918, 1.5, 1.5, 1.5)
+  595@ == 1
 goto_if_false @DES10_3984
+565@ = 3
+gosub @DES10_COOP_BEGIN_CINEMATIC
 Camera.DoFade(0, 1000)
 
 :DES10_3737
@@ -477,16 +631,24 @@ if
   not Char.LocateAnyMeansCar2D($scplayer, 58@, 300.0, 300.0, False)
 goto_if_false @DES10_4105
 Text.PrintNow('DE10_05', 5000, 1)
+set_lvar_text_label 720@s = 'DE10_05'
+722@ = 5000
+723@ = 1
+gosub @DES10_COOP_BROADCAST_SUBTITLE
 goto @DES10_4112
 
 :DES10_4105
 goto @DES10_2651
 
 :DES10_4112
+563@ = 1
+gosub @DES10_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :DES10_4130
+565@ = 4
+gosub @DES10_COOP_STAGE_RESULT
 $pilot_revenue = 10000
 112@ = Pickup.Create(370, 15, 431.045, 2537.78, 16.2463)
 $pilot_cash_pickup = Pickup.CreateProtection(420.5204, 2532.687, 16.0869, $pilot_revenue, $pilot_revenue)
@@ -508,6 +670,7 @@ goto @DES10_4279
 :DES10_4303
 Audio.PlayMissionPassedTune(1)
 Text.PrintBig('ASS_ACQ', 5000, TextStyle.WhiteMiddleSmaller)
+gosub @DES10_COOP_BROADCAST_ASSET_ACQUIRED
 wait 5000
 Camera.SetFixedPosition(419.7284, 2526.546, 16.8, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(419.897, 2527.531, 16.8356, SwitchType.JumpCut)
@@ -534,9 +697,12 @@ Audio.PlayMissionPassedTune(1)
 Stat.RegisterMissionPassed('DESER10')
 Stat.PlayerMadeProgress(1)
 Blip.Remove($desert2_contact_blip)
+563@ = 2
+gosub @DES10_COOP_NOTIFY_OUTCOME
 return 
 
 :DES10_4515
+gosub @DES10_COOP_CLEANUP
 if 
   is_int_lvar_equal_to_int_lvar 108@ == 107@
 goto_if_false @DES10_4538
@@ -557,4 +723,1198 @@ Game.SwitchRandomTrains(True)
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative Green Goo support layer. No helper writes 104@/107@/108@/35@,
+// asset revenue, score, mission stats or story progress. Objects/pickups have no
+// Coop network-id primitive, so their two shared interactions are conservative
+// host-observed proximity/fire fallbacks into the original one-shot transitions.
+:DES10_COOP_VALIDATE_CURRENT_SLOT
+571@ = -1
+if and
+    503@($temp_int,3i) <> -1
+    Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+then
+    set_lvar_int_to_lvar_int 570@ = 500@($temp_int,3i)
+    570@ = Coop.GetNetworkPlayerInternalId(570@)
+    if
+        is_int_lvar_equal_to_int_lvar 570@ == 503@($temp_int,3i)
+    then
+        set_lvar_int_to_lvar_int 571@ = 500@($temp_int,3i)
+    end
+end
+return
+
+:DES10_COOP_UPDATE_ROSTER
+710@, 711@, 712@ = Coop.CollectNetworkPlayersForTheMission()
+572@ = 0
+596@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 570@ = 506@($temp_int,3i)
+    506@($temp_int,3i) = 0
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        506@($temp_int,3i) = 1
+    else
+        for 581@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(710@(581@,3i))
+            then
+                571@ = Coop.GetNetworkPlayerInternalId(710@(581@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 571@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 710@(581@,3i)
+                    506@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        506@($temp_int,3i) == 1
+    then
+        596@ += 1
+        if and
+            570@ == 0
+            563@ == 0
+        then
+            509@($temp_int,3i) = 1
+            512@($temp_int,3i) = -1
+            551@($temp_int,3i) = 0
+            572@ = 1
+        end
+    end
+end
+return
+
+:DES10_COOP_BUILD_ACTIVE_ARGS
+573@ = -1
+574@ = -1
+575@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 573@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:DES10_COOP_TELEPORT_ACTIVE
+if
+    560@ == 0
+then
+    return
+end
+gosub @DES10_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(573@, 574@, 575@)
+return
+
+:DES10_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(500@, -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 501@, -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 502@)
+end
+return
+
+:DES10_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(571@)
+        Coop.RemoveCheckpointForNetworkPlayer(571@)
+        Coop.ClearThisPrintForNetworkPlayer('DE10_01', 571@)
+        Coop.ClearThisPrintForNetworkPlayer('DE10_02', 571@)
+        Coop.ClearThisPrintForNetworkPlayer('DE10_03', 571@)
+        Coop.ClearThisPrintForNetworkPlayer('DE10_04', 571@)
+        Coop.ClearThisPrintForNetworkPlayer('DE10_05', 571@)
+        Coop.ClearThisPrintForNetworkPlayer('DE10_06', 571@)
+        Coop.ClearThisPrintForNetworkPlayer('ASS_ACQ', 571@)
+    end
+    512@($temp_int,3i) = -1
+end
+return
+
+:DES10_COOP_BEGIN_CINEMATIC
+if
+    564@ == 1
+then
+    return
+end
+564@ = 1
+if
+    560@ == 0
+then
+    return
+end
+gosub @DES10_COOP_UPDATE_ROSTER
+gosub @DES10_COOP_CLEAR_OBJECTIVES
+gosub @DES10_COOP_TELEPORT_ACTIVE
+576@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            not Char.IsDead(571@)
+        then
+            Char.ClearTasksImmediately(571@)
+            Char.SetAreaVisible(571@, 576@)
+            Char.FreezePosition(571@, True)
+            Char.SetProofs(571@, True, True, True, True, True)
+            Char.SetCollision(571@, True)
+            Char.SetVisible(571@, False)
+            Task.StandStill(571@, -1)
+        end
+    end
+end
+return
+
+:DES10_COOP_STAGE_CURRENT_ASSAULT
+gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+if
+    571@ == -1
+then
+    return
+end
+if
+    Char.IsDead(571@)
+then
+    return
+end
+Char.ClearTasksImmediately(571@)
+if
+    Char.IsInAnyCar(571@)
+then
+    583@, 584@, 585@ = Char.GetCoordinates(571@)
+    Char.WarpFromCarToCoord(571@, 583@, 584@, 585@)
+end
+576@ = Char.GetAreaVisible($scplayer)
+Char.SetAreaVisible(571@, 576@)
+Char.SetCollision(571@, True)
+Char.SetVisible(571@, True)
+Char.FreezePosition(571@, False)
+Char.SetProofs(571@, 527@($temp_int,3i), 530@($temp_int,3i), 533@($temp_int,3i), 536@($temp_int,3i), 539@($temp_int,3i))
+Task.StandStill(571@, 0)
+Task.Jetpack(571@)
+if
+    524@($temp_int,3i) == 0
+then
+    Char.GiveWeapon(571@, WeaponType.MicroUzi, 2000)
+    Char.SetCurrentWeapon(571@, WeaponType.MicroUzi)
+    524@($temp_int,3i) = 1
+else
+    if
+        not Char.HasGotWeapon(571@, 28)
+    then
+        Char.GiveWeapon(571@, WeaponType.MicroUzi, 2000)
+        Char.SetCurrentWeapon(571@, WeaponType.MicroUzi)
+    end
+end
+542@($temp_int,3i) = Char.GetHealth(571@)
+Char.ClearLastDamageEntity(571@)
+Char.ClearLastWeaponDamage(571@)
+509@($temp_int,3i) = 0
+512@($temp_int,3i) = -1
+551@($temp_int,3i) = 0
+return
+
+:DES10_COOP_STAGE_ASSAULT
+if
+    560@ == 0
+then
+    564@ = 0
+    return
+end
+gosub @DES10_COOP_UPDATE_ROSTER
+gosub @DES10_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        gosub @DES10_COOP_STAGE_CURRENT_ASSAULT
+    end
+end
+564@ = 0
+566@ = 0
+return
+
+:DES10_COOP_FREEZE_CURRENT
+gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+if
+    571@ == -1
+then
+    return
+end
+if
+    Char.IsDead(571@)
+then
+    return
+end
+gosub @DES10_COOP_TELEPORT_CURRENT
+Char.ClearTasksImmediately(571@)
+576@ = Char.GetAreaVisible($scplayer)
+Char.SetAreaVisible(571@, 576@)
+Char.FreezePosition(571@, True)
+Char.SetProofs(571@, True, True, True, True, True)
+Char.SetCollision(571@, True)
+Char.SetVisible(571@, False)
+Task.StandStill(571@, -1)
+509@($temp_int,3i) = 0
+return
+
+:DES10_COOP_HANDLE_RECONNECTS
+if
+    572@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+    then
+        if or
+            564@ == 1
+            565@ == 0
+            565@ == 4
+        then
+            gosub @DES10_COOP_FREEZE_CURRENT
+        else
+            gosub @DES10_COOP_TELEPORT_CURRENT
+            gosub @DES10_COOP_STAGE_CURRENT_ASSAULT
+        end
+    end
+end
+566@ = 0
+return
+
+:DES10_COOP_STAGE_RESULT
+if
+    607@ == 1
+then
+    return
+end
+607@ = 1
+564@ = 0
+gosub @DES10_COOP_BEGIN_CINEMATIC
+return
+
+// A canonical crate can be damaged by a remote only while that immutable actor
+// is visibly firing within ten metres. The host sets the local object's health;
+// the unchanged Object.HasBeenDamaged branch owns every state/counter change.
+:DES10_COOP_REMOTE_CRATE_DAMAGE
+if or
+    560@ == 0
+    564@ == 1
+    565@ < 1
+    565@ > 2
+then
+    return
+end
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if and
+            not Char.IsDead(571@)
+            Char.IsShooting(571@)
+            not Char.IsCurrentWeapon(571@, WeaponType.Unarmed)
+            is_int_lvar_greater_or_equal_to_int_lvar 569@ >= 545@($temp_int,3i)
+        then
+            for 581@ = 0 to 2
+                if and
+                    104@(581@,3i) == 1
+                    Object.DoesExist(78@(581@,3i))
+                then
+                    if
+                        Char.LocateAnyMeansObject3D(571@, 78@(581@,3i), 10.0, 10.0, 7.0, False)
+                    then
+                        Object.SetHealth(78@(581@,3i), 0)
+                        set_lvar_int_to_lvar_int 545@($temp_int,3i) = 569@
+                        545@($temp_int,3i) += 750
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:DES10_COOP_REMOTE_GOO_PICKUP
+577@ = 0
+594@ = 0
+if
+    560@ == 0
+then
+    return
+end
+if
+    Char.LocateAnyMeansObject3D($scplayer, 78@(44@,3i), 1.5, 1.5, 1.5, False)
+then
+    return
+end
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            not Char.IsDead(571@)
+        then
+            if
+                Char.LocateAnyMeansObject3D(571@, 78@(44@,3i), 2.0, 2.0, 2.0, False)
+            then
+                577@ = 1
+                set_lvar_int_to_var_int 594@ = $temp_int
+                594@ += 1
+                548@($temp_int,3i) = 1
+                return
+            end
+        end
+    end
+end
+return
+
+:DES10_COOP_REMOTE_RETURN
+595@ = 0
+if
+    560@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        548@($temp_int,3i) == 1
+    then
+        gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+        if
+            571@ <> -1
+        then
+            if
+                not Char.IsDead(571@)
+            then
+                if
+                    Char.LocateAnyMeans3D(571@, True, 408.7383, 2515.838, 15.4918, 2.5, 2.5, 3.0)
+                then
+                    595@ = 1
+                    return
+                end
+            end
+        end
+    end
+end
+return
+
+:DES10_COOP_SEED_VEHICLE_HEALTH
+for 604@ = 0 to 6
+    gosub @DES10_COOP_LOAD_VEHICLE_HANDLE
+    if
+        Car.DoesExist(608@)
+    then
+        658@(604@,7i) = Car.GetHealth(608@)
+    end
+end
+return
+
+:DES10_COOP_LOAD_VEHICLE_HANDLE
+608@ = -1
+if
+    604@ == 0
+then
+    set_lvar_int_to_lvar_int 608@ = 58@
+end
+if
+    604@ == 1
+then
+    set_lvar_int_to_lvar_int 608@ = 59@
+end
+if
+    604@ == 2
+then
+    set_lvar_int_to_lvar_int 608@ = 60@
+end
+if
+    604@ == 3
+then
+    set_lvar_int_to_lvar_int 608@ = 61@
+end
+if
+    604@ == 4
+then
+    set_lvar_int_to_lvar_int 608@ = 62@
+end
+if
+    604@ == 5
+then
+    set_lvar_int_to_lvar_int 608@ = 63@
+end
+if
+    604@ == 6
+then
+    set_lvar_int_to_lvar_int 608@ = 103@
+end
+return
+
+// Damage attribution is repaired from the last safe health ledger. Hostile
+// guard damage still sticks, while bullets/explosions from any participant
+// cannot kill another participant or corrupt the engine/carriages/tank state.
+:DES10_COOP_PROTECT_PARTICIPANTS
+if
+    564@ == 1
+then
+    return
+end
+if
+    not Char.IsDead($scplayer)
+then
+    610@ = 0
+    for $temp_int = 0 to 2
+        if
+            506@($temp_int,3i) == 1
+        then
+            if
+                Char.HasBeenDamagedByChar($scplayer, 500@($temp_int,3i))
+            then
+                610@ = 1
+            end
+        end
+    end
+    578@ = Char.GetHealth($scplayer)
+    if and
+        610@ == 1
+        579@ > 0
+        is_int_lvar_greater_than_int_lvar 579@ > 578@
+    then
+        Char.SetHealth($scplayer, 579@)
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    else
+        set_lvar_int_to_lvar_int 579@ = 578@
+    end
+end
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            not Char.IsDead(571@)
+        then
+            610@ = 0
+            if
+                Char.HasBeenDamagedByChar(571@, $scplayer)
+            then
+                610@ = 1
+            end
+            for 581@ = 0 to 2
+                if and
+                    not is_int_lvar_equal_to_int_var 581@ == $temp_int
+                    506@(581@,3i) == 1
+                then
+                    if
+                        Char.HasBeenDamagedByChar(571@, 500@(581@,3i))
+                    then
+                        610@ = 1
+                    end
+                end
+            end
+            578@ = Char.GetHealth(571@)
+            if and
+                610@ == 1
+                542@($temp_int,3i) > 0
+                is_int_lvar_greater_than_int_lvar 542@($temp_int,3i) > 578@
+            then
+                Char.SetHealth(571@, 542@($temp_int,3i))
+                Char.ClearLastDamageEntity(571@)
+                Char.ClearLastWeaponDamage(571@)
+            else
+                set_lvar_int_to_lvar_int 542@($temp_int,3i) = 578@
+            end
+        end
+    end
+end
+return
+
+:DES10_COOP_PROTECT_TRAIN
+for 604@ = 0 to 6
+    gosub @DES10_COOP_LOAD_VEHICLE_HANDLE
+    if
+        Car.DoesExist(608@)
+    then
+        if
+            not Car.IsDead(608@)
+        then
+            610@ = 0
+            if
+                Car.HasBeenDamagedByChar(608@, $scplayer)
+            then
+                610@ = 1
+            end
+            for $temp_int = 0 to 2
+                if
+                    506@($temp_int,3i) == 1
+                then
+                    if
+                        Car.HasBeenDamagedByChar(608@, 500@($temp_int,3i))
+                    then
+                        610@ = 1
+                    end
+                end
+            end
+            591@ = Car.GetHealth(608@)
+            if
+                658@(604@,7i) == 0
+            then
+                set_lvar_int_to_lvar_int 658@(604@,7i) = 591@
+            end
+            if and
+                610@ == 1
+                is_int_lvar_greater_than_int_lvar 658@(604@,7i) > 591@
+            then
+                Car.SetHealth(608@, 658@(604@,7i))
+                Car.ClearLastDamageEntity(608@)
+            else
+                set_lvar_int_to_lvar_int 658@(604@,7i) = 591@
+            end
+        end
+    end
+end
+return
+
+:DES10_COOP_CHECK_PARTICIPANTS
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            Char.IsDead(571@)
+        then
+            561@ = 1
+            609@ = 1
+            return
+        end
+    end
+end
+return
+
+// All supported peds/vehicles use five-second registration windows, polled at
+// 250 ms without waiting. Expired windows degrade to coordinate/proximity
+// fallbacks and are rearmed later; no network id can stall canonical gameplay.
+:DES10_COOP_POLL_REGISTRATIONS
+if
+    is_int_lvar_greater_than_int_lvar 567@ > 569@
+then
+    return
+end
+set_lvar_int_to_lvar_int 567@ = 569@
+567@ += 250
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 569@ >= 599@
+then
+    set_lvar_int_to_lvar_int 599@ = 569@
+    599@ += 5000
+    if and
+        600@ == -1
+        601@ == -1
+    then
+        601@ = 0
+    end
+    for 581@ = 0 to 11
+        if and
+            620@(581@,12i) == -1
+            632@(581@,12i) == -1
+        then
+            632@(581@,12i) = 0
+        end
+    end
+    for 604@ = 0 to 6
+        if and
+            644@(604@,7i) == -1
+            651@(604@,7i) == -1
+        then
+            651@(604@,7i) = 0
+        end
+    end
+    for 581@ = 0 to 3
+        if and
+            665@(581@,4i) == -1
+            669@(581@,4i) == -1
+        then
+            669@(581@,4i) = 0
+        end
+    end
+end
+if and
+    600@ == -1
+    601@ <> -1
+    not Char.IsDead($scplayer)
+then
+    if
+        601@ == 0
+    then
+        set_lvar_int_to_lvar_int 601@ = 569@
+        601@ += 5000
+    end
+    if
+        is_int_lvar_greater_or_equal_to_int_lvar 601@ >= 569@
+    then
+        600@ = Coop.GetPedNetworkId($scplayer)
+    else
+        601@ = -1
+        593@ += 1
+    end
+end
+for 581@ = 0 to 11
+    if and
+        620@(581@,12i) == -1
+        632@(581@,12i) <> -1
+        Char.DoesExist(66@(581@,12i))
+    then
+        if
+            not Char.IsDead(66@(581@,12i))
+        then
+            if
+                632@(581@,12i) == 0
+            then
+                set_lvar_int_to_lvar_int 632@(581@,12i) = 569@
+                632@(581@,12i) += 5000
+            end
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 632@(581@,12i) >= 569@
+            then
+                620@(581@,12i) = Coop.GetPedNetworkId(66@(581@,12i))
+            else
+                632@(581@,12i) = -1
+                593@ += 1
+            end
+        end
+    end
+end
+for 604@ = 0 to 6
+    gosub @DES10_COOP_LOAD_VEHICLE_HANDLE
+    if and
+        644@(604@,7i) == -1
+        651@(604@,7i) <> -1
+        Car.DoesExist(608@)
+    then
+        if
+            not Car.IsDead(608@)
+        then
+            if
+                651@(604@,7i) == 0
+            then
+                set_lvar_int_to_lvar_int 651@(604@,7i) = 569@
+                651@(604@,7i) += 5000
+            end
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 651@(604@,7i) >= 569@
+            then
+                644@(604@,7i) = Coop.GetVehicleNetworkId(608@)
+            else
+                651@(604@,7i) = -1
+                593@ += 1
+            end
+        end
+    end
+end
+for 581@ = 0 to 3
+    571@ = -1
+    if
+        581@ == 0
+    then
+        set_lvar_int_to_var_int 571@ = $scplayer
+    end
+    if and
+        581@ == 1
+        506@ == 1
+    then
+        set_lvar_int_to_lvar_int 571@ = 500@
+    end
+    if and
+        581@ == 2
+        507@ == 1
+    then
+        set_lvar_int_to_lvar_int 571@ = 501@
+    end
+    if and
+        581@ == 3
+        508@ == 1
+    then
+        set_lvar_int_to_lvar_int 571@ = 502@
+    end
+    if and
+        571@ <> -1
+        665@(581@,4i) == -1
+        669@(581@,4i) <> -1
+    then
+        if
+            not Char.IsDead(571@)
+        then
+            if
+                669@(581@,4i) == 0
+            then
+                set_lvar_int_to_lvar_int 669@(581@,4i) = 569@
+                669@(581@,4i) += 5000
+            end
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 669@(581@,4i) >= 569@
+            then
+                665@(581@,4i) = Coop.GetPedNetworkId(571@)
+            else
+                669@(581@,4i) = -1
+                593@ += 1
+            end
+        end
+    end
+end
+return
+
+// Every one of the twelve attached guards selects the nearest live mission
+// participant, with immediate preference for a peer who damaged that guard.
+:DES10_COOP_RETARGET_GUARDS
+if
+    is_int_lvar_greater_than_int_lvar 568@ > 569@
+then
+    return
+end
+set_lvar_int_to_lvar_int 568@ = 569@
+568@ += 750
+for 581@ = 0 to 11
+    set_lvar_int_to_lvar_int 611@ = 66@(581@,12i)
+    if
+        Char.DoesExist(611@)
+    then
+        if
+            not Char.IsDead(611@)
+        then
+            582@ = -1
+            590@ = 99999.0
+            583@, 584@, 585@ = Char.GetCoordinates(611@)
+            if
+                not Char.IsDead($scplayer)
+            then
+                586@, 587@, 588@ = Char.GetCoordinates($scplayer)
+                590@ = Math.GetDistanceBetweenCoords3D(583@, 584@, 585@, 586@, 587@, 588@)
+                set_lvar_int_to_var_int 582@ = $scplayer
+            end
+            for $temp_int = 0 to 2
+                gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+                if
+                    571@ <> -1
+                then
+                    if
+                        not Char.IsDead(571@)
+                    then
+                        if
+                            Char.HasBeenDamagedByChar(611@, 571@)
+                        then
+                            set_lvar_int_to_lvar_int 582@ = 571@
+                            590@ = 0.0
+                        else
+                            586@, 587@, 588@ = Char.GetCoordinates(571@)
+                            589@ = Math.GetDistanceBetweenCoords3D(583@, 584@, 585@, 586@, 587@, 588@)
+                            if
+                                is_float_lvar_greater_than_float_lvar 590@ > 589@
+                            then
+                                set_lvar_int_to_lvar_int 582@ = 571@
+                                set_lvar_float_to_lvar_float 590@ = 589@
+                            end
+                        end
+                    end
+                end
+            end
+            if
+                582@ <> -1
+            then
+                Task.KillCharOnFoot(611@, 582@)
+            end
+        end
+    end
+end
+return
+
+:DES10_COOP_DERIVE_PHASE
+if
+    565@ == 4
+then
+    return
+end
+if
+    35@ > 0
+then
+    565@ = 3
+    return
+end
+577@ = 0
+for 581@ = 0 to 2
+    if or
+        104@(581@,3i) == 4
+        104@(581@,3i) == 5
+    then
+        577@ = 1
+    end
+end
+if
+    577@ == 1
+then
+    565@ = 2
+else
+    565@ = 1
+end
+return
+
+:DES10_COOP_UPDATE_OBJECTIVES
+603@ = 0
+if
+    not is_int_lvar_equal_to_int_lvar 580@ == 565@
+then
+    set_lvar_int_to_lvar_int 580@ = 565@
+    603@ = 1
+end
+if and
+    603@ == 0
+    is_int_lvar_greater_than_int_lvar 566@ > 569@
+then
+    return
+end
+set_lvar_int_to_lvar_int 566@ = 569@
+566@ += 2500
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(571@)
+        Coop.RemoveCheckpointForNetworkPlayer(571@)
+        if
+            565@ == 1
+        then
+            if and
+                644@ <> -1
+                Car.DoesExist(58@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(571@, 58@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+            if
+                Car.DoesExist(58@)
+            then
+                583@, 584@, 585@ = Car.GetCoordinates(58@)
+                Coop.UpdateCheckpointForNetworkPlayer(583@, 584@, 585@, 45.0, 45.0, 25.0, 571@)
+            end
+        end
+        if
+            565@ == 2
+        then
+            577@ = 0
+            for 581@ = 0 to 2
+                if and
+                    577@ == 0
+                    104@(581@,3i) == 4
+                    Object.DoesExist(78@(581@,3i))
+                then
+                    583@, 584@, 585@ = Object.GetCoordinates(78@(581@,3i))
+                    Coop.UpdateCheckpointForNetworkPlayer(583@, 584@, 585@, 8.0, 8.0, 8.0, 571@)
+                    577@ = 1
+                end
+            end
+        end
+        if
+            565@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(408.7383, 2515.838, 15.4918, 4.0, 4.0, 4.0, 571@)
+        end
+        if or
+            565@ == 1
+            565@ == 2
+        then
+            for 581@ = 0 to 11
+                if and
+                    620@(581@,12i) <> -1
+                    Char.DoesExist(66@(581@,12i))
+                then
+                    if
+                        not Char.IsDead(66@(581@,12i))
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(571@, 66@(581@,12i), False, BlipDisplay.Both, BlipColor.Red, 2)
+                    end
+                end
+            end
+        end
+        if
+            not is_int_lvar_equal_to_int_lvar 512@($temp_int,3i) == 565@
+        then
+            if
+                565@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('DE10_01', 5000, 1, 571@)
+            end
+            if
+                565@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('DE10_02', 5000, 1, 571@)
+            end
+            if
+                565@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('DE10_04', 5000, 1, 571@)
+            end
+            set_lvar_int_to_lvar_int 512@($temp_int,3i) = 565@
+        end
+    end
+end
+return
+
+// Connected assault participants get ten seconds to recover if they are more
+// than 900 metres from the moving engine. Expiry safely regroups only that
+// immutable slot to the host and reapplies its reversible jetpack role.
+:DES10_COOP_UPDATE_REGROUP
+if or
+    564@ == 1
+    565@ < 1
+    565@ > 2
+then
+    return
+end
+if
+    is_int_lvar_greater_than_int_lvar 598@ > 569@
+then
+    return
+end
+set_lvar_int_to_lvar_int 598@ = 569@
+598@ += 1000
+if
+    not Car.DoesExist(58@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            not Char.IsDead(571@)
+        then
+            if
+                Char.LocateAnyMeansCar3D(571@, 58@, 900.0, 900.0, 300.0, False)
+            then
+                551@($temp_int,3i) = 0
+            else
+                if
+                    551@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 551@($temp_int,3i) = 569@
+                    551@($temp_int,3i) += 10000
+                    Coop.PrintNowForNetworkPlayer('DE10_06', 5000, 1, 571@)
+                else
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 569@ >= 551@($temp_int,3i)
+                    then
+                        gosub @DES10_COOP_TELEPORT_CURRENT
+                        gosub @DES10_COOP_STAGE_CURRENT_ASSAULT
+                    end
+                end
+            end
+        end
+    else
+        551@($temp_int,3i) = 0
+    end
+end
+return
+
+:DES10_COOP_BROADCAST_SUBTITLE
+if
+    560@ == 0
+then
+    return
+end
+gosub @DES10_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer(720@s, 722@, 723@, 500@($temp_int,3i))
+    end
+end
+return
+
+:DES10_COOP_BROADCAST_ASSET_ACQUIRED
+if
+    560@ == 0
+then
+    return
+end
+gosub @DES10_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('ASS_ACQ', 5000, TextStyle.WhiteMiddleSmaller, 500@($temp_int,3i))
+    end
+end
+return
+
+:DES10_COOP_UPDATE
+if
+    560@ == 0
+then
+    return
+end
+569@ = Clock.GetGameTimer()
+gosub @DES10_COOP_UPDATE_ROSTER
+gosub @DES10_COOP_HANDLE_RECONNECTS
+if
+    564@ == 1
+then
+    return
+end
+gosub @DES10_COOP_DERIVE_PHASE
+gosub @DES10_COOP_PROTECT_PARTICIPANTS
+gosub @DES10_COOP_CHECK_PARTICIPANTS
+if
+    561@ == 1
+then
+    return
+end
+gosub @DES10_COOP_REMOTE_CRATE_DAMAGE
+gosub @DES10_COOP_POLL_REGISTRATIONS
+gosub @DES10_COOP_PROTECT_TRAIN
+gosub @DES10_COOP_RETARGET_GUARDS
+gosub @DES10_COOP_UPDATE_REGROUP
+gosub @DES10_COOP_UPDATE_OBJECTIVES
+return
+
+:DES10_COOP_NOTIFY_OUTCOME
+if or
+    560@ == 0
+    597@ == 1
+then
+    return
+end
+597@ = 1
+gosub @DES10_COOP_UPDATE_ROSTER
+gosub @DES10_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            563@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 571@)
+        end
+        if
+            563@ == 2
+        then
+            // Presentation only; the original host block exclusively owns the
+            // $20,000 score, asset revenue, stats and story progression.
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 571@)
+        end
+    end
+end
+return
+
+// Repeat-safe after pass, fail, host death/arrest, peer death/disconnect or a
+// partial registration window. Connected matching identities lose only the
+// mission jetpack/Uzi, then recover exact saved ammo, selected weapon, area and
+// proofs; tasks, collision, visibility and movement are returned to player use.
+:DES10_COOP_CLEANUP
+if
+    562@ == 1
+then
+    return
+end
+562@ = 1
+if
+    560@ == 0
+then
+    return
+end
+gosub @DES10_COOP_UPDATE_ROSTER
+gosub @DES10_COOP_CLEAR_OBJECTIVES
+gosub @DES10_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    gosub @DES10_COOP_VALIDATE_CURRENT_SLOT
+    if
+        571@ <> -1
+    then
+        if
+            not Char.IsDead(571@)
+        then
+            Char.ClearTasksImmediately(571@)
+            if
+                524@($temp_int,3i) == 1
+            then
+                Char.RemoveWeapon(28, 571@)
+                if
+                    518@($temp_int,3i) > 0
+                then
+                    Char.GiveWeapon(571@, WeaponType.MicroUzi, 518@($temp_int,3i))
+                end
+                if
+                    515@($temp_int,3i) == 0
+                then
+                    Char.SetCurrentWeapon(571@, WeaponType.Unarmed)
+                else
+                    if
+                        Char.HasGotWeapon(571@, 515@($temp_int,3i))
+                    then
+                        Char.SetCurrentWeapon(571@, 515@($temp_int,3i))
+                    end
+                end
+            end
+            Char.SetAreaVisible(571@, 521@($temp_int,3i))
+            Char.SetProofs(571@, 527@($temp_int,3i), 530@($temp_int,3i), 533@($temp_int,3i), 536@($temp_int,3i), 539@($temp_int,3i))
+            Char.FreezePosition(571@, False)
+            Char.SetCollision(571@, True)
+            Char.SetVisible(571@, True)
+            Task.StandStill(571@, 0)
+            Char.ClearLastDamageEntity(571@)
+            Char.ClearLastWeaponDamage(571@)
+        end
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = 0
+    512@($temp_int,3i) = -1
+    524@($temp_int,3i) = 0
+    545@($temp_int,3i) = 0
+    548@($temp_int,3i) = 0
+    551@($temp_int,3i) = 0
+end
+for 581@ = 0 to 11
+    620@(581@,12i) = -1
+    632@(581@,12i) = -1
+end
+for 604@ = 0 to 6
+    644@(604@,7i) = -1
+    651@(604@,7i) = -1
+    658@(604@,7i) = 0
+end
+for 581@ = 0 to 3
+    665@(581@,4i) = -1
+    669@(581@,4i) = -1
+end
+564@ = 0
+return
 
