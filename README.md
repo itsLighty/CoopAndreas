@@ -199,7 +199,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] drive by shooting
 - [ ] fixes
   - [X] mouse
-  - [ ] widescreen
+  - [X] widescreen
   - [X] fast load
 - [ ] Fix models loading (green polygon)  --- related to stream it/out
 - [ ] smooth interpolation
@@ -339,7 +339,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 ### Current Tasks
 - [ ] Property purchase sync
 - [ ] Submissions
-  - [ ] Taxi driver
+  - [X] Taxi driver
   - [ ] Firefighter
   - [ ] Vigilante
   - [ ] Paramedic
