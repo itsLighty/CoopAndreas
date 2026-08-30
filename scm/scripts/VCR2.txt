@@ -13,6 +13,64 @@ terminate_this_script
 $onmission = 1
 Stat.RegisterMissionGiven
 script_name 'VCR2'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// High Noon remains host-authoritative for Pulaski's route, timers, dialogue,
+// cinematics, result and reward. The three peers captured here join the chase in
+// their own Banditos; immutable internal ids prevent late joiners from inheriting
+// mission state when an actor handle is recycled.
+524@ = 0 // frozen remote-roster size
+525@ = 0 // deterministic participant failure
+526@ = 0 // idempotent cooperative cleanup guard
+527@ = 0 // cooperative chase has begun
+528@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+529@ = 0 // result notification guard
+530@ = 0 // next bounded entity-registration poll
+531@ = 0 // next objective refresh
+532@ = -1 // Pulaski actor network id
+533@ = -1 // Pulaski vehicle network id
+534@ = 0 // Pulaski actor registration attempts
+535@ = 0 // Pulaski vehicle registration attempts
+536@ = 0 // active frozen participants
+537@ = 0 // roster/reconnect scratch
+538@ = 0 // actor/entity scratch
+539@ = 0 // internal-id/time scratch
+540@ = 0 // current objective phase
+541@ = 0 // shared proximity flag
+542@ = 0 // coordinate/boolean scratch
+543@ = 0 // coordinate scratch
+544@ = 0 // coordinate scratch
+545@ = -1 // active teleport argument 1
+546@ = -1 // active teleport argument 2
+547@ = -1 // active teleport argument 3
+548@ = 0 // registration degraded after bounded retries
+549@ = 0 // final cinematic remote freeze guard
+550@, 551@, 552@ = Coop.CollectNetworkPlayersForTheMission()
+553@ = 0 // next conservative unsynced-combat pass
+554@ = 0 // health scratch
+555@ = 0 // one fallback hit was applied this pass
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // current actor for frozen identity
+    503@($temp_int,3i) = -1 // immutable internal network identity
+    506@($temp_int,3i) = 0 // currently connected frozen participant
+    509@($temp_int,3i) = 0 // reconnect requires restaging
+    512@($temp_int,3i) = -1 // support Bandito
+    515@($temp_int,3i) = -1 // support Bandito network id
+    518@($temp_int,3i) = 0 // bounded support Bandito registration attempts
+    521@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            503@($temp_int,3i) <> -1
+        then
+            506@($temp_int,3i) = 1
+            524@ += 1
+        end
+    end
+end
+gosub @VCR2_COOP_FREEZE_REMOTES
 wait 0
 Text.LoadMissionText('VCR2')
 Player.MakeGangDisappear
@@ -157,6 +215,8 @@ Car.SetHeading(112@, 159.2268)
 Car.ChangeColor(112@, 8, 0)
 Car.SetPetrolTankWeakpoint(112@, False)
 Car.SetOnlyDamagedByPlayer(112@, True)
+// Registered peers must be able to damage the shared pursuit vehicle too.
+Car.SetOnlyDamagedByPlayer(112@, False)
 Car.SetCanGoAgainstTraffic(112@, True)
 Car.SetProofs(112@, True, True, True, True, True)
 Car.SetHealth(112@, 2250)
@@ -164,6 +224,8 @@ Car.SetHealth(112@, 2250)
 Char.SetRelationship($scplayer, RelationshipType.Hate, PedType.Mission1)
 Char.SetHeading(113@, 104.108)
 Char.SetOnlyDamagedByPlayer(113@, True)
+// Pulaski is a shared enemy once his ped is registered with the session.
+Char.SetOnlyDamagedByPlayer(113@, False)
 Char.SetMaxHealth(113@, 500)
 Char.SetHealth(113@, 500)
 Char.SetSuffersCriticalHits(113@, False)
@@ -205,6 +267,12 @@ Weather.Release
 :VCR2_1480
 wait 0
 $game_timer = Clock.GetGameTimer()
+gosub @VCR2_COOP_UPDATE
+if
+    525@ == 1
+then
+    goto @VCR2_5040
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @VCR2_1511
@@ -253,6 +321,7 @@ Game.SetAllCarsCanBeDamaged(True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 34@ = Blip.AddForChar(113@)
+gosub @VCR2_COOP_START_CHASE
 Text.PrintNow('VCR2__1', 15000, 1)
 set_lvar_int_to_var_int 35@ = $game_timer
 35@ += 26000
@@ -316,8 +385,9 @@ set_lvar_int_to_var_int 35@ = $game_timer
 47@ = 2
 
 :VCR2_2283
+gosub @VCR2_COOP_ANY_NEAR_200
 if 
-  Char.LocateAnyMeansChar2D($scplayer, 113@, 200.0, 200.0, False)
+  541@ == 1
 goto_if_false @VCR2_2375
 set_lvar_int_to_var_int 116@ = $game_timer
 116@ += 8000
@@ -346,11 +416,12 @@ Text.PrintNow('VCR2__3', 5000, 1)
 goto @VCR2_5040
 
 :VCR2_2468
+gosub @VCR2_COOP_ANY_NEAR_30
 if 
   20 > 109@
 goto_if_false @VCR2_2695
 if 
-  Char.LocateAnyMeansChar2D($scplayer, 113@, 30.0, 30.0, False)
+  541@ == 1
 goto_if_false @VCR2_2695
 if 
   is_int_var_greater_than_int_lvar $game_timer > 111@
@@ -381,11 +452,12 @@ Audio.ClearMissionAudio(110@)
 Audio.LoadMissionAudio(88@(109@,21i), 110@)
 
 :VCR2_2695
+gosub @VCR2_COOP_ANY_NEAR_20
 if 
   not Char.IsInAnyCar(113@)
 goto_if_false @VCR2_2782
 if 
-  Char.LocateAnyMeansChar2D($scplayer, 113@, 20.0, 20.0, False)
+  541@ == 1
 goto_if_false @VCR2_2782
 $task_status = Char.GetScriptTaskStatus(113@, 1957)
 if 
@@ -418,6 +490,7 @@ Streaming.RequestAnimation("SWAT")
 if 
   not Camera.GetFadingStatus
 goto_if_false @VCR2_3045
+gosub @VCR2_COOP_HIDE_REMOTES_FOR_FINALE
 Char.ClearTasksImmediately($scplayer)
 Car.Delete(112@)
 $x, $y, $z = Char.GetCoordinatesOfDied(113@)
@@ -690,10 +763,14 @@ goto @VCR2_5058
 goto @VCR2_1480
 
 :VCR2_5040
+528@ = 1
+gosub @VCR2_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :VCR2_5058
+528@ = 2
+gosub @VCR2_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_PASSD', 5000, TextStyle.Middle)
 Player.AddScore($player1, 0)
 Player.ClearWantedLevel($player1)
@@ -706,6 +783,7 @@ $flag_vcrash_mission_counter += 1
 return 
 
 :VCR2_5126
+gosub @VCR2_COOP_CLEANUP
 Blip.Remove(34@)
 $timer_mobile_start = Clock.GetGameTimer()
 Streaming.UnloadSpecialCharacter(1)
@@ -723,4 +801,550 @@ Streaming.RemoveAnimation("SWAT")
 $onmission = 0
 Mission.Finish
 return 
+
+// Reacquire only actors whose immutable internal id was captured at mission
+// entry. A late joiner is deliberately ignored; a same-player reconnect is
+// safely restaged into its existing support role.
+:VCR2_COOP_UPDATE_ROSTER
+536@ = 0
+550@, 551@, 552@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 537@ = 506@($temp_int,3i)
+    506@($temp_int,3i) = 0
+    if and
+        503@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 538@ = 500@($temp_int,3i)
+        539@ = Coop.GetNetworkPlayerInternalId(538@)
+        if
+            is_int_lvar_equal_to_int_lvar 539@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+        end
+    end
+    if and
+        503@($temp_int,3i) <> -1
+        506@($temp_int,3i) == 0
+    then
+        for 538@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(550@(538@,3i))
+            then
+                539@ = Coop.GetNetworkPlayerInternalId(550@(538@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 539@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 550@(538@,3i)
+                    506@($temp_int,3i) = 1
+                    if and
+                        527@ == 1
+                        537@ == 0
+                    then
+                        509@($temp_int,3i) = 1
+                        521@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        506@($temp_int,3i) == 1
+    then
+        536@ += 1
+        if and
+            528@ == 0
+            Char.IsDead(500@($temp_int,3i))
+        then
+            525@ = 1
+        end
+    end
+end
+return
+
+:VCR2_COOP_BUILD_ACTIVE_ARGS
+545@ = -1
+546@ = -1
+547@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 545@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+// Peers are kept out of both host-owned cinematics. They remain represented by
+// the frozen roster and are restored when the chase begins or cleanup runs.
+:VCR2_COOP_FREEZE_REMOTES
+if
+    524@ == 0
+then
+    return
+end
+542@, 543@, 544@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 542@, 543@, 544@)
+        else
+            Char.SetCoordinates(500@($temp_int,3i), 542@, 543@, 544@)
+        end
+        Char.SetVisible(500@($temp_int,3i), False)
+        Char.SetCollision(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+return
+
+:VCR2_COOP_START_CHASE
+if
+    527@ == 1
+then
+    return
+end
+527@ = 1
+gosub @VCR2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        503@($temp_int,3i) <> -1
+        512@($temp_int,3i) == -1
+    then
+        542@ = -346.0
+        543@ = 2223.0
+        544@ = 41.49
+        if
+            $temp_int == 1
+        then
+            542@ = -350.0
+        end
+        if
+            $temp_int == 2
+        then
+            542@ = -354.0
+        end
+        512@($temp_int,3i) = Car.Create(568, 542@, 543@, 544@)
+        if
+            Car.DoesExist(512@($temp_int,3i))
+        then
+            Car.SetHeading(512@($temp_int,3i), 168.7771)
+            Car.SetHealth(512@($temp_int,3i), 1000)
+            Car.SetCanBurstTires(512@($temp_int,3i), False)
+            Car.LockDoors(512@($temp_int,3i), CarLock.Unlocked)
+        end
+    end
+end
+530@ = 0
+gosub @VCR2_COOP_POLL_REGISTRATIONS
+gosub @VCR2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(545@, 546@, 547@)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if and
+            Car.DoesExist(512@($temp_int,3i))
+            not Car.IsDead(512@($temp_int,3i))
+        then
+            Char.WarpIntoCar(500@($temp_int,3i), 512@($temp_int,3i))
+        else
+            542@ = -346.0
+            543@ = 2223.0
+            544@ = 41.49
+            Char.SetCoordinates(500@($temp_int,3i), 542@, 543@, 544@)
+        end
+        Char.SetAreaVisible(500@($temp_int,3i), 0)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Task.StandStill(500@($temp_int,3i), 0)
+        509@($temp_int,3i) = 0
+    end
+end
+540@ = 1
+531@ = 0
+gosub @VCR2_COOP_UPDATE_OBJECTIVES
+return
+
+// Network-id acquisition is bounded. Failure degrades to coordinate objectives
+// and the conservative shooting fallback instead of blocking mission progress.
+:VCR2_COOP_POLL_REGISTRATIONS
+if
+    527@ == 0
+then
+    return
+end
+539@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 530@ > 539@
+then
+    return
+end
+530@ = Clock.GetGameTimer()
+530@ += 500
+if and
+    532@ == -1
+    534@ < 10
+    Char.DoesExist(113@)
+then
+    532@ = Coop.GetPedNetworkId(113@)
+    534@ += 1
+end
+if and
+    533@ == -1
+    535@ < 10
+    Car.DoesExist(112@)
+then
+    533@ = Coop.GetVehicleNetworkId(112@)
+    535@ += 1
+end
+for $temp_int = 0 to 2
+    if and
+        515@($temp_int,3i) == -1
+        518@($temp_int,3i) < 10
+        Car.DoesExist(512@($temp_int,3i))
+    then
+        515@($temp_int,3i) = Coop.GetVehicleNetworkId(512@($temp_int,3i))
+        518@($temp_int,3i) += 1
+    end
+end
+if or
+    534@ >= 10
+    535@ >= 10
+then
+    if or
+        532@ == -1
+        533@ == -1
+    then
+        548@ = 1
+    end
+end
+return
+
+:VCR2_COOP_REGROUP_RECONNECTED
+gosub @VCR2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(545@, 546@, 547@)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if and
+            Car.DoesExist(512@($temp_int,3i))
+            not Car.IsDead(512@($temp_int,3i))
+        then
+            Char.WarpIntoCar(500@($temp_int,3i), 512@($temp_int,3i))
+        end
+        Char.SetAreaVisible(500@($temp_int,3i), 0)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(500@($temp_int,3i), False)
+        509@($temp_int,3i) = 0
+        521@($temp_int,3i) = -1
+    end
+end
+531@ = 0
+return
+
+:VCR2_COOP_UPDATE_OBJECTIVES
+if or
+    524@ == 0
+    527@ == 0
+then
+    return
+end
+539@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 531@ > 539@
+then
+    return
+end
+531@ = Clock.GetGameTimer()
+531@ += 750
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 538@ = 500@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(538@)
+        Coop.RemoveCheckpointForNetworkPlayer(538@)
+        if
+            521@($temp_int,3i) <> 1
+        then
+            Coop.ClearThisPrintForNetworkPlayer('VCR2__1', 538@)
+            Coop.PrintNowForNetworkPlayer('VCR2__1', 15000, 1, 538@)
+            521@($temp_int,3i) = 1
+        end
+        if and
+            532@ <> -1
+            Char.DoesExist(113@)
+        then
+            Coop.UpdateCharBlipForNetworkPlayer(538@, 113@, False, BlipDisplay.Both, BlipColor.Red, 3)
+        else
+            if
+                Char.DoesExist(113@)
+            then
+                542@, 543@, 544@ = Char.GetCoordinates(113@)
+                Coop.UpdateCheckpointForNetworkPlayer(542@, 543@, 544@, 12.0, 12.0, 8.0, 538@)
+            end
+        end
+    end
+end
+return
+
+// If Pulaski's ped exhausted registration retries, one nearby shooting peer can
+// apply a small host-side hit per 300 ms. This keeps the shared objective
+// completable without allowing a failed handshake to multiply damage per frame.
+:VCR2_COOP_UNSYNCED_COMBAT_FALLBACK
+if or
+    548@ == 0
+    532@ <> -1
+    not Char.DoesExist(113@)
+    Char.IsDead(113@)
+then
+    return
+end
+539@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 553@ > 539@
+then
+    return
+end
+553@ = Clock.GetGameTimer()
+553@ += 300
+555@ = 0
+for $temp_int = 0 to 2
+    if and
+        555@ == 0
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+        Char.IsShooting(500@($temp_int,3i))
+        Char.LocateAnyMeansChar2D(500@($temp_int,3i), 113@, 50.0, 50.0, False)
+    then
+        554@ = Char.GetHealth(113@)
+        554@ -= 20
+        Char.SetHealth(113@, 554@)
+        555@ = 1
+    end
+end
+return
+
+:VCR2_COOP_UPDATE
+if or
+    524@ == 0
+    528@ <> 0
+then
+    return
+end
+gosub @VCR2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+    then
+        gosub @VCR2_COOP_REGROUP_RECONNECTED
+    end
+end
+if
+    525@ == 1
+then
+    return
+end
+gosub @VCR2_COOP_POLL_REGISTRATIONS
+gosub @VCR2_COOP_UNSYNCED_COMBAT_FALLBACK
+gosub @VCR2_COOP_UPDATE_OBJECTIVES
+return
+
+:VCR2_COOP_ANY_NEAR_200
+541@ = 0
+if and
+    Char.DoesExist(113@)
+    not Char.IsDead(113@)
+    Char.LocateAnyMeansChar2D($scplayer, 113@, 200.0, 200.0, False)
+then
+    541@ = 1
+end
+for $temp_int = 0 to 2
+    if and
+        541@ == 0
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+        Char.LocateAnyMeansChar2D(500@($temp_int,3i), 113@, 200.0, 200.0, False)
+    then
+        541@ = 1
+    end
+end
+return
+
+:VCR2_COOP_ANY_NEAR_30
+541@ = 0
+if and
+    Char.DoesExist(113@)
+    not Char.IsDead(113@)
+    Char.LocateAnyMeansChar2D($scplayer, 113@, 30.0, 30.0, False)
+then
+    541@ = 1
+end
+for $temp_int = 0 to 2
+    if and
+        541@ == 0
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+        Char.LocateAnyMeansChar2D(500@($temp_int,3i), 113@, 30.0, 30.0, False)
+    then
+        541@ = 1
+    end
+end
+return
+
+:VCR2_COOP_ANY_NEAR_20
+541@ = 0
+if and
+    Char.DoesExist(113@)
+    not Char.IsDead(113@)
+    Char.LocateAnyMeansChar2D($scplayer, 113@, 20.0, 20.0, False)
+then
+    541@ = 1
+end
+for $temp_int = 0 to 2
+    if and
+        541@ == 0
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+        Char.LocateAnyMeansChar2D(500@($temp_int,3i), 113@, 20.0, 20.0, False)
+    then
+        541@ = 1
+    end
+end
+return
+
+:VCR2_COOP_HIDE_REMOTES_FOR_FINALE
+if
+    549@ == 1
+then
+    return
+end
+549@ = 1
+gosub @VCR2_COOP_UPDATE_ROSTER
+542@, 543@, 544@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 542@, 543@, 544@)
+        else
+            Char.SetCoordinates(500@($temp_int,3i), 542@, 543@, 544@)
+        end
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(500@($temp_int,3i), False)
+        Char.SetVisible(500@($temp_int,3i), False)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+return
+
+:VCR2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        503@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 538@ = 500@($temp_int,3i)
+        539@ = Coop.GetNetworkPlayerInternalId(538@)
+        if
+            is_int_lvar_equal_to_int_lvar 539@ == 503@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(538@)
+            Coop.RemoveCheckpointForNetworkPlayer(538@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR2__1', 538@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR2__2', 538@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR2__3', 538@)
+        end
+    end
+    521@($temp_int,3i) = -1
+end
+return
+
+:VCR2_COOP_NOTIFY_OUTCOME
+if or
+    524@ == 0
+    529@ == 1
+then
+    return
+end
+529@ = 1
+gosub @VCR2_COOP_UPDATE_ROSTER
+gosub @VCR2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            528@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+        if
+            528@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+:VCR2_COOP_CLEANUP
+if
+    526@ == 1
+then
+    return
+end
+526@ = 1
+gosub @VCR2_COOP_UPDATE_ROSTER
+gosub @VCR2_COOP_CLEAR_OBJECTIVES
+542@, 543@, 544@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 538@ = 500@($temp_int,3i)
+        Char.FreezePosition(538@, False)
+        Char.SetProofs(538@, False, False, False, False, False)
+        Char.SetCollision(538@, True)
+        Char.SetVisible(538@, True)
+        Char.SetAreaVisible(538@, 0)
+        if and
+            549@ == 1
+            not Char.IsDead(538@)
+        then
+            Char.SetCoordinates(538@, 542@, 543@, 544@)
+        end
+    end
+    if
+        Car.DoesExist(512@($temp_int,3i))
+    then
+        Car.Delete(512@($temp_int,3i))
+    end
+    512@($temp_int,3i) = -1
+    515@($temp_int,3i) = -1
+end
+return
 
