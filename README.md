@@ -164,8 +164,8 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [X] cutscenes
   - [X] cutscenes
   - [X] vote to skip
-- [ ] Players map sync
-  - [ ] Areas aka GangZones
+- [X] Players map sync
+  - [X] Areas aka GangZones
   - [X] Mission icons
   - [X] Player map pin
     - [X] fix proportion
@@ -225,7 +225,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] speech sync
 - [ ] player voice commands
 - [X] chat reactions (see LD_CHAT.txd)
-- [ ] gang wars sync
+- [X] gang wars sync
 - [ ] parachute jump sync
 - [ ] stunt
   - [ ] collecting
