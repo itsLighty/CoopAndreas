@@ -2169,7 +2169,7 @@ Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
 if and
     not Car.IsDead(73@)
-    not is_int_lvar_equal_to_var_int 261@ == $scplayer
+    not is_int_lvar_equal_to_int_var 261@ == $scplayer
 then
     // A frozen remote driver cannot carry momentum through the host camera.
     Car.SetForwardSpeed(73@, 25.0)
@@ -4373,7 +4373,7 @@ then
         then
             266@ = 1
             if
-              is_int_lvar_equal_to_var_int 261@ == $scplayer
+              is_int_lvar_equal_to_int_var 261@ == $scplayer
             then
                 267@ = 1
                 set_lvar_int_to_var_int 262@ = $scplayer
