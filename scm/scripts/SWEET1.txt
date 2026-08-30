@@ -228,31 +228,39 @@ $sweet = Char.Create(24, 290, 2518.07, -1668.82, 12.85)
 $big_smoke = Char.Create(24, 299, 2520.1, -1669.58, 13.1)
 
 // SWEET'S CAR
-$temp_int = Coop.GetVehicleNetworkId($sweet_car)
-while $temp_int == -1
-    wait 0
-    $temp_int = Coop.GetVehicleNetworkId($sweet_car)
+207@ = $sweet_car
+gosub @SWEET1_COOP_WAIT_FOR_VEHICLE
+if
+    211@ == 0
+then
+    gosub @SWEET1_COOP_REGISTRATION_ABORT
 end
 
 // SWEET
-$temp_int = Coop.GetPedNetworkId($sweet)
-while $temp_int == -1
-    wait 0
-    $temp_int = Coop.GetPedNetworkId($sweet)
+207@ = $sweet
+gosub @SWEET1_COOP_WAIT_FOR_PED
+if
+    211@ == 0
+then
+    gosub @SWEET1_COOP_REGISTRATION_ABORT
 end
 
 // BIG SMOKE
-$temp_int = Coop.GetPedNetworkId($big_smoke)
-while $temp_int == -1
-    wait 0
-    $temp_int = Coop.GetPedNetworkId($big_smoke)
+207@ = $big_smoke
+gosub @SWEET1_COOP_WAIT_FOR_PED
+if
+    211@ == 0
+then
+    gosub @SWEET1_COOP_REGISTRATION_ABORT
 end
 
 // RYDER'S CAR
-$temp_int = Coop.GetVehicleNetworkId($ryder_car)
-while $temp_int == -1
-    wait 0
-    $temp_int = Coop.GetVehicleNetworkId($ryder_car)
+207@ = $ryder_car
+gosub @SWEET1_COOP_WAIT_FOR_VEHICLE
+if
+    211@ == 0
+then
+    gosub @SWEET1_COOP_REGISTRATION_ABORT
 end
 
 ///
@@ -3312,3 +3320,117 @@ Char.StopFacialTalk($sweet)
 :SWEET1_16141
 return 
 
+
+:SWEET1_COOP_WAIT_FOR_VEHICLE
+211@ = 1
+212@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    212@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    212@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    212@ = 1
+end
+if
+    212@ == 0
+then
+    return
+end
+211@ = 0
+209@ = Clock.GetGameTimer()
+
+:SWEET1_COOP_WAIT_FOR_VEHICLE_LOOP
+if
+    not Car.DoesExist(207@)
+then
+    return
+end
+if
+    Car.IsDead(207@)
+then
+    return
+end
+208@ = Coop.GetVehicleNetworkId(207@)
+if
+    208@ <> -1
+then
+    211@ = 1
+    return
+end
+210@ = Clock.GetGameTimer()
+210@ -= 209@
+if
+    10000 > 210@
+then
+    wait 0
+    goto @SWEET1_COOP_WAIT_FOR_VEHICLE_LOOP
+end
+return
+
+:SWEET1_COOP_WAIT_FOR_PED
+211@ = 1
+212@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    212@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    212@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    212@ = 1
+end
+if
+    212@ == 0
+then
+    return
+end
+211@ = 0
+209@ = Clock.GetGameTimer()
+
+:SWEET1_COOP_WAIT_FOR_PED_LOOP
+if
+    not Char.DoesExist(207@)
+then
+    return
+end
+if
+    Char.IsDead(207@)
+then
+    return
+end
+208@ = Coop.GetPedNetworkId(207@)
+if
+    208@ <> -1
+then
+    211@ = 1
+    return
+end
+210@ = Clock.GetGameTimer()
+210@ -= 209@
+if
+    10000 > 210@
+then
+    wait 0
+    goto @SWEET1_COOP_WAIT_FOR_PED_LOOP
+end
+return
+
+:SWEET1_COOP_REGISTRATION_ABORT
+gosub @SWEET1_14575
+gosub @SWEET1_14838
+terminate_this_script
+return

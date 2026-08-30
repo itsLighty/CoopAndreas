@@ -3,8 +3,7 @@
 
 :SWEET6
 script_name 'SWEET6'
-Coop.AddChatMessage("{ffff00}[CoopAndreas Warning]{ffffff} This mission is currently unsupported and not recommended to play!")
-Coop.AddChatMessage("{ffff00}[CoopAndreas Warning]{ffffff} It may cause desyncs, crashes, or other unexpected behavior!")
+Coop.EnableSyncingThisScript()
 
 gosub @SWEET6_47
 if 
@@ -18,6 +17,7 @@ terminate_this_script
 
 :SWEET6_47
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 $onmission = 1
 34@ = 0
 35@ = 0
@@ -348,6 +348,7 @@ goto_if_false @SWEET6_2034
 Streaming.LoadScene(2519.575, -1677.88, 13.7661)
 Char.SetCoordinates($scplayer, 2519.575, -1677.88, 13.7661)
 Char.SetHeading($scplayer, 107.8934)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
 Camera.RestoreJumpcut
@@ -364,6 +365,14 @@ goto @SWEET6_1967
 :SWEET6_1991
 Text.Print('S6_01', 10000, 1)
 105@ = Blip.AddForCoord(2653.016, -2009.172, 12.5547)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('S6_01', 10000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2653.016, -2009.172, 12.5547, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 35@ += 1
 
 :SWEET6_2034
@@ -389,6 +398,23 @@ goto_if_false @SWEET6_2354
 if 
   Char.LocateAnyMeans3D($scplayer, 1, 2653.016, -2009.172, 12.5547, 4.0, 4.0, 4.0)
 goto_if_false @SWEET6_2305
+45@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 2653.016, -2009.172, 12.5547, 12.0, 12.0, 8.0)
+        then
+            45@ = 0
+        end
+    end
+end
+if
+  45@ == 0
+then
+  goto @SWEET6_2305
+end
 if 
   Char.IsInAnyCar($scplayer)
 goto_if_false @SWEET6_2213
@@ -413,6 +439,13 @@ Player.SetControl($player1, False)
 if 
   43@ == 1
 goto_if_false @SWEET6_2305
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 if 
   Blip.DoesExist(105@)
 goto_if_false @SWEET6_2298
@@ -477,6 +510,7 @@ World.ClearArea(1, 2643.875, -2029.439, 12.5547, 15.0)
 Char.ClearTasksImmediately($scplayer)
 Char.SetCoordinates($scplayer, 2641.743, -2015.496, 12.6446)
 Char.SetHeading($scplayer, 214.4731)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 World.SetPedDensityMultiplier(0.0)
 World.SetCarDensityMultiplier(0.0)
 $stop_gargae_for_neil = 1
@@ -522,6 +556,20 @@ Car.SetStraightLineDistance(71@, 40)
 Car.SetDrivingStyle(71@, DrivingMode.PloughThrough)
 79@ = Char.CreateInsideCar(PedType.CivMale, 50, 71@)
 Char.SetDecisionMaker(79@, 66@)
+297@ = 71@
+gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
+297@ = 79@
+gosub @SWEET6_COOP_WAIT_FOR_PED
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
 Task.LookAtChar($scplayer, 79@, 99999)
 Camera.DoFade(1, 500)
 
@@ -1088,6 +1136,7 @@ Car.StopPlayback(71@)
 $heading = Car.GetHeading(71@)
 Car.SetCoordinates(71@, 2644.258, -2026.526, 12.5469)
 Car.SetHeading(71@, 2.3109)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Player.SetControl($player1, True)
 Camera.SetInFrontOfPlayer
 Camera.RestoreJumpcut
@@ -1117,6 +1166,14 @@ Blip.Remove(105@)
 105@ = Blip.AddForCoord(2645.112, -2045.745, 12.607)
 Garage.Activate('MODLAST')
 Text.PrintNow('S6_38', 7000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('S6_38', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2645.112, -2045.745, 12.607, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 35@ += 1
 
 :SWEET6_6719
@@ -1128,6 +1185,13 @@ if
 goto_if_false @SWEET6_6776
 Text.ClearPrints
 Blip.Remove(105@)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 35@ += 1
 goto @SWEET6_6970
 
@@ -1296,6 +1360,15 @@ goto_if_false @SWEET6_7595
 105@ = Blip.AddForCoord(1793.068, -1904.254, 12.3989)
 
 :SWEET6_7595
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('S6_03', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(1793.068, -1904.254, 12.3989, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 130@ = 0
 131@ = 0
 141@ = 1796.947
@@ -1700,6 +1773,20 @@ goto_if_false @SWEET6_10686
 Char.WarpIntoCarAsPassenger(101@, 74@, 0)
 
 :SWEET6_10686
+297@ = 78@
+gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
+297@ = 101@
+gosub @SWEET6_COOP_WAIT_FOR_PED
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
 131@ = 1
 
 :SWEET6_10693
@@ -2317,6 +2404,7 @@ goto_if_false @SWEET6_15593
 if 
   not Car.IsDead(72@(43@,7i))
 goto_if_false @SWEET6_15563
+45@ = 0
 if 
   Car.HasBeenDamagedByChar(72@(43@,7i), $scplayer)
 goto_if_false @SWEET6_15556
@@ -2324,11 +2412,39 @@ goto_if_false @SWEET6_15556
 if 
   950 > 44@
 goto_if_false @SWEET6_15556
-Text.PrintNow('S6_32', 5000, 1)
-130@ = 1
-43@ = 7
+45@ = 1
 
 :SWEET6_15556
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Car.HasBeenDamagedByChar(72@(43@,7i), $NETWORK_PLAYER[$temp_int])
+        then
+            44@ = Car.GetHealth(72@(43@,7i))
+            if
+                950 > 44@
+            then
+                45@ = 1
+            end
+        end
+    end
+end
+if
+  45@ == 1
+then
+  Text.PrintNow('S6_32', 5000, 1)
+  for $temp_int = 0 to 2
+      if
+          Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+      then
+          Coop.PrintNowForNetworkPlayer('S6_32', 5000, 1, $NETWORK_PLAYER[$temp_int])
+      end
+  end
+  130@ = 1
+  43@ = 7
+end
 goto @SWEET6_15593
 
 :SWEET6_15563
@@ -2356,14 +2472,38 @@ goto_if_false @SWEET6_15769
 if 
   not Char.IsDead(80@(43@,22i))
 goto_if_false @SWEET6_15739
+45@ = 0
 if 
   Char.HasBeenDamagedByChar(80@(43@,22i), $scplayer)
 goto_if_false @SWEET6_15732
-Text.PrintNow('S6_04', 5000, 1)
-130@ = 1
-43@ = 22
+45@ = 1
 
 :SWEET6_15732
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.HasBeenDamagedByChar(80@(43@,22i), $NETWORK_PLAYER[$temp_int])
+        then
+            45@ = 1
+        end
+    end
+end
+if
+  45@ == 1
+then
+  Text.PrintNow('S6_04', 5000, 1)
+  for $temp_int = 0 to 2
+      if
+          Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+      then
+          Coop.PrintNowForNetworkPlayer('S6_04', 5000, 1, $NETWORK_PLAYER[$temp_int])
+      end
+  end
+  130@ = 1
+  43@ = 22
+end
 goto @SWEET6_15769
 
 :SWEET6_15739
@@ -2443,6 +2583,23 @@ goto @SWEET6_16010
 130@ += 1
 
 :SWEET6_16065
+45@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 1793.068, -1904.254, 12.3989, 25.0, 25.0, 10.0)
+        then
+            45@ = 0
+        end
+    end
+end
+if
+  45@ == 0
+then
+  goto @SWEET6_16330
+end
 if 
   not Car.IsDead(71@)
 goto_if_false @SWEET6_16330
@@ -2461,6 +2618,13 @@ if
 goto_if_false @SWEET6_16220
 Player.SetControl($player1, False)
 $car = Char.StoreCarIsInNoSave($scplayer)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 35@ = 99
 goto @SWEET6_16316
 
@@ -2590,6 +2754,7 @@ if
 goto_if_false @SWEET6_16874
 Car.SetCoordinates(71@, 1793.068, -1904.254, 12.3989)
 Car.SetHeading(71@, 171.6728)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 
 :SWEET6_16874
 43@ = 0
@@ -3374,6 +3539,21 @@ goto_if_false @SWEET6_22314
 Char.Delete(283@)
 
 :SWEET6_22314
+297@ = 78@
+gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
+297@ = 102@
+gosub @SWEET6_COOP_WAIT_FOR_PED
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Audio.PreloadBeatTrack(0)
 43@ = 0
 
@@ -3903,6 +4083,20 @@ goto_if_false @SWEET6_26136
 Char.WarpIntoCarAsPassenger(102@, 71@, 0)
 
 :SWEET6_26136
+297@ = 78@
+gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
+297@ = 102@
+gosub @SWEET6_COOP_WAIT_FOR_PED
+if
+    301@ == 0
+then
+    gosub @SWEET6_COOP_REGISTRATION_ABORT
+end
 Char.ClearTasksImmediately($scplayer)
 if 
   not Car.IsDead(71@)
@@ -3911,6 +4105,7 @@ Char.WarpIntoCar($scplayer, 71@)
 Task.PlayAnim($scplayer, "SIT_RELAXED", "LOWRIDER", 4.0, True, False, False, True, -1)
 
 :SWEET6_26208
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Streaming.LoadScene(1791.574, -1911.437, 12.4378)
 Camera.DoFade(1, 1000)
 
@@ -4331,9 +4526,17 @@ goto @SWEET6_28482
 
 :SWEET6_28459
 Text.PrintNow('S6_33', 5000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('S6_33', 5000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 37@ = 1
 
 :SWEET6_28482
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 wait 0
 gosub @SWEET6_35860
 
@@ -5443,6 +5646,14 @@ return
 start_new_script @CLEANAU 
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 Zone.SwitchAudio('LOWRIDE', False)
 if 
   Car.DoesExist(71@)
@@ -5569,3 +5780,117 @@ $onmission = 0
 Mission.Finish
 return 
 
+
+:SWEET6_COOP_WAIT_FOR_VEHICLE
+301@ = 1
+302@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    302@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    302@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    302@ = 1
+end
+if
+    302@ == 0
+then
+    return
+end
+301@ = 0
+299@ = Clock.GetGameTimer()
+
+:SWEET6_COOP_WAIT_FOR_VEHICLE_LOOP
+if
+    not Car.DoesExist(297@)
+then
+    return
+end
+if
+    Car.IsDead(297@)
+then
+    return
+end
+298@ = Coop.GetVehicleNetworkId(297@)
+if
+    298@ <> -1
+then
+    301@ = 1
+    return
+end
+300@ = Clock.GetGameTimer()
+300@ -= 299@
+if
+    10000 > 300@
+then
+    wait 0
+    goto @SWEET6_COOP_WAIT_FOR_VEHICLE_LOOP
+end
+return
+
+:SWEET6_COOP_WAIT_FOR_PED
+301@ = 1
+302@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    302@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    302@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    302@ = 1
+end
+if
+    302@ == 0
+then
+    return
+end
+301@ = 0
+299@ = Clock.GetGameTimer()
+
+:SWEET6_COOP_WAIT_FOR_PED_LOOP
+if
+    not Char.DoesExist(297@)
+then
+    return
+end
+if
+    Char.IsDead(297@)
+then
+    return
+end
+298@ = Coop.GetPedNetworkId(297@)
+if
+    298@ <> -1
+then
+    301@ = 1
+    return
+end
+300@ = Clock.GetGameTimer()
+300@ -= 299@
+if
+    10000 > 300@
+then
+    wait 0
+    goto @SWEET6_COOP_WAIT_FOR_PED_LOOP
+end
+return
+
+:SWEET6_COOP_REGISTRATION_ABORT
+gosub @SWEET6_35918
+gosub @SWEET6_36144
+terminate_this_script
+return

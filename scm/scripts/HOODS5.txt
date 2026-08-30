@@ -3,6 +3,7 @@
 
 :HOODS5
 script_name 'HOODS5'
+Coop.EnableSyncingThisScript()
 gosub @HOODS5_251
 if 
   has_deatharrest_been_executed 
@@ -29,6 +30,7 @@ goto_if_false @HOODS5_251
 
 :HOODS5_251
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 $onmission = 1
 Player.SetGroupToFollowAlways($player1, True)
 154@ = 14
@@ -136,6 +138,13 @@ if
 goto_if_false @HOODS5_849
 126@ = 1
 Text.Print('SW5_L', 4000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer('SW5_L', 4000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 
 :HOODS5_849
 if 
@@ -143,6 +152,13 @@ if
 goto_if_false @HOODS5_888
 126@ = 1
 Text.Print('SW5_M', 4000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer('SW5_M', 4000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 
 :HOODS5_888
 return 
@@ -338,9 +354,34 @@ if
 goto_if_false @HOODS5_2062
 75@ = Char.Create(26, 290, 2752.341, -1948.867, 16.3125)
 105@ = Car.Create(492, 2745.545, -1942.74, 12.5394)
+43@ = Char.Create(26, 12, 2751.282, -1948.867, 16.3125)
+
+409@ = 75@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
+
+409@ = 105@
+gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
+
+409@ = 43@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
+
 Car.SetHeading(105@, 90.0)
 Char.SetHeading(75@, 0.0)
-43@ = Char.Create(26, 12, 2751.282, -1948.867, 16.3125)
 Char.SetHeading(43@, 0.0)
 Char.SetDecisionMaker(43@, 99@)
 set_lvar_int_to_lvar_int 399@ = 75@
@@ -379,6 +420,13 @@ Sequence.Clear(68@)
 
 :HOODS5_2233
 37@ = Char.Create(25, 106, 2751.515, -1973.178, 16.3051)
+409@ = 37@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Char.SetAccuracy(37@, 40)
 Char.SetDecisionMaker(37@, 99@)
 Char.GiveWeapon(37@, WeaponType.Pistol, 99999)
@@ -392,6 +440,13 @@ Sequence.Close(68@)
 Char.PerformSequence(37@, 68@)
 Sequence.Clear(68@)
 38@ = Char.Create(25, 105, 2753.197, -1973.946, 16.3051)
+409@ = 38@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Char.SetAccuracy(38@, 40)
 Char.GiveWeapon(38@, WeaponType.Pistol, 99999)
 Task.ToggleDuck(38@, True)
@@ -515,6 +570,7 @@ Streaming.RequestCollision(2518.789, -1677.22)
 Char.SetCoordinates($scplayer, 2518.448, -1677.224, 13.4109)
 Char.SetHeading($scplayer, 90.691)
 Streaming.LoadScene(2510.284, -1674.066, 14.5338)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 set_lvar_int_to_lvar_int 35@ = TIMERA
 35@ += 300
 148@ = 9
@@ -542,6 +598,15 @@ World.SetCarDensityMultiplier(1.0)
 34@ = Char.GetScriptTaskStatus($scplayer, 1833)
 Text.Print('SW5_A2', 6000, 1)
 Text.Print('SW5_17', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer('SW5_A2', 6000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.PrintForNetworkPlayer('SW5_17', 6000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2775.793, -1942.909, 15.6576, 8.0, 8.0, 8.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Player.SetControl($player1, True)
 Player.MakeGangReappear
 Hud.SwitchWidescreen(False)
@@ -568,14 +633,34 @@ if
 goto_if_false @HOODS5_3616
 $sw5_sweet_health = 0
 Text.Print('SW5_L', 4000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer('SW5_L', 4000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 125@ = 1
 
 :HOODS5_3616
 if 
   97@ == 0
 goto_if_false @HOODS5_4349
-if 
+178@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 2775.793, -1942.909, 15.6576, 100.0, 100.0, 50.0)
+        then
+            178@ = 0
+        end
+    end
+end
+if and
   Char.LocateAnyMeans3D($scplayer, 0, 2775.793, -1942.909, 15.6576, 100.0, 100.0, 50.0)
+  178@ == 1
 goto_if_false @HOODS5_4349
 Game.SetCreateRandomGangMembers(False)
 97@ = 1
@@ -605,6 +690,13 @@ set_lvar_int_to_constant 144@ = 106
 123@ = 12.3837
 set_lvar_int_to_constant 145@ = 105
 172@ = Car.Create(492, 2766.923, -1974.348, 12.3783)
+409@ = 172@
+gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Car.SetHeading(172@, 4.0)
 36@ = 0
 
@@ -613,6 +705,13 @@ if
   5 > 36@
 goto_if_false @HOODS5_4165
 37@(36@,6i) = Char.Create(24, 140@(36@,6i), 106@(36@,6f), 112@(36@,6f), 118@(36@,6f))
+409@ = 37@(36@,6i)
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Char.SetAccuracy(37@(36@,6i), 65)
 if or
   36@ == 0
@@ -638,6 +737,19 @@ goto @HOODS5_3971
 54@ = Blip.AddForChar(40@)
 55@ = Blip.AddForChar(41@)
 Blip.Remove(48@)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintForNetworkPlayer('SW5_J', 4000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 37@, false, BlipDisplay.Both, BlipColor.Red, 3)
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 38@, false, BlipDisplay.Both, BlipColor.Red, 3)
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 39@, false, BlipDisplay.Both, BlipColor.Red, 3)
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 40@, false, BlipDisplay.Both, BlipColor.Red, 3)
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 41@, false, BlipDisplay.Both, BlipColor.Red, 3)
+    end
+end
 Char.SetDecisionMaker(37@, 47@)
 Char.SetDecisionMaker(38@, 47@)
 Char.SetDecisionMaker(39@, 47@)
@@ -667,6 +779,13 @@ if
 goto_if_false @HOODS5_4474
 146@ = 1
 Text.PrintHelp('SW5_19')
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintHelpForNetworkPlayer('SW5_19', $NETWORK_PLAYER[$temp_int])
+    end
+end
 
 :HOODS5_4474
 36@ = 0
@@ -680,6 +799,13 @@ if
   Char.IsDead(37@(36@,6i))
 goto_if_false @HOODS5_4549
 Blip.Remove(51@(36@,6i))
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 37@(36@,6i))
+    end
+end
 57@ += 1
 goto @HOODS5_4573
 
@@ -698,6 +824,13 @@ set_lvar_int_to_lvar_int 173@ = 57@
 if 
   57@ == 5
 goto_if_false @HOODS5_4666
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 148@ = 0
 130@ = 0
 131@ = 0
@@ -781,6 +914,14 @@ Task.UseMobilePhone($scplayer, False)
 Path.SwitchRoadsBackToOriginal(2793.814, -1987.935, 15.3045, 2754.324, -1900.369, 9.8752)
 Path.SwitchPedRoadsBackToOriginal(2793.814, -1987.935, 15.3045, 2754.324, -1900.369, 9.8752)
 Text.Print('SW5_14', 5000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer('SW5_14', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2764.272, -1979.494, 12.5394, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 127@ = 4
 
 :HOODS5_5151
@@ -811,6 +952,25 @@ Text.PrintNow('SW5_G', 5000, 1)
 goto @HOODS5_5481
 
 :HOODS5_5315
+if or
+  not Car.IsPassengerSeatFree(59@, SeatIndex.TandemRear)
+  not Car.IsPassengerSeatFree(59@, SeatIndex.RearLeft)
+then
+    if
+      61@ == 0
+    then
+        Text.PrintNow('SW5_G', 5000, 1)
+        for $temp_int = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+            then
+                Coop.PrintNowForNetworkPlayer('SW5_G', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+        61@ = 1
+    end
+    return
+end
 104@ = Car.GetClass(59@)
 102@ = Car.GetModel(59@)
 if or
@@ -821,6 +981,13 @@ if or
   is_int_lvar_equal_to_constant 102@ == 596
   is_int_lvar_equal_to_constant 102@ == 420
 goto_if_false @HOODS5_5465
+409@ = 59@
+gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Player.SetControl($player1, False)
 Task.CarTempAction($scplayer, 59@, TempAction.HandbrakeStraight, 2000000)
 Camera.DoFade(0, 800)
@@ -836,6 +1003,13 @@ goto @HOODS5_5415
 127@ = 5
 148@ = 0
 Blip.Remove(48@)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 goto @HOODS5_5481
 
 :HOODS5_5465
@@ -909,6 +1083,20 @@ DecisionMakerChar.ClearEventResponse(47@, 36)
 DecisionMakerChar.AddEventResponse(47@, 36, 1022, 0.0, 100.0, 0.0, 0.0, True, False)
 75@ = Char.Create(26, 290, 2752.341, -1948.867, 16.3125)
 43@ = Char.Create(26, 12, 2751.282, -1948.867, 16.3125)
+409@ = 75@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
+409@ = 43@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 set_lvar_int_to_lvar_int 399@ = 75@
 set_lvar_int_to_lvar_int 400@ = 43@
 Char.SetSuffersCriticalHits(75@, False)
@@ -917,6 +1105,20 @@ Char.SetOnlyDamagedByPlayer(75@, False)
 Char.SetOnlyDamagedByPlayer(43@, False)
 62@ = Car.Create(405, 2766.665, -1901.943, 10.005)
 63@ = Car.Create(405, 2772.638, -1903.127, 10.1479)
+409@ = 62@
+gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
+409@ = 63@
+gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Car.SetHeading(62@, 180.0)
 Car.SetHeading(63@, 180.0)
 Car.SetCanGoAgainstTraffic(62@, True)
@@ -925,6 +1127,20 @@ Car.StartPlayback(62@, 153)
 Car.StartPlayback(63@, 154)
 65@ = Char.CreateInsideCar(PedType.Mission1, 105, 63@)
 64@ = Char.CreateInsideCar(PedType.Mission1, 105, 62@)
+409@ = 65@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
+409@ = 64@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Char.SetDecisionMaker(64@, 47@)
 Char.SetDecisionMaker(65@, 47@)
 Char.GiveWeapon(64@, WeaponType.Pistol, 99999)
@@ -1177,6 +1393,15 @@ Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Text.ClearPrints
 Text.Print('SW5_I', 5000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintForNetworkPlayer('SW5_I', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2509.062, -1672.527, 12.386, 8.0, 8.0, 4.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 127@ = 6
 125@ = 1
 set_lvar_int_to_lvar_int 153@ = TIMERA
@@ -1331,6 +1556,15 @@ if
 goto_if_false @HOODS5_8609
 69@ = 1
 Text.Print('SW5_T', 4000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintForNetworkPlayer('SW5_T', 4000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 75@, true, BlipDisplay.Both, BlipColor.Blue, 3)
+    end
+end
 if 
   not Blip.DoesExist(71@)
 goto_if_false @HOODS5_8604
@@ -1341,14 +1575,43 @@ Blip.SetAsFriendly(71@, True)
 Blip.Remove(73@)
 
 :HOODS5_8609
-if and
+178@ = 0
+if
   Char.LocateAnyMeansChar2D($scplayer, 75@, 6.0, 6.0, False)
+then
+  178@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 75@, 6.0, 6.0, False)
+        then
+            178@ = 1
+        end
+    end
+end
+if and
+  178@ == 1
   69@ == 1
 goto_if_false @HOODS5_8712
 69@ = 0
 Group.SetMember(75@, $Players_Group)
 Char.ListenToPlayerGroupCommands(75@, False)
 Blip.Remove(71@)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 75@)
+        if
+            70@ == 0
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2509.062, -1672.527, 12.386, 8.0, 8.0, 4.0, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
 if 
   70@ == 0
 goto_if_false @HOODS5_8712
@@ -1366,6 +1629,15 @@ if
 goto_if_false @HOODS5_8824
 70@ = 1
 Text.Print('SW5_U', 4000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintForNetworkPlayer('SW5_U', 4000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 43@, true, BlipDisplay.Both, BlipColor.Blue, 3)
+    end
+end
 if 
   not Blip.DoesExist(72@)
 goto_if_false @HOODS5_8819
@@ -1376,14 +1648,43 @@ Blip.SetAsFriendly(72@, True)
 Blip.Remove(73@)
 
 :HOODS5_8824
-if and
+178@ = 0
+if
   Char.LocateAnyMeansChar2D($scplayer, 43@, 6.0, 6.0, False)
+then
+  178@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 43@, 6.0, 6.0, False)
+        then
+            178@ = 1
+        end
+    end
+end
+if and
+  178@ == 1
   70@ == 1
 goto_if_false @HOODS5_8934
 70@ = 0
 Group.SetMember(43@, $Players_Group)
 Char.ListenToPlayerGroupCommands(43@, False)
 Blip.Remove(72@)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 43@)
+        if
+            69@ == 0
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2509.062, -1672.527, 12.386, 8.0, 8.0, 4.0, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
 if 
   69@ == 0
 goto_if_false @HOODS5_8934
@@ -1471,8 +1772,21 @@ if and
   70@ == 0
   69@ == 0
 goto_if_false @HOODS5_9682
-if 
+178@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 2509.062, -1672.527, 12.386, 8.0, 8.0, 4.0)
+        then
+            178@ = 0
+        end
+    end
+end
+if and
   Char.LocateAnyMeans3D($scplayer, 1, 2509.062, -1672.527, 12.386, 4.0, 4.0, 4.0)
+  178@ == 1
 goto_if_false @HOODS5_9682
 if and
   Char.LocateAnyMeans3D(75@, 0, 2509.062, -1672.527, 12.386, 8.0, 8.0, 4.0)
@@ -1486,6 +1800,14 @@ $car = Char.StoreCarIsInNoSave($scplayer)
 Task.CarTempAction($scplayer, $car, TempAction.HandbrakeStraight, 2000000)
 
 :HOODS5_9668
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 127@ = 7
 148@ = 0
 
@@ -1670,6 +1992,13 @@ if and
 goto_if_false @HOODS5_11006
 Char.Delete(75@)
 75@ = Char.Create(4, 290, 2752.341, -1948.867, 16.3125)
+409@ = 75@
+gosub @HOODS5_COOP_WAIT_FOR_PED
+if
+    413@ == 0
+then
+    gosub @HOODS5_COOP_REGISTRATION_ABORT
+end
 Char.SetCurrentWeapon(75@, WeaponType.Unarmed)
 Char.SetCurrentWeapon($scplayer, WeaponType.Unarmed)
 Char.RemoveFromGroup(75@)
@@ -1857,9 +2186,32 @@ goto_if_false @HOODS5_12085
 96@ = 1
 
 :HOODS5_12085
+set_lvar_int_to_var_int 178@ = $scplayer
 82@, 83@, 84@ = Char.GetCoordinates(37@(180@,6i))
 85@, 86@, 87@ = Char.GetCoordinates($scplayer)
 200@ = Math.GetDistanceBetweenCoords2D(85@, 86@, 82@, 83@)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.HasBeenDamagedByChar(37@(180@,6i), $NETWORK_PLAYER[$temp_int])
+        then
+            96@ = 1
+        end
+        191@, 192@, 197@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        196@ = Math.GetDistanceBetweenCoords2D(191@, 192@, 82@, 83@)
+        if
+            is_float_lvar_greater_than_float_lvar 200@ > 196@
+        then
+            set_lvar_int_to_var_int 178@ = $NETWORK_PLAYER[$temp_int]
+            set_lvar_float_to_lvar_float 85@ = 191@
+            set_lvar_float_to_lvar_float 86@ = 192@
+            set_lvar_float_to_lvar_float 87@ = 197@
+            set_lvar_float_to_lvar_float 200@ = 196@
+        end
+    end
+end
 if 
   not is_int_lvar_equal_to_int_lvar 193@ == 180@
 goto_if_false @HOODS5_12211
@@ -1898,9 +2250,9 @@ set_lvar_float_to_lvar_float 199@ = 200@
 
 :HOODS5_12307
 if 
-  Char.IsInAnyCar($scplayer)
+  Char.IsInAnyCar(178@)
 goto_if_false @HOODS5_12573
-59@ = Char.GetCarIsUsing($scplayer)
+59@ = Char.GetCarIsUsing(178@)
 188@ = Car.GetSpeed(59@)
 if 
   188@ > 5.0
@@ -1983,11 +2335,11 @@ goto_if_false @HOODS5_12953
 if 
   187@ == 0
 goto_if_false @HOODS5_12941
-Task.ShootAtChar(37@(180@,6i), $scplayer, -2)
+Task.ShootAtChar(37@(180@,6i), 178@, -2)
 goto @HOODS5_12953
 
 :HOODS5_12941
-Task.KillCharOnFoot(37@(180@,6i), $scplayer)
+Task.KillCharOnFoot(37@(180@,6i), 178@)
 
 :HOODS5_12953
 if and
@@ -2231,6 +2583,13 @@ goto_if_false @HOODS5_14899
 Audio.PlayMissionAudio(351@)
 Text.ClearPrints
 Text.Print(228@(352@,40s), 10000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer(228@(352@,40s), 10000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 355@ += 1
 404@ = 0
 352@ += 1
@@ -2443,8 +2802,130 @@ DecisionMaker.Remove(47@)
 DecisionMaker.Remove(99@)
 Game.SetCreateRandomGangMembers(True)
 Player.SetGroupToFollowAlways($player1, False)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
 $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
 
+
+:HOODS5_COOP_WAIT_FOR_VEHICLE
+413@ = 1
+414@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    414@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    414@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    414@ = 1
+end
+if
+    414@ == 0
+then
+    return
+end
+413@ = 0
+411@ = Clock.GetGameTimer()
+
+:HOODS5_COOP_WAIT_FOR_VEHICLE_LOOP
+if
+    not Car.DoesExist(409@)
+then
+    return
+end
+if
+    Car.IsDead(409@)
+then
+    return
+end
+410@ = Coop.GetVehicleNetworkId(409@)
+if
+    410@ <> -1
+then
+    413@ = 1
+    return
+end
+412@ = Clock.GetGameTimer()
+412@ -= 411@
+if
+    10000 > 412@
+then
+    wait 0
+    goto @HOODS5_COOP_WAIT_FOR_VEHICLE_LOOP
+end
+return
+
+:HOODS5_COOP_WAIT_FOR_PED
+413@ = 1
+414@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    414@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    414@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    414@ = 1
+end
+if
+    414@ == 0
+then
+    return
+end
+413@ = 0
+411@ = Clock.GetGameTimer()
+
+:HOODS5_COOP_WAIT_FOR_PED_LOOP
+if
+    not Char.DoesExist(409@)
+then
+    return
+end
+if
+    Char.IsDead(409@)
+then
+    return
+end
+410@ = Coop.GetPedNetworkId(409@)
+if
+    410@ <> -1
+then
+    413@ = 1
+    return
+end
+412@ = Clock.GetGameTimer()
+412@ -= 411@
+if
+    10000 > 412@
+then
+    wait 0
+    goto @HOODS5_COOP_WAIT_FOR_PED_LOOP
+end
+return
+
+:HOODS5_COOP_REGISTRATION_ABORT
+gosub @HOODS5_15256
+gosub @HOODS5_15329
+terminate_this_script
+return

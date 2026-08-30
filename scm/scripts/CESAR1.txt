@@ -3,6 +3,7 @@
 
 :CESAR1
 script_name 'CESAR1'
+Coop.EnableSyncingThisScript()
 gosub @CESAR1_1165
 if 
   has_deatharrest_been_executed 
@@ -85,6 +86,7 @@ Char.SetProofs(123@, True, True, True, True, True)
 Char.SetProofs(127@, True, True, True, True, True)
 Char.SetCanBeShotInVehicle(123@, False)
 Char.SetCanBeShotInVehicle(127@, False)
+gosub @CESAR1_COOP_SYNC_CESAR_CAR
 return 
 126@ = Blip.AddForCar(125@)
 
@@ -153,6 +155,7 @@ Car.SetDrivingStyle(141@, DrivingMode.PloughThrough)
 Car.LockDoors(141@, CarLock.LockoutPlayerOnly)
 Car.SetProofs(141@, True, True, True, True, True)
 Car.SetCanBurstTires(141@, False)
+gosub @CESAR1_COOP_SYNC_START_GRID
 return 
 
 :CESAR1_1165
@@ -161,6 +164,20 @@ $onmission = 1
 wait 0
 Text.LoadMissionText('CESAR1')
 Player.SetGroupRecruitment($player1, False)
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+158@ = 0
+159@ = 0
+for $temp_int = 0 to 2
+    $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+    160@($temp_int,3i) = 0
+    163@($temp_int,3i) = -1
+    180@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        158@ += 1
+    end
+end
 34@ = 0
 35@ = 0
 36@ = -1
@@ -337,6 +354,7 @@ if
   34@ > 0
 goto_if_false @CESAR1_2305
 gosub @CESAR1_5106
+gosub @CESAR1_COOP_UPDATE_CONVOY
 
 :CESAR1_2305
 if and
@@ -361,6 +379,7 @@ if and
   not Char.IsDead($scplayer)
 goto_if_false @CESAR1_2481
 Char.WarpIntoCar($scplayer, $cs1_player_car)
+gosub @CESAR1_COOP_CREATE_CONVOY
 Text.ClearPrints
 43@ = Clock.GetGameTimer()
 gosub @CESAR1_203
@@ -776,6 +795,13 @@ goto @CESAR1_1908
 
 :CESAR1_4957
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Streaming.MarkModelAsNoLongerNeeded(567)
 Streaming.MarkModelAsNoLongerNeeded(114)
 Streaming.MarkModelAsNoLongerNeeded(517)
@@ -785,9 +811,21 @@ return
 
 :CESAR1_4999
 $cs1_race_is_go = 1
+if
+    158@ > 0
+then
+    start_new_script @CESAR1_COOP_RACE
+    159@ = 1
+end
 return 
 
 :CESAR1_5008
+gosub @CESAR1_COOP_CLEAR_OBJECTIVES
+if
+    159@ == 0
+then
+    gosub @CESAR1_COOP_RELEASE_VEHICLES
+end
 Blip.Remove(116@)
 Blip.Remove(126@)
 Blip.Remove(124@)
@@ -800,6 +838,14 @@ Car.Delete(140@)
 Car.Delete(141@)
 Streaming.UnloadSpecialCharacter(1)
 Streaming.UnloadSpecialCharacter(2)
+CarGenerator.DontSuppressCarModel(567)
+CarGenerator.DontSuppressCarModel(534)
+CarGenerator.DontSuppressCarModel(517)
+Player.SetControl($player1, True)
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+Hud.SwitchWidescreen(False)
+World.SetCarDensityMultiplier(1.0)
 $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
@@ -892,4 +938,1046 @@ Blip.Remove(116@)
 
 :CESAR1_5518
 return 
+
+// Co-op entity handshakes are deliberately bounded.  A late or missing network
+// instance degrades to local/follower behaviour instead of holding the mission.
+:CESAR1_COOP_SYNC_CESAR_CAR
+if
+    158@ == 0
+then
+    return
+end
+200@ = -1
+201@ = -1
+202@ = -1
+204@ = Clock.GetGameTimer()
+204@ += 2500
+
+:CESAR1_COOP_SYNC_CESAR_CAR_LOOP
+205@ = 0
+if
+    Car.DoesExist(125@)
+then
+    200@ = Coop.GetVehicleNetworkId(125@)
+end
+if
+    200@ == -1
+then
+    205@ += 1
+end
+if
+    Char.DoesExist(123@)
+then
+    201@ = Coop.GetPedNetworkId(123@)
+end
+if
+    201@ == -1
+then
+    205@ += 1
+end
+if
+    Char.DoesExist(127@)
+then
+    202@ = Coop.GetPedNetworkId(127@)
+end
+if
+    202@ == -1
+then
+    205@ += 1
+end
+203@ = Clock.GetGameTimer()
+if and
+    205@ > 0
+    204@ > 203@
+goto_if_false @CESAR1_COOP_SYNC_CESAR_CAR_DONE
+wait 0
+goto @CESAR1_COOP_SYNC_CESAR_CAR_LOOP
+
+:CESAR1_COOP_SYNC_CESAR_CAR_DONE
+return
+
+:CESAR1_COOP_SYNC_START_GRID
+if
+    158@ == 0
+then
+    return
+end
+200@ = -1
+201@ = -1
+202@ = -1
+203@ = -1
+204@ = -1
+205@ = -1
+206@ = -1
+207@ = -1
+209@ = Clock.GetGameTimer()
+209@ += 2500
+
+:CESAR1_COOP_SYNC_START_GRID_LOOP
+208@ = 0
+if
+    Car.DoesExist(138@)
+then
+    200@ = Coop.GetVehicleNetworkId(138@)
+end
+if
+    Car.DoesExist(139@)
+then
+    201@ = Coop.GetVehicleNetworkId(139@)
+end
+if
+    Car.DoesExist(140@)
+then
+    202@ = Coop.GetVehicleNetworkId(140@)
+end
+if
+    Car.DoesExist(141@)
+then
+    203@ = Coop.GetVehicleNetworkId(141@)
+end
+if
+    Char.DoesExist(134@)
+then
+    204@ = Coop.GetPedNetworkId(134@)
+end
+if
+    Char.DoesExist(135@)
+then
+    205@ = Coop.GetPedNetworkId(135@)
+end
+if
+    Char.DoesExist(136@)
+then
+    206@ = Coop.GetPedNetworkId(136@)
+end
+if
+    Char.DoesExist(137@)
+then
+    207@ = Coop.GetPedNetworkId(137@)
+end
+if
+    200@ == -1
+then
+    208@ += 1
+end
+if
+    201@ == -1
+then
+    208@ += 1
+end
+if
+    202@ == -1
+then
+    208@ += 1
+end
+if
+    203@ == -1
+then
+    208@ += 1
+end
+if
+    204@ == -1
+then
+    208@ += 1
+end
+if
+    205@ == -1
+then
+    208@ += 1
+end
+if
+    206@ == -1
+then
+    208@ += 1
+end
+if
+    207@ == -1
+then
+    208@ += 1
+end
+210@ = Clock.GetGameTimer()
+if and
+    208@ > 0
+    209@ > 210@
+goto_if_false @CESAR1_COOP_SYNC_START_GRID_DONE
+wait 0
+goto @CESAR1_COOP_SYNC_START_GRID_LOOP
+
+:CESAR1_COOP_SYNC_START_GRID_DONE
+return
+
+:CESAR1_COOP_CREATE_CONVOY
+if
+    158@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            170@ = 1784.0
+            171@ = -2122.0
+        end
+        if
+            $temp_int == 1
+        then
+            170@ = 1784.0
+            171@ = -2126.0
+        end
+        if
+            $temp_int == 2
+        then
+            170@ = 1784.0
+            171@ = -2130.0
+        end
+        World.ClearArea(1, 170@, 171@, 12.6, 2.0)
+        $NETWORK_PLAYER_VEHICLE[$temp_int] = Car.Create(536, 170@, 171@, 12.6)
+        Car.SetHeading($NETWORK_PLAYER_VEHICLE[$temp_int], 270.0)
+        Car.ChangeColor($NETWORK_PLAYER_VEHICLE[$temp_int], 6, 1)
+        Car.SetHealth($NETWORK_PLAYER_VEHICLE[$temp_int], 1500)
+        Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[$temp_int], False)
+        Car.SetLoadCollisionFlag($NETWORK_PLAYER_VEHICLE[$temp_int], False)
+    end
+end
+166@ = Clock.GetGameTimer()
+166@ += 2500
+
+:CESAR1_COOP_SYNC_PLAYER_CARS_LOOP
+167@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            163@($temp_int,3i) = Coop.GetVehicleNetworkId($NETWORK_PLAYER_VEHICLE[$temp_int])
+        end
+        if
+            163@($temp_int,3i) == -1
+        then
+            167@ += 1
+        end
+    end
+end
+168@ = Clock.GetGameTimer()
+if and
+    167@ > 0
+    166@ > 168@
+goto_if_false @CESAR1_COOP_SYNC_PLAYER_CARS_DONE
+wait 0
+goto @CESAR1_COOP_SYNC_PLAYER_CARS_LOOP
+
+:CESAR1_COOP_SYNC_PLAYER_CARS_DONE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            170@, 171@, 172@ = Car.GetCoordinates($NETWORK_PLAYER_VEHICLE[$temp_int])
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 170@, 171@, 172@)
+            Char.SetHeading($NETWORK_PLAYER[$temp_int], 270.0)
+            Task.EnterCarAsDriver($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int], 10000)
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int], True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if
+            Car.DoesExist(125@)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 125@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+        end
+        Coop.UpdateCheckpointForNetworkPlayer(1518.304, -1875.023, 12.3828, 8.0, 8.0, 5.0, $NETWORK_PLAYER[$temp_int])
+        Coop.PrintNowForNetworkPlayer('CES1_04', 5000, 2, $NETWORK_PLAYER[$temp_int])
+        160@($temp_int,3i) = 0
+        180@($temp_int,3i) = Clock.GetGameTimer()
+        180@($temp_int,3i) += 15000
+    end
+end
+return
+
+:CESAR1_COOP_UPDATE_CONVOY
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        168@ = Clock.GetGameTimer()
+        if
+            Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 350.0, 350.0, 100.0, False)
+        then
+            180@($temp_int,3i) = 168@
+            180@($temp_int,3i) += 15000
+        else
+            if
+                168@ > 180@($temp_int,3i)
+            then
+                170@, 171@, 172@ = Char.GetCoordinates($scplayer)
+                169@ = 0
+                if
+                    Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+                then
+                    if and
+                        not Car.IsDead($NETWORK_PLAYER_VEHICLE[$temp_int])
+                        Char.IsInCar($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+                    then
+                        169@ = 1
+                    end
+                end
+                if
+                    169@ == 1
+                then
+                    170@ += 5.0
+                    Car.SetCoordinates($NETWORK_PLAYER_VEHICLE[$temp_int], 170@, 171@, 172@)
+                    Car.SetHeading($NETWORK_PLAYER_VEHICLE[$temp_int], 270.0)
+                else
+                    171@ -= 5.0
+                    Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 170@, 171@, 172@)
+                end
+                Coop.PrintNowForNetworkPlayer('CES1_04', 5000, 2, $NETWORK_PLAYER[$temp_int])
+                180@($temp_int,3i) = 168@
+                180@($temp_int,3i) += 15000
+            end
+        end
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            if
+                Car.IsDead($NETWORK_PLAYER_VEHICLE[$temp_int])
+            then
+                if
+                    160@($temp_int,3i) <> 2
+                then
+                    Coop.RemoveCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+                    Coop.PrintNowForNetworkPlayer('RACES24', 5000, 1, $NETWORK_PLAYER[$temp_int])
+                    160@($temp_int,3i) = 2
+                end
+            else
+                if
+                    Char.IsInCar($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+                then
+                    if
+                        160@($temp_int,3i) == 0
+                    then
+                        Coop.RemoveCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+                        160@($temp_int,3i) = 1
+                    end
+                else
+                    if
+                        160@($temp_int,3i) == 1
+                    then
+                        Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int], True, BlipDisplay.Both, BlipColor.Purple, 3)
+                        Coop.PrintNowForNetworkPlayer('CES1_06', 3000, 1, $NETWORK_PLAYER[$temp_int])
+                        160@($temp_int,3i) = 0
+                    end
+                end
+            end
+        end
+        if and
+            38@ == 1
+            160@($temp_int,3i) <> 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1518.304, -1875.023, 12.3828, 8.0, 8.0, 5.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('CES1_05', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            160@($temp_int,3i) = 3
+        end
+    end
+end
+return
+
+:CESAR1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CES1_04', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CES1_05', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CES1_06', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('RACES24', $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:CESAR1_COOP_RELEASE_VEHICLES
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+    then
+        Car.MarkAsNoLongerNeeded($NETWORK_PLAYER_VEHICLE[$temp_int])
+    end
+    $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+end
+return
+
+// Companion race controller.  CPRACE remains authoritative for CJ, the five
+// canonical opponents, place calculation, mission reward, and all one-player
+// success/failure behaviour.  This thread gives remote participants independent
+// co-racer/follower progress without ever gating the canonical race.
+:CESAR1_COOP_RACE
+script_name 'CS1COOP'
+Coop.EnableSyncingThisScript()
+34@ = 0
+49@ = 0
+50@ = 0
+51@ = 0
+67@ = 0
+for $temp_int = 0 to 2
+    34@($temp_int,3i) = 0
+    37@($temp_int,3i) = 0
+    40@($temp_int,3i) = 0
+    43@($temp_int,3f) = 0.0
+    46@($temp_int,3i) = 0
+    70@($temp_int,3i) = -1
+    73@($temp_int,3i) = 0
+    76@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        51@ += 1
+    end
+end
+if
+    51@ == 0
+then
+    terminate_this_script
+end
+52@ = Clock.GetGameTimer()
+52@ += 30000
+
+:CESAR1_COOP_WAIT_FOR_RACE_LAUNCH
+wait 0
+if and
+    $cs1_race_is_go == 2
+    $onmission == 1
+goto_if_false @CESAR1_COOP_CHECK_LAUNCH_TIMEOUT
+goto @CESAR1_COOP_WAIT_FOR_GRID
+
+:CESAR1_COOP_CHECK_LAUNCH_TIMEOUT
+53@ = Clock.GetGameTimer()
+if
+    53@ > 52@
+goto_if_false @CESAR1_COOP_WAIT_FOR_RACE_LAUNCH
+goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+
+:CESAR1_COOP_WAIT_FOR_GRID
+Text.LoadMissionText('RACETOR')
+64@ = $races_timer
+52@ = Clock.GetGameTimer()
+52@ += 25000
+
+:CESAR1_COOP_WAIT_FOR_GRID_LOOP
+wait 0
+if
+    $onmission == 0
+goto_if_false @CESAR1_COOP_GRID_MISSION_ACTIVE
+goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+
+:CESAR1_COOP_GRID_MISSION_ACTIVE
+if and
+    $race_selection == 0
+    Char.IsInAnyCar($scplayer)
+    Char.LocateAnyMeans3D($scplayer, 0, 1492.407, -1872.365, 15.8, 60.0, 60.0, 20.0)
+goto_if_false @CESAR1_COOP_CHECK_GRID_TIMEOUT
+goto @CESAR1_COOP_PREPARE_GRID
+
+:CESAR1_COOP_CHECK_GRID_TIMEOUT
+53@ = Clock.GetGameTimer()
+if
+    53@ > 52@
+goto_if_false @CESAR1_COOP_WAIT_FOR_GRID_LOOP
+goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+
+:CESAR1_COOP_PREPARE_GRID
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            54@ = 1528.0
+            55@ = -1866.0
+        end
+        if
+            $temp_int == 1
+        then
+            54@ = 1533.0
+            55@ = -1872.0
+        end
+        if
+            $temp_int == 2
+        then
+            54@ = 1528.0
+            55@ = -1878.0
+        end
+        56@ = 12.3828
+        59@ = 0
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            if
+                Car.IsDead($NETWORK_PLAYER_VEHICLE[$temp_int])
+            then
+                59@ = 1
+            else
+                if
+                    not Car.IsLowRider($NETWORK_PLAYER_VEHICLE[$temp_int])
+                then
+                    Car.MarkAsNoLongerNeeded($NETWORK_PLAYER_VEHICLE[$temp_int])
+                    $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+                    59@ = 1
+                end
+            end
+        else
+            59@ = 1
+        end
+        if
+            59@ == 1
+        then
+            $NETWORK_PLAYER_VEHICLE[$temp_int] = Car.Create(536, 54@, 55@, 56@)
+            Car.ChangeColor($NETWORK_PLAYER_VEHICLE[$temp_int], 6, 1)
+            Car.SetHealth($NETWORK_PLAYER_VEHICLE[$temp_int], 1500)
+            Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[$temp_int], False)
+        end
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            Car.FreezePosition($NETWORK_PLAYER_VEHICLE[$temp_int], True)
+            Car.SetCoordinates($NETWORK_PLAYER_VEHICLE[$temp_int], 54@, 55@, 56@)
+            Car.SetHeading($NETWORK_PLAYER_VEHICLE[$temp_int], 270.0)
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 54@, 55@, 56@)
+            Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+            37@($temp_int,3i) = 1
+        else
+            37@($temp_int,3i) = 0
+        end
+        34@($temp_int,3i) = 0
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(1492.407, -1872.365, 15.8, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
+
+// Reconfirm network ownership after the mission-to-race handoff.  Failure to
+// receive an ID within 2.5 seconds changes only that participant to follower
+// semantics; the host and other racers continue.
+52@ = Clock.GetGameTimer()
+52@ += 2500
+
+:CESAR1_COOP_RACE_CAR_IDS_LOOP
+53@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            70@($temp_int,3i) = Coop.GetVehicleNetworkId($NETWORK_PLAYER_VEHICLE[$temp_int])
+        end
+        if
+            70@($temp_int,3i) == -1
+        then
+            53@ += 1
+        end
+    end
+end
+58@ = Clock.GetGameTimer()
+if and
+    53@ > 0
+    52@ > 58@
+goto_if_false @CESAR1_COOP_RACE_CAR_IDS_DONE
+wait 0
+goto @CESAR1_COOP_RACE_CAR_IDS_LOOP
+
+:CESAR1_COOP_RACE_CAR_IDS_DONE
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        70@($temp_int,3i) == -1
+    then
+        37@($temp_int,3i) = 0
+    end
+end
+
+// Follow CPRACE's global countdown deadline so remote cars unlock on the same
+// frame-scale schedule as CJ.  Each observation is bounded; if the canonical
+// timer is late or unavailable, the remaining countdown falls back locally.
+65@ = Clock.GetGameTimer()
+65@ += 20000
+
+:CESAR1_COOP_WAIT_COUNTDOWN_THREE
+wait 0
+if
+    $onmission == 0
+then
+    goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+end
+66@ = $races_timer
+if and
+    66@ <> 64@
+    66@ > $game_timer
+then
+    goto @CESAR1_COOP_COUNTDOWN_THREE
+end
+58@ = Clock.GetGameTimer()
+if
+    58@ > 65@
+then
+    goto @CESAR1_COOP_COUNTDOWN_FALLBACK_THREE
+end
+goto @CESAR1_COOP_WAIT_COUNTDOWN_THREE
+
+:CESAR1_COOP_COUNTDOWN_THREE
+64@ = 66@
+set_lvar_text_label 90@s = 'RACES_4'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+65@ = Clock.GetGameTimer()
+65@ += 3000
+
+:CESAR1_COOP_WAIT_COUNTDOWN_TWO
+wait 0
+if
+    $onmission == 0
+then
+    goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+end
+66@ = $races_timer
+if and
+    66@ <> 64@
+    66@ > $game_timer
+then
+    goto @CESAR1_COOP_COUNTDOWN_TWO
+end
+58@ = Clock.GetGameTimer()
+if
+    58@ > 65@
+then
+    goto @CESAR1_COOP_COUNTDOWN_FALLBACK_TWO
+end
+goto @CESAR1_COOP_WAIT_COUNTDOWN_TWO
+
+:CESAR1_COOP_COUNTDOWN_TWO
+64@ = 66@
+set_lvar_text_label 90@s = 'RACES_5'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+65@ = Clock.GetGameTimer()
+65@ += 3000
+
+:CESAR1_COOP_WAIT_COUNTDOWN_ONE
+wait 0
+if
+    $onmission == 0
+then
+    goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+end
+66@ = $races_timer
+if and
+    66@ <> 64@
+    66@ > $game_timer
+then
+    goto @CESAR1_COOP_COUNTDOWN_ONE
+end
+58@ = Clock.GetGameTimer()
+if
+    58@ > 65@
+then
+    goto @CESAR1_COOP_COUNTDOWN_FALLBACK_ONE
+end
+goto @CESAR1_COOP_WAIT_COUNTDOWN_ONE
+
+:CESAR1_COOP_COUNTDOWN_ONE
+64@ = 66@
+set_lvar_text_label 90@s = 'RACES_6'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+65@ = Clock.GetGameTimer()
+65@ += 3000
+
+:CESAR1_COOP_WAIT_COUNTDOWN_GO
+wait 0
+if
+    $onmission == 0
+then
+    goto @CESAR1_COOP_RACE_CLEANUP_SILENT
+end
+if
+    $game_timer > $races_timer
+then
+    goto @CESAR1_COOP_COUNTDOWN_GO
+end
+58@ = Clock.GetGameTimer()
+if
+    58@ > 65@
+then
+    goto @CESAR1_COOP_COUNTDOWN_GO
+end
+goto @CESAR1_COOP_WAIT_COUNTDOWN_GO
+
+:CESAR1_COOP_COUNTDOWN_FALLBACK_THREE
+set_lvar_text_label 90@s = 'RACES_4'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+wait 1000
+
+:CESAR1_COOP_COUNTDOWN_FALLBACK_TWO
+set_lvar_text_label 90@s = 'RACES_5'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+wait 1000
+
+:CESAR1_COOP_COUNTDOWN_FALLBACK_ONE
+set_lvar_text_label 90@s = 'RACES_6'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+wait 1000
+
+:CESAR1_COOP_COUNTDOWN_GO
+set_lvar_text_label 90@s = 'RACES_7'
+gosub @CESAR1_COOP_PRINT_BIG_ALL
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            Car.FreezePosition($NETWORK_PLAYER_VEHICLE[$temp_int], False)
+        end
+        34@($temp_int,3i) = 1
+        57@ = 1
+        gosub @CESAR1_COOP_RESOLVE_ROUTE_POINT
+        Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
+        40@($temp_int,3i) = Clock.GetGameTimer()
+        40@($temp_int,3i) += 4000
+        73@($temp_int,3i) = Clock.GetGameTimer()
+        73@($temp_int,3i) += 15000
+    end
+end
+67@ = 1
+
+:CESAR1_COOP_RACE_LOOP
+wait 0
+if
+    $onmission == 0
+goto_if_false @CESAR1_COOP_RACE_ACTIVE
+goto @CESAR1_COOP_RACE_RESULT
+
+:CESAR1_COOP_RACE_ACTIVE
+if
+    $race_selection == 0
+goto_if_false @CESAR1_COOP_RACE_RESULT
+
+// Record the host in the connected-player finish order, but do not replace or
+// influence CPRACE's canonical opponent ordering.
+if and
+    50@ == 0
+    not Char.IsDead($scplayer)
+    Char.LocateAnyMeans3D($scplayer, 0, 369.98, -2030.34, 5.55, 16.0, 16.0, 10.0)
+then
+    49@ += 1
+    50@ = 49@
+end
+
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            37@($temp_int,3i) < 2
+        then
+            59@ = 0
+            if
+                Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+            then
+                if
+                    Car.IsDead($NETWORK_PLAYER_VEHICLE[$temp_int])
+                then
+                    59@ = 3
+                else
+                    if
+                        Char.IsInCar($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+                    then
+                        59@ = 1
+                    else
+                        59@ = 2
+                    end
+                end
+            end
+            if
+                59@ == 1
+            then
+                37@($temp_int,3i) = 1
+                46@($temp_int,3i) = 0
+            else
+                37@($temp_int,3i) = 0
+                if and
+                    59@ == 2
+                    46@($temp_int,3i) <> 2
+                then
+                    Coop.PrintNowForNetworkPlayer('CES1_06', 3000, 1, $NETWORK_PLAYER[$temp_int])
+                    46@($temp_int,3i) = 2
+                end
+                if and
+                    59@ <> 2
+                    46@($temp_int,3i) <> 1
+                then
+                    Coop.PrintNowForNetworkPlayer('RACES24', 5000, 1, $NETWORK_PLAYER[$temp_int])
+                    46@($temp_int,3i) = 1
+                end
+            end
+
+            57@ = 34@($temp_int,3i)
+            gosub @CESAR1_COOP_RESOLVE_ROUTE_POINT
+            if
+                Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 54@, 55@, 56@, 12.0, 12.0, 8.0)
+            then
+                34@($temp_int,3i) += 1
+                if
+                    34@($temp_int,3i) > 11
+                then
+                    49@ += 1
+                    76@($temp_int,3i) = 49@
+                    37@($temp_int,3i) = 2
+                    Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+                    Coop.PrintBigForNetworkPlayer('RACES18', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+                else
+                    57@ = 34@($temp_int,3i)
+                    gosub @CESAR1_COOP_RESOLVE_ROUTE_POINT
+                    Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
+                    43@($temp_int,3f) = 0.0
+                end
+            end
+
+            if
+                37@($temp_int,3i) < 2
+            then
+                58@ = Clock.GetGameTimer()
+                if
+                    58@ > 40@($temp_int,3i)
+                then
+                    61@, 62@, 63@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+                    69@ = Math.GetDistanceBetweenCoords3D(61@, 62@, 63@, 54@, 55@, 56@)
+                    68@ = 43@($temp_int,3f)
+                    68@ += 75.0
+                    if and
+                        43@($temp_int,3f) > 0.0
+                        69@ > 68@
+                    then
+                        // Increasing distance reasserts the correct route marker;
+                        // it never fails or stalls another participant.
+                        Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
+                    end
+                    43@($temp_int,3f) = 69@
+                    40@($temp_int,3i) = 58@
+                    40@($temp_int,3i) += 4000
+                end
+
+                if
+                    Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 500.0, 500.0, 150.0, False)
+                then
+                    73@($temp_int,3i) = 58@
+                    73@($temp_int,3i) += 15000
+                else
+                    if and
+                        58@ > 73@($temp_int,3i)
+                        not Char.IsDead($scplayer)
+                    then
+                        61@, 62@, 63@ = Char.GetCoordinates($scplayer)
+                        if
+                            $temp_int == 0
+                        then
+                            62@ -= 6.0
+                        end
+                        if
+                            $temp_int == 1
+                        then
+                            62@ -= 10.0
+                        end
+                        if
+                            $temp_int == 2
+                        then
+                            62@ -= 14.0
+                        end
+                        59@ = 0
+                        if
+                            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+                        then
+                            if and
+                                not Car.IsDead($NETWORK_PLAYER_VEHICLE[$temp_int])
+                                Char.IsInCar($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int])
+                            then
+                                59@ = 1
+                            end
+                        end
+                        if
+                            59@ == 1
+                        then
+                            Car.SetCoordinates($NETWORK_PLAYER_VEHICLE[$temp_int], 61@, 62@, 63@)
+                        else
+                            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 61@, 62@, 63@)
+                        end
+                        Coop.UpdateCheckpointForNetworkPlayer(54@, 55@, 56@, 12.0, 12.0, 7.0, $NETWORK_PLAYER[$temp_int])
+                        73@($temp_int,3i) = 58@
+                        73@($temp_int,3i) += 15000
+                    end
+                end
+            end
+        end
+    end
+end
+goto @CESAR1_COOP_RACE_LOOP
+
+:CESAR1_COOP_RACE_RESULT
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $flag_cesar_mission_counter == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        else
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+goto @CESAR1_COOP_RACE_CLEANUP
+
+:CESAR1_COOP_RACE_CLEANUP_SILENT
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CES1_06', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('RACES24', $NETWORK_PLAYER[$temp_int])
+    end
+end
+goto @CESAR1_COOP_RELEASE_RACE_VEHICLES
+
+:CESAR1_COOP_RACE_CLEANUP
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('CES1_06', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('RACES24', $NETWORK_PLAYER[$temp_int])
+    end
+end
+
+:CESAR1_COOP_RELEASE_RACE_VEHICLES
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+    then
+        Car.FreezePosition($NETWORK_PLAYER_VEHICLE[$temp_int], False)
+        Car.MarkAsNoLongerNeeded($NETWORK_PLAYER_VEHICLE[$temp_int])
+    end
+    $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+end
+terminate_this_script
+
+:CESAR1_COOP_PRINT_BIG_ALL
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer(90@s, 1100, TextStyle.MiddleSmaller, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:CESAR1_COOP_RESOLVE_ROUTE_POINT
+if
+    57@ == 0
+then
+    54@ = 1492.407
+    55@ = -1872.365
+    56@ = 15.8
+end
+if
+    57@ == 1
+then
+    54@ = 1384.263
+    55@ = -1872.015
+    56@ = 12.3828
+end
+if
+    57@ == 2
+then
+    54@ = 1075.442
+    55@ = -1851.978
+    56@ = 12.391
+end
+if
+    57@ == 3
+then
+    54@ = 647.3663
+    55@ = -1734.185
+    56@ = 12.4844
+end
+if
+    57@ == 4
+then
+    54@ = 627.2474
+    55@ = -1228.55
+    56@ = 16.9893
+end
+if
+    57@ == 5
+then
+    54@ = 497.0043
+    55@ = -1282.818
+    56@ = 14.6513
+end
+if
+    57@ == 6
+then
+    54@ = 500.412
+    55@ = -1326.649
+    56@ = 14.8178
+end
+if
+    57@ == 7
+then
+    54@ = 401.0033
+    55@ = -1404.457
+    56@ = 32.8973
+end
+if
+    57@ == 8
+then
+    54@ = 420.3067
+    55@ = -1450.714
+    56@ = 29.5842
+end
+if
+    57@ == 9
+then
+    54@ = 329.1244
+    55@ = -1631.112
+    56@ = 32.1247
+end
+if
+    57@ == 10
+then
+    54@ = 366.4376
+    55@ = -1647.349
+    56@ = 31.7176
+end
+if
+    57@ == 11
+then
+    54@ = 369.98
+    55@ = -2030.34
+    56@ = 5.55
+end
+return
 

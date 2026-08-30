@@ -3,6 +3,7 @@
 
 :TWAR7
 script_name 'TWAR7'
+Coop.EnableSyncingThisScript()
 gosub @TWAR7_47
 if 
   has_deatharrest_been_executed 
@@ -16,6 +17,11 @@ terminate_this_script
 :TWAR7_47
 $onmission = 1
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    520@($temp_int,3i) = -1 // companion vehicle
+    523@($temp_int,3i) = -1 // currently displayed network objective
+end
 Text.LoadMissionText('SMOKE1')
 if 
   $onmission == 0
@@ -154,10 +160,33 @@ Char.SetAnimGroup($sweet, "GANG2")
 Char.SetNextDesiredMoveState(MoveState.Walk)
 Task.EnterCarAsPassenger($sweet, 37@, 2, -2)
 Char.SetDecisionMaker($sweet, 149@)
+534@ = 37@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = $big_smoke
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = $sweet
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 Char.ClearTasksImmediately($scplayer)
 World.ClearArea(1, 2072.9, -1690.6, 12.5, 1.0)
 Char.SetCoordinates($scplayer, 2072.9, -1690.6, 12.5)
 Char.SetHeading($scplayer, 33.0)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+gosub @TWAR7_coop_spawn_home_cars
 Char.SetNextDesiredMoveState(MoveState.Walk)
 Task.EnterCarAsDriver($scplayer, 37@, -2)
 Game.SwitchRandomTrains(False)
@@ -216,12 +245,21 @@ Char.SetSuffersCriticalHits($mc_strap, False)
 Char.SetOnlyDamagedByPlayer($mc_strap, True)
 Char.WarpIntoCarAsPassenger($mc_strap, 37@, -1)
 Char.SetSenseRange($mc_strap, 80.0)
+534@ = $mc_strap
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_1598
 Blip.Remove(66@)
 66@ = Blip.AddForCoord(2454.4, -1284.5, 22.7)
 Text.PrintNow('SMK1_10', 7000, 1)
 Player.SetControl($player1, True)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+gosub @TWAR7_coop_relocate_jail_cars
 Camera.DoFade(1, 1000)
 85@ = 2
 68@ = 2
@@ -397,6 +435,13 @@ goto_if_false @TWAR7_2624
 if 
   Char.LocateInCar3D($scplayer, 1532.8, -1672.9, 12.4, 4.0, 4.0, 4.0, True)
 goto_if_false @TWAR7_2624
+530@ = 1
+gosub @TWAR7_coop_check_group_arrival
+if
+  531@ == 0
+then
+  goto @TWAR7_2624
+end
 Text.ClearHelp
 Player.SetControl($player1, False)
 68@ = 1
@@ -527,6 +572,36 @@ DecisionMakerChar.ClearEventResponse(148@, 79)
 DecisionMakerChar.ClearEventResponse(148@, 36)
 DecisionMakerChar.AddEventResponse(148@, 36, 1022, 0.0, 100.0, 0.0, 0.0, True, True)
 Char.SetDecisionMaker($mc_strap, 148@)
+534@ = 37@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = $big_smoke
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = $sweet
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = $mc_strap
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+gosub @TWAR7_coop_relocate_jail_cars
 Blip.Remove(66@)
 66@ = Blip.AddForCoord(2454.4, -1284.5, 22.7)
 Camera.SetBehindPlayer
@@ -613,6 +688,13 @@ goto_if_false @TWAR7_4048
 if 
   Char.LocateInCar3D($scplayer, 2454.4, -1284.5, 22.7, 4.0, 4.0, 4.0, True)
 goto_if_false @TWAR7_4048
+530@ = 2
+gosub @TWAR7_coop_check_group_arrival
+if
+  531@ == 0
+then
+  goto @TWAR7_4048
+end
 if 
   $tw7_trip_skip_flag == 1
 goto_if_false @TWAR7_4027
@@ -774,6 +856,7 @@ World.ClearArea(1, 2457.4, -1286.1, 23.0, 1.0)
 Char.ClearTasksImmediately($scplayer)
 Char.SetCoordinates($scplayer, 2457.4, -1286.1, 23.0)
 Char.SetHeading($scplayer, 230.2)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 World.ClearArea(1, 2458.4, -1287.8, 23.0, 1.0)
 Char.ClearTasksImmediately($mc_strap)
 Char.SetCoordinates($mc_strap, 2458.4, -1287.8, 23.0)
@@ -844,10 +927,47 @@ goto_if_false @TWAR7_8884
 if 
   68@ == 0
 goto_if_false @TWAR7_5756
-if 
+532@ = 0
+if
   Char.LocateStoppedOnFoot3D($scplayer, 2468.8, -1278.2, 29.1, 1.2, 1.2, 3.0, True)
-goto_if_false @TWAR7_5756
-68@ = 1
+then
+  532@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.LocateStoppedOnFoot3D($NETWORK_PLAYER[$temp_int], 2468.8, -1278.2, 29.1, 1.8, 1.8, 3.0, True)
+        then
+            532@ = 1
+        end
+    end
+end
+if
+  532@ == 1
+then
+  530@ = 3
+  gosub @TWAR7_coop_check_group_arrival
+  if
+    531@ == 1
+  then
+    if
+      not Char.LocateStoppedOnFoot3D($scplayer, 2468.8, -1278.2, 29.1, 1.2, 1.2, 3.0, True)
+    then
+      if
+        Char.IsInAnyCar($scplayer)
+      then
+        Char.WarpFromCarToCoord($scplayer, 2468.0, -1278.5, 29.1)
+      else
+        Char.SetCoordinates($scplayer, 2468.0, -1278.5, 29.1)
+      end
+      Char.SetHeading($scplayer, 269.4)
+    end
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+    68@ = 1
+  end
+end
 
 :TWAR7_5756
 if 
@@ -939,6 +1059,27 @@ Char.SetDecisionMaker(34@, 149@)
 Task.DriveBy(-1, 34@, -1, 0.0, 0.0, 0.0, 300.0, DriveByType.Ai, False, 100)
 Sequence.Close(147@)
 Group.SetSequence($Players_Group, 147@)
+534@ = 36@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 35@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 34@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 Char.ClearTasksImmediately($scplayer)
 Char.ClearTasksImmediately($mc_strap)
 World.ClearArea(1, 2468.0, -1278.5, 29.1, 1.0)
@@ -1227,6 +1368,16 @@ Task.WarpCharIntoCarAsPassenger($mc_strap, 36@, -1)
 Player.EnsureHasDriveByWeapon($player1, 78)
 Char.GiveWeapon($mc_strap, WeaponType.Tec9, 30000)
 Char.SetCurrentWeapon($mc_strap, WeaponType.Tec9)
+if
+  not Char.IsDead(34@)
+then
+  Char.SetOnlyDamagedByPlayer(34@, False)
+end
+if
+  not Car.IsDead(35@)
+then
+  Car.SetOnlyDamagedByPlayer(35@, False)
+end
 Game.MakeRoomInPlayerGangForMissionPeds(1)
 Group.SetMember($mc_strap, $Players_Group)
 72@ = 1
@@ -1248,6 +1399,8 @@ Car.SetCoordinates(35@, 2521.2, -1359.0, 27.3)
 Car.SetHeading(35@, 295.2)
 
 :TWAR7_8596
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+gosub @TWAR7_coop_spawn_chase_bikes
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Streaming.RemoveAnimation("CRIB")
@@ -1359,6 +1512,20 @@ Task.Die(40@)
 41@ = Char.CreateRandom(2578.8, -1348.3, 35.5)
 Char.SetHeading(41@, 260.0)
 Task.PlayAnim(41@, "WEAPON_CROUCH", "PED", 4.0, False, False, False, True, -1)
+534@ = 40@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 41@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 73@ = 1
 
 :TWAR7_9300
@@ -1799,6 +1966,20 @@ gosub @TWAR7_26168
 Car.SetLoadCollisionFlag(42@, True)
 Car.SetHeading(42@, 322.3)
 Car.StartPlayback(42@, 50)
+534@ = 42@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 52@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 set_lvar_int_to_constant 78@ = 410
 gosub @TWAR7_26168
 43@ = Car.Create(410, 1679.7, -1131.6, 59.7)
@@ -1806,11 +1987,39 @@ gosub @TWAR7_26168
 Car.SetLoadCollisionFlag(43@, True)
 Car.SetHeading(43@, 321.2)
 Car.StartPlayback(43@, 51)
+534@ = 43@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 53@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 44@ = Car.Create(461, 1644.8, -1177.5, 54.3)
 54@ = Char.CreateRandomAsDriver(44@)
 Car.SetLoadCollisionFlag(44@, True)
 Car.SetHeading(44@, 320.8)
 Car.StartPlayback(44@, 52)
+534@ = 44@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 54@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 set_lvar_int_to_constant 78@ = 410
 gosub @TWAR7_26168
 45@ = Car.Create(410, 1637.0, -1203.8, 51.5)
@@ -1818,6 +2027,20 @@ gosub @TWAR7_26168
 Car.SetLoadCollisionFlag(45@, True)
 Car.SetHeading(45@, 350.3)
 Car.StartPlayback(45@, 53)
+534@ = 45@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 55@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 74@, 75@ = Streaming.GetRandomCarModelInMemory(True)
 if 
   74@ >= 0
@@ -1829,6 +2052,20 @@ Car.SetHeading(46@, 343.7)
 Car.SetLoadCollisionFlag(46@, True)
 56@ = Char.CreateRandomAsDriver(46@)
 Car.StartPlayback(46@, 54)
+534@ = 46@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 56@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_13210
 74@, 75@ = Streaming.GetRandomCarModelInMemory(True)
@@ -1842,6 +2079,20 @@ Car.SetHeading(47@, 348.7)
 Car.SetLoadCollisionFlag(47@, True)
 57@ = Char.CreateRandomAsDriver(47@)
 Car.StartPlayback(47@, 55)
+534@ = 47@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 57@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_13308
 74@, 75@ = Streaming.GetRandomCarModelInMemory(True)
@@ -1855,6 +2106,20 @@ Car.SetHeading(48@, 352.1)
 Car.SetLoadCollisionFlag(48@, True)
 58@ = Char.CreateRandomAsDriver(48@)
 Car.StartPlayback(48@, 56)
+534@ = 48@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 58@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_13406
 74@, 75@ = Streaming.GetRandomCarModelInMemory(True)
@@ -1868,6 +2133,20 @@ Car.SetHeading(49@, 353.6)
 Car.SetLoadCollisionFlag(49@, True)
 59@ = Char.CreateRandomAsDriver(49@)
 Car.StartPlayback(49@, 57)
+534@ = 49@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 59@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_13504
 74@, 75@ = Streaming.GetRandomCarModelInMemory(True)
@@ -1881,6 +2160,20 @@ Car.SetHeading(50@, 357.2)
 Car.SetLoadCollisionFlag(50@, True)
 60@ = Char.CreateRandomAsDriver(50@)
 Car.StartPlayback(50@, 58)
+534@ = 50@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 60@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_13602
 74@, 75@ = Streaming.GetRandomCarModelInMemory(True)
@@ -1894,6 +2187,20 @@ Car.SetHeading(51@, 51.9)
 Car.SetLoadCollisionFlag(51@, True)
 61@ = Char.CreateRandomAsDriver(51@)
 Car.StartPlayback(51@, 60)
+534@ = 51@
+gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 61@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_13700
 Car.StartPlayback(35@, 35)
@@ -2017,6 +2324,20 @@ Char.MarkAsNoLongerNeeded(61@)
 Char.SetHeading(38@, 180.0)
 39@ = Char.CreateRandom(1778.4, -1344.1, 14.7)
 Char.SetHeading(39@, 0.0)
+534@ = 38@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
+534@ = 39@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 Car.StartPlayback(35@, 36)
 68@ = 1
 
@@ -2385,6 +2706,13 @@ Char.SetHeading(62@, 358.5)
 Char.GiveWeapon(62@, WeaponType.Tec9, 30000)
 Char.SetKindaStayInSamePlace(62@, True)
 Char.SetDecisionMaker(62@, 149@)
+534@ = 62@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_17233
 if 
@@ -2395,6 +2723,13 @@ Char.SetHeading(63@, 18.5)
 Char.GiveWeapon(63@, WeaponType.Tec9, 30000)
 Char.SetKindaStayInSamePlace(63@, True)
 Char.SetDecisionMaker(63@, 149@)
+534@ = 63@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_17307
 if 
@@ -2405,6 +2740,13 @@ Char.SetHeading(64@, 5.9)
 Char.GiveWeapon(64@, WeaponType.Tec9, 30000)
 Char.SetKindaStayInSamePlace(64@, True)
 Char.SetDecisionMaker(64@, 149@)
+534@ = 64@
+gosub @TWAR7_COOP_WAIT_FOR_PED
+if
+    538@ == 0
+then
+    gosub @TWAR7_COOP_REGISTRATION_ABORT
+end
 
 :TWAR7_17381
 Car.StartPlayback(35@, 40)
@@ -2691,6 +3033,7 @@ Char.ClearTasksImmediately($mc_strap)
 World.ClearArea(1, 2290.4, -1490.2, 22.3, 1.0)
 Char.SetCoordinates($scplayer, 2290.4, -1490.2, 22.3)
 Char.SetHeading($scplayer, 265.8)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Task.GoStraightToCoord($scplayer, 2295.6, -1490.5, 21.3, MoveState.Walk, -1)
 76@ = Char.GetCurrentWeapon($scplayer)
 Char.SetCurrentWeapon($scplayer, WeaponType.Unarmed)
@@ -2850,6 +3193,7 @@ Streaming.LoadAllModelsNow
 Char.SetCoordinates($scplayer, 141@, 142@, 143@)
 Char.SetHeading($scplayer, 144@)
 Char.SetCurrentWeapon($scplayer, 76@)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Char.ClearTasksImmediately($mc_strap)
 137@ = Path.GetClosestCharNode(138@, 139@, 141@, 142@, 143@)
 Streaming.RequestCollision(137@, 138@)
@@ -2933,6 +3277,13 @@ goto_if_false @TWAR7_21363
 if 
   Char.LocateAnyMeans3D($mc_strap, 0, 783.2, -1630.3, 12.2, 4.0, 4.0, 4.0)
 goto_if_false @TWAR7_21363
+530@ = 4
+gosub @TWAR7_coop_check_group_arrival
+if
+  531@ == 0
+then
+  goto @TWAR7_21363
+end
 Player.SetControl($player1, False)
 68@ = 0
 67@ = 17
@@ -2952,6 +3303,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 83@ = 0
 Player.SetControl($player1, False)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Hud.SwitchWidescreen(True)
 Game.ShutAllCharsUp(True)
 Player.MakeGangDisappear
@@ -3341,13 +3693,23 @@ gosub @TWAR7_24891
 
 :TWAR7_23151
 gosub @TWAR7_27399
+gosub @TWAR7_coop_update
 goto @TWAR7_1306
 
 :TWAR7_23165
+gosub @TWAR7_coop_clear_objectives
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 return 
 
 :TWAR7_23183
+gosub @TWAR7_coop_clear_objectives
 Text.ClearPrints
 Text.PrintWithNumberBig('M_PASSR', 5, 5000, TextStyle.Middle)
 Stat.AwardPlayerMissionRespect(5)
@@ -3362,6 +3724,7 @@ $strap_contact_blip = Blip.AddSpriteForContactPoint($strap_blip_icon, $strapX, $
 return 
 
 :TWAR7_23270
+gosub @TWAR7_coop_cleanup
 if 
   is_var_text_label_empty s$shop_name
 goto_if_false @TWAR7_23288
@@ -4818,3 +5181,467 @@ Text.ClearThisPrint(86@(84@,13s))
 :TWAR7_32499
 return 
 
+:TWAR7_coop_spawn_home_cars
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            520@($temp_int,3i) = Car.Create(466, 2068.0, -1696.0, 12.5)
+        end
+        if
+            $temp_int == 1
+        then
+            520@($temp_int,3i) = Car.Create(466, 2064.0, -1696.0, 12.5)
+        end
+        if
+            $temp_int == 2
+        then
+            520@($temp_int,3i) = Car.Create(466, 2060.0, -1696.0, 12.5)
+        end
+        Car.SetHeading(520@($temp_int,3i), 270.0)
+        Car.ChangeColor(520@($temp_int,3i), 98, 14)
+        Car.SetCanBurstTires(520@($temp_int,3i), False)
+        Car.SetHealth(520@($temp_int,3i), 1250)
+        534@ = 520@($temp_int,3i)
+        gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+        if
+            538@ == 0
+        then
+            gosub @TWAR7_COOP_REGISTRATION_ABORT
+        end
+    end
+end
+return
+
+:TWAR7_coop_relocate_jail_cars
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        533@ = 0
+        if
+            520@($temp_int,3i) <> -1
+        then
+            if
+                not Car.IsDead(520@($temp_int,3i))
+            then
+                533@ = 1
+            end
+        end
+        if
+            533@ == 0
+        then
+            if
+                $temp_int == 0
+            then
+                520@($temp_int,3i) = Car.Create(466, 1522.0, -1663.0, 13.0)
+            end
+            if
+                $temp_int == 1
+            then
+                520@($temp_int,3i) = Car.Create(466, 1518.0, -1663.0, 13.0)
+            end
+            if
+                $temp_int == 2
+            then
+                520@($temp_int,3i) = Car.Create(466, 1514.0, -1663.0, 13.0)
+            end
+            Car.ChangeColor(520@($temp_int,3i), 98, 14)
+            Car.SetCanBurstTires(520@($temp_int,3i), False)
+            Car.SetHealth(520@($temp_int,3i), 1250)
+        end
+        if
+            $temp_int == 0
+        then
+            Car.SetCoordinates(520@($temp_int,3i), 1522.0, -1663.0, 13.0)
+        end
+        if
+            $temp_int == 1
+        then
+            Car.SetCoordinates(520@($temp_int,3i), 1518.0, -1663.0, 13.0)
+        end
+        if
+            $temp_int == 2
+        then
+            Car.SetCoordinates(520@($temp_int,3i), 1514.0, -1663.0, 13.0)
+        end
+        Car.SetHeading(520@($temp_int,3i), 180.0)
+        534@ = 520@($temp_int,3i)
+        gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+        if
+            538@ == 0
+        then
+            gosub @TWAR7_COOP_REGISTRATION_ABORT
+        end
+    end
+end
+return
+
+:TWAR7_coop_spawn_chase_bikes
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            520@($temp_int,3i) <> -1
+        then
+            if
+                not Car.IsDead(520@($temp_int,3i))
+            then
+                Car.MarkAsNoLongerNeeded(520@($temp_int,3i))
+            end
+        end
+        if
+            $temp_int == 0
+        then
+            520@($temp_int,3i) = Car.Create(461, 2463.0, -1293.0, 23.0)
+        end
+        if
+            $temp_int == 1
+        then
+            520@($temp_int,3i) = Car.Create(461, 2459.0, -1295.0, 23.0)
+        end
+        if
+            $temp_int == 2
+        then
+            520@($temp_int,3i) = Car.Create(461, 2455.0, -1297.0, 23.0)
+        end
+        Car.SetHeading(520@($temp_int,3i), 180.0)
+        Car.SetCanBurstTires(520@($temp_int,3i), False)
+        Car.SetHealth(520@($temp_int,3i), 1250)
+        534@ = 520@($temp_int,3i)
+        gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
+        if
+            538@ == 0
+        then
+            gosub @TWAR7_COOP_REGISTRATION_ABORT
+        end
+    end
+end
+return
+
+:TWAR7_coop_check_group_arrival
+531@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            530@ == 1
+        then
+            if
+                not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 1532.8, -1672.9, 12.4, 25.0, 25.0, 10.0)
+            then
+                531@ = 0
+            end
+        end
+        if
+            530@ == 2
+        then
+            if
+                not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 2454.4, -1284.5, 22.7, 25.0, 25.0, 12.0)
+            then
+                531@ = 0
+            end
+        end
+        if
+            530@ == 3
+        then
+            if
+                not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 2468.8, -1278.2, 29.1, 18.0, 18.0, 10.0)
+            then
+                531@ = 0
+            end
+        end
+        if
+            530@ == 4
+        then
+            if
+                not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 783.2, -1630.3, 12.2, 25.0, 25.0, 10.0)
+            then
+                531@ = 0
+            end
+        end
+    end
+end
+return
+
+:TWAR7_coop_update
+530@ = 0
+if
+    67@ == 1
+then
+    if
+        68@ == 0
+    then
+        530@ = 1
+    end
+    if
+        68@ == 2
+    then
+        530@ = 2
+    end
+end
+if or
+    67@ == 2
+    67@ == 3
+then
+    530@ = 3
+end
+if
+    67@ > 3
+then
+    if
+        15 > 67@
+    then
+        530@ = 4
+    end
+end
+if
+    67@ == 16
+then
+    530@ = 5
+end
+
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            523@($temp_int,3i) <> 530@
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            if
+                530@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('SMK1_02', 7000, 1, $NETWORK_PLAYER[$temp_int])
+                Coop.UpdateCheckpointForNetworkPlayer(1532.8, -1672.9, 12.4, 5.0, 5.0, 5.0, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                530@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('SMK1_10', 7000, 1, $NETWORK_PLAYER[$temp_int])
+                Coop.UpdateCheckpointForNetworkPlayer(2454.4, -1284.5, 22.7, 5.0, 5.0, 5.0, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                530@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('SMK1_03', 7000, 1, $NETWORK_PLAYER[$temp_int])
+                Coop.UpdateCheckpointForNetworkPlayer(2468.8, -1278.2, 29.1, 3.0, 3.0, 4.0, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                530@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('SMK1_04', 7000, 1, $NETWORK_PLAYER[$temp_int])
+                if
+                    not Char.IsDead(34@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 34@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+            if
+                530@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('SMK1_13', 8500, 1, $NETWORK_PLAYER[$temp_int])
+                Coop.UpdateCheckpointForNetworkPlayer(783.2, -1630.3, 12.2, 5.0, 5.0, 5.0, $NETWORK_PLAYER[$temp_int])
+            end
+            523@($temp_int,3i) = 530@
+        end
+    end
+end
+
+if
+    67@ > 3
+then
+    if
+        15 > 67@
+    then
+        if and
+            not Char.IsDead(34@)
+            not Car.IsDead(35@)
+        then
+            532@ = 0
+            for $temp_int = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+                then
+                    if or
+                        Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 34@, 30.0, 30.0, False)
+                        Char.HasBeenDamagedByChar(34@, $NETWORK_PLAYER[$temp_int])
+                        Car.HasBeenDamagedByChar(35@, $NETWORK_PLAYER[$temp_int])
+                    then
+                        532@ = 1
+                    end
+                end
+            end
+            if
+                532@ == 1
+            then
+                if and
+                    67@ == 4
+                    68@ == 0
+                then
+                    Car.StartPlayback(35@, 31)
+                    Streaming.RemoveCarRecording(30)
+                    68@ = 1
+                else
+                    TIMERA = 5000
+                end
+            end
+        end
+    end
+end
+return
+
+:TWAR7_coop_clear_objectives
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('SMK1_02', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('SMK1_10', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('SMK1_03', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('SMK1_04', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('SMK1_13', $NETWORK_PLAYER[$temp_int])
+    end
+    523@($temp_int,3i) = -1
+end
+return
+
+:TWAR7_coop_cleanup
+gosub @TWAR7_coop_clear_objectives
+for $temp_int = 0 to 2
+    if
+        520@($temp_int,3i) <> -1
+    then
+        if
+            not Car.IsDead(520@($temp_int,3i))
+        then
+            Car.MarkAsNoLongerNeeded(520@($temp_int,3i))
+        end
+    end
+    520@($temp_int,3i) = -1
+    $NETWORK_PLAYER[$temp_int] = 0
+end
+return
+
+
+:TWAR7_COOP_WAIT_FOR_VEHICLE
+538@ = 1
+539@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    539@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    539@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    539@ = 1
+end
+if
+    539@ == 0
+then
+    return
+end
+538@ = 0
+536@ = Clock.GetGameTimer()
+
+:TWAR7_COOP_WAIT_FOR_VEHICLE_LOOP
+if
+    not Car.DoesExist(534@)
+then
+    return
+end
+if
+    Car.IsDead(534@)
+then
+    return
+end
+535@ = Coop.GetVehicleNetworkId(534@)
+if
+    535@ <> -1
+then
+    538@ = 1
+    return
+end
+537@ = Clock.GetGameTimer()
+537@ -= 536@
+if
+    10000 > 537@
+then
+    wait 0
+    goto @TWAR7_COOP_WAIT_FOR_VEHICLE_LOOP
+end
+return
+
+:TWAR7_COOP_WAIT_FOR_PED
+538@ = 1
+539@ = 0
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[0])
+then
+    539@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[1])
+then
+    539@ = 1
+end
+if
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[2])
+then
+    539@ = 1
+end
+if
+    539@ == 0
+then
+    return
+end
+538@ = 0
+536@ = Clock.GetGameTimer()
+
+:TWAR7_COOP_WAIT_FOR_PED_LOOP
+if
+    not Char.DoesExist(534@)
+then
+    return
+end
+if
+    Char.IsDead(534@)
+then
+    return
+end
+535@ = Coop.GetPedNetworkId(534@)
+if
+    535@ <> -1
+then
+    538@ = 1
+    return
+end
+537@ = Clock.GetGameTimer()
+537@ -= 536@
+if
+    10000 > 537@
+then
+    wait 0
+    goto @TWAR7_COOP_WAIT_FOR_PED_LOOP
+end
+return
+
+:TWAR7_COOP_REGISTRATION_ABORT
+gosub @TWAR7_23165
+gosub @TWAR7_23270
+terminate_this_script
+return
