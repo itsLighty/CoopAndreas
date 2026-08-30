@@ -586,7 +586,7 @@ for $temp_int = 0 to 2
         606@($temp_int,3i) == 1
     then
         Char.GiveWeapon(600@($temp_int,3i), WeaponType.Knife, 1)
-        Char.GiveWeapon(600@($temp_int,3i), WeaponType.SilencedPistol, 120)
+        Char.GiveWeapon(600@($temp_int,3i), WeaponType.PistolSilenced, 120)
     end
 end
 gosub @WUZI2_COOP_RELEASE_REMOTES
