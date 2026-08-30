@@ -3,6 +3,7 @@
 
 :DRIV2
 script_name 'DRIV2'
+Coop.EnableSyncingThisScript()
 gosub @DRIV2_47
 if 
   has_deatharrest_been_executed 
@@ -17,6 +18,35 @@ terminate_this_script
 Stat.RegisterMissionGiven
 Text.LoadMissionText('FARLIE2')
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+520@ = 0 // frozen cooperative roster size
+521@ = 0 // cooperative cleanup guard
+522@ = 0 // connected participant death
+523@ = 0 // remotes staged for a host cinematic
+524@ = 0 // next objective refresh
+525@ = 0 // next entity registration retry
+526@ = 0 // next combat/remote pickup pass
+527@ = 0 // unresolved registration pass
+528@ = 0 // timer/internal-id scratch
+529@ = -1 // entity network-id scratch
+530@ = 0 // entity scratch
+540@ = 0 // cooperative mission phase
+541@ = 0 // opening cutscene completed
+548@ = -1 // last cooperative phase
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        506@($temp_int,3i) = 1
+        520@ += 1
+    end
+end
+gosub @DRIV2_COOP_FREEZE_REMOTES
 wait 0
 37@ = 4
 $d2_num_packages_collected = 0
@@ -172,6 +202,10 @@ Garage.ChangeType('TBON', GarageType.ForScriptToOpenAndClose)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
+541@ = 1
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_TELEPORT_ACTIVE
+gosub @DRIV2_COOP_RELEASE_REMOTES
 Camera.SetFadingColor(0, 0, 0)
 wait 500
 Camera.DoFade(1, 1500)
@@ -201,6 +235,12 @@ Text.PrintNow('DRV3_11', 10000, 0)
 
 :DRIV2_1281
 wait 0
+gosub @DRIV2_COOP_UPDATE
+if
+    522@ == 1
+then
+    goto @DRIV2_12867
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @DRIV2_1307
@@ -372,8 +412,16 @@ if or
   128@ == 1
 goto_if_false @DRIV2_2338
 Blip.Remove(184@)
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_TELEPORT_ACTIVE
+gosub @DRIV2_COOP_FREEZE_REMOTES
+gosub @DRIV2_COOP_CLEAR_OBJECTIVES
 gosub @DRIV2_9220
 127@ = 1
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_TELEPORT_ACTIVE
+gosub @DRIV2_COOP_RELEASE_REMOTES
+548@ = -1
 TIMERA = 0
 Text.PrintHelpForever('DRV3_H')
 TIMERB = 0
@@ -527,6 +575,10 @@ goto_if_false @DRIV2_3265
 if 
   Char.LocateAnyMeans3D($scplayer, 1, 93@, 94@, 95@, 4.0, 4.0, 2.0)
 goto_if_false @DRIV2_3265
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_TELEPORT_ACTIVE
+gosub @DRIV2_COOP_FREEZE_REMOTES
+gosub @DRIV2_COOP_CLEAR_OBJECTIVES
 gosub @DRIV2_11200
 goto @DRIV2_12885
 
@@ -1990,10 +2042,12 @@ goto @DRIV2_12841
 return 
 
 :DRIV2_12867
+gosub @DRIV2_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :DRIV2_12885
+gosub @DRIV2_COOP_NOTIFY_SUCCESS
 $flag_synd_mission_counter += 1
 Stat.RegisterMissionPassed('FAR_2')
 Stat.PlayerMadeProgress(1)
@@ -2005,6 +2059,7 @@ Audio.PlayMissionPassedTune(1)
 return 
 
 :DRIV2_12949
+gosub @DRIV2_COOP_CLEANUP
 Streaming.MarkModelAsNoLongerNeeded(498)
 Streaming.MarkModelAsNoLongerNeeded(521)
 Streaming.MarkModelAsNoLongerNeeded(#KMB_PACKET)
@@ -2078,4 +2133,467 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+// Frozen cooperative roster: only the identities captured at mission entry may
+// participate. Reconnects recover their original slot; late joiners spectate.
+:DRIV2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    506@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                522@ = 1
+            end
+        end
+    end
+end
+return
+
+:DRIV2_COOP_BUILD_ACTIVE_ARGS
+553@ = -1
+554@ = -1
+555@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 553@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:DRIV2_COOP_TELEPORT_ACTIVE
+if
+    520@ == 0
+then
+    return
+end
+gosub @DRIV2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(553@, 554@, 555@)
+return
+
+:DRIV2_COOP_FREEZE_REMOTES
+if
+    523@ == 1
+then
+    return
+end
+535@, 536@, 537@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 535@, 536@, 537@)
+        end
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+523@ = 1
+return
+
+:DRIV2_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), 0)
+    end
+end
+523@ = 0
+return
+
+:DRIV2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DRV3_11', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DRV3_2', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DRV3_4', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DRV3_10', 500@($temp_int,3i))
+    end
+    509@($temp_int,3i) = -1
+end
+return
+
+:DRIV2_COOP_BLIP_COURIER
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        529@ = Coop.GetPedNetworkId(530@)
+        if
+            529@ <> -1
+        then
+            Coop.UpdateCharBlipForNetworkPlayer(500@($temp_int,3i), 530@, False, BlipDisplay.Both, BlipColor.Red, 3)
+        end
+    end
+end
+return
+
+:DRIV2_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        if
+            509@($temp_int,3i) <> 540@
+        then
+            if
+                540@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('DRV3_11', 8000, 0, 500@($temp_int,3i))
+            end
+            if
+                540@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('DRV3_2', 8000, 0, 500@($temp_int,3i))
+                Char.GiveWeapon(500@($temp_int,3i), WeaponType.MicroUzi, 240)
+            end
+            if
+                540@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('DRV3_10', 7000, 0, 500@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 509@($temp_int,3i) = 540@
+        end
+        if
+            540@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1814.82, 381.4, 17.09, 12.0, 12.0, 8.0, 500@($temp_int,3i))
+        end
+        if
+            540@ == 2
+        then
+            for 560@ = 0 to 3
+                if
+                    123@(560@,4i) <> 1
+                then
+                    set_lvar_int_to_lvar_int 530@ = 54@(560@,4i)
+                    gosub @DRIV2_COOP_BLIP_COURIER
+                end
+            end
+        end
+        if
+            540@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-2622.49, 1406.6, 6.15, 6.0, 6.0, 5.0, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+:DRIV2_COOP_REGISTER_PED
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        529@ = Coop.GetPedNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:DRIV2_COOP_REGISTER_VEHICLE
+if
+    Car.DoesExist(530@)
+then
+    if
+        not Car.IsDead(530@)
+    then
+        529@ = Coop.GetVehicleNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:DRIV2_COOP_SYNC_WORLD_PASS
+527@ = 0
+set_lvar_int_to_lvar_int 530@ = 34@
+gosub @DRIV2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 35@
+gosub @DRIV2_COOP_REGISTER_VEHICLE
+for 560@ = 0 to 3
+    set_lvar_int_to_lvar_int 530@ = 58@(560@,4i)
+    gosub @DRIV2_COOP_REGISTER_VEHICLE
+    set_lvar_int_to_lvar_int 530@ = 54@(560@,4i)
+    gosub @DRIV2_COOP_REGISTER_PED
+end
+return
+
+:DRIV2_COOP_RETARGET_COURIER
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        for $temp_int = 0 to 2
+            if
+                506@($temp_int,3i) == 1
+            then
+                if
+                    Char.HasBeenDamagedByChar(530@, 500@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(530@, 500@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+// Package objects are script-synchronized but the Coop API has no object blip or
+// ownership primitive. A frozen-roster peer within pickup range therefore earns
+// the same host-owned package state transition as CJ; the global count remains
+// canonical and each package is guarded by its original collected flag.
+:DRIV2_COOP_REMOTE_PACKAGE_PASS
+for 560@ = 0 to 3
+    if and
+        123@(560@,4i) <> 1
+        Object.DoesExist(38@(560@,4i))
+    then
+        for $temp_int = 0 to 2
+            if and
+                506@($temp_int,3i) == 1
+                not Char.IsDead(500@($temp_int,3i))
+            then
+                if
+                    123@(560@,4i) <> 1
+                then
+                    if or
+                        Char.IsOnAnyBike(500@($temp_int,3i))
+                        Char.IsOnFoot(500@($temp_int,3i))
+                    then
+                        if
+                            Char.LocateAnyMeansObject3D(500@($temp_int,3i), 38@(560@,4i), 2.5, 2.5, 2.5, False)
+                        then
+                            535@, 536@, 537@ = Object.GetCoordinates(38@(560@,4i))
+                            Object.Delete(38@(560@,4i))
+                            Blip.Remove(180@(560@,4i))
+                            Sound.AddOneOffSound(65535, 535@, 536@, 537@)
+                            123@(560@,4i) = 1
+                            $d2_num_packages_collected += 1
+                            Coop.PrintNowForNetworkPlayer('DRV3_4', 5000, 0, 500@($temp_int,3i))
+                            if
+                                not Char.IsDead(54@(560@,4i))
+                            then
+                                Char.GiveWeapon(54@(560@,4i), WeaponType.MicroUzi, 99999)
+                                Task.KillCharOnFoot(54@(560@,4i), 500@($temp_int,3i))
+                                147@(560@,4i) = 1
+                            end
+                        end
+                    end
+                end
+                if and
+                    123@(560@,4i) <> 1
+                    not Car.IsDead(58@(560@,4i))
+                    Char.IsInCar(500@($temp_int,3i), 58@(560@,4i))
+                then
+                    535@, 536@, 537@ = Object.GetCoordinates(38@(560@,4i))
+                    Object.Delete(38@(560@,4i))
+                    Blip.Remove(180@(560@,4i))
+                    Sound.AddOneOffSound(65535, 535@, 536@, 537@)
+                    123@(560@,4i) = 1
+                    $d2_num_packages_collected += 1
+                    Coop.PrintNowForNetworkPlayer('DRV3_4', 5000, 0, 500@($temp_int,3i))
+                    if
+                        not Char.IsDead(54@(560@,4i))
+                    then
+                        Char.GiveWeapon(54@(560@,4i), WeaponType.MicroUzi, 99999)
+                        Task.KillCharOnFoot(54@(560@,4i), 500@($temp_int,3i))
+                        147@(560@,4i) = 1
+                    end
+                end
+            end
+        end
+    end
+end
+for 560@ = 0 to 3
+    set_lvar_int_to_lvar_int 530@ = 54@(560@,4i)
+    gosub @DRIV2_COOP_RETARGET_COURIER
+end
+return
+
+:DRIV2_COOP_COMPUTE_PHASE
+540@ = 0
+if and
+    541@ == 1
+    127@ <> 1
+then
+    540@ = 1
+end
+if and
+    127@ == 1
+    is_int_lvar_greater_than_int_var 37@ > $d2_num_packages_collected
+then
+    540@ = 2
+end
+if
+    is_int_var_equal_to_int_lvar $d2_num_packages_collected == 37@
+then
+    540@ = 3
+end
+return
+
+:DRIV2_COOP_PHASE_CHANGED
+gosub @DRIV2_COOP_CLEAR_OBJECTIVES
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_TELEPORT_ACTIVE
+if
+    540@ == 0
+then
+    gosub @DRIV2_COOP_FREEZE_REMOTES
+else
+    gosub @DRIV2_COOP_RELEASE_REMOTES
+    gosub @DRIV2_COOP_REFRESH_OBJECTIVES
+end
+set_lvar_int_to_lvar_int 548@ = 540@
+return
+
+:DRIV2_COOP_UPDATE
+if
+    520@ == 0
+then
+    return
+end
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_COMPUTE_PHASE
+if
+    548@ <> 540@
+then
+    gosub @DRIV2_COOP_PHASE_CHANGED
+end
+528@ = Clock.GetGameTimer()
+if
+    528@ > 524@
+then
+    gosub @DRIV2_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 524@ = 528@
+    524@ += 3000
+end
+if
+    528@ > 525@
+then
+    gosub @DRIV2_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 525@ = 528@
+    if
+        527@ == 1
+    then
+        525@ += 750
+    else
+        525@ += 5000
+    end
+end
+if and
+    540@ == 2
+    528@ > 526@
+then
+    gosub @DRIV2_COOP_REMOTE_PACKAGE_PASS
+    set_lvar_int_to_lvar_int 526@ = 528@
+    526@ += 350
+end
+return
+
+:DRIV2_COOP_NOTIFY_FAILURE
+if
+    520@ == 0
+then
+    return
+end
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:DRIV2_COOP_NOTIFY_SUCCESS
+if
+    520@ == 0
+then
+    return
+end
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:DRIV2_COOP_CLEANUP
+if
+    521@ == 1
+then
+    return
+end
+521@ = 1
+gosub @DRIV2_COOP_UPDATE_ROSTER
+gosub @DRIV2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+        503@($temp_int,3i) <> -1
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            Char.ClearTasksImmediately(500@($temp_int,3i))
+            Char.FreezePosition(500@($temp_int,3i), False)
+            Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+            Char.SetCollision(500@($temp_int,3i), True)
+            Char.SetVisible(500@($temp_int,3i), True)
+            Task.StandStill(500@($temp_int,3i), 0)
+        end
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+end
+523@ = 0
+return
 
