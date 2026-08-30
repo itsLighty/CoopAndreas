@@ -3,6 +3,42 @@
 
 :TORENO1
 script_name 'TORENO1'
+Coop.EnableSyncingThisScript()
+// Freeze the three remote mission slots once, before any cutscene or world clear.
+// Internal network identities prevent a recycled actor handle or a late joiner
+// from inheriting a Monster role. The original script remains the sole owner of
+// checkpoints, elapsed time, reward, stats, and story progression for the host.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+258@ = 0 // frozen-roster participant count
+259@ = 0 // idempotent cooperative cleanup guard
+260@ = -1 // canonical Monster network id
+261@ = -1 // Toreno network id
+266@ = 0 // next nonblocking entity-registration retry
+267@ = 0 // canonical result propagated: 0 pending, 1 failed, 2 passed
+272@ = 0 // peer trucks prepared
+273@ = 0 // peer race released from the grid
+for $temp_int = 0 to 2
+    234@($temp_int,3i) = -1 // immutable internal network identity
+    237@($temp_int,3i) = 0 // currently valid frozen-roster actor
+    240@($temp_int,3i) = -1 // supplemental Monster truck
+    243@($temp_int,3i) = -1 // supplemental truck network id
+    246@($temp_int,3i) = 0 // next supplemental route point
+    249@($temp_int,3i) = 0 // 0 absent, 1 staged, 2 racing, 3 DNF, 4 finished
+    252@($temp_int,3i) = 0 // out-of-truck grace-period start
+    255@($temp_int,3i) = 0 // previous connection-valid state
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        234@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            234@($temp_int,3i) <> -1
+        then
+            237@($temp_int,3i) = 1
+            255@($temp_int,3i) = 1
+            258@ += 1
+        end
+    end
+end
 gosub @TORENO1_47
 if 
   has_deatharrest_been_executed 
@@ -19,6 +55,7 @@ Stat.RegisterMissionGiven
 Camera.SetFadingColor(0, 0, 0)
 Weather.Force(WeatherType.SunnyCountryside)
 Text.LoadMissionText('TORENO1')
+gosub @TORENO1_COOP_STAGE_CUTSCENE
 Cutscene.Load('DESERT1')
 
 :TORENO1_90
@@ -303,8 +340,14 @@ World.ClearArea(1, -694.4335, 964.9288, 11.2431, 50.0)
 80@ = Car.Create(444, -694.4335, 964.9288, 11.2431)
 Car.SetHeading(80@, 85.85)
 Car.FreezePosition(80@, True)
+set_lvar_int_to_lvar_int 262@ = 80@
+gosub @TORENO1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 260@ = 263@
 81@ = Char.Create(24, 25, -698.2989, 963.026, 11.3035)
 Char.SetHeading(81@, 211.0638)
+set_lvar_int_to_lvar_int 262@ = 81@
+gosub @TORENO1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 261@ = 263@
 39@ = Car.GetHealth(80@)
 Char.SetCoordinates($scplayer, -697.7833, 961.7714, 11.2955)
 Char.SetHeading($scplayer, 15.8778)
@@ -339,6 +382,7 @@ skip_cutscene_start_internal @TORENO1_4801
 
 :TORENO1_2681
 wait 0
+gosub @TORENO1_COOP_RETRY_REGISTRATIONS
 if 
   228@ == 0
 goto_if_false @TORENO1_4801
@@ -745,6 +789,7 @@ Streaming.RemoveAnimation("GANGS")
 Char.ClearLookAt($scplayer)
 Camera.RestoreJumpcut
 Char.ClearTasks($scplayer)
+gosub @TORENO1_COOP_PREPARE_RACE
 Text.Print('DES1_10', 10000, 1)
 if 
   not Car.IsDead(80@)
@@ -773,6 +818,7 @@ Player.SetControl($player1, True)
 
 :TORENO1_5247
 wait 0
+gosub @TORENO1_COOP_UPDATE_RACE
 if 
   83@ == 0
 goto_if_false @TORENO1_5563
@@ -1149,6 +1195,7 @@ goto @TORENO1_5247
 
 :TORENO1_7811
 45@ = Clock.GetGameTimer()
+gosub @TORENO1_COOP_STAGE_RESULTS
 Camera.DoFade(0, 1000)
 Streaming.RequestModel(25)
 Streaming.RequestAnimation("GANGS")
@@ -1192,6 +1239,9 @@ Char.SetCoordinates($scplayer, -684.8021, 948.1096, 11.125)
 Char.SetHeading($scplayer, 124.6699)
 81@ = Char.Create(26, 25, -687.6009, 946.4823, 12.0389)
 Char.SetHeading(81@, 293.1942)
+set_lvar_int_to_lvar_int 262@ = 81@
+gosub @TORENO1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 261@ = 263@
 Camera.SetFixedPosition(-688.32, 945.02, 14.13, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(-680.57, 951.17, 10.63, SwitchType.JumpCut)
 set_lvar_int_to_lvar_int 46@ = 45@
@@ -1624,6 +1674,7 @@ goto @TORENO1_12744
 
 :TORENO1_12817
 wait 0
+gosub @TORENO1_COOP_RETRY_REGISTRATIONS
 if 
   228@ == 0
 goto_if_false @TORENO1_13642
@@ -1926,10 +1977,12 @@ return
 
 :TORENO1_14439
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @TORENO1_COOP_NOTIFY_FAIL
 return 
 
 :TORENO1_14457
 Text.PrintWithNumberBig('M_PASS', 42@, 5000, TextStyle.Middle)
+gosub @TORENO1_COOP_NOTIFY_PASS
 Player.AddScore($player1, 42@)
 Player.ClearWantedLevel($player1)
 Audio.PlayMissionPassedTune(1)
@@ -1942,6 +1995,7 @@ return
 
 :TORENO1_14529
 $timer_mobile_start = Clock.GetGameTimer()
+gosub @TORENO1_COOP_CLEANUP
 Text.UseCommands(False)
 Car.MarkAsNoLongerNeeded(80@)
 Menu.Delete(206@)
@@ -1959,3 +2013,870 @@ $onmission = 0
 Mission.Finish
 return 
 
+// Cooperative Monster layer. All progression remains in the untouched original
+// path above. Frozen-roster peers race their own synchronized Monster trucks over
+// the same terrain points; their finish/DNF state cannot advance the host index.
+:TORENO1_COOP_VALIDATE_ROSTER
+for $temp_int = 0 to 2
+    237@($temp_int,3i) = 0
+    if
+        234@($temp_int,3i) <> -1
+    then
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            274@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+            if
+                is_int_lvar_equal_to_int_lvar 274@ == 234@($temp_int,3i)
+            then
+                237@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+return
+
+// Remote actors are removed from the scripted scene without changing the stock
+// camera/cutscene calls. Their proofs, visibility, and control-related state are
+// restored either on the race grid or by the idempotent final cleanup.
+:TORENO1_COOP_STAGE_CUTSCENE
+if
+    258@ == 0
+then
+    return
+end
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        237@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        268@, 269@, 270@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        270@ += 1000.0
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 268@, 269@, 270@)
+        else
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 268@, 269@, 270@)
+        end
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+    end
+end
+return
+
+// Creation handshakes are hard-bounded to 750 ms. A missed ID never blocks the
+// canonical mission; the race loop performs periodic one-shot retries below.
+:TORENO1_COOP_REGISTER_VEHICLE
+263@ = -1
+if
+    258@ == 0
+then
+    return
+end
+264@ = Clock.GetGameTimer()
+while 263@ == -1
+    if
+        not Car.DoesExist(262@)
+    then
+        break
+    end
+    if
+        Car.IsDead(262@)
+    then
+        break
+    end
+    263@ = Coop.GetVehicleNetworkId(262@)
+    if
+        263@ == -1
+    then
+        265@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 265@ -= 264@
+        if
+            265@ >= 750
+        then
+            break
+        end
+        wait 0
+    end
+end
+return
+
+:TORENO1_COOP_REGISTER_PED
+263@ = -1
+if
+    258@ == 0
+then
+    return
+end
+264@ = Clock.GetGameTimer()
+while 263@ == -1
+    if
+        not Char.DoesExist(262@)
+    then
+        break
+    end
+    if
+        Char.IsDead(262@)
+    then
+        break
+    end
+    263@ = Coop.GetPedNetworkId(262@)
+    if
+        263@ == -1
+    then
+        265@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 265@ -= 264@
+        if
+            265@ >= 750
+        then
+            break
+        end
+        wait 0
+    else
+        Coop.PedTakeHost(262@, True)
+    end
+end
+return
+
+:TORENO1_COOP_PREPARE_RACE
+if or
+    258@ == 0
+    272@ == 1
+then
+    return
+end
+272@ = 1
+Coop.AddChatMessage("{00ff00}[Monster]{ffffff} Peers race synchronized Monster trucks; CJ's route and time alone determine story progression.")
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            249@($temp_int,3i) = 3
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        else
+            268@ = -712.5
+            269@ = 973.0
+            270@ = 11.2
+            if
+                $temp_int == 1
+            then
+                268@ = -708.5
+                269@ = 969.0
+            end
+            if
+                $temp_int == 2
+            then
+                268@ = -704.5
+                269@ = 965.0
+            end
+            240@($temp_int,3i) = Car.Create(444, 268@, 269@, 270@)
+            Car.SetHeading(240@($temp_int,3i), 45.0)
+            Car.SetHealth(240@($temp_int,3i), 1000)
+            Car.SetAsMissionCar(240@($temp_int,3i))
+            Car.LockDoors(240@($temp_int,3i), CarLock.Unlocked)
+            Car.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+            Car.SetCollision(240@($temp_int,3i), False)
+            Car.FreezePosition(240@($temp_int,3i), True)
+            set_lvar_int_to_lvar_int 262@ = 240@($temp_int,3i)
+            gosub @TORENO1_COOP_REGISTER_VEHICLE
+            set_lvar_int_to_lvar_int 243@($temp_int,3i) = 263@
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+            Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+            246@($temp_int,3i) = 0
+            249@($temp_int,3i) = 1
+            252@($temp_int,3i) = 0
+            Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.UpdateCheckpointForNetworkPlayer(-719.5559, 980.5707, 11.1371, 8.0, 8.0, 8.5, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('DES1_58', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+// Recover canonical and supplemental entity IDs with no wait. This is throttled
+// to once per second so a stream-late peer cannot stall or flood the host loop.
+:TORENO1_COOP_RETRY_REGISTRATIONS
+if
+    258@ == 0
+then
+    return
+end
+265@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 266@ > 265@
+then
+    return
+end
+set_lvar_int_to_lvar_int 266@ = 265@
+266@ += 1000
+if and
+    260@ == -1
+    Car.DoesExist(80@)
+then
+    if
+        not Car.IsDead(80@)
+    then
+        260@ = Coop.GetVehicleNetworkId(80@)
+    end
+end
+if and
+    261@ == -1
+    Char.DoesExist(81@)
+then
+    if
+        not Char.IsDead(81@)
+    then
+        261@ = Coop.GetPedNetworkId(81@)
+        if
+            261@ <> -1
+        then
+            Coop.PedTakeHost(81@, True)
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        243@($temp_int,3i) == -1
+        240@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(240@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(240@($temp_int,3i))
+            then
+                243@($temp_int,3i) = Coop.GetVehicleNetworkId(240@($temp_int,3i))
+            end
+        end
+    end
+end
+return
+
+// Reconnects are accepted only when the frozen internal identity still matches.
+// A disconnected truck is hidden, proofed, and frozen; an empty frozen slot is
+// never reassigned, so late joiners remain spectators for this mission instance.
+:TORENO1_COOP_UPDATE_CONNECTIONS
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 0
+    then
+        if
+            255@($temp_int,3i) == 1
+        then
+            255@($temp_int,3i) = 0
+            if
+                240@($temp_int,3i) <> -1
+            then
+                if
+                    Car.DoesExist(240@($temp_int,3i))
+                then
+                    if
+                        not Car.IsDead(240@($temp_int,3i))
+                    then
+                        Car.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+                        Car.SetCollision(240@($temp_int,3i), False)
+                        Car.SetVisible(240@($temp_int,3i), False)
+                        Car.FreezePosition(240@($temp_int,3i), True)
+                    end
+                end
+            end
+        end
+    else
+        if
+            255@($temp_int,3i) == 0
+        then
+            255@($temp_int,3i) = 1
+            gosub @TORENO1_COOP_REJOIN_CURRENT_SLOT
+        end
+    end
+end
+return
+
+:TORENO1_COOP_REJOIN_CURRENT_SLOT
+if
+    Char.IsDead($NETWORK_PLAYER[$temp_int])
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+if and
+    249@($temp_int,3i) == 0
+    272@ == 1
+then
+    gosub @TORENO1_COOP_CREATE_REJOIN_TRUCK
+end
+Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+if or
+    249@($temp_int,3i) == 1
+    249@($temp_int,3i) == 2
+then
+    if
+        not Car.DoesExist(240@($temp_int,3i))
+    then
+        gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+        return
+    end
+    if
+        Car.IsDead(240@($temp_int,3i))
+    then
+        gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+        return
+    end
+    Car.SetVisible(240@($temp_int,3i), True)
+    Car.SetCollision(240@($temp_int,3i), True)
+    Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+    if and
+        249@($temp_int,3i) == 1
+        273@ == 0
+    then
+        Car.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+        Car.SetCollision(240@($temp_int,3i), False)
+        Car.FreezePosition(240@($temp_int,3i), True)
+        Coop.UpdateCheckpointForNetworkPlayer(-719.5559, 980.5707, 11.1371, 8.0, 8.0, 8.5, $NETWORK_PLAYER[$temp_int])
+        Coop.PrintNowForNetworkPlayer('DES1_58', 5000, 1, $NETWORK_PLAYER[$temp_int])
+    else
+        249@($temp_int,3i) = 2
+        Car.SetProofs(240@($temp_int,3i), False, False, False, False, False)
+        Car.FreezePosition(240@($temp_int,3i), False)
+        gosub @TORENO1_COOP_SET_ROUTE_OBJECTIVE
+        Coop.PrintNowForNetworkPlayer('DES1_44', 4000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
+if
+    249@($temp_int,3i) == 3
+then
+    Coop.PrintBigForNetworkPlayer('M_FAIL', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+end
+if
+    249@($temp_int,3i) == 4
+then
+    Coop.PrintBigForNetworkPlayer('M_PASSD', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+end
+return
+
+// A mission-start participant who was absent during grid creation may reconnect.
+// Its registration uses the same 750 ms cap as the initial grid; the periodic
+// nonblocking retry pass takes over if its network id is still unavailable.
+:TORENO1_COOP_CREATE_REJOIN_TRUCK
+if
+    273@ == 0
+then
+    268@ = -712.5
+    269@ = 973.0
+    270@ = 11.2
+    if
+        $temp_int == 1
+    then
+        268@ = -708.5
+        269@ = 969.0
+    end
+    if
+        $temp_int == 2
+    then
+        268@ = -704.5
+        269@ = 965.0
+    end
+else
+    if
+        Car.DoesExist(80@)
+    then
+        if
+            not Car.IsDead(80@)
+        then
+            268@, 269@, 270@ = Car.GetCoordinates(80@)
+        else
+            268@, 269@, 270@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        end
+    else
+        268@, 269@, 270@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+    end
+    268@ += 5.0
+    if
+        $temp_int == 1
+    then
+        269@ += 5.0
+    end
+    if
+        $temp_int == 2
+    then
+        268@ -= 10.0
+    end
+end
+240@($temp_int,3i) = Car.Create(444, 268@, 269@, 270@)
+Car.SetHeading(240@($temp_int,3i), 45.0)
+Car.SetHealth(240@($temp_int,3i), 1000)
+Car.SetAsMissionCar(240@($temp_int,3i))
+Car.LockDoors(240@($temp_int,3i), CarLock.Unlocked)
+set_lvar_int_to_lvar_int 262@ = 240@($temp_int,3i)
+gosub @TORENO1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 243@($temp_int,3i) = 263@
+246@($temp_int,3i) = 0
+252@($temp_int,3i) = 0
+249@($temp_int,3i) = 1
+if
+    273@ == 1
+then
+    set_lvar_int_to_lvar_int 246@($temp_int,3i) = 88@
+    if
+        is_int_lvar_greater_than_int_lvar 246@($temp_int,3i) > 195@
+    then
+        set_lvar_int_to_lvar_int 246@($temp_int,3i) = 195@
+    end
+    249@($temp_int,3i) = 2
+else
+    Car.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+    Car.SetCollision(240@($temp_int,3i), False)
+    Car.FreezePosition(240@($temp_int,3i), True)
+end
+return
+
+:TORENO1_COOP_RELEASE_CURRENT_SLOT
+if
+    249@($temp_int,3i) <> 1
+then
+    return
+end
+if
+    237@($temp_int,3i) == 0
+then
+    return
+end
+if
+    Char.IsDead($NETWORK_PLAYER[$temp_int])
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+if
+    not Car.DoesExist(240@($temp_int,3i))
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+if
+    Car.IsDead(240@($temp_int,3i))
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+Car.SetVisible(240@($temp_int,3i), True)
+Car.SetCollision(240@($temp_int,3i), True)
+Car.SetProofs(240@($temp_int,3i), False, False, False, False, False)
+Car.FreezePosition(240@($temp_int,3i), False)
+if
+    not Char.IsInCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+then
+    Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+    Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+end
+249@($temp_int,3i) = 2
+246@($temp_int,3i) = 0
+252@($temp_int,3i) = 0
+gosub @TORENO1_COOP_SET_ROUTE_OBJECTIVE
+Coop.PrintNowForNetworkPlayer('DES1_44', 4000, 1, $NETWORK_PLAYER[$temp_int])
+return
+
+:TORENO1_COOP_SET_ROUTE_OBJECTIVE
+if
+    237@($temp_int,3i) == 0
+then
+    return
+end
+if
+    Char.IsDead($NETWORK_PLAYER[$temp_int])
+then
+    return
+end
+set_lvar_int_to_lvar_int 274@ = 246@($temp_int,3i)
+Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+if
+    is_int_lvar_equal_to_int_lvar 274@ == 195@
+then
+    Coop.UpdateCheckpointForNetworkPlayer(90@(274@,35f), 125@(274@,35f), 160@(274@,35f), 4.0, 4.0, 8.0, $NETWORK_PLAYER[$temp_int])
+else
+    Coop.UpdateCheckpointForNetworkPlayer(90@(274@,35f), 125@(274@,35f), 160@(274@,35f), 8.0, 8.0, 8.0, $NETWORK_PLAYER[$temp_int])
+end
+return
+
+:TORENO1_COOP_DNF_CURRENT_SLOT
+if
+    249@($temp_int,3i) == 3
+then
+    return
+end
+249@($temp_int,3i) = 3
+252@($temp_int,3i) = 0
+if
+    237@($temp_int,3i) == 1
+then
+    Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    Coop.ClearThisPrintForNetworkPlayer('DES1_10', $NETWORK_PLAYER[$temp_int])
+    Coop.ClearThisPrintForNetworkPlayer('DES1_44', $NETWORK_PLAYER[$temp_int])
+    Coop.ClearThisPrintForNetworkPlayer('DES1_58', $NETWORK_PLAYER[$temp_int])
+    Coop.PrintBigForNetworkPlayer('M_FAIL', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+end
+if
+    240@($temp_int,3i) <> -1
+then
+    if
+        Car.DoesExist(240@($temp_int,3i))
+    then
+        Car.SetProofs(240@($temp_int,3i), False, False, False, False, False)
+        Car.SetCollision(240@($temp_int,3i), True)
+        Car.SetVisible(240@($temp_int,3i), True)
+        Car.FreezePosition(240@($temp_int,3i), False)
+        Car.MarkAsNoLongerNeeded(240@($temp_int,3i))
+    end
+end
+240@($temp_int,3i) = -1
+243@($temp_int,3i) = -1
+return
+
+:TORENO1_COOP_UPDATE_CURRENT_RACER
+if
+    249@($temp_int,3i) <> 2
+then
+    return
+end
+if
+    Char.IsDead($NETWORK_PLAYER[$temp_int])
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+if
+    not Car.DoesExist(240@($temp_int,3i))
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+if
+    Car.IsDead(240@($temp_int,3i))
+then
+    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    return
+end
+if
+    Car.DoesExist(80@)
+then
+    if
+        Char.IsInCar($NETWORK_PLAYER[$temp_int], 80@)
+    then
+        Task.LeaveCarImmediately($NETWORK_PLAYER[$temp_int], 80@)
+    end
+end
+if
+    not Char.IsInCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+then
+    if
+        252@($temp_int,3i) == 0
+    then
+        252@($temp_int,3i) = Clock.GetGameTimer()
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+        Coop.PrintNowForNetworkPlayer('DES1_10', 4000, 1, $NETWORK_PLAYER[$temp_int])
+    else
+        275@ = Clock.GetGameTimer()
+        set_lvar_int_to_lvar_int 274@ = 275@
+        sub_int_lvar_from_int_lvar 274@ -= 252@($temp_int,3i)
+        if
+            274@ >= 10000
+        then
+            gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+        end
+    end
+    return
+end
+if
+    252@($temp_int,3i) <> 0
+then
+    252@($temp_int,3i) = 0
+    Coop.RemoveCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+    Coop.ClearThisPrintForNetworkPlayer('DES1_10', $NETWORK_PLAYER[$temp_int])
+    gosub @TORENO1_COOP_SET_ROUTE_OBJECTIVE
+    Coop.PrintNowForNetworkPlayer('DES1_44', 3000, 1, $NETWORK_PLAYER[$temp_int])
+end
+set_lvar_int_to_lvar_int 274@ = 246@($temp_int,3i)
+276@ = 0
+if
+    is_int_lvar_equal_to_int_lvar 274@ == 195@
+then
+    if
+        Char.LocateInCar3D($NETWORK_PLAYER[$temp_int], 90@(274@,35f), 125@(274@,35f), 160@(274@,35f), 4.0, 4.0, 8.0, False)
+    then
+        276@ = 1
+    end
+else
+    if
+        Char.LocateInCar3D($NETWORK_PLAYER[$temp_int], 90@(274@,35f), 125@(274@,35f), 160@(274@,35f), 8.0, 8.0, 8.0, False)
+    then
+        276@ = 1
+    end
+end
+if
+    276@ == 1
+then
+    Sound.AddOneOffSound(1058, 90@(274@,35f), 125@(274@,35f), 160@(274@,35f))
+    246@($temp_int,3i) += 1
+    271@ = Car.GetHealth(240@($temp_int,3i))
+    271@ += 200
+    if
+        271@ > 1000
+    then
+        271@ = 1000
+    end
+    Car.SetHealth(240@($temp_int,3i), 271@)
+    if
+        is_int_lvar_greater_than_int_lvar 246@($temp_int,3i) > 195@
+    then
+        249@($temp_int,3i) = 4
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        Car.SetCollision(240@($temp_int,3i), False)
+        Car.FreezePosition(240@($temp_int,3i), True)
+    else
+        gosub @TORENO1_COOP_SET_ROUTE_OBJECTIVE
+    end
+end
+return
+
+:TORENO1_COOP_UPDATE_RACE
+if or
+    258@ == 0
+    272@ == 0
+then
+    return
+end
+gosub @TORENO1_COOP_RETRY_REGISTRATIONS
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+gosub @TORENO1_COOP_UPDATE_CONNECTIONS
+if and
+    83@ == 2
+    273@ == 0
+then
+    273@ = 1
+    for $temp_int = 0 to 2
+        gosub @TORENO1_COOP_RELEASE_CURRENT_SLOT
+    end
+end
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 1
+    then
+        if and
+            249@($temp_int,3i) == 1
+            273@ == 0
+        then
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+            else
+                if
+                    Car.DoesExist(240@($temp_int,3i))
+                then
+                    if
+                        not Car.IsDead(240@($temp_int,3i))
+                    then
+                        if
+                            not Char.IsInCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+                        then
+                            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                            Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 240@($temp_int,3i))
+                        end
+                    else
+                        gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+                    end
+                else
+                    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+                end
+            end
+        end
+        if and
+            249@($temp_int,3i) == 1
+            273@ == 1
+        then
+            gosub @TORENO1_COOP_RELEASE_CURRENT_SLOT
+        end
+        gosub @TORENO1_COOP_UPDATE_CURRENT_RACER
+    end
+end
+return
+
+:TORENO1_COOP_STAGE_RESULTS
+if
+    258@ == 0
+then
+    return
+end
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DES1_10', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DES1_44', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DES1_58', $NETWORK_PLAYER[$temp_int])
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+            Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        end
+    end
+    if
+        240@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(240@($temp_int,3i))
+        then
+            Car.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+            Car.SetCollision(240@($temp_int,3i), False)
+            Car.SetVisible(240@($temp_int,3i), False)
+            Car.FreezePosition(240@($temp_int,3i), True)
+        end
+    end
+end
+return
+
+:TORENO1_COOP_NOTIFY_FAIL
+if
+    267@ <> 0
+then
+    return
+end
+267@ = 1
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:TORENO1_COOP_NOTIFY_PASS
+if
+    267@ <> 0
+then
+    return
+end
+267@ = 2
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+// Safe after pass, fail, death/arrest, a registration timeout, or a repeated call.
+// Peer trucks are de-proofed and released; only identity-matching actors are moved.
+:TORENO1_COOP_CLEANUP
+if
+    259@ == 1
+then
+    return
+end
+259@ = 1
+gosub @TORENO1_COOP_VALIDATE_ROSTER
+268@ = -1
+269@ = -1
+270@ = -1
+for $temp_int = 0 to 2
+    if
+        237@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DES1_10', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DES1_44', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DES1_58', $NETWORK_PLAYER[$temp_int])
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+            then
+                274@, 275@, 276@ = Char.GetCoordinates($scplayer)
+                274@ += 3.0
+                275@ += 3.0
+                Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 274@, 275@, 276@)
+            end
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        end
+        if
+            $temp_int == 0
+        then
+            set_lvar_int_to_var_int 268@ = $NETWORK_PLAYER[0]
+        end
+        if
+            $temp_int == 1
+        then
+            set_lvar_int_to_var_int 269@ = $NETWORK_PLAYER[1]
+        end
+        if
+            $temp_int == 2
+        then
+            set_lvar_int_to_var_int 270@ = $NETWORK_PLAYER[2]
+        end
+    end
+    if
+        240@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(240@($temp_int,3i))
+        then
+            Car.SetProofs(240@($temp_int,3i), False, False, False, False, False)
+            Car.SetCollision(240@($temp_int,3i), True)
+            Car.SetVisible(240@($temp_int,3i), True)
+            Car.FreezePosition(240@($temp_int,3i), False)
+            Car.MarkAsNoLongerNeeded(240@($temp_int,3i))
+        end
+    end
+    240@($temp_int,3i) = -1
+    243@($temp_int,3i) = -1
+    249@($temp_int,3i) = 0
+    252@($temp_int,3i) = 0
+end
+Coop.TeleportPlayersToHostSafely(268@, 269@, 270@)
+return
