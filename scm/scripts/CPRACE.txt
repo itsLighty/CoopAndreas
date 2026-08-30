@@ -2,7 +2,25 @@
 if or
   $race_selection == 25
   $race_selection == 26
+goto_if_false @CPRACE_COOP_CHECK_STREET_LS
+goto @CPRACE_COOP_AUTHORITY_START
+
+:CPRACE_COOP_CHECK_STREET_LS
+if and
+  $race_selection >= 1
+  6 >= $race_selection
+goto_if_false @CPRACE_COOP_CHECK_STREET_SF_LV
+goto @CPRACE_COOP_AUTHORITY_START
+
+:CPRACE_COOP_CHECK_STREET_SF_LV
+if and
+  $race_selection >= 9
+  24 >= $race_selection
 goto_if_false @CPRACE_STOCK_START
+
+// Street co-op owns selectors 1-6 and 9-24 (22 activities). Selectors 0, 7,
+// and 8 remain stock story-race paths; selectors 25/26 retain stadium support.
+:CPRACE_COOP_AUTHORITY_START
 Coop.EnableSyncingThisScript()
 if
   Coop.IsHost()
@@ -379,6 +397,21 @@ $race_debug = -1
 
 :CPRACE_2634
 wait 0
+if
+  850@ == 1
+then
+  gosub @CPRACE_COOP_STREET_UPDATE
+  if
+    851@ == 1
+  then
+    // COOP_PARTICIPANT_DEATH: a connected immutable-roster peer died. Enter
+    // the canonical result state as a loss; the death latch suppresses the
+    // single-racer time-trial pass shortcut, records and rewards below.
+    229@ = 1
+    450@ = 2
+    49@ = 13
+  end
+end
 if or
   $race_selection == 25
   $race_selection == 26
@@ -1436,6 +1469,11 @@ Camera.DoFade(1, 500)
 goto @CPRACE_8848
 
 :CPRACE_11173
+if
+  850@ == 1
+then
+  gosub @CPRACE_COOP_STREET_STAGE_PARTICIPANTS
+end
 if or
   $race_selection == 25
   $race_selection == 26
@@ -2658,6 +2696,16 @@ gosub @CPRACE_50980
 goto @CPRACE_20805
 
 :CPRACE_19581
+if
+  850@ == 1
+then
+  gosub @CPRACE_COOP_STREET_NOTIFY_RESULT
+  if
+    851@ == 1
+  then
+    Text.PrintBig('M_FAIL', 3000, TextStyle.Middle)
+  end
+end
 if or
   $race_selection == 25
   $race_selection == 26
@@ -2699,6 +2747,13 @@ Text.PrintBig('M_FAIL', 3000, TextStyle.Middle)
 
 :CPRACE_19766
 Hud.ClearTimer($races_timer)
+if and
+  850@ == 1
+  851@ == 1
+then
+  // Do not turn a peer-death DNF into a best time/position record.
+  goto @CPRACE_19931
+end
 if 
   is_int_var_greater_than_int_lvar $cprace_best_times($race_selection,30i) > 451@
 goto_if_false @CPRACE_19859
@@ -5940,6 +5995,14 @@ goto @CPRACE_47684
 return 
 
 :CPRACE_48585
+if and
+  850@ == 1
+  851@ == 1
+then
+  // Single-racer routes normally pass via 256@ == 1. A connected peer death
+  // is an authoritative shared loss and must never enter canonical rewards.
+  goto @CPRACE_50543
+end
 if or
   450@ == 1
   256@ == 1
@@ -6597,6 +6660,11 @@ goto_if_false @CPRACE_52229
 Char.SetAreaVisible($scplayer, 0)
 
 :CPRACE_52229
+if
+  850@ == 1
+then
+  gosub @CPRACE_COOP_STREET_CLEANUP
+end
 if or
   $race_selection == 25
   $race_selection == 26
@@ -6609,13 +6677,45 @@ $onmission = 0
 Mission.Finish
 return 
 
-// Stadium-only co-op support. Selectors 25 (8-Track) and 26 (Dirt Track)
-// share CPRACE's stock state machine, but remain distinct in route/model setup,
-// rewards and unlock flags. The host is the only racer that can resolve the
-// stock result and mutate progress; frozen supporters drive unranked cars and
-// receive the authoritative route checkpoint and result.
+// Street selectors 1-6 and 9-24 plus stadium selectors 25/26 share CPRACE's
+// stock state machine. The authenticated host is the only script authority and
+// the only racer that can resolve stock spawning, records, rewards or cleanup.
+// Frozen peers drive unranked host-created cars, follow authoritative route
+// checkpoints, and receive the authoritative result. Offline IsHost semantics
+// keep the original single-player path, while immutable IDs permit reconnects
+// without admitting players who were not present at activity entry.
+
+// Keep street hooks distinct from the established stadium hook names so their
+// selector scopes remain independently testable. These are tail-call aliases:
+// the shared implementation returns directly to each hook's gosub caller.
+:CPRACE_COOP_STREET_STAGE_PARTICIPANTS
+goto @CPRACE_COOP_STAGE_PARTICIPANTS
+
+:CPRACE_COOP_STREET_UPDATE
+goto @CPRACE_COOP_UPDATE
+
+:CPRACE_COOP_STREET_NOTIFY_RESULT
+goto @CPRACE_COOP_NOTIFY_RESULT
+
+:CPRACE_COOP_STREET_CLEANUP
+goto @CPRACE_COOP_CLEANUP
+
 :CPRACE_COOP_INIT
 800@, 801@, 802@ = Coop.CollectNetworkPlayersForTheMission()
+850@ = 0 // street authority flag; story and stadium selectors keep this clear
+if and
+    $race_selection >= 1
+    6 >= $race_selection
+then
+    850@ = 1
+end
+if and
+    $race_selection >= 9
+    24 >= $race_selection
+then
+    850@ = 1
+end
+851@ = 0 // connected frozen participant death latch
 815@ = 0
 for 816@ = 0 to 2
     803@(816@,3i) = -1
@@ -6779,6 +6879,18 @@ gosub @CPRACE_COOP_REFRESH_ROSTER
 823@ = 0
 for 816@ = 0 to 2
     gosub @CPRACE_COOP_VALIDATE_SLOT
+    if and
+        850@ == 1
+        819@ == 1
+    then
+        if
+            Char.IsDead(800@(816@,3i))
+        then
+            // Disconnected slots are invalid above and remain DNF/reconnectable;
+            // only a currently connected, immutable-ID-matched death fails.
+            851@ = 1
+        end
+    end
     if
         819@ == 1
     then
@@ -6794,6 +6906,11 @@ for 816@ = 0 to 2
             end
         end
     end
+end
+if
+    851@ == 1
+then
+    return
 end
 if or
     820@ == 1
@@ -6882,11 +6999,15 @@ then
     return
 end
 821@ = 1
-if or
-    450@ == 1
-    256@ == 1
+if
+    851@ == 0
 then
-    821@ = 2
+    if or
+        450@ == 1
+        256@ == 1
+    then
+        821@ = 2
+    end
 end
 gosub @CPRACE_COOP_REFRESH_ROSTER
 for 816@ = 0 to 2
