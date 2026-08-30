@@ -3,6 +3,7 @@
 
 :SYN1
 script_name 'SYN1'
+Coop.EnableSyncingThisScript()
 gosub @SYN1_1424
 if 
   has_deatharrest_been_executed 
@@ -214,6 +215,40 @@ return
 Text.LoadMissionText('SYN1')
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+520@ = 0 // frozen cooperative roster size
+521@ = 0 // cooperative cleanup guard
+522@ = 0 // a connected participant died
+523@ = 0 // remotes are frozen for a host cinematic
+524@ = 0 // next objective refresh
+525@ = 0 // next entity registration retry
+527@ = 0 // registration pass saw an unresolved entity
+528@ = 0 // timer/internal-id scratch
+529@ = -1 // entity network-id scratch
+530@ = 0 // entity scratch
+548@ = -1 // last canonical mission phase
+549@ = -99 // last photography target stage
+550@ = 0 // current photography target actor
+551@ = 0 // current target is already virtually photographed
+560@ = 0 // Ryder virtual photo
+561@ = 0 // T-Bone virtual photo
+562@ = 0 // Mike virtual photo
+563@ = 0 // Jizzy virtual photo
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    503@($temp_int,3i) = -1 // immutable internal network identity
+    506@($temp_int,3i) = 0 // connected frozen-roster participant
+    509@($temp_int,3i) = -1 // last objective phase shown
+    512@($temp_int,3i) = 0 // remote deliberate-camera-pose start
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        506@($temp_int,3i) = 1
+        520@ += 1
+    end
+end
+gosub @SYN1_COOP_FREEZE_REMOTES
 wait 0
 34@ = 0
 35@ = 0
@@ -736,6 +771,12 @@ goto @SYN1_3780
 
 :SYN1_5230
 wait 0
+gosub @SYN1_COOP_UPDATE
+if
+    522@ == 1
+then
+    goto @SYN1_14543
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @SYN1_5256
@@ -1446,6 +1487,11 @@ goto_if_false @SYN1_9678
 if 
   not Char.IsDead(391@)
 goto_if_false @SYN1_9678
+if
+    560@ == 1
+then
+    goto @SYN1_9600
+end
 if 
   Char.HasBeenPhotographed(391@)
 goto_if_false @SYN1_9678
@@ -1597,6 +1643,11 @@ goto_if_false @SYN1_10566
 if 
   not Char.IsDead(406@)
 goto_if_false @SYN1_10566
+if
+    561@ == 1
+then
+    goto @SYN1_10488
+end
 if 
   Char.HasBeenPhotographed(406@)
 goto_if_false @SYN1_10566
@@ -1768,6 +1819,11 @@ goto_if_false @SYN1_11607
 if 
   not Char.IsDead(436@)
 goto_if_false @SYN1_11607
+if
+    562@ == 1
+then
+    goto @SYN1_11529
+end
 if 
   Char.HasBeenPhotographed(436@)
 goto_if_false @SYN1_11607
@@ -1934,6 +1990,11 @@ goto_if_false @SYN1_12533
 if 
   not Char.IsDead(420@)
 goto_if_false @SYN1_12533
+if
+    563@ == 1
+then
+    goto @SYN1_12455
+end
 if 
   Char.HasBeenPhotographed(420@)
 goto_if_false @SYN1_12533
@@ -2320,11 +2381,13 @@ goto @SYN1_14568
 goto @SYN1_5230
 
 :SYN1_14543
+gosub @SYN1_COOP_NOTIFY_FAILURE
 Camera.DoFade(1, 500)
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :SYN1_14568
+gosub @SYN1_COOP_NOTIFY_SUCCESS
 Camera.DoFade(1, 500)
 $flag_synd_mission_counter += 1
 Stat.RegisterMissionPassed('SYND_1')
@@ -2343,6 +2406,7 @@ Stat.SetInt(StatId.PassedSyndicate1, 1)
 return 
 
 :SYN1_14662
+gosub @SYN1_COOP_CLEANUP
 if 
   not Char.IsDead($scplayer)
 goto_if_false @SYN1_14693
@@ -2408,6 +2472,516 @@ $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// Cooperative mission layer. The actor handles and internal identities are frozen
+// once, keeping late joiners out of the active mission and allowing only the same
+// participant identity to recover a temporarily disconnected slot.
+:SYN1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    506@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                522@ = 1
+            end
+        end
+    end
+end
+return
+
+:SYN1_COOP_BUILD_ACTIVE_ARGS
+553@ = -1
+554@ = -1
+555@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 553@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:SYN1_COOP_TELEPORT_ACTIVE
+if
+    520@ == 0
+then
+    return
+end
+gosub @SYN1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(553@, 554@, 555@)
+return
+
+:SYN1_COOP_FREEZE_REMOTES
+if
+    523@ == 1
+then
+    return
+end
+535@, 536@, 537@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 535@, 536@, 537@)
+        end
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+523@ = 1
+return
+
+:SYN1_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), 0)
+    end
+end
+523@ = 0
+return
+
+:SYN1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('SYN1_02', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('SYN1_13', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('SYN1_14', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('SYN1_12', 500@($temp_int,3i))
+    end
+    509@($temp_int,3i) = -1
+end
+return
+
+:SYN1_COOP_BLIP_TARGET
+if
+    Char.DoesExist(550@)
+then
+    if
+        not Char.IsDead(550@)
+    then
+        529@ = Coop.GetPedNetworkId(550@)
+        if
+            529@ <> -1
+        then
+            Coop.UpdateCharBlipForNetworkPlayer(500@($temp_int,3i), 550@, False, BlipDisplay.Both, BlipColor.Red, 3)
+        end
+    end
+end
+return
+
+:SYN1_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        if
+            509@($temp_int,3i) <> 34@
+        then
+            if or
+                34@ == 0
+                34@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('SYN1_02', 8000, 1, 500@($temp_int,3i))
+            end
+            if
+                34@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('SYN1_13', 8000, 1, 500@($temp_int,3i))
+            end
+            if
+                34@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('SYN1_14', 5000, 1, 500@($temp_int,3i))
+            end
+            if
+                34@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('SYN1_12', 8000, 1, 500@($temp_int,3i))
+                Char.GiveWeapon(500@($temp_int,3i), WeaponType.Camera, 30000)
+                Char.SetCurrentWeapon(500@($temp_int,3i), WeaponType.Camera)
+            end
+            set_lvar_int_to_lvar_int 509@($temp_int,3i) = 34@
+        end
+        if or
+            34@ == 0
+            34@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer($sy1_cesar_car_x, $sy1_cesar_car_y, $sy1_cesar_car_z, 8.0, 8.0, 6.0, 500@($temp_int,3i))
+        end
+        if
+            34@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(48@, 49@, 50@, 7.0, 7.0, 5.0, 500@($temp_int,3i))
+            if
+                Car.DoesExist(377@)
+            then
+                529@ = Coop.GetVehicleNetworkId(377@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 377@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+        if
+            34@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(387@, 388@, 389@, 4.0, 4.0, 4.0, 500@($temp_int,3i))
+        end
+        if
+            34@ == 5
+        then
+            if
+                35@ == 3
+            then
+                set_lvar_int_to_lvar_int 550@ = 391@
+                gosub @SYN1_COOP_BLIP_TARGET
+            end
+            if
+                35@ == 6
+            then
+                set_lvar_int_to_lvar_int 550@ = 406@
+                gosub @SYN1_COOP_BLIP_TARGET
+            end
+            if
+                35@ == 9
+            then
+                set_lvar_int_to_lvar_int 550@ = 436@
+                gosub @SYN1_COOP_BLIP_TARGET
+            end
+            if
+                35@ == 12
+            then
+                set_lvar_int_to_lvar_int 550@ = 420@
+                gosub @SYN1_COOP_BLIP_TARGET
+            end
+        end
+    end
+end
+return
+
+// The protocol has no remote shutter opcode. A peer therefore contributes a
+// deliberate photo by holding the camera, within 20 metres and clear line of sight,
+// on the currently highlighted target for 1.5 seconds. Host photos retain the
+// original FOV and heading checks; this fallback is only for remote participants.
+:SYN1_COOP_UPDATE_PHOTO
+if
+    34@ <> 5
+then
+    return
+end
+550@ = 0
+551@ = 0
+if
+    35@ == 3
+then
+    set_lvar_int_to_lvar_int 550@ = 391@
+    set_lvar_int_to_lvar_int 551@ = 560@
+end
+if
+    35@ == 6
+then
+    set_lvar_int_to_lvar_int 550@ = 406@
+    set_lvar_int_to_lvar_int 551@ = 561@
+end
+if
+    35@ == 9
+then
+    set_lvar_int_to_lvar_int 550@ = 436@
+    set_lvar_int_to_lvar_int 551@ = 562@
+end
+if
+    35@ == 12
+then
+    set_lvar_int_to_lvar_int 550@ = 420@
+    set_lvar_int_to_lvar_int 551@ = 563@
+end
+if or
+    550@ == 0
+    551@ == 1
+then
+    return
+end
+if
+    549@ <> 35@
+then
+    for $temp_int = 0 to 2
+        512@($temp_int,3i) = 0
+    end
+    set_lvar_int_to_lvar_int 549@ = 35@
+end
+if
+    not Char.DoesExist(550@)
+then
+    return
+end
+535@, 536@, 537@ = Char.GetCoordinates(550@)
+528@ = Clock.GetGameTimer()
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        532@ = Char.GetCurrentWeapon(500@($temp_int,3i))
+        if and
+            532@ == 43
+            Char.LocateAnyMeans3D(500@($temp_int,3i), False, 535@, 536@, 537@, 20.0, 20.0, 12.0)
+        then
+            538@, 539@, 540@ = Char.GetCoordinates(500@($temp_int,3i))
+            if
+                World.IsLineOfSightClear(538@, 539@, 540@, 535@, 536@, 537@, True, False, False, False, False)
+            then
+                if
+                    512@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 512@($temp_int,3i) = 528@
+                end
+                set_lvar_int_to_lvar_int 533@ = 528@
+                sub_int_lvar_from_int_lvar 533@ -= 512@($temp_int,3i)
+                if
+                    533@ > 1500
+                then
+                    if
+                        35@ == 3
+                    then
+                        560@ = 1
+                    end
+                    if
+                        35@ == 6
+                    then
+                        561@ = 1
+                    end
+                    if
+                        35@ == 9
+                    then
+                        562@ = 1
+                    end
+                    if
+                        35@ == 12
+                    then
+                        563@ = 1
+                    end
+                end
+            else
+                512@($temp_int,3i) = 0
+            end
+        else
+            512@($temp_int,3i) = 0
+        end
+    else
+        512@($temp_int,3i) = 0
+    end
+end
+return
+
+:SYN1_COOP_REGISTER_PED
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        529@ = Coop.GetPedNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:SYN1_COOP_REGISTER_VEHICLE
+if
+    Car.DoesExist(530@)
+then
+    if
+        not Car.IsDead(530@)
+    then
+        529@ = Coop.GetVehicleNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:SYN1_COOP_SYNC_WORLD_PASS
+527@ = 0
+set_lvar_int_to_lvar_int 530@ = 377@
+gosub @SYN1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 392@
+gosub @SYN1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 407@
+gosub @SYN1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 437@
+gosub @SYN1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 421@
+gosub @SYN1_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 376@
+gosub @SYN1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 391@
+gosub @SYN1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 394@
+gosub @SYN1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 406@
+gosub @SYN1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 436@
+gosub @SYN1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 423@
+gosub @SYN1_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 420@
+gosub @SYN1_COOP_REGISTER_PED
+return
+
+:SYN1_COOP_PHASE_CHANGED
+gosub @SYN1_COOP_CLEAR_OBJECTIVES
+gosub @SYN1_COOP_UPDATE_ROSTER
+gosub @SYN1_COOP_TELEPORT_ACTIVE
+if
+    34@ == 6
+then
+    gosub @SYN1_COOP_FREEZE_REMOTES
+else
+    gosub @SYN1_COOP_RELEASE_REMOTES
+    gosub @SYN1_COOP_REFRESH_OBJECTIVES
+end
+set_lvar_int_to_lvar_int 548@ = 34@
+return
+
+:SYN1_COOP_UPDATE
+if
+    520@ == 0
+then
+    return
+end
+gosub @SYN1_COOP_UPDATE_ROSTER
+if
+    548@ <> 34@
+then
+    gosub @SYN1_COOP_PHASE_CHANGED
+end
+528@ = Clock.GetGameTimer()
+if
+    528@ > 524@
+then
+    gosub @SYN1_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 524@ = 528@
+    524@ += 3000
+end
+if
+    528@ > 525@
+then
+    gosub @SYN1_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 525@ = 528@
+    if
+        527@ == 1
+    then
+        525@ += 750
+    else
+        525@ += 5000
+    end
+end
+gosub @SYN1_COOP_UPDATE_PHOTO
+return
+
+:SYN1_COOP_NOTIFY_FAILURE
+if
+    520@ == 0
+then
+    return
+end
+gosub @SYN1_COOP_UPDATE_ROSTER
+gosub @SYN1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:SYN1_COOP_NOTIFY_SUCCESS
+if
+    520@ == 0
+then
+    return
+end
+gosub @SYN1_COOP_UPDATE_ROSTER
+gosub @SYN1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:SYN1_COOP_CLEANUP
+if
+    521@ == 1
+then
+    return
+end
+521@ = 1
+gosub @SYN1_COOP_UPDATE_ROSTER
+gosub @SYN1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+        503@($temp_int,3i) <> -1
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            Char.ClearTasksImmediately(500@($temp_int,3i))
+            Char.FreezePosition(500@($temp_int,3i), False)
+            Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+            Char.SetCollision(500@($temp_int,3i), True)
+            Char.SetVisible(500@($temp_int,3i), True)
+            Task.StandStill(500@($temp_int,3i), 0)
+        end
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+    512@($temp_int,3i) = 0
+end
+523@ = 0
+return
 
 :SYN1_14986
 if 
