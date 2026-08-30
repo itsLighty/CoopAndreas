@@ -3,6 +3,7 @@
 
 :TRUTH1
 script_name 'TRUTH1'
+Coop.EnableSyncingThisScript()
 gosub @TRUTH1_47
 if 
   has_deatharrest_been_executed 
@@ -18,6 +19,18 @@ Stat.RegisterMissionGiven
 Text.LoadMissionText('TRU1')
 $onmission = 1
 wait 0
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+600@ = 0 // identity-stable remote participant count
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        600@ += 1
+    end
+end
+605@ = 0 // cooperative participant failure
+606@ = -1 // last remote objective signature
+607@ = 0 // cooperative cleanup has run
 Streaming.SetAreaVisible(12)
 Cutscene.Load('TRUTH_1')
 
@@ -110,6 +123,11 @@ Game.SetRelationship(RelationshipType.Respect, PedType.Mission1, PedType.Mission
 Char.SetCoordinates($scplayer, -2195.9, -2258.029, 30.0)
 Char.SetHeading($scplayer, 141.0)
 Streaming.LoadSceneInDirection(-2196.46, -2256.96, 31.43, 141.0)
+if
+    600@ > 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+end
 Camera.DoFade(1, 500)
 117@ = 0
 119@ = 0
@@ -162,6 +180,14 @@ Skip.SetUp(-1084.219, -1341.156, 128.365, 257.771)
 
 :TRUTH1_935
 wait 0
+gosub @TRUTH1_COOP_CHECK_PLAYERS
+if
+    605@ == 1
+then
+    Text.PrintNow('M_FAIL', 3000, 1)
+    goto @TRUTH1_16379
+end
+gosub @TRUTH1_COOP_UPDATE_OBJECTIVE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @TRUTH1_961
@@ -550,6 +576,20 @@ Char.GiveWeapon(96@, WeaponType.Rifle, 1)
 Char.SetAccuracy(96@, 50)
 Char.SetDecisionMaker(96@, 98@)
 Char.SetSenseRange(96@, 150.0)
+if
+    600@ > 0
+then
+    601@ = 34@
+    gosub @TRUTH1_COOP_WAIT_FOR_VEHICLE
+    601@ = 56@
+    gosub @TRUTH1_COOP_WAIT_FOR_VEHICLE
+    601@ = 58@
+    gosub @TRUTH1_COOP_WAIT_FOR_VEHICLE
+    601@ = 38@
+    gosub @TRUTH1_COOP_WAIT_FOR_PED
+    601@ = 49@
+    gosub @TRUTH1_COOP_WAIT_FOR_PED
+end
 117@ = 5
 
 :TRUTH1_4518
@@ -2469,10 +2509,12 @@ Sequence.Clear(100@)
 return 
 
 :TRUTH1_16379
+gosub @TRUTH1_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :TRUTH1_16397
+gosub @TRUTH1_COOP_CLEANUP
 Blip.Remove($bcrash_contact_blip)
 $bcrash_contact_blip = Blip.AddSpriteForContactPoint($cesar_blip_icon, $bcrashX, $bcrashY, $bcrashZ)
 CarGenerator.Switch($iFieldHarvester, 101)
@@ -2494,6 +2536,7 @@ Blip.Remove($truth_contact_blip)
 return 
 
 :TRUTH1_16535
+gosub @TRUTH1_COOP_CLEANUP
 $onmission = 0
 Streaming.MarkModelAsNoLongerNeeded(532)
 Streaming.MarkModelAsNoLongerNeeded(531)
@@ -2513,4 +2556,133 @@ Game.SetWantedMultiplier(1.0)
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// The harvester remains host-authoritative because the original mission logic
+// assumes one canonical driver. Remote players receive the same destination and
+// entity guidance, can eliminate the synchronized farm defenders, and escort the
+// harvester to Truth. All entity-id waits are bounded to preserve progression.
+:TRUTH1_COOP_CHECK_PLAYERS
+605@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            605@ = 1
+        end
+    end
+end
+return
+
+:TRUTH1_COOP_UPDATE_OBJECTIVE
+608@ = 118@
+608@ *= 10
+608@ += 117@
+if
+    606@ == 608@
+then
+    return
+end
+set_lvar_int_to_lvar_int 606@ = 608@
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            118@ == 0
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1047.593, -1347.254, 129.39, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('TRU1_1', 8000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            118@ == 1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            Coop.UpdateCheckpointForNetworkPlayer(-1100.007, -1620.949, 75.375, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('TRU1_4', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+:TRUTH1_COOP_CLEANUP
+if
+    607@ == 1
+then
+    return
+end
+607@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:TRUTH1_COOP_WAIT_FOR_PED
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Char.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Char.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetPedNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
+
+:TRUTH1_COOP_WAIT_FOR_VEHICLE
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Car.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Car.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetVehicleNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
 
