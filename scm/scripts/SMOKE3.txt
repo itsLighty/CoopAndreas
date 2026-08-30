@@ -1,11 +1,8 @@
 //-------------Mission 29---------------
 // Originally: Wrong Side of the Tracks
-Coop.AddChatMessage("{ffff00}[CoopAndreas Warning]{ffffff} This mission is currently unsupported and not recommended to play!")
-Coop.AddChatMessage("{ffff00}[CoopAndreas Warning]{ffffff} It may cause desyncs, crashes, or other unexpected behavior!")
-
-
 :SMOKE3
 script_name 'SMOKE3'
+Coop.EnableSyncingThisScript()
 gosub @SMOKE3_47
 if 
   has_deatharrest_been_executed 
@@ -18,8 +15,22 @@ terminate_this_script
 
 :SMOKE3_47
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 $onmission = 1
 wait 0
+132@ = 0
+133@ = 0
+134@ = 0
+135@ = 0
+143@ = 0
+144@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        143@ = 1
+    end
+end
 Text.LoadMissionText('SMOKE3')
 Weather.ForceNow(WeatherType.SunnyLa)
 World.ClearArea(1, 2077.58, -1695.929, 150.0, 150.0)
@@ -151,6 +162,12 @@ Train.SetSpeed(40@, 0.0)
 Train.SetCruiseSpeed(40@, 0.0)
 43@ = Train.GetCarriage(40@, 1)
 44@ = Train.GetCarriage(40@, 2)
+138@ = 40@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+138@ = 43@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+138@ = 44@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetProofs(40@, True, True, True, True, True)
 Train.SetForcedToSlowDown(40@, False)
 Car.LockDoors(40@, CarLock.Locked)
@@ -165,6 +182,10 @@ Car.ChangeColor(78@, 98, 14)
 Car.SetHeading(78@, 271.822)
 Car.SetHealth(78@, 1000)
 $big_smoke = Char.CreateAsPassenger(PedType.Special, 290, 78@, 0)
+138@ = 78@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+138@ = $big_smoke
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetGetOutUpsideDownCar($big_smoke, False)
 Char.SetHealth($big_smoke, 500)
 Char.SetOnlyDamagedByPlayer($big_smoke, True)
@@ -173,15 +194,51 @@ Char.SetNeverTargeted($big_smoke, True)
 Char.SetDecisionMaker($big_smoke, 74@)
 Char.SetCantBeDraggedOut($big_smoke, True)
 Char.SetStayInCarWhenJacked($big_smoke, True)
+if
+    143@ == 1
+then
+    135@ = Car.Create(466, 2061.47, -1699.42, 12.297)
+    Car.ChangeColor(135@, 98, 14)
+    Car.SetHeading(135@, 271.822)
+    Car.SetHealth(135@, 1500)
+    Car.SetCanBurstTires(135@, False)
+    138@ = 135@
+    gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+end
 Game.SetMaxFireGenerations(1)
 Audio.SetRadioChannel(RadioChannel.RadioLosSantos)
 Char.WarpIntoCar($scplayer, 78@)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Player.SetGroupRecruitment($player1, False)
 Game.SetScriptLimitToGangSize(0)
 World.SetRailtrackResistanceMult(0.3)
 Camera.DoFade(1, 500)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('SMK3_1', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(1783.211, -1933.133, 12.597, 6.0, 6.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        139@ = Coop.GetVehicleNetworkId(78@)
+        if
+            139@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 78@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+        end
+        if
+            not Car.IsDead(135@)
+        then
+            139@ = Coop.GetVehicleNetworkId(135@)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 135@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+end
 Char.ShutUpForScriptedSpeech($big_smoke, True)
 Char.ShutUpForScriptedSpeech($scplayer, True)
 80@ = 0
@@ -373,6 +430,7 @@ goto_if_false @SMOKE3_2820
 if 
   Car.Locate2D(78@, 1, 1783.211, -1933.133, 4.2, 4.2)
 goto_if_false @SMOKE3_2820
+gosub @SMOKE3_COOP_CLEAR_OBJECTIVES
 Hud.SwitchWidescreen(True)
 Player.SetControl($player1, False)
 Camera.DoFade(0, 500)
@@ -447,21 +505,29 @@ World.ClearArea(0, 1699.31, -1938.799, 100.0, 100.0)
 52@ = Object.CreateNoOffset(#IMMMCRAN, 2194.438, -1912.756, 11.907)
 Object.SetHeading(52@, 0.0)
 34@ = Char.Create(24, 108, 1682.546, -1959.222, 20.99)
+138@ = 34@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(34@, 0.0)
 Char.SetFollowNodeThresholdDistance(34@, 500.0)
 Char.SetProofs(34@, True, True, True, True, True)
 Char.SetDecisionMaker(34@, 75@)
 35@ = Char.Create(24, 110, 1682.546, -1958.222, 20.99)
+138@ = 35@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(35@, 180.0)
 Char.SetFollowNodeThresholdDistance(35@, 500.0)
 Char.SetProofs(35@, True, True, True, True, True)
 Char.SetDecisionMaker(35@, 75@)
 36@ = Char.Create(24, 109, 1681.038, -1958.03, 20.99)
+138@ = 36@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(36@, 182.467)
 Char.SetFollowNodeThresholdDistance(36@, 500.0)
 Char.SetProofs(36@, True, True, True, True, True)
 Char.SetDecisionMaker(36@, 75@)
 37@ = Char.Create(24, 110, 1681.129, -1959.63, 20.99)
+138@ = 37@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(37@, 6.22)
 Char.SetFollowNodeThresholdDistance(37@, 500.0)
 Char.SetProofs(37@, True, True, True, True, True)
@@ -797,6 +863,8 @@ if
 goto_if_false @SMOKE3_5820
 Text.ClearPrints
 54@ = Car.Create(468, 1778.624, -1939.905, 12.5598)
+138@ = 54@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(54@, 176.7993)
 Car.SetHealth(54@, 10000)
 Car.SetCanBurstTires(54@, False)
@@ -1060,18 +1128,26 @@ Char.Delete(35@)
 Char.Delete(36@)
 Char.Delete(37@)
 34@ = Char.Create(24, 108, 1682.618, -1957.88, 20.9453)
+138@ = 34@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 34@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(34@, False)
 35@ = Char.Create(24, 110, 1682.99, -1947.17, 20.03)
+138@ = 35@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 35@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(35@, False)
 36@ = Char.Create(24, 110, 1681.618, -1957.88, 20.9453)
+138@ = 36@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 36@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(36@, False)
 37@ = Char.Create(27, 110, 1682.5, -1945.17, 20.033)
+138@ = 37@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 37@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(37@, False)
@@ -1204,6 +1280,12 @@ Train.SetSpeed(40@, 10.0)
 Train.SetCruiseSpeed(40@, 10.0)
 43@ = Train.GetCarriage(40@, 1)
 44@ = Train.GetCarriage(40@, 2)
+138@ = 40@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+138@ = 43@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+138@ = 44@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetProofs(40@, True, True, True, True, True)
 Car.LockDoors(40@, CarLock.Locked)
 Car.LockDoors(43@, CarLock.Locked)
@@ -1211,18 +1293,26 @@ Car.LockDoors(44@, CarLock.Locked)
 Car.SetProofs(43@, True, True, True, True, True)
 Car.SetProofs(44@, True, True, True, True, True)
 34@ = Char.Create(24, 108, 1682.618, -1957.88, 20.9453)
+138@ = 34@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 34@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(34@, False)
 35@ = Char.Create(24, 110, 1682.99, -1947.17, 20.03)
+138@ = 35@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 35@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(35@, False)
 36@ = Char.Create(24, 110, 1681.618, -1957.88, 20.9453)
+138@ = 36@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 36@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(36@, False)
 37@ = Char.Create(27, 110, 1682.5, -1945.17, 20.033)
+138@ = 37@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 37@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(37@, False)
@@ -1308,6 +1398,8 @@ if
   114@ == 0
 goto_if_false @SMOKE3_9177
 54@ = Car.Create(468, 1778.624, -1939.905, 12.5598)
+138@ = 54@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(54@, 176.7993)
 Car.SetHealth(54@, 10000)
 Car.SetProofs(54@, True, True, True, True, True)
@@ -1371,6 +1463,24 @@ Char.SetHeading($big_smoke, 269.216)
 :SMOKE3_9516
 Char.ClearTasksImmediately($scplayer)
 Char.ClearTasksImmediately($big_smoke)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 1775.8, -1942.0, 12.6)
+        end
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+if
+    not Car.IsDead(135@)
+then
+    Car.MarkAsNoLongerNeeded(135@)
+end
 Camera.ResetNewScriptables
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -1421,6 +1531,9 @@ Path.SwitchRoadsOff(2261.14, -1141.45, 18.0, 2308.19, -1156.38, 35.0)
 Path.SwitchRoadsOff(1956.91, -1936.01, 10.07, 1965.61, -1978.99, 14.45)
 Path.SwitchRoadsOff(2181.3, -1892.0, 10.0, 2222.36, -1897.71, 15.0)
 Text.PrintNow('SMK3_2', 7000, 1)
+gosub @SMOKE3_COOP_CREATE_CHASE_VEHICLES
+gosub @SMOKE3_COOP_SHOW_CHASE_OBJECTIVES
+145@ = Clock.GetGameTimer()
 Streaming.RemoveAnimation("GANGS")
 Streaming.MarkModelAsNoLongerNeeded(109)
 96@ = 1
@@ -1465,6 +1578,20 @@ Camera.SetPlayerInCarMode(3)
 112@ = 1
 
 :SMOKE3_10370
+if and
+  143@ == 1
+  80@ == 2
+  95@ == 0
+then
+    146@ = Clock.GetGameTimer()
+    146@ -= 145@
+    if
+        146@ > 2000
+    then
+        gosub @SMOKE3_COOP_REFRESH_CHASE_BLIPS
+        145@ = Clock.GetGameTimer()
+    end
+end
 if 
   80@ == 2
 goto_if_false @SMOKE3_16921
@@ -1479,6 +1606,10 @@ if
 goto_if_false @SMOKE3_10551
 56@ = Car.Create(466, 2295.777, -1481.268, 22.91)
 60@ = Char.CreateInsideCar(PedType.CivMale, 108, 56@)
+138@ = 56@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+138@ = 60@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Car.SetHeading(56@, 88.47)
 Car.GotoCoordinatesAccurate(56@, 2280.45, -1480.961, 22.483)
 Car.SetCruiseSpeed(56@, 6.5)
@@ -1504,8 +1635,10 @@ goto_if_false @SMOKE3_13944
 if 
   96@ == 1
 goto_if_false @SMOKE3_10785
-if 
-  not Char.LocateAnyMeansCar2D($scplayer, 40@, 50.0, 50.0, False)
+137@ = 50.0
+gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+if
+  136@ == 0
 goto_if_false @SMOKE3_10785
 if 
   97@ == 1
@@ -1531,8 +1664,10 @@ Train.SetCruiseSpeed(40@, 10.0)
 if 
   96@ == 2
 goto_if_false @SMOKE3_10876
-if 
-  Char.LocateAnyMeansCar2D($scplayer, 40@, 45.0, 45.0, False)
+137@ = 45.0
+gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+if
+  136@ == 1
 goto_if_false @SMOKE3_10876
 if 
   97@ == 0
@@ -1547,8 +1682,10 @@ Train.SetCruiseSpeed(40@, 28.0)
 if 
   96@ == 1
 goto_if_false @SMOKE3_10977
-if 
-  Char.LocateAnyMeansCar2D($scplayer, 40@, 20.0, 20.0, False)
+137@ = 20.0
+gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+if
+  136@ == 1
 goto_if_false @SMOKE3_10977
 if 
   97@ > 1
@@ -1566,8 +1703,10 @@ Train.SetCruiseSpeed(40@, 30.0)
 if 
   96@ == 3
 goto_if_false @SMOKE3_11033
-if 
-  not Char.LocateAnyMeansCar2D($scplayer, 40@, 20.0, 20.0, False)
+137@ = 20.0
+gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+if
+  136@ == 0
 goto_if_false @SMOKE3_11033
 96@ = 2
 
@@ -1585,6 +1724,8 @@ if
   not Char.LocateAnyMeans2D($scplayer, 0, 2289.69, -1034.14, 20.0, 20.0)
 goto_if_false @SMOKE3_11243
 41@ = Train.Create(2289.69, -1034.14, 26.29, 11, 1)
+138@ = 41@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Train.SetSpeed(41@, 30.0)
 Train.SetCruiseSpeed(41@, 15.0)
 53@ = Object.Create(#IMY_TRACK_BARRIER, 2151.289, -664.906, 52.1)
@@ -1636,6 +1777,8 @@ if
   not Char.LocateAnyMeans2D($scplayer, 0, 2283.36, -336.9, 30.0, 30.0)
 goto_if_false @SMOKE3_11584
 41@ = Train.Create(2283.36, -336.9, 37.27, 11, 1)
+138@ = 41@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Train.SetSpeed(41@, 30.0)
 Train.SetCruiseSpeed(41@, 15.0)
 91@ = 4
@@ -1699,10 +1842,16 @@ Task.Duck(36@, -1)
 
 :SMOKE3_11898
 57@ = Car.Create(466, 2200.07, -1731.94, 12.28)
+138@ = 57@
+gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(57@, 277.116)
 58@ = Char.Create(26, 7, 2201.55, -1728.59, 12.43)
+138@ = 58@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(58@, 285.1)
 59@ = Char.Create(26, 7, 2202.93, -1728.36, 12.43)
+138@ = 59@
+gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(59@, 393.56)
 Task.PlayAnim(58@, "IDLE_CHAT", "PED", 4.0, True, False, False, False, -1)
 Task.PlayAnim(59@, "IDLE_CHAT", "PED", 4.0, True, False, False, False, -1)
@@ -1882,8 +2031,10 @@ goto_if_false @SMOKE3_13098
 if 
   not Char.IsDead(35@)
 goto_if_false @SMOKE3_13098
-if 
-  Char.LocateAnyMeansCar2D($scplayer, 40@, 30.0, 30.0, False)
+137@ = 30.0
+gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+if
+  136@ == 1
 goto_if_false @SMOKE3_13098
 Task.PlayAnimNonInterruptable(35@, "TRAN_STMB", "TRAIN", 4.0, False, False, False, True, -1)
 Char.SetProofs(35@, True, True, True, True, True)
@@ -2003,8 +2154,25 @@ Char.SetHeading(37@, 45@)
 if 
   not Char.IsDead(37@)
 goto_if_false @SMOKE3_13944
-if 
-  not Char.LocateAnyMeansChar2D($scplayer, 37@, 50.0, 50.0, False)
+136@ = 0
+if
+  Char.LocateAnyMeansChar2D($scplayer, 37@, 50.0, 50.0, False)
+then
+  136@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 37@, 50.0, 50.0, False)
+        then
+            136@ = 1
+        end
+    end
+end
+if
+  136@ == 0
 goto_if_false @SMOKE3_13944
 Char.RemoveElegantly(37@)
 106@ = 2
@@ -2018,6 +2186,8 @@ if
 goto_if_false @SMOKE3_14013
 87@ = 1
 116@ += 1
+138@ = 34@
+gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(119@)
 goto_if_false @SMOKE3_14013
@@ -2032,6 +2202,8 @@ if
 goto_if_false @SMOKE3_14082
 88@ = 1
 116@ += 1
+138@ = 35@
+gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(120@)
 goto_if_false @SMOKE3_14082
@@ -2046,6 +2218,8 @@ if
 goto_if_false @SMOKE3_14151
 89@ = 1
 116@ += 1
+138@ = 36@
+gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(121@)
 goto_if_false @SMOKE3_14151
@@ -2060,6 +2234,8 @@ if
 goto_if_false @SMOKE3_14220
 90@ = 1
 116@ += 1
+138@ = 37@
+gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(122@)
 goto_if_false @SMOKE3_14220
@@ -2110,11 +2286,13 @@ goto_if_false @SMOKE3_14484
 110@ = 0
 111@ = 0
 115@ = 1
+gosub @SMOKE3_COOP_SET_RETURN_CHECKPOINT
 goto @SMOKE3_14507
 
 :SMOKE3_14484
 115@ = 2
 Text.PrintNow('SMK3_18', 5000, 1)
+gosub @SMOKE3_COOP_SHOW_SMOKE_OBJECTIVE
 
 :SMOKE3_14507
 World.SetRailtrackResistanceMult(-1.0)
@@ -2172,8 +2350,10 @@ goto_if_false @SMOKE3_15587
 if 
   not Car.IsOnScreen(40@)
 goto_if_false @SMOKE3_15587
-if 
-  not Char.LocateAnyMeansCar2D($scplayer, 40@, $x, $y, False)
+137@ = $x
+gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+if
+  136@ == 0
 goto_if_false @SMOKE3_15587
 if or
   not Char.IsDead(34@)
@@ -2538,6 +2718,13 @@ if
   TIMERB > 500
 goto_if_false @SMOKE3_17185
 Text.PrintNow('SMK3_22', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('SMK3_22', 6000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 TIMERB = 0
 113@ = 4
 
@@ -2656,12 +2843,30 @@ goto_if_false @SMOKE3_18362
 if 
   not Char.IsDead($big_smoke)
 goto_if_false @SMOKE3_18362
-if 
+136@ = 0
+if
   Char.LocateAnyMeans2D($scplayer, 1, 2061.68, -1694.71, 4.0, 4.0)
+then
+  136@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.LocateAnyMeans2D($NETWORK_PLAYER[$temp_int], 1, 2061.68, -1694.71, 4.0, 4.0)
+        then
+            136@ = 1
+        end
+    end
+end
+if
+  136@ == 1
 goto_if_false @SMOKE3_18362
 if 
   Char.LocateAnyMeans2D($big_smoke, 0, 2061.68, -1694.71, 4.0, 4.0)
 goto_if_false @SMOKE3_18362
+gosub @SMOKE3_COOP_CLEAR_OBJECTIVES
 Player.SetControl($player1, False)
 Camera.DoFade(0, 1000)
 Hud.SwitchWidescreen(True)
@@ -2711,6 +2916,19 @@ Char.SetCoordinates($big_smoke, 2057.75, -1694.79, 12.554)
 Char.SetHeading($big_smoke, 273.188)
 
 :SMOKE3_18217
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 2060.3, -1691.5, 12.554)
+        end
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 World.ClearArea(1, 2057.75, -1694.79, 100.0, 100.0)
 if 
   not Car.IsDead(54@)
@@ -2882,6 +3100,7 @@ goto_if_false @SMOKE3_19327
 Text.PrintNow('SMK3_18', 5000, 1)
 118@ = Blip.AddForChar($big_smoke)
 Blip.SetAsFriendly(118@, True)
+gosub @SMOKE3_COOP_SHOW_SMOKE_OBJECTIVE
 if 
   80@ == 2
 goto_if_false @SMOKE3_19290
@@ -2904,12 +3123,35 @@ Blip.Remove(124@)
 if 
   95@ == 1
 goto_if_false @SMOKE3_19746
-if 
+136@ = 0
+147@ = 0
+if
   Char.LocateAnyMeansChar3D($scplayer, $big_smoke, 10.0, 10.0, 8.0, False)
+then
+  136@ = 1
+  147@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $big_smoke, 10.0, 10.0, 8.0, False)
+        then
+            136@ = 1
+            147@ = 0
+        end
+    end
+end
+if
+  136@ == 1
 goto_if_false @SMOKE3_19746
-if 
-  Char.IsOnScreen($big_smoke)
-goto_if_false @SMOKE3_19746
+if and
+  147@ == 1
+  not Char.IsOnScreen($big_smoke)
+then
+  goto @SMOKE3_19746
+end
 if 
   not Char.IsGroupMember($big_smoke, $Players_Group)
 goto_if_false @SMOKE3_19434
@@ -2918,6 +3160,8 @@ Group.SetSeparationRange($Players_Group, 30.0)
 
 :SMOKE3_19434
 Blip.Remove(118@)
+138@ = $big_smoke
+gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   80@ == 2
 goto_if_false @SMOKE3_19569
@@ -2946,6 +3190,14 @@ goto_if_false @SMOKE3_19553
 
 :SMOKE3_19553
 Text.PrintNow('SMK3_3', 5000, 1)
+gosub @SMOKE3_COOP_REFRESH_CHASE_BLIPS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('SMK3_3', 5000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 
 :SMOKE3_19569
 if 
@@ -2957,6 +3209,14 @@ goto_if_false @SMOKE3_19648
 Text.PrintNow('SMK3_22', 5000, 1)
 124@ = Blip.AddForCoord(2061.68, -1694.71, 12.554)
 107@ = 1
+gosub @SMOKE3_COOP_SET_RETURN_CHECKPOINT
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('SMK3_22', 5000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 
 :SMOKE3_19648
 if 
@@ -2971,6 +3231,7 @@ goto_if_false @SMOKE3_19739
 110@ = 0
 111@ = 0
 115@ = 1
+gosub @SMOKE3_COOP_SET_RETURN_CHECKPOINT
 
 :SMOKE3_19739
 95@ = 0
@@ -3014,6 +3275,13 @@ if
   117@ == 1
 goto_if_false @SMOKE3_19936
 Text.PrintNow('SMK3_25', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('SMK3_25', 6000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 117@ = 2
 
 :SMOKE3_19936
@@ -3056,9 +3324,19 @@ return
 
 :SMOKE3_20097
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 return 
 
 :SMOKE3_20115
+gosub @SMOKE3_COOP_CLEAR_OBJECTIVES
 $flag_smoke_mission_counter += 1
 Stat.RegisterMissionPassed('SMOKE_3')
 Stat.PlayerMadeProgress(1)
@@ -3132,6 +3410,7 @@ Blip.Remove(122@)
 Blip.Remove(123@)
 Blip.Remove(124@)
 Blip.Remove(125@)
+gosub @SMOKE3_COOP_CLEAR_OBJECTIVES
 if 
   not Car.IsDead(40@)
 goto_if_false @SMOKE3_20767
@@ -3156,9 +3435,309 @@ Car.SetHealth(78@, 1000)
 Car.SetCanBurstTires(78@, True)
 
 :SMOKE3_20855
+for $temp_int = 0 to 2
+    if
+        not Car.IsDead(132@($temp_int,3i))
+    then
+        Car.SetHealth(132@($temp_int,3i), 1000)
+        Car.SetCanBurstTires(132@($temp_int,3i), True)
+        Car.SetProofs(132@($temp_int,3i), False, False, False, False, False)
+        Car.MarkAsNoLongerNeeded(132@($temp_int,3i))
+    end
+end
+if
+    not Car.IsDead(135@)
+then
+    Car.SetHealth(135@, 1000)
+    Car.SetCanBurstTires(135@, True)
+    Car.MarkAsNoLongerNeeded(135@)
+end
 Car.MarkAsNoLongerNeeded(54@)
 Car.MarkAsNoLongerNeeded(78@)
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+:SMOKE3_COOP_WAIT_FOR_VEHICLE
+if
+    143@ == 0
+then
+    return
+end
+142@ = 0
+140@ = Clock.GetGameTimer()
+
+:SMOKE3_COOP_WAIT_FOR_VEHICLE_LOOP
+139@ = Coop.GetVehicleNetworkId(138@)
+if
+    139@ <> -1
+then
+    142@ = 1
+    return
+end
+141@ = Clock.GetGameTimer()
+141@ -= 140@
+if
+    5000 > 141@
+then
+    wait 0
+    goto @SMOKE3_COOP_WAIT_FOR_VEHICLE_LOOP
+end
+return
+
+:SMOKE3_COOP_WAIT_FOR_PED
+if
+    143@ == 0
+then
+    return
+end
+142@ = 0
+140@ = Clock.GetGameTimer()
+
+:SMOKE3_COOP_WAIT_FOR_PED_LOOP
+139@ = Coop.GetPedNetworkId(138@)
+if
+    139@ <> -1
+then
+    142@ = 1
+    return
+end
+141@ = Clock.GetGameTimer()
+141@ -= 140@
+if
+    5000 > 141@
+then
+    wait 0
+    goto @SMOKE3_COOP_WAIT_FOR_PED_LOOP
+end
+return
+
+:SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
+136@ = 0
+if
+    not Char.IsDead($scplayer)
+then
+    if
+        Char.LocateAnyMeansCar2D($scplayer, 40@, 137@, 137@, False)
+    then
+        136@ = 1
+    end
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.LocateAnyMeansCar2D($NETWORK_PLAYER[$temp_int], 40@, 137@, 137@, False)
+            then
+                136@ = 1
+            end
+        end
+    end
+end
+return
+
+:SMOKE3_COOP_CREATE_CHASE_VEHICLES
+if
+    144@ == 0
+then
+    for $temp_int = 0 to 2
+        132@($temp_int,3i) = 0
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                $temp_int == 0
+            then
+                132@($temp_int,3i) = Car.Create(468, 1780.85, -1940.2, 12.5598)
+            end
+            if
+                $temp_int == 1
+            then
+                132@($temp_int,3i) = Car.Create(468, 1780.85, -1943.0, 12.5598)
+            end
+            if
+                $temp_int == 2
+            then
+                132@($temp_int,3i) = Car.Create(468, 1780.85, -1945.8, 12.5598)
+            end
+            if
+                not Car.IsDead(132@($temp_int,3i))
+            then
+                Car.SetHeading(132@($temp_int,3i), 176.7993)
+                Car.SetHealth(132@($temp_int,3i), 2000)
+                Car.SetCanBurstTires(132@($temp_int,3i), False)
+                Car.ChangeColor(132@($temp_int,3i), 6, 6)
+                138@ = 132@($temp_int,3i)
+                gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
+            end
+        end
+    end
+    144@ = 1
+end
+return
+
+:SMOKE3_COOP_SHOW_CHASE_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintNowForNetworkPlayer('SMK3_2', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        if
+            not Car.IsDead(132@($temp_int,3i))
+        then
+            139@ = Coop.GetVehicleNetworkId(132@($temp_int,3i))
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 132@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+            not Char.IsDead($big_smoke)
+        then
+            139@ = Coop.GetPedNetworkId($big_smoke)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $big_smoke, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+end
+gosub @SMOKE3_COOP_REFRESH_CHASE_BLIPS
+return
+
+:SMOKE3_COOP_REFRESH_CHASE_BLIPS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Car.IsDead(132@($temp_int,3i))
+        then
+            139@ = Coop.GetVehicleNetworkId(132@($temp_int,3i))
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 132@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+            not Char.IsDead($big_smoke)
+        then
+            139@ = Coop.GetPedNetworkId($big_smoke)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $big_smoke, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+            not Char.IsDead(34@)
+        then
+            139@ = Coop.GetPedNetworkId(34@)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 34@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if
+            not Char.IsDead(35@)
+        then
+            139@ = Coop.GetPedNetworkId(35@)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 35@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if
+            not Char.IsDead(36@)
+        then
+            139@ = Coop.GetPedNetworkId(36@)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 36@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if
+            not Char.IsDead(37@)
+        then
+            139@ = Coop.GetPedNetworkId(37@)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 37@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+    end
+end
+return
+
+:SMOKE3_COOP_SET_RETURN_CHECKPOINT
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2061.68, -1694.71, 12.554, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SMOKE3_COOP_SHOW_SMOKE_OBJECTIVE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.PrintNowForNetworkPlayer('SMK3_18', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        if
+            not Char.IsDead($big_smoke)
+        then
+            139@ = Coop.GetPedNetworkId($big_smoke)
+            if
+                139@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $big_smoke, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+end
+return
+
+:SMOKE3_COOP_REMOVE_CHAR_BLIP
+139@ = Coop.GetPedNetworkId(138@)
+if
+    139@ <> -1
+then
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.RemoveCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 138@)
+        end
+    end
+end
+return
+
+:SMOKE3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
 

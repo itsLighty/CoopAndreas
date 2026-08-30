@@ -3,6 +3,7 @@
 
 :MUSIC5
 script_name 'MUSIC5'
+Coop.EnableSyncingThisScript()
 gosub @MUSIC5_47
 if 
   has_deatharrest_been_executed 
@@ -18,6 +19,31 @@ $onmission = 1
 Stat.RegisterMissionGiven
 Text.LoadMissionText('STRAP4')
 Text.ClearPrints
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+152@ = 0 // frozen cooperative roster size
+153@ = 0 // cooperative cleanup guard
+154@ = 0 // remote participant transition state
+155@ = 0 // remote participant death failure
+156@ = -1 // cooperative objective phase
+157@ = 0 // next objective/network update
+158@ = 0 // next combat retarget update
+159@ = 0 // out-of-area regroup timer
+160@ = 0 // next regroup check
+161@ = 0 // bounded entity registration timed out
+187@ = 0 // next bounded entity registration retry
+188@ = 0 // mission combat entities/decision makers initialized
+for $temp_int = 0 to 2
+    165@($temp_int,3i) = -1
+    168@($temp_int,3i) = -1
+    171@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        168@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        171@($temp_int,3i) = 1
+        152@ += 1
+    end
+end
 wait 0
 $LA_hub_activity = 1
 80@ = 0
@@ -55,6 +81,22 @@ set_lvar_int_to_constant 94@ = 104
 100@ = 0
 101@ = 0
 104@ = 75
+if
+  152@ == 1
+then
+    104@ = 78
+end
+if
+  152@ == 2
+then
+    104@ = 82
+end
+if
+  152@ == 3
+then
+    104@ = 86
+end
+gosub @MUSIC5_COOP_FREEZE_REMOTES
 CarGenerator.Switch($gen_car6, 0)
 CarGenerator.Switch($gen_car7, 0)
 CarGenerator.Switch($gen_car10, 0)
@@ -241,10 +283,16 @@ Group.SetDecisionMaker(147@, 151@)
 Group.SetDefaultTaskAllocator(147@, DefaultTaskAllocator.StandStill)
 145@ = DecisionMakerChar.Load(DecisionMakerType.Tough)
 146@ = DecisionMakerChar.Copy(65542)
+188@ = 1
 DecisionMakerChar.ClearEventResponse(146@, 13)
 DecisionMakerChar.ClearEventResponse(145@, 13)
 $sweet = Char.Create(26, 290, 2485.5, -1647.7, 13.3)
 Char.SetNeverTargeted($sweet, True)
+if
+  152@ > 0
+then
+    Char.SetHealth($sweet, 250)
+end
 Char.SetHeading($sweet, 196.6)
 Char.SetOnlyDamagedByPlayer($sweet, True)
 Char.SetStayInSamePlace($sweet, True)
@@ -373,6 +421,8 @@ Char.SetKindaStayInSamePlace(54@, True)
 Char.SetDecisionMaker(54@, 146@)
 Group.SetMember(54@, 149@)
 Char.SetAccuracy(54@, 104@)
+gosub @MUSIC5_COOP_SYNC_WORLD
+gosub @MUSIC5_COOP_STAGE_CONVOY_PASSENGERS
 Streaming.SetAreaVisible(0)
 Streaming.LoadScene(2484.9, -1649.2, 12.5)
 World.ClearArea(0, 2484.9, -1649.2, 12.5, 160.0)
@@ -392,6 +442,13 @@ Game.EnableAmbientCrime(False)
 
 :MUSIC5_3034
 wait 0
+gosub @MUSIC5_COOP_UPDATE
+if
+  155@ == 1
+goto_if_false @MUSIC5_COOP_MAIN_CONTINUE
+goto @MUSIC5_15871
+
+:MUSIC5_COOP_MAIN_CONTINUE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @MUSIC5_3060
@@ -949,6 +1006,7 @@ Streaming.UnloadSpecialCharacter(2)
 107@ = 2
 108@ = 4
 gosub @MUSIC5_17676
+gosub @MUSIC5_COOP_DEPLOY_COMBATANTS
 Game.ShutAllCharsUp(False)
 Char.HideWeaponForScriptedCutscene($scplayer, False)
 Player.SetControl($player1, True)
@@ -1207,6 +1265,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 105@ = 0
 Player.SetControl($player1, False)
+gosub @MUSIC5_COOP_FREEZE_REMOTES
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
 Char.HideWeaponForScriptedCutscene($scplayer, True)
@@ -1299,6 +1358,7 @@ Task.SetCharDecisionMaker(-1, 145@)
 Sequence.Close(144@)
 Char.PerformSequence(50@, 144@)
 Sequence.Clear(144@)
+gosub @MUSIC5_COOP_SYNC_WORLD
 Task.TurnCharToFaceChar($scplayer, 50@)
 Camera.SetFixedPosition(2474.3, -1660.9, 14.1, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2449.8, -1657.2, 19.1, SwitchType.JumpCut)
@@ -1355,6 +1415,7 @@ Hud.SwitchWidescreen(False)
 Player.MakeGangReappear
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
+gosub @MUSIC5_COOP_DEPLOY_COMBATANTS
 Player.SetControl($player1, True)
 106@ = 0
 81@ = 2
@@ -1451,6 +1512,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 105@ = 0
 Player.SetControl($player1, False)
+gosub @MUSIC5_COOP_FREEZE_REMOTES
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
 Game.ShutAllCharsUp(True)
@@ -1834,6 +1896,7 @@ Char.SetHeading(58@, 180.0)
 Char.GiveWeapon(58@, WeaponType.Tec9, 3000)
 Char.SetStayInSamePlace(58@, True)
 Char.SetDecisionMaker(58@, 146@)
+gosub @MUSIC5_COOP_SYNC_WORLD
 Game.ShutAllCharsUp(False)
 Char.HideWeaponForScriptedCutscene($scplayer, False)
 Hud.SwitchWidescreen(False)
@@ -1841,6 +1904,7 @@ Player.MakeGangReappear
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
+gosub @MUSIC5_COOP_DEPLOY_COMBATANTS
 Text.Print('STP4_04', 11000, 1)
 Camera.DoFade(1, 500)
 
@@ -2116,6 +2180,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 105@ = 0
 Player.SetControl($player1, False)
+gosub @MUSIC5_COOP_FREEZE_REMOTES
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
 Char.HideWeaponForScriptedCutscene($scplayer, True)
@@ -2281,6 +2346,10 @@ if
 goto_if_false @MUSIC5_15857
 Text.ClearPrints
 Text.PrintNow('STP4_06', 7000, 1)
+set_lvar_text_label 200@s = 'STP4_06'
+202@ = 7000
+203@ = 1
+gosub @MUSIC5_COOP_PRINT_NOW
 goto @MUSIC5_15871
 
 :MUSIC5_15857
@@ -2288,6 +2357,15 @@ gosub @MUSIC5_18136
 goto @MUSIC5_3034
 
 :MUSIC5_15871
+gosub @MUSIC5_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
@@ -2299,11 +2377,24 @@ Blip.Remove($strap_contact_blip)
 $strap_contact_blip = Blip.AddSpriteForContactPoint($strap_blip_icon, $strap2X, $strap2Y, $strap2Z)
 Camera.DoFade(1, 500)
 Text.PrintNow('STP4_07', 11000, 1)
+set_lvar_text_label 200@s = 'STP4_07'
+202@ = 11000
+203@ = 1
+gosub @MUSIC5_COOP_PRINT_NOW
 $flag_strap_mission_counter += 1
 $strap4_mission_passed_once_flag = 1
 goto @MUSIC5_16038
 
 :MUSIC5_15973
+gosub @MUSIC5_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Stat.SetInt(StatId.PassedStrap4, 1)
 Text.PrintWithNumberBig('M_PASSR', 10, 5000, TextStyle.Middle)
 Stat.AwardPlayerMissionRespect(10)
@@ -2318,6 +2409,7 @@ Blip.Remove($strap_contact_blip)
 return 
 
 :MUSIC5_16040
+gosub @MUSIC5_COOP_RESTORE_PLAYERS
 if 
   is_var_text_label_empty s$shop_name
 goto_if_false @MUSIC5_16058
@@ -2372,6 +2464,7 @@ Char.ShutUpForScriptedSpeech($scplayer, False)
 Game.ShutAllCharsUp(False)
 Char.RemoveElegantly($sweet)
 Char.RemoveElegantly($ryder)
+gosub @MUSIC5_COOP_RELEASE_ENTITIES
 Streaming.MarkModelAsNoLongerNeeded(106)
 Streaming.MarkModelAsNoLongerNeeded(107)
 Streaming.MarkModelAsNoLongerNeeded(103)
@@ -2399,10 +2492,837 @@ if
 goto_if_false @MUSIC5_16443
 Text.ClearPrints
 Text.PrintNow('STP4_05', 7000, 1)
+set_lvar_text_label 200@s = 'STP4_05'
+202@ = 7000
+203@ = 1
+gosub @MUSIC5_COOP_PRINT_NOW
 83@ = 1
 
 :MUSIC5_16443
 return 
+
+// Cooperative mission layer.  The roster is frozen by network player identity at mission
+// start; disconnected slots are ignored and are never replaced by late joiners.
+:MUSIC5_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    171@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        186@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 186@ == 168@($temp_int,3i)
+        then
+            171@($temp_int,3i) = 1
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                155@ = 1
+            end
+        end
+    end
+end
+return
+
+:MUSIC5_COOP_PRINT_NOW
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(200@s, 202@, 203@, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:MUSIC5_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+    165@($temp_int,3i) = -1
+end
+return
+
+:MUSIC5_COOP_BUILD_ACTIVE_ARGS
+204@ = -1
+205@ = -1
+206@ = -1
+for $temp_int = 0 to 2
+    if
+        171@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_var_int 204@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    end
+end
+return
+
+:MUSIC5_COOP_TELEPORT_ACTIVE
+if
+  152@ == 0
+then
+    return
+end
+gosub @MUSIC5_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(204@, 205@, 206@)
+return
+
+:MUSIC5_COOP_FREEZE_REMOTES
+if
+  152@ == 0
+then
+    return
+end
+gosub @MUSIC5_COOP_UPDATE_ROSTER
+gosub @MUSIC5_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        171@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+    end
+end
+gosub @MUSIC5_COOP_TELEPORT_ACTIVE
+154@ = 1
+return
+
+:MUSIC5_COOP_STAGE_CONVOY_PASSENGERS
+if
+  152@ == 0
+then
+    return
+end
+gosub @MUSIC5_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        171@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        if and
+            $temp_int == 0
+            Car.DoesExist(34@)
+        then
+            Char.WarpIntoCarAsPassenger($NETWORK_PLAYER[$temp_int], 34@, 0)
+        end
+        if and
+            $temp_int == 1
+            Car.DoesExist(34@)
+        then
+            Char.WarpIntoCarAsPassenger($NETWORK_PLAYER[$temp_int], 34@, 1)
+        end
+        if and
+            $temp_int == 2
+            Car.DoesExist(35@)
+        then
+            Char.WarpIntoCarAsPassenger($NETWORK_PLAYER[$temp_int], 35@, 0)
+        end
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+    end
+end
+154@ = 2
+return
+
+:MUSIC5_COOP_DEPLOY_COMBATANTS
+if
+  152@ == 0
+then
+    154@ = 0
+    return
+end
+gosub @MUSIC5_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        171@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+gosub @MUSIC5_COOP_TELEPORT_ACTIVE
+154@ = 0
+159@ = 0
+156@ = -1
+return
+
+// All entity IDs share one 750 ms deadline, so a missing/late-streamed entity can never
+// stall mission progress.  The periodic retry below repairs delayed registrations.
+:MUSIC5_COOP_SYNC_WORLD
+if
+  152@ == 0
+then
+    return
+end
+162@ = Clock.GetGameTimer()
+162@ += 750
+161@ = 0
+
+:MUSIC5_COOP_SYNC_WORLD_PASS
+163@ = 0
+if
+  Char.DoesExist($sweet)
+then
+    164@ = Coop.GetPedNetworkId($sweet)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Char.DoesExist($ryder)
+then
+    164@ = Coop.GetPedNetworkId($ryder)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Char.DoesExist(63@)
+then
+    164@ = Coop.GetPedNetworkId(63@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Char.DoesExist(36@)
+then
+    164@ = Coop.GetPedNetworkId(36@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Char.DoesExist(37@)
+then
+    164@ = Coop.GetPedNetworkId(37@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Char.DoesExist(39@)
+then
+    164@ = Coop.GetPedNetworkId(39@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+176@ = 0
+
+:MUSIC5_COOP_SYNC_ENEMY_LOOP
+if
+  12 > 176@
+goto_if_false @MUSIC5_COOP_SYNC_VEHICLES
+if
+  Char.DoesExist(47@(176@,12i))
+then
+    Char.SetOnlyDamagedByPlayer(47@(176@,12i), False)
+    164@ = Coop.GetPedNetworkId(47@(176@,12i))
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+176@ += 1
+goto @MUSIC5_COOP_SYNC_ENEMY_LOOP
+
+:MUSIC5_COOP_SYNC_VEHICLES
+if
+  Car.DoesExist(34@)
+then
+    164@ = Coop.GetVehicleNetworkId(34@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(35@)
+then
+    164@ = Coop.GetVehicleNetworkId(35@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(43@)
+then
+    164@ = Coop.GetVehicleNetworkId(43@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(44@)
+then
+    164@ = Coop.GetVehicleNetworkId(44@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(45@)
+then
+    164@ = Coop.GetVehicleNetworkId(45@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(46@)
+then
+    164@ = Coop.GetVehicleNetworkId(46@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(61@)
+then
+    164@ = Coop.GetVehicleNetworkId(61@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(64@)
+then
+    164@ = Coop.GetVehicleNetworkId(64@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  Car.DoesExist(65@)
+then
+    164@ = Coop.GetVehicleNetworkId(65@)
+    if
+      164@ == -1
+    then
+        163@ = 1
+    end
+end
+if
+  163@ == 0
+then
+    return
+end
+184@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 184@ >= 162@
+then
+    161@ = 1
+    return
+end
+wait 0
+goto @MUSIC5_COOP_SYNC_WORLD_PASS
+
+:MUSIC5_COOP_UPDATE_OBJECTIVES
+set_lvar_int_to_lvar_int 156@ = 80@
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            not is_int_lvar_equal_to_int_lvar 165@($temp_int,3i) == 156@
+        then
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            if
+              156@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('STP4_02', 11000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              156@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('STP4_03', 11000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              156@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('STP4_04', 11000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            set_lvar_int_to_lvar_int 165@($temp_int,3i) = 156@
+        end
+        if and
+            156@ >= 1
+            4 >= 156@
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2484.9, -1663.5, 12.5, 35.0, 35.0, 12.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            Char.DoesExist($sweet)
+        then
+            if
+                not Char.IsDead($sweet)
+            then
+                164@ = Coop.GetPedNetworkId($sweet)
+                if
+                  164@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+        176@ = 0
+
+:MUSIC5_COOP_OBJECTIVE_ENEMY_LOOP
+        if
+          8 > 176@
+        goto_if_false @MUSIC5_COOP_OBJECTIVE_HIDDEN_WAVE
+        if
+            Char.DoesExist(47@(176@,12i))
+        then
+            if
+                not Char.IsDead(47@(176@,12i))
+            then
+                164@ = Coop.GetPedNetworkId(47@(176@,12i))
+                if
+                  164@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 47@(176@,12i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+        end
+        176@ += 1
+        goto @MUSIC5_COOP_OBJECTIVE_ENEMY_LOOP
+
+:MUSIC5_COOP_OBJECTIVE_HIDDEN_WAVE
+        if and
+            156@ == 3
+            96@ >= 1
+        then
+            176@ = 8
+
+:MUSIC5_COOP_OBJECTIVE_HIDDEN_LOOP
+            if
+              12 > 176@
+            goto_if_false @MUSIC5_COOP_OBJECTIVE_DONE
+            if
+                Char.DoesExist(47@(176@,12i))
+            then
+                if
+                    not Char.IsDead(47@(176@,12i))
+                then
+                    164@ = Coop.GetPedNetworkId(47@(176@,12i))
+                    if
+                      164@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 47@(176@,12i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+            176@ += 1
+            goto @MUSIC5_COOP_OBJECTIVE_HIDDEN_LOOP
+        end
+
+:MUSIC5_COOP_OBJECTIVE_DONE
+    end
+end
+return
+
+:MUSIC5_COOP_COMBAT_TARGETS
+176@ = 0
+
+:MUSIC5_COOP_COMBAT_ENEMY_LOOP
+if
+  12 > 176@
+goto_if_false @MUSIC5_COOP_COMBAT_DONE
+if and
+  176@ >= 8
+  96@ == 0
+then
+    goto @MUSIC5_COOP_COMBAT_NEXT_ENEMY
+end
+if
+  Char.DoesExist(47@(176@,12i))
+then
+    if
+        not Char.IsDead(47@(176@,12i))
+    then
+        set_lvar_int_to_var_int 175@ = $scplayer
+        177@ = 99999.0
+        if
+            not Char.IsDead($scplayer)
+        then
+            178@, 179@, 180@ = Char.GetCoordinates(47@(176@,12i))
+            181@, 182@, 183@ = Char.GetCoordinates($scplayer)
+            177@ = Math.GetDistanceBetweenCoords2D(178@, 179@, 181@, 182@)
+        end
+        for $temp_int = 0 to 2
+            if
+                171@($temp_int,3i) == 1
+            then
+                if
+                    not Char.IsDead($NETWORK_PLAYER[$temp_int])
+                then
+                    if
+                        Char.HasBeenDamagedByChar(47@(176@,12i), $NETWORK_PLAYER[$temp_int])
+                    then
+                        set_lvar_int_to_var_int 175@ = $NETWORK_PLAYER[$temp_int]
+                        177@ = 0.0
+                        if and
+                            176@ >= 8
+                            96@ == 0
+                        then
+                            96@ = 1
+                        end
+                        Char.ClearLastDamageEntity(47@(176@,12i))
+                    end
+                    if
+                      177@ > 0.0
+                    then
+                        181@, 182@, 183@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+                        185@ = Math.GetDistanceBetweenCoords2D(178@, 179@, 181@, 182@)
+                        if
+                            is_float_lvar_greater_than_float_lvar 177@ > 185@
+                        then
+                            set_lvar_int_to_var_int 175@ = $NETWORK_PLAYER[$temp_int]
+                            set_lvar_float_to_lvar_float 177@ = 185@
+                        end
+                    end
+                end
+            end
+        end
+        if
+            Char.DoesExist(175@)
+        then
+            if
+                not Char.IsDead(175@)
+            then
+                Task.KillCharOnFoot(47@(176@,12i), 175@)
+            end
+        end
+    end
+end
+
+:MUSIC5_COOP_COMBAT_NEXT_ENEMY
+176@ += 1
+goto @MUSIC5_COOP_COMBAT_ENEMY_LOOP
+
+:MUSIC5_COOP_COMBAT_DONE
+return
+
+:MUSIC5_COOP_REGROUP
+if
+  154@ <> 0
+then
+    159@ = 0
+    return
+end
+163@ = 0
+for $temp_int = 0 to 2
+    if
+        171@($temp_int,3i) == 1
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                not Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], $scplayer, 250.0, 250.0, False)
+            then
+                163@ = 1
+            end
+        end
+    end
+end
+if
+  163@ == 0
+then
+    159@ = 0
+    return
+end
+184@ = Clock.GetGameTimer()
+if
+  159@ == 0
+then
+    set_lvar_int_to_lvar_int 159@ = 184@
+    return
+end
+set_lvar_int_to_lvar_int 185@ = 184@
+sub_int_lvar_from_int_lvar 185@ -= 159@
+if
+  185@ > 12000
+then
+    gosub @MUSIC5_COOP_TELEPORT_ACTIVE
+    159@ = 0
+end
+return
+
+:MUSIC5_COOP_UPDATE
+if
+  152@ == 0
+goto_if_false @MUSIC5_COOP_UPDATE_ACTIVE
+return
+
+:MUSIC5_COOP_UPDATE_ACTIVE
+gosub @MUSIC5_COOP_UPDATE_ROSTER
+184@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 184@ >= 187@
+goto_if_false @MUSIC5_COOP_UPDATE_OBJECTIVE_TIME
+set_lvar_int_to_lvar_int 187@ = 184@
+187@ += 5000
+gosub @MUSIC5_COOP_SYNC_WORLD
+
+:MUSIC5_COOP_UPDATE_OBJECTIVE_TIME
+184@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 184@ >= 157@
+goto_if_false @MUSIC5_COOP_UPDATE_COMBAT
+set_lvar_int_to_lvar_int 157@ = 184@
+157@ += 1500
+if
+  154@ <> 0
+goto_if_false @MUSIC5_COOP_UPDATE_OBJECTIVES_ACTIVE
+goto @MUSIC5_COOP_UPDATE_COMBAT
+
+:MUSIC5_COOP_UPDATE_OBJECTIVES_ACTIVE
+gosub @MUSIC5_COOP_UPDATE_OBJECTIVES
+
+:MUSIC5_COOP_UPDATE_COMBAT
+if
+  154@ <> 0
+goto_if_false @MUSIC5_COOP_UPDATE_COMBAT_PHASE
+return
+
+:MUSIC5_COOP_UPDATE_COMBAT_PHASE
+if or
+  1 > 80@
+  80@ > 3
+goto_if_false @MUSIC5_COOP_UPDATE_RETARGET_TIME
+return
+
+:MUSIC5_COOP_UPDATE_RETARGET_TIME
+184@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 184@ >= 158@
+goto_if_false @MUSIC5_COOP_UPDATE_REGROUP_TIME
+set_lvar_int_to_lvar_int 158@ = 184@
+158@ += 1200
+gosub @MUSIC5_COOP_COMBAT_TARGETS
+
+:MUSIC5_COOP_UPDATE_REGROUP_TIME
+184@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 184@ >= 160@
+goto_if_false @MUSIC5_COOP_UPDATE_DONE
+set_lvar_int_to_lvar_int 160@ = 184@
+160@ += 2000
+gosub @MUSIC5_COOP_REGROUP
+
+:MUSIC5_COOP_UPDATE_DONE
+return
+
+:MUSIC5_COOP_RESTORE_PLAYERS
+if
+  153@ == 1
+then
+    return
+end
+153@ = 1
+gosub @MUSIC5_COOP_UPDATE_ROSTER
+gosub @MUSIC5_COOP_CLEAR_OBJECTIVES
+Player.SetControl($player1, True)
+Char.FreezePosition($scplayer, False)
+Char.SetProofs($scplayer, False, False, False, False, False)
+Char.SetCollision($scplayer, True)
+Char.SetVisible($scplayer, True)
+Char.SetAreaVisible($scplayer, 0)
+Char.HideWeaponForScriptedCutscene($scplayer, False)
+Hud.SwitchWidescreen(False)
+Hud.Display(True)
+Hud.DisplayRadar(True)
+Camera.ResetNewScriptables
+Camera.SetBehindPlayer
+Camera.RestoreJumpcut
+Streaming.SetAreaVisible(0)
+Game.ShutAllCharsUp(False)
+Game.EnableAmbientCrime(True)
+Player.MakeGangReappear
+Player.ClearWantedLevel($player1)
+World.SetCarDensityMultiplier(1.0)
+World.SetPedDensityMultiplier(1.0)
+Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
+Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
+Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
+for $temp_int = 0 to 2
+    if
+        171@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+gosub @MUSIC5_COOP_TELEPORT_ACTIVE
+154@ = 0
+return
+
+:MUSIC5_COOP_RELEASE_ENTITIES
+if
+  188@ == 0
+then
+    return
+end
+if
+  Char.DoesExist(63@)
+then
+    Char.MarkAsNoLongerNeeded(63@)
+end
+if
+  Char.DoesExist(36@)
+then
+    Char.MarkAsNoLongerNeeded(36@)
+end
+if
+  Char.DoesExist(37@)
+then
+    Char.MarkAsNoLongerNeeded(37@)
+end
+if
+  Char.DoesExist(39@)
+then
+    Char.MarkAsNoLongerNeeded(39@)
+end
+176@ = 0
+
+:MUSIC5_COOP_RELEASE_ENEMY_LOOP
+if
+  12 > 176@
+goto_if_false @MUSIC5_COOP_RELEASE_VEHICLES
+if
+  Char.DoesExist(47@(176@,12i))
+then
+    Char.MarkAsNoLongerNeeded(47@(176@,12i))
+end
+176@ += 1
+goto @MUSIC5_COOP_RELEASE_ENEMY_LOOP
+
+:MUSIC5_COOP_RELEASE_VEHICLES
+if
+  Car.DoesExist(34@)
+then
+    Car.MarkAsNoLongerNeeded(34@)
+end
+if
+  Car.DoesExist(35@)
+then
+    Car.MarkAsNoLongerNeeded(35@)
+end
+if
+  Car.DoesExist(43@)
+then
+    Car.LockDoors(43@, CarLock.Unlocked)
+    Car.SetProofs(43@, False, False, False, False, False)
+    Car.SetHeavy(43@, False)
+    Car.MarkAsNoLongerNeeded(43@)
+end
+if
+  Car.DoesExist(44@)
+then
+    Car.LockDoors(44@, CarLock.Unlocked)
+    Car.SetProofs(44@, False, False, False, False, False)
+    Car.SetHeavy(44@, False)
+    Car.MarkAsNoLongerNeeded(44@)
+end
+if
+  Car.DoesExist(45@)
+then
+    Car.MarkAsNoLongerNeeded(45@)
+end
+if
+  Car.DoesExist(46@)
+then
+    Car.LockDoors(46@, CarLock.Unlocked)
+    Car.SetProofs(46@, False, False, False, False, False)
+    Car.SetHeavy(46@, False)
+    Car.MarkAsNoLongerNeeded(46@)
+end
+if
+  Car.DoesExist(61@)
+then
+    Car.MarkAsNoLongerNeeded(61@)
+end
+if
+  Car.DoesExist(64@)
+then
+    Car.MarkAsNoLongerNeeded(64@)
+end
+if
+  Car.DoesExist(65@)
+then
+    Car.MarkAsNoLongerNeeded(65@)
+end
+if
+  Group.DoesExist(148@)
+then
+    Group.Remove(148@)
+end
+if
+  Group.DoesExist(149@)
+then
+    Group.Remove(149@)
+end
+if
+  Group.DoesExist(150@)
+then
+    Group.Remove(150@)
+end
+DecisionMaker.Remove(145@)
+DecisionMaker.Remove(146@)
+DecisionMaker.Remove(151@)
+return
 
 :MUSIC5_16445
 98@ = Math.RandomIntInRange(1, 37)
@@ -2706,6 +3626,14 @@ goto @MUSIC5_18248
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 Text.ClearThisPrint(109@(107@,9s))
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearThisPrintForNetworkPlayer(109@(107@,9s), $NETWORK_PLAYER[$temp_int])
+    end
+end
 137@ = 0
 138@ = 0
 
@@ -2768,6 +3696,14 @@ if
 goto_if_false @MUSIC5_18526
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow(109@(107@,9s), 4500, 1)
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(109@(107@,9s), 4500, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 137@ = 2
 
 :MUSIC5_18526
@@ -2782,6 +3718,14 @@ if
 goto_if_false @MUSIC5_18602
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow(109@(107@,9s), 4500, 1)
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(109@(107@,9s), 4500, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
 138@ = 2
 
 :MUSIC5_18602
@@ -2795,6 +3739,14 @@ if
   Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @MUSIC5_18667
 Text.ClearThisPrint(109@(107@,9s))
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearThisPrintForNetworkPlayer(109@(107@,9s), $NETWORK_PLAYER[$temp_int])
+    end
+end
 107@ += 1
 140@ = 2
 137@ = 0
@@ -2807,6 +3759,14 @@ if
   Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @MUSIC5_18730
 Text.ClearThisPrint(109@(107@,9s))
+for $temp_int = 0 to 2
+    if and
+        171@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearThisPrintForNetworkPlayer(109@(107@,9s), $NETWORK_PLAYER[$temp_int])
+    end
+end
 107@ += 1
 140@ = 1
 138@ = 0

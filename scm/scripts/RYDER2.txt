@@ -1,11 +1,9 @@
 //-------------Mission 26---------------
 // Originally: Robbing Uncle Sam
-Coop.AddChatMessage("{ffff00}[CoopAndreas Warning]{ffffff} This mission is currently unsupported and not recommended to play!")
-Coop.AddChatMessage("{ffff00}[CoopAndreas Warning]{ffffff} It may cause desyncs, crashes, or other unexpected behavior!")
-
 
 :RYDER2
 script_name 'RYDER2'
+Coop.EnableSyncingThisScript()
 gosub @RYDER2_47
 if 
   has_deatharrest_been_executed 
@@ -18,6 +16,7 @@ terminate_this_script
 
 :RYDER2_47
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 $onmission = 1
 34@ = 0
 35@ = 0
@@ -25,6 +24,22 @@ $onmission = 1
 37@ = 0
 49@ = 0
 50@ = 0
+478@ = 0 // any active participant is in the mission van
+479@ = 0 // shared co-op helper scratch
+480@ = 0 // regroup timeout
+481@ = 0 // replicated objective stage
+482@ = 0 // remote participant owns the forklift
+483@ = 0 // remote forklift has a host-authoritative virtual crate
+484@ = 0 // remote loading / missing-object fallback timer
+485@ = -1 // last shared crate count announced
+486@ = 0 // remote front-gate access timer
+487@ = 0 // remote warehouse access timer
+488@ = 0 // current synced vehicle driver
+489@ = 0 // entity registration input
+490@ = -1 // entity network id
+491@ = 0 // entity registration start time
+492@ = 0 // entity registration elapsed time
+493@ = -1 // last dialogue subtitle replicated to participants
 
 :RYDER2_98
 wait 0
@@ -67,6 +82,11 @@ goto_if_false @RYDER2_316
 
 :RYDER2_316
 gosub @RYDER2_988
+gosub @RYDER2_COOP_SUBTITLE_SYNC
+gosub @RYDER2_COOP_OBJECTIVES
+gosub @RYDER2_COOP_ACCESS
+gosub @RYDER2_COOP_REMOTE_LOADING
+gosub @RYDER2_COOP_COMBAT
 
 :RYDER2_323
 switch_start 34@ total_jumps 8 default_jump 0 @RYDER2_563 jumps 0 @RYDER2_451 1 @RYDER2_465 2 @RYDER2_479 3 @RYDER2_493 4 @RYDER2_507 5 @RYDER2_521 6 @RYDER2_535
@@ -537,12 +557,25 @@ Char.SetAnimGroup($ryder, "GANG1")
 Char.SetDecisionMaker($ryder, 235@)
 DecisionMakerChar.ClearEventResponse(235@, 79)
 Task.LookAtChar($ryder, $scplayer, 999999)
+set_lvar_int_to_lvar_int 489@ = 95@
+gosub @RYDER2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_var_int 489@ = $ryder
+gosub @RYDER2_COOP_REGISTER_PED
 Text.PrintNow('RY2_03', 7000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer('RY2_03', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 95@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+    end
+end
 49@ = 0
 Char.SetCantBeDraggedOut($ryder, True)
 Char.SetAnimGroup($ryder, "MAN")
 Char.SetCoordinates($scplayer, 2474.87, -1698.465, 12.521)
 Char.SetHeading($scplayer, 4.8941)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Camera.DoFade(1, Fade.Out)
@@ -607,12 +640,22 @@ goto_if_false @RYDER2_4689
 if 
   not Car.IsDead(95@)
 goto_if_false @RYDER2_4689
-if 
-  Char.IsInCar($scplayer, 95@)
+gosub @RYDER2_COOP_ANY_IN_MISSION_VAN
+if
+  478@ == 1
 goto_if_false @RYDER2_4689
 Blip.Remove(120@)
 120@ = Blip.AddForCoord(2699.293, -2395.013, 12.6172)
 Text.PrintNow('RY2_02', 7000, 1)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 95@)
+        Coop.PrintNowForNetworkPlayer('RY2_02', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        Coop.UpdateCheckpointForNetworkPlayer(2699.293, -2395.013, 12.6172, 10.0, 10.0, 6.0, $NETWORK_PLAYER[$temp_int])
+    end
+end
 54@ = 0
 35@ += 1
 49@ = 0
@@ -644,14 +687,49 @@ goto_if_false @RYDER2_4919
 if 
   Car.Locate3D(95@, 1, 2699.293, -2395.013, 12.6172, 4.0, 4.0, 4.0)
 goto_if_false @RYDER2_4919
-if 
-  Char.IsInCar($scplayer, 95@)
+gosub @RYDER2_COOP_ANY_IN_MISSION_VAN
+if
+  478@ == 1
 goto_if_false @RYDER2_4919
 if 
   Car.IsOnAllWheels(95@)
 goto_if_false @RYDER2_4919
-$car = Char.StoreCarIsInNoSave($scplayer)
-Task.CarTempAction($scplayer, $car, TempAction.HandbrakeStraight, 2000000)
+$heading = 1.0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 2699.293, -2395.013, 12.6172, 60.0, 60.0, 20.0)
+        then
+            $heading = 0.0
+        end
+    end
+end
+if
+  $heading == 0.0
+goto_if_false @RYDER2_COOP_DEPOT_READY
+add_int_lvar_to_int_lvar 480@ += 41@
+if
+  480@ > 15000
+goto_if_false @RYDER2_4919
+
+:RYDER2_COOP_DEPOT_READY
+480@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+if
+  Char.IsInAnyCar($scplayer)
+then
+    $car = Char.StoreCarIsInNoSave($scplayer)
+    Task.CarTempAction($scplayer, $car, TempAction.HandbrakeStraight, 2000000)
+end
 Player.SetControl($player1, False)
 Blip.Remove(120@)
 35@ = 99
@@ -1152,6 +1230,10 @@ Car.SetHeading(99@, 180.3774)
 Car.SetCanBurstTires(99@, False)
 Car.SetHealth(99@, 3000)
 112@ = Char.CreateInsideCar(PedType.Mission1, 287, 99@)
+set_lvar_int_to_lvar_int 489@ = 99@
+gosub @RYDER2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 489@ = 112@
+gosub @RYDER2_COOP_REGISTER_PED
 Streaming.RequestModel(500)
 
 :RYDER2_8616
@@ -1165,6 +1247,10 @@ goto @RYDER2_8616
 98@ = Car.Create(500, 2688.963, -2407.676, 12.4609)
 Car.SetHeading(98@, 270.0)
 111@ = Char.CreateInsideCar(PedType.Mission1, 287, 98@)
+set_lvar_int_to_lvar_int 489@ = 98@
+gosub @RYDER2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 489@ = 111@
+gosub @RYDER2_COOP_REGISTER_PED
 Car.GotoCoordinatesAccurate(98@, 2712.854, -2407.825, 12.4684)
 Streaming.MarkModelAsNoLongerNeeded(500)
 Car.ChangeColor(98@, 37, 37)
@@ -1177,6 +1263,18 @@ Path.ExtendRoute(2798.933, -2400.343, 12.631)
 Task.FollowPointRoute(106@, 4, RouteMode.Loop)
 
 :RYDER2_8784
+42@ = 0
+
+:RYDER2_COOP_REGISTER_DEPOT_GUARDS
+if
+  5 > 42@
+goto_if_false @RYDER2_COOP_REGISTER_DEPOT_GUARDS_DONE
+set_lvar_int_to_lvar_int 489@ = 102@(42@,9i)
+gosub @RYDER2_COOP_REGISTER_PED
+42@ += 1
+goto @RYDER2_COOP_REGISTER_DEPOT_GUARDS
+
+:RYDER2_COOP_REGISTER_DEPOT_GUARDS_DONE
 Camera.DoFade(1, 500)
 
 :RYDER2_8791
@@ -1509,6 +1607,13 @@ TIMERB = 0
 goto @RYDER2_11105
 
 :RYDER2_11105
+if and
+  35@ >= 2
+  99 > 35@
+  TIMERA > 30000
+then
+    35@ = 99
+end
 if 
   35@ > 2
 goto_if_false @RYDER2_11147
@@ -1622,6 +1727,7 @@ Game.SwitchEmergencyServices(False)
 Hud.SwitchWidescreen(False)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Camera.DoFade(1, 250)
 
 :RYDER2_11677
@@ -2869,11 +2975,16 @@ goto_if_false @RYDER2_19786
 if 
   not Car.IsDead(95@)
 goto_if_false @RYDER2_19747
-if 
-  Char.IsInCar($scplayer, 95@)
+gosub @RYDER2_COOP_ANY_IN_MISSION_VAN
+if
+  478@ == 1
 goto_if_false @RYDER2_19452
 43@ = 1
-Camera.SetPlayerInCarMode(3)
+if
+  Char.IsInCar($scplayer, 95@)
+then
+    Camera.SetPlayerInCarMode(3)
+end
 goto @RYDER2_19747
 
 :RYDER2_19452
@@ -2933,8 +3044,9 @@ goto_if_false @RYDER2_20804
 if 
   not Car.IsDead(95@)
 goto_if_false @RYDER2_20804
-if 
-  Char.IsInCar($scplayer, 95@)
+gosub @RYDER2_COOP_ANY_IN_MISSION_VAN
+if
+  478@ == 1
 goto_if_false @RYDER2_20439
 Car.FreezePosition(95@, False)
 if 
@@ -3008,6 +3120,42 @@ Char.SetDecisionMaker(118@, 237@)
 Char.GiveWeapon(118@, WeaponType.Pistol, 999999)
 
 :RYDER2_20401
+if
+  Car.DoesExist(96@)
+then
+    set_lvar_int_to_lvar_int 489@ = 96@
+    gosub @RYDER2_COOP_REGISTER_VEHICLE
+end
+if
+  Char.DoesExist(113@)
+then
+    set_lvar_int_to_lvar_int 489@ = 113@
+    gosub @RYDER2_COOP_REGISTER_PED
+end
+if
+  Char.DoesExist(117@)
+then
+    set_lvar_int_to_lvar_int 489@ = 117@
+    gosub @RYDER2_COOP_REGISTER_PED
+end
+if
+  Car.DoesExist(97@)
+then
+    set_lvar_int_to_lvar_int 489@ = 97@
+    gosub @RYDER2_COOP_REGISTER_VEHICLE
+end
+if
+  Char.DoesExist(114@)
+then
+    set_lvar_int_to_lvar_int 489@ = 114@
+    gosub @RYDER2_COOP_REGISTER_PED
+end
+if
+  Char.DoesExist(118@)
+then
+    set_lvar_int_to_lvar_int 489@ = 118@
+    gosub @RYDER2_COOP_REGISTER_PED
+end
 Streaming.MarkModelAsNoLongerNeeded(470)
 Streaming.MarkModelAsNoLongerNeeded(287)
 54@ = 0
@@ -3187,8 +3335,9 @@ goto_if_false @RYDER2_22311
 if 
   not Car.IsDead(95@)
 goto_if_false @RYDER2_22311
-if 
-  Char.IsInCar($scplayer, 95@)
+gosub @RYDER2_COOP_ANY_IN_MISSION_VAN
+if
+  478@ == 1
 goto_if_false @RYDER2_22311
 if and
   not Text.IsMessageBeingDisplayed
@@ -3311,8 +3460,9 @@ Car.SetCanBurstTires(95@, True)
 if 
   not Car.IsDead(95@)
 goto_if_false @RYDER2_22617
-if 
-  Char.IsInCar($scplayer, 95@)
+gosub @RYDER2_COOP_ANY_IN_MISSION_VAN
+if
+  478@ == 1
 goto_if_false @RYDER2_22617
 if 
   Car.Locate3D(95@, 1, 2454.626, -1972.534, 12.5617, 4.0, 4.0, 4.0)
@@ -3320,6 +3470,36 @@ goto_if_false @RYDER2_22617
 if 
   Car.IsOnAllWheels(95@)
 goto_if_false @RYDER2_22617
+$heading = 1.0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 2454.626, -1972.534, 12.5617, 60.0, 60.0, 20.0)
+        then
+            $heading = 0.0
+        end
+    end
+end
+if
+  $heading == 0.0
+goto_if_false @RYDER2_COOP_RETURN_READY
+add_int_lvar_to_int_lvar 480@ += 41@
+if
+  480@ > 15000
+goto_if_false @RYDER2_22617
+
+:RYDER2_COOP_RETURN_READY
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 Player.SetControl($player1, False)
 Blip.Remove(120@)
 35@ = 99
@@ -4565,6 +4745,10 @@ Car.Delete(97@)
 :RYDER2_30634
 115@ = Char.Create(4, 105, 2448.476, -1980.751, 12.5947)
 116@ = Char.Create(4, 106, 2447.553, -1979.883, 12.5947)
+set_lvar_int_to_lvar_int 489@ = 115@
+gosub @RYDER2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 489@ = 116@
+gosub @RYDER2_COOP_REGISTER_PED
 Char.SetHeading(115@, 316.4611)
 Char.SetHeading(116@, 319.2614)
 Char.SetDecisionMaker(115@, 237@)
@@ -4596,6 +4780,7 @@ Sequence.Clear(48@)
 Char.ClearTasksImmediately($scplayer)
 Char.SetCoordinates($scplayer, 2452.29, -1971.682, 12.5469)
 Char.SetHeading($scplayer, 153.4741)
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 if 
   not Char.IsDead(115@)
 goto_if_false @RYDER2_30934
@@ -6173,6 +6358,8 @@ goto @RYDER2_40754
 340@(345@,5i) = Char.Create(24, 287, 347@(338@,10f), 357@(338@,10f), 367@(338@,10f))
 set_lvar_int_to_lvar_int 317@ = 340@(345@,5i)
 gosub @RYDER2_39203
+set_lvar_int_to_lvar_int 489@ = 340@(345@,5i)
+gosub @RYDER2_COOP_REGISTER_PED
 48@ = Sequence.Open()
 Task.TogglePedThreatScanner(-1, True, True, True)
 Task.GoStraightToCoord(-1, 387@(338@,10f), 397@(338@,10f), 407@(338@,10f), MoveState.Run, -2)
@@ -6291,11 +6478,621 @@ save_float_to_debug_file $heading
 :RYDER2_41369
 return 
 
+:RYDER2_COOP_ANY_IN_MISSION_VAN
+478@ = 0
+if and
+  Char.DoesExist($scplayer)
+  not Char.IsDead($scplayer)
+then
+    if
+        Char.IsInCar($scplayer, 95@)
+    then
+        478@ = 1
+    end
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.IsInCar($NETWORK_PLAYER[$temp_int], 95@)
+            then
+                478@ = 1
+            end
+        end
+    end
+end
+return
+
+:RYDER2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:RYDER2_COOP_SUBTITLE_SYNC
+if
+  $audio_line_is_active == 0
+goto_if_false @RYDER2_COOP_SUBTITLE_ACTIVE
+493@ = -1
+return
+
+:RYDER2_COOP_SUBTITLE_ACTIVE
+if
+  is_int_lvar_equal_to_int_var 493@ == $audio_sound_file
+goto_if_false @RYDER2_COOP_SUBTITLE_NEW
+return
+
+:RYDER2_COOP_SUBTITLE_NEW
+set_lvar_int_to_var_int 493@ = $audio_sound_file
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintForNetworkPlayer(s$audio_string, 5000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:RYDER2_COOP_OBJECTIVES
+if and
+  34@ == 3
+  481@ == 0
+then
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('RY2_59', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            Coop.UpdateCheckpointForNetworkPlayer(2722.075, -2411.271, 12.6198, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+            if
+                Char.DoesExist($ryder)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $ryder, False, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+    481@ = 1
+end
+if and
+  481@ == 1
+  133@ >= 2
+then
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintNowForNetworkPlayer('RY2_60', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            Coop.UpdateCheckpointForNetworkPlayer(2773.101, -2423.418, 12.6269, 4.0, 4.0, 4.0, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+    481@ = 2
+end
+if and
+  481@ == 2
+  132@ >= 2
+then
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('RY2_55', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintHelpForNetworkPlayer('RY2_72', $NETWORK_PLAYER[$temp_int])
+            if
+                Car.DoesExist(99@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 99@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+            if
+                Car.DoesExist(95@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 95@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+    481@ = 3
+end
+if and
+  34@ == 6
+  4 > 481@
+then
+    gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintNowForNetworkPlayer('RY2_66', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            Coop.UpdateCheckpointForNetworkPlayer(2454.626, -1972.534, 12.5617, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            if
+                Car.DoesExist(95@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 95@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+            if
+                Char.DoesExist($ryder)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $ryder, False, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+    480@ = 0
+    481@ = 4
+end
+if and
+  34@ >= 7
+  481@ == 4
+then
+    gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+    481@ = 5
+end
+return
+
+:RYDER2_COOP_ACCESS
+if and
+  34@ >= 3
+  6 > 34@
+then
+    478@ = 0
+    if
+        133@ == 0
+    then
+        for $temp_int = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+            then
+                if
+                    not Char.IsDead($NETWORK_PLAYER[$temp_int])
+                then
+                    if
+                        Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 2722.075, -2411.271, 12.6198, 3.0, 3.0, 4.0)
+                    then
+                        478@ = 1
+                    end
+                end
+            end
+        end
+        if
+            478@ == 1
+        then
+            add_int_lvar_to_int_lvar 486@ += 41@
+        else
+            486@ = 0
+        end
+        if
+            486@ > 2000
+        then
+            133@ = 1
+            Text.ClearPrints
+            if
+                Object.DoesExist(60@)
+            then
+                Audio.ReportMissionAudioEventAtObject(60@, 1107)
+            end
+            if
+                Object.DoesExist(240@)
+            then
+                Audio.ReportMissionAudioEventAtObject(240@, 1126)
+            end
+            486@ = 0
+        end
+    else
+        486@ = 0
+    end
+    478@ = 0
+    if
+        132@ == 0
+    then
+        for $temp_int = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+            then
+                if
+                    not Char.IsDead($NETWORK_PLAYER[$temp_int])
+                then
+                    if
+                        Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], 0, 2773.101, -2423.418, 12.6269, 3.0, 3.0, 4.0)
+                    then
+                        478@ = 1
+                    end
+                end
+            end
+        end
+        if
+            478@ == 1
+        then
+            add_int_lvar_to_int_lvar 487@ += 41@
+        else
+            487@ = 0
+        end
+        if
+            487@ > 2000
+        then
+            if
+                Object.DoesExist(87@)
+            then
+                Object.Delete(87@)
+            end
+            if
+                Object.DoesExist(88@)
+            then
+                Object.Delete(88@)
+            end
+            if
+                Object.DoesExist(61@)
+            then
+                Audio.ReportMissionAudioEventAtObject(61@, 1107)
+            end
+            if
+                Object.DoesExist(241@)
+            then
+                Audio.ReportMissionAudioEventAtObject(241@, 1035)
+            end
+            Text.ClearPrints
+            132@ = 1
+            487@ = 0
+        end
+    else
+        487@ = 0
+    end
+end
+return
+
+:RYDER2_COOP_REMOTE_LOADING
+if
+  34@ == 5
+then
+    if
+        127@ <> 485@
+    then
+        set_lvar_int_to_lvar_int 485@ = 127@
+        for $temp_int = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+            then
+                Coop.PrintNowForNetworkPlayer('RY2_21', 2000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+    end
+    482@ = 0
+    if
+        not Car.IsDead(99@)
+    then
+        488@ = Car.GetDriver(99@)
+        for $temp_int = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+            then
+                if
+                    is_int_lvar_equal_to_int_var 488@ == $NETWORK_PLAYER[$temp_int]
+                then
+                    482@ = 1
+                end
+            end
+        end
+    end
+    if and
+        482@ == 1
+        200@ > 127@
+        not Car.IsDead(95@)
+        not Car.IsDead(99@)
+    then
+        if
+            7 > 35@
+        then
+            35@ = 7
+            Text.ClearHelp
+        end
+        $x = Car.GetOffsetInWorldCoords($y, $z, 95@, 0.0, -2.61, 1.04)
+        479@ = 0
+        42@ = 0
+        while 25 > 42@
+            if
+                Object.DoesExist(62@(42@,25i))
+            then
+                if
+                    Object.Locate3D(62@(42@,25i), $x, $y, $z, 1.25, 1.5, 1.5, False)
+                then
+                    Object.Delete(62@(42@,25i))
+                    127@ += 1
+                    479@ = 1
+                    42@ = 25
+                end
+            end
+            42@ += 1
+        end
+        if
+            479@ == 1
+        then
+            483@ = 0
+            484@ = 0
+        end
+        if
+            483@ == 0
+        then
+            if
+                Car.Locate3D(99@, 0, 2792.0, -2440.0, 12.7, 18.0, 14.0, 5.0)
+            then
+                483@ = 1
+                484@ = 0
+            end
+        else
+            add_int_lvar_to_int_lvar 484@ += 41@
+            if
+                Car.Locate3D(99@, 0, $x, $y, $z, 6.0, 6.0, 4.0)
+            then
+                if
+                    484@ > 1500
+                then
+                    479@ = 0
+                    42@ = 0
+                    while 25 > 42@
+                        if
+                            Object.DoesExist(62@(42@,25i))
+                        then
+                            if
+                                not Object.IsAttached(62@(42@,25i))
+                            then
+                                Object.Delete(62@(42@,25i))
+                                479@ = 1
+                                42@ = 25
+                            end
+                        end
+                        42@ += 1
+                    end
+                    if or
+                        479@ == 1
+                        484@ > 5000
+                    then
+                        127@ += 1
+                        483@ = 0
+                        484@ = 0
+                    end
+                end
+            end
+        end
+    else
+        483@ = 0
+        484@ = 0
+    end
+end
+return
+
+:RYDER2_COOP_COMBAT
+if and
+  34@ >= 3
+  7 > 34@
+then
+    42@ = 0
+    while 9 > 42@
+        if
+            Char.DoesExist(102@(42@,9i))
+        then
+            set_lvar_int_to_lvar_int 489@ = 102@(42@,9i)
+            gosub @RYDER2_COOP_RETARGET_PED
+        end
+        42@ += 1
+    end
+    42@ = 0
+    while 5 > 42@
+        if
+            Char.DoesExist(340@(42@,5i))
+        then
+            set_lvar_int_to_lvar_int 489@ = 340@(42@,5i)
+            gosub @RYDER2_COOP_RETARGET_PED
+        end
+        42@ += 1
+    end
+    if
+        Char.DoesExist(113@)
+    then
+        set_lvar_int_to_lvar_int 489@ = 113@
+        gosub @RYDER2_COOP_RETARGET_PED
+    end
+    if
+        Char.DoesExist(114@)
+    then
+        set_lvar_int_to_lvar_int 489@ = 114@
+        gosub @RYDER2_COOP_RETARGET_PED
+    end
+    if
+        Char.DoesExist(117@)
+    then
+        set_lvar_int_to_lvar_int 489@ = 117@
+        gosub @RYDER2_COOP_RETARGET_PED
+    end
+    if
+        Char.DoesExist(118@)
+    then
+        set_lvar_int_to_lvar_int 489@ = 118@
+        gosub @RYDER2_COOP_RETARGET_PED
+    end
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                not Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                if
+                    Car.DoesExist(96@)
+                then
+                    if
+                        Car.HasBeenDamagedByChar(96@, $NETWORK_PLAYER[$temp_int])
+                    then
+                        if
+                            Char.DoesExist(113@)
+                        then
+                            Task.KillCharOnFoot(113@, $NETWORK_PLAYER[$temp_int])
+                        end
+                        if
+                            Char.DoesExist(117@)
+                        then
+                            Task.KillCharOnFoot(117@, $NETWORK_PLAYER[$temp_int])
+                        end
+                        Car.ClearLastDamageEntity(96@)
+                    end
+                end
+                if
+                    Car.DoesExist(97@)
+                then
+                    if
+                        Car.HasBeenDamagedByChar(97@, $NETWORK_PLAYER[$temp_int])
+                    then
+                        if
+                            Char.DoesExist(114@)
+                        then
+                            Task.KillCharOnFoot(114@, $NETWORK_PLAYER[$temp_int])
+                        end
+                        if
+                            Char.DoesExist(118@)
+                        then
+                            Task.KillCharOnFoot(118@, $NETWORK_PLAYER[$temp_int])
+                        end
+                        Car.ClearLastDamageEntity(97@)
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:RYDER2_COOP_RETARGET_PED
+if
+  Char.DoesExist(489@)
+goto_if_false @RYDER2_COOP_RETARGET_PED_DONE
+if
+  Char.IsDead(489@)
+goto_if_false @RYDER2_COOP_RETARGET_PED_ACTIVE
+goto @RYDER2_COOP_RETARGET_PED_DONE
+
+:RYDER2_COOP_RETARGET_PED_ACTIVE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.HasBeenDamagedByChar(489@, $NETWORK_PLAYER[$temp_int])
+            then
+                124@ = 1
+                Task.KillCharOnFoot(489@, $NETWORK_PLAYER[$temp_int])
+                Char.ClearLastDamageEntity(489@)
+                if and
+                    5 > 34@
+                    Char.DoesExist($ryder)
+                then
+                    if and
+                        not Char.IsDead($ryder)
+                        Char.IsOnFoot($ryder)
+                    then
+                        Task.KillCharOnFoot($ryder, 489@)
+                    end
+                end
+            else
+                if
+                    Char.IsInArea2D($NETWORK_PLAYER[$temp_int], 0, 2721.0, -2329.852, 2810.548, -2565.934)
+                then
+                    if
+                        Char.HasSpottedChar(489@, $NETWORK_PLAYER[$temp_int])
+                    then
+                        124@ = 1
+                        Task.KillCharOnFoot(489@, $NETWORK_PLAYER[$temp_int])
+                    end
+                end
+            end
+        end
+    end
+end
+
+:RYDER2_COOP_RETARGET_PED_DONE
+return
+
+:RYDER2_COOP_REGISTER_PED
+490@ = -1
+491@ = Clock.GetGameTimer()
+
+:RYDER2_COOP_REGISTER_PED_LOOP
+if
+  Char.DoesExist(489@)
+goto_if_false @RYDER2_COOP_REGISTER_PED_DONE
+490@ = Coop.GetPedNetworkId(489@)
+if
+  490@ <> -1
+goto_if_false @RYDER2_COOP_REGISTER_PED_TIME
+goto @RYDER2_COOP_REGISTER_PED_DONE
+
+:RYDER2_COOP_REGISTER_PED_TIME
+492@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 492@ -= 491@
+if
+  492@ > 250
+goto_if_false @RYDER2_COOP_REGISTER_PED_WAIT
+goto @RYDER2_COOP_REGISTER_PED_DONE
+
+:RYDER2_COOP_REGISTER_PED_WAIT
+wait 0
+goto @RYDER2_COOP_REGISTER_PED_LOOP
+
+:RYDER2_COOP_REGISTER_PED_DONE
+return
+
+:RYDER2_COOP_REGISTER_VEHICLE
+490@ = -1
+491@ = Clock.GetGameTimer()
+
+:RYDER2_COOP_REGISTER_VEHICLE_LOOP
+if
+  Car.DoesExist(489@)
+goto_if_false @RYDER2_COOP_REGISTER_VEHICLE_DONE
+490@ = Coop.GetVehicleNetworkId(489@)
+if
+  490@ <> -1
+goto_if_false @RYDER2_COOP_REGISTER_VEHICLE_TIME
+goto @RYDER2_COOP_REGISTER_VEHICLE_DONE
+
+:RYDER2_COOP_REGISTER_VEHICLE_TIME
+492@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 492@ -= 491@
+if
+  492@ > 250
+goto_if_false @RYDER2_COOP_REGISTER_VEHICLE_WAIT
+goto @RYDER2_COOP_REGISTER_VEHICLE_DONE
+
+:RYDER2_COOP_REGISTER_VEHICLE_WAIT
+wait 0
+goto @RYDER2_COOP_REGISTER_VEHICLE_LOOP
+
+:RYDER2_COOP_REGISTER_VEHICLE_DONE
+return
+
 :RYDER2_41371
+gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :RYDER2_41389
+gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+Coop.AddChatMessage("{00ff00}[CoopAndreas]{ffffff} Robbing Uncle Sam complete.")
 Player.ClearWantedLevel($player1)
 Stat.RegisterMissionPassed('RYDER_2')
 Text.PrintWithNumberBig('M_PASSR', 10, 5000, TextStyle.Middle)
@@ -6315,6 +7112,13 @@ $flag_ryder_mission_counter += 1
 return 
 
 :RYDER2_41489
+gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+Text.ClearHelp
+Player.SetControl($player1, True)
+Hud.SwitchWidescreen(False)
+Camera.SetBehindPlayer
+Camera.RestoreJumpcut
+Player.ClearWantedLevel($player1)
 if 
   Player.IsPlaying($player1)
 goto_if_false @RYDER2_41512
@@ -6331,8 +7135,30 @@ Car.SetIsConsideredByPlayer(95@, True)
 Camera.SetPlayerInCarMode(2)
 if 
   not Car.IsDead(98@)
-goto_if_false @RYDER2_41567
+goto_if_false @RYDER2_COOP_CLEAN_VEHICLES
 Car.MarkAsNoLongerNeeded(98@)
+
+:RYDER2_COOP_CLEAN_VEHICLES
+if
+  Car.DoesExist(95@)
+then
+    Car.MarkAsNoLongerNeeded(95@)
+end
+if
+  Car.DoesExist(99@)
+then
+    Car.MarkAsNoLongerNeeded(99@)
+end
+if
+  Car.DoesExist(96@)
+then
+    Car.MarkAsNoLongerNeeded(96@)
+end
+if
+  Car.DoesExist(97@)
+then
+    Car.MarkAsNoLongerNeeded(97@)
+end
 
 :RYDER2_41567
 if 
@@ -6382,11 +7208,109 @@ goto_if_false @RYDER2_41788
 Char.RemoveElegantly($ryder)
 
 :RYDER2_41788
+42@ = 0
+
+:RYDER2_COOP_CLEAN_DEPOT_PEDS
+if
+  9 > 42@
+goto_if_false @RYDER2_COOP_CLEAN_EXTRA_PEDS
+if
+  Char.DoesExist(102@(42@,9i))
+then
+    Char.MarkAsNoLongerNeeded(102@(42@,9i))
+end
+42@ += 1
+goto @RYDER2_COOP_CLEAN_DEPOT_PEDS
+
+:RYDER2_COOP_CLEAN_EXTRA_PEDS
+42@ = 0
+
+:RYDER2_COOP_CLEAN_REINFORCEMENTS
+if
+  5 > 42@
+goto_if_false @RYDER2_COOP_CLEAN_FIXED_PEDS
+if
+  Char.DoesExist(340@(42@,5i))
+then
+    Char.MarkAsNoLongerNeeded(340@(42@,5i))
+end
+42@ += 1
+goto @RYDER2_COOP_CLEAN_REINFORCEMENTS
+
+:RYDER2_COOP_CLEAN_FIXED_PEDS
+if
+  Char.DoesExist(111@)
+then
+    Char.MarkAsNoLongerNeeded(111@)
+end
+if
+  Char.DoesExist(112@)
+then
+    Char.MarkAsNoLongerNeeded(112@)
+end
+if
+  Char.DoesExist(113@)
+then
+    Char.MarkAsNoLongerNeeded(113@)
+end
+if
+  Char.DoesExist(114@)
+then
+    Char.MarkAsNoLongerNeeded(114@)
+end
+if
+  Char.DoesExist(115@)
+then
+    Char.MarkAsNoLongerNeeded(115@)
+end
+if
+  Char.DoesExist(116@)
+then
+    Char.MarkAsNoLongerNeeded(116@)
+end
+if
+  Char.DoesExist(117@)
+then
+    Char.MarkAsNoLongerNeeded(117@)
+end
+if
+  Char.DoesExist(118@)
+then
+    Char.MarkAsNoLongerNeeded(118@)
+end
 Object.MarkAsNoLongerNeeded(240@)
 Object.MarkAsNoLongerNeeded(241@)
 Object.MarkAsNoLongerNeeded(257@)
 Object.MarkAsNoLongerNeeded(258@)
 Object.MarkAsNoLongerNeeded(259@)
+Object.MarkAsNoLongerNeeded(60@)
+Object.MarkAsNoLongerNeeded(61@)
+42@ = 0
+
+:RYDER2_COOP_CLEAN_WAREHOUSE_DOORS
+if
+  6 > 42@
+goto_if_false @RYDER2_COOP_CLEAN_WAREHOUSE_DOORS_DONE
+Object.MarkAsNoLongerNeeded(87@(42@,6i))
+42@ += 1
+goto @RYDER2_COOP_CLEAN_WAREHOUSE_DOORS
+
+:RYDER2_COOP_CLEAN_WAREHOUSE_DOORS_DONE
+if
+  Object.DoesExist(94@)
+then
+    Object.Delete(94@)
+end
+if
+  Object.DoesExist(281@)
+then
+    Object.Delete(281@)
+end
+if
+  Group.DoesExist(239@)
+then
+    Group.Remove(239@)
+end
 42@ = 0
 
 :RYDER2_41820
@@ -6476,6 +7400,8 @@ Streaming.MarkModelAsNoLongerNeeded(105)
 Streaming.MarkModelAsNoLongerNeeded(106)
 Streaming.RemoveAnimation("RYDER")
 Streaming.RemoveAnimation("COLT45")
+Streaming.RemoveCarRecording(523)
+Streaming.RemoveCarRecording(524)
 World.SetPedDensityMultiplier(1.0)
 World.SetCarDensityMultiplier(1.0)
 Game.SetWantedMultiplier(1.0)
