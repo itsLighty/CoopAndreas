@@ -368,27 +368,27 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] Los Santos - Roboi's Food Mart
   - [X] San Fierro - Hippy Shopper
   - [X] Las Venturas - Burger Shot
-- [ ] Street Racing (22)
-  - [ ] Little Loop
-  - [ ] Backroad Wanderer
-  - [ ] City Circuit
-  - [ ] Vinewood
-  - [ ] Freeway
-  - [ ] Into The Country
-  - [ ] Dirtbike Danger
-  - [ ] Bandito Country
-  - [ ] Go-Go Karting
-  - [ ] San Fierro Fastlane
-  - [ ] San Fierro Hills
-  - [ ] Country Endurance
-  - [ ] SF To LV
-  - [ ] Dam Rider
-  - [ ] Desert Tricks
-  - [ ] LV Ringroad
-  - [ ] World War Ace
-  - [ ] Barnstorming
-  - [ ] Win Military Service
-  - [ ] Chopper Checkpoint
-  - [ ] Whirly Bird Waypoint
-  - [ ] Heli Hell
+- [X] Street Racing (22)
+  - [X] Little Loop
+  - [X] Backroad Wanderer
+  - [X] City Circuit
+  - [X] Vinewood
+  - [X] Freeway
+  - [X] Into The Country
+  - [X] Dirtbike Danger
+  - [X] Bandito Country
+  - [X] Go-Go Karting
+  - [X] San Fierro Fastlane
+  - [X] San Fierro Hills
+  - [X] Country Endurance
+  - [X] SF To LV
+  - [X] Dam Rider
+  - [X] Desert Tricks
+  - [X] LV Ringroad
+  - [X] World War Ace
+  - [X] Barnstorming
+  - [X] Win Military Service
+  - [X] Chopper Checkpoint
+  - [X] Whirly Bird Waypoint
+  - [X] Heli Hell
 - [X] Import / Export
