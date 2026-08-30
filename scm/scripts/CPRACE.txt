@@ -1,4 +1,19 @@
 :CPRACE
+if or
+  $race_selection == 25
+  $race_selection == 26
+goto_if_false @CPRACE_STOCK_START
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @CPRACE_COOP_REJECT_NON_HOST
+gosub @CPRACE_COOP_INIT
+goto @CPRACE_STOCK_START
+
+:CPRACE_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:CPRACE_STOCK_START
 gosub @CPRACE_112
 if 
   has_deatharrest_been_executed 
@@ -364,6 +379,12 @@ $race_debug = -1
 
 :CPRACE_2634
 wait 0
+if or
+  $race_selection == 25
+  $race_selection == 26
+then
+  gosub @CPRACE_COOP_UPDATE
+end
 if
   $failed_cesar_race == 1
 then
@@ -1415,6 +1436,12 @@ Camera.DoFade(1, 500)
 goto @CPRACE_8848
 
 :CPRACE_11173
+if or
+  $race_selection == 25
+  $race_selection == 26
+then
+  gosub @CPRACE_COOP_STAGE_PARTICIPANTS
+end
 Player.SetControl($player1, False)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
@@ -2631,6 +2658,12 @@ gosub @CPRACE_50980
 goto @CPRACE_20805
 
 :CPRACE_19581
+if or
+  $race_selection == 25
+  $race_selection == 26
+then
+  gosub @CPRACE_COOP_NOTIFY_RESULT
+end
 if 
   $show_race_selection == 0
 goto_if_false @CPRACE_19766
@@ -6564,9 +6597,342 @@ goto_if_false @CPRACE_52229
 Char.SetAreaVisible($scplayer, 0)
 
 :CPRACE_52229
+if or
+  $race_selection == 25
+  $race_selection == 26
+then
+  gosub @CPRACE_COOP_CLEANUP
+end
 $disable_all_cranes = 0
 $disable_mod_garage = 0
 $onmission = 0
 Mission.Finish
 return 
+
+// Stadium-only co-op support. Selectors 25 (8-Track) and 26 (Dirt Track)
+// share CPRACE's stock state machine, but remain distinct in route/model setup,
+// rewards and unlock flags. The host is the only racer that can resolve the
+// stock result and mutate progress; frozen supporters drive unranked cars and
+// receive the authoritative route checkpoint and result.
+:CPRACE_COOP_INIT
+800@, 801@, 802@ = Coop.CollectNetworkPlayersForTheMission()
+815@ = 0
+for 816@ = 0 to 2
+    803@(816@,3i) = -1
+    809@(816@,3i) = -1
+    812@(816@,3i) = -1
+    840@(816@,3i) = 0 // independent support checkpoint index
+    843@(816@,3i) = 0 // independent support lap count
+    846@(816@,3i) = 0 // unranked support finish latch
+    if
+        Coop.IsNetworkPlayerActorValid(800@(816@,3i))
+    then
+        803@(816@,3i) = Coop.GetNetworkPlayerInternalId(800@(816@,3i))
+        if
+            803@(816@,3i) >= 0
+        then
+            815@ += 1
+        end
+    end
+end
+821@ = 0 // result latch: 0 pending, 1 failed, 2 passed
+822@ = 0 // idempotent cleanup latch
+824@ = 0 // objective refresh timestamp
+830@ = 0 // support cars become active after stock racer construction
+return
+
+:CPRACE_COOP_REFRESH_ROSTER
+806@, 807@, 808@ = Coop.CollectNetworkPlayersForTheMission()
+820@ = 0
+for 816@ = 0 to 2
+    set_lvar_int_to_lvar_int 828@ = 800@(816@,3i)
+    800@(816@,3i) = 0
+    if
+        803@(816@,3i) >= 0
+    then
+        for 817@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(806@(817@,3i))
+            then
+                818@ = Coop.GetNetworkPlayerInternalId(806@(817@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 818@ == 803@(816@,3i)
+                then
+                    set_lvar_int_to_lvar_int 800@(816@,3i) = 806@(817@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 828@ == 800@(816@,3i)
+    then
+        820@ = 1
+        812@(816@,3i) = -1
+    end
+end
+return
+
+:CPRACE_COOP_VALIDATE_SLOT
+819@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(800@(816@,3i))
+then
+    818@ = Coop.GetNetworkPlayerInternalId(800@(816@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 818@ == 803@(816@,3i)
+    then
+        819@ = 1
+    end
+end
+return
+
+:CPRACE_COOP_STAGE_PARTICIPANTS
+830@ = 1
+if
+    815@ == 0
+then
+    return
+end
+if
+    not Car.DoesExist(379@(442@,16i))
+then
+    return
+end
+Coop.TeleportPlayersToHostSafely(800@, 801@, 802@)
+831@, 832@, 835@, 833@, 834@, 836@ = Streaming.GetModelDimensions(716@(442@,16i))
+831@ *= -1.0
+add_float_lvar_to_float_lvar 833@ += 831@
+832@ *= -1.0
+add_float_lvar_to_float_lvar 834@ += 832@
+839@ = Car.GetHeading(379@(442@,16i))
+for 816@ = 0 to 2
+    gosub @CPRACE_COOP_VALIDATE_SLOT
+    if
+        819@ == 1
+    then
+        823@ = 0
+        if
+            not Car.DoesExist(809@(816@,3i))
+        then
+            823@ = 1
+        else
+            if
+                Car.IsDead(809@(816@,3i))
+            then
+                Car.Delete(809@(816@,3i))
+                823@ = 1
+            end
+        end
+        if
+            823@ == 1
+        then
+            set_lvar_float_to_lvar_float 837@ = 833@
+            837@ *= 2.0
+            set_lvar_float_to_lvar_float 838@ = 834@
+            838@ *= -2.0
+            if
+                816@ == 1
+            then
+                837@ = 0.0
+            end
+            if
+                816@ == 2
+            then
+                set_lvar_float_to_lvar_float 838@ = 834@
+                838@ *= -4.0
+            end
+            825@ = Car.GetOffsetInWorldCoords(826@, 827@, 379@(442@,16i), 837@, 838@, 0.0)
+            809@(816@,3i) = Car.Create(716@(442@,16i), 825@, 826@, 827@)
+            Car.SetAreaVisible(809@(816@,3i), 221@)
+            Car.SetHeading(809@(816@,3i), 839@)
+            Car.SetCanBurstTires(809@(816@,3i), False)
+            Car.SetUpsidedownNotDamaged(809@(816@,3i), True)
+            Car.SetStrong(809@(816@,3i), True)
+            if
+                $race_selection == 25
+            then
+                Car.SetHealth(809@(816@,3i), 2200)
+            end
+            if
+                $race_selection == 26
+            then
+                Car.SetHealth(809@(816@,3i), 10000)
+                Car.SetProofs(809@(816@,3i), False, False, False, True, False)
+            end
+            812@(816@,3i) = -1
+        end
+        Char.SetAreaVisible(800@(816@,3i), 221@)
+        Char.WarpIntoCar(800@(816@,3i), 809@(816@,3i))
+    end
+end
+return
+
+:CPRACE_COOP_UPDATE
+if or
+    815@ == 0
+    830@ == 0
+    822@ == 1
+then
+    return
+end
+gosub @CPRACE_COOP_REFRESH_ROSTER
+823@ = 0
+for 816@ = 0 to 2
+    gosub @CPRACE_COOP_VALIDATE_SLOT
+    if
+        819@ == 1
+    then
+        if
+            not Car.DoesExist(809@(816@,3i))
+        then
+            823@ = 1
+        else
+            if
+                Car.IsDead(809@(816@,3i))
+            then
+                823@ = 1
+            end
+        end
+    end
+end
+if or
+    820@ == 1
+    823@ == 1
+then
+    gosub @CPRACE_COOP_STAGE_PARTICIPANTS
+end
+if and
+    49@ >= 11
+    13 > 49@
+then
+    for 816@ = 0 to 2
+        gosub @CPRACE_COOP_VALIDATE_SLOT
+        if and
+            819@ == 1
+            846@(816@,3i) == 0
+        then
+            849@ = 0
+            if
+                Car.DoesExist(809@(816@,3i))
+            then
+                if
+                    Char.IsInCar(800@(816@,3i), 809@(816@,3i))
+                then
+                    set_lvar_int_to_lvar_int 849@ = 840@(816@,3i)
+                    if
+                        Char.LocateAnyMeans3D(800@(816@,3i), 0, 454@(849@,82f), 536@(849@,82f), 618@(849@,82f), 10.0, 10.0, 8.0)
+                    then
+                        840@(816@,3i) += 1
+                        if
+                            is_int_lvar_equal_to_int_lvar 840@(816@,3i) == 250@
+                        then
+                            840@(816@,3i) = 0
+                            843@(816@,3i) += 1
+                            if
+                                is_int_lvar_equal_to_int_lvar 843@(816@,3i) == 224@
+                            then
+                                846@(816@,3i) = 1
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+825@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 824@ > 825@
+then
+    return
+end
+set_lvar_int_to_lvar_int 824@ = 825@
+824@ += 1000
+for 816@ = 0 to 2
+    gosub @CPRACE_COOP_VALIDATE_SLOT
+    if
+        819@ == 1
+    then
+        if
+            846@(816@,3i) == 0
+        then
+            set_lvar_int_to_lvar_int 849@ = 840@(816@,3i)
+            Coop.UpdateCheckpointForNetworkPlayer(454@(849@,82f), 536@(849@,82f), 618@(849@,82f), 10.0, 10.0, 8.0, 800@(816@,3i))
+        else
+            Coop.RemoveCheckpointForNetworkPlayer(800@(816@,3i))
+        end
+        if
+            Car.DoesExist(809@(816@,3i))
+        then
+            812@(816@,3i) = Coop.GetVehicleNetworkId(809@(816@,3i))
+            if
+                812@(816@,3i) <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(800@(816@,3i), 809@(816@,3i), True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+end
+return
+
+:CPRACE_COOP_NOTIFY_RESULT
+if
+    821@ <> 0
+then
+    return
+end
+821@ = 1
+if or
+    450@ == 1
+    256@ == 1
+then
+    821@ = 2
+end
+gosub @CPRACE_COOP_REFRESH_ROSTER
+for 816@ = 0 to 2
+    gosub @CPRACE_COOP_VALIDATE_SLOT
+    if
+        819@ == 1
+    then
+        if
+            821@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 800@(816@,3i))
+        else
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 800@(816@,3i))
+        end
+    end
+end
+return
+
+:CPRACE_COOP_CLEANUP
+if
+    822@ == 1
+then
+    return
+end
+822@ = 1
+if
+    815@ == 0
+then
+    return
+end
+gosub @CPRACE_COOP_REFRESH_ROSTER
+Coop.TeleportPlayersToHostSafely(800@, 801@, 802@)
+for 816@ = 0 to 2
+    gosub @CPRACE_COOP_VALIDATE_SLOT
+    if
+        819@ == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(800@(816@,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(800@(816@,3i))
+    end
+    if
+        Car.DoesExist(809@(816@,3i))
+    then
+        Car.Delete(809@(816@,3i))
+    end
+end
+Player.SetControl($player1, True)
+return
 

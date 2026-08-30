@@ -3,14 +3,27 @@
 
 :KICKSTA
 script_name 'KICKSTA'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @KICKSTA_COOP_REJECT_NON_HOST
+goto @KICKSTA_COOP_HOST_START
+
+:KICKSTA_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:KICKSTA_COOP_HOST_START
+gosub @KICKSTA_COOP_INIT
 gosub @KICKSTA_54
 if 
   has_deatharrest_been_executed 
 goto_if_false @KICKSTA_38
+gosub @KICKSTA_COOP_NOTIFY_FAILURE
 gosub @KICKSTA_7448
 
 :KICKSTA_38
 gosub @KICKSTA_7590
+gosub @KICKSTA_COOP_CLEANUP
 terminate_this_script 
 49@ = 0
 
@@ -257,6 +270,7 @@ Car.SetProofs(34@, True, True, True, True, True)
 36@ = Blip.AddForCar(34@)
 Blip.SetAsFriendly(36@, True)
 Car.SetStrong(34@, True)
+gosub @KICKSTA_COOP_STAGE_PARTICIPANTS
 44@ = Sphere.Create(-1464.32, 1556.69, 1051.75, 3.0)
 256@ = 0
 
@@ -758,6 +772,7 @@ gosub @KICKSTA_7904
 goto @KICKSTA_4437
 
 :KICKSTA_4886
+533@ = 1
 Hud.SwitchWidescreen(False)
 Blip.Remove(36@)
 Player.SetControl($player1, True)
@@ -1229,6 +1244,7 @@ Player.AddScore($player1, 258@)
 return 
 
 :KICKSTA_7510
+gosub @KICKSTA_COOP_NOTIFY_PASS
 if 
   $flag_kickstart_passed_1stime == 0
 goto_if_false @KICKSTA_7541
@@ -1315,6 +1331,7 @@ Mission.Finish
 return 
 
 :KICKSTA_7904
+gosub @KICKSTA_COOP_UPDATE
 253@ = 0
 
 :KICKSTA_7911
@@ -1349,11 +1366,20 @@ goto_if_false @KICKSTA_8084
 
 :KICKSTA_8084
 Fx.DrawCorona(249@, 0, 0, 250@, 251@, 252@, 50@(253@,33f), 83@(253@,33f), 116@(253@,33f))
-if 
+520@ = 0
+if and
   Char.LocateAnyMeans3D($scplayer, 0, 50@(253@,33f), 83@(253@,33f), 116@(253@,33f), 1.5, 1.5, 1.5)
-goto_if_false @KICKSTA_8425
-if 
   Char.IsInModel($scplayer, 468)
+then
+  520@ = 1
+end
+if
+  520@ == 0
+then
+  gosub @KICKSTA_COOP_CHECK_CHECKPOINT_CONTRIBUTORS
+end
+if
+  520@ == 1
 goto_if_false @KICKSTA_8425
 if 
   215@(253@,33i) == 0
@@ -1396,6 +1422,298 @@ goto @KICKSTA_7911
 
 :KICKSTA_8439
 return 
+
+// Authenticated co-op keeps the stock Kickstart score, timer, payout and save
+// mutations on the host. The three frozen identities receive their own Sanchez
+// and can contribute checkpoints; disconnects are nonblocking and only the same
+// immutable identity can reclaim a slot after reconnecting.
+:KICKSTA_COOP_INIT
+500@, 501@, 502@ = Coop.CollectNetworkPlayersForTheMission()
+515@ = 0
+for 516@ = 0 to 2
+    503@(516@,3i) = -1
+    509@(516@,3i) = -1
+    512@(516@,3i) = -1
+    523@(516@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(500@(516@,3i))
+    then
+        503@(516@,3i) = Coop.GetNetworkPlayerInternalId(500@(516@,3i))
+        if
+            503@(516@,3i) >= 0
+        then
+            515@ += 1
+        end
+    end
+end
+527@ = 0 // result latch: 0 pending, 1 failed, 2 passed
+528@ = 0 // idempotent cleanup latch
+533@ = 0 // participant checkpoint contribution begins with the stock countdown end
+return
+
+:KICKSTA_COOP_REFRESH_ROSTER
+506@, 507@, 508@ = Coop.CollectNetworkPlayersForTheMission()
+521@ = 0
+for 516@ = 0 to 2
+    set_lvar_int_to_lvar_int 532@ = 500@(516@,3i)
+    500@(516@,3i) = 0
+    if
+        503@(516@,3i) >= 0
+    then
+        for 517@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(506@(517@,3i))
+            then
+                518@ = Coop.GetNetworkPlayerInternalId(506@(517@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 518@ == 503@(516@,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@(516@,3i) = 506@(517@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 532@ == 500@(516@,3i)
+    then
+        521@ = 1
+        523@(516@,3i) = -1
+    end
+end
+return
+
+:KICKSTA_COOP_VALIDATE_SLOT
+519@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(500@(516@,3i))
+then
+    518@ = Coop.GetNetworkPlayerInternalId(500@(516@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 518@ == 503@(516@,3i)
+    then
+        519@ = 1
+    end
+end
+return
+
+:KICKSTA_COOP_STAGE_PARTICIPANTS
+if
+    515@ == 0
+then
+    return
+end
+Coop.TeleportPlayersToHostSafely(500@, 501@, 502@)
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if
+        519@ == 1
+    then
+        522@ = 0
+        if
+            not Car.DoesExist(509@(516@,3i))
+        then
+            522@ = 1
+        else
+            if
+                Car.IsDead(509@(516@,3i))
+            then
+                Car.Delete(509@(516@,3i))
+                522@ = 1
+            end
+        end
+        if
+            522@ == 1
+        then
+            529@ = -1469.5
+            530@ = 1560.0
+            if
+                516@ == 1
+            then
+                529@ = -1471.0
+                530@ = 1557.0
+            end
+            if
+                516@ == 2
+            then
+                529@ = -1473.5
+                530@ = 1555.0
+            end
+            509@(516@,3i) = Car.Create(468, 529@, 530@, 1051.417)
+            Car.SetAreaVisible(509@(516@,3i), 14)
+            Car.SetHeading(509@(516@,3i), 266.488)
+            Car.SetProofs(509@(516@,3i), True, True, True, True, True)
+            Car.SetStrong(509@(516@,3i), True)
+            512@(516@,3i) = -1
+            523@(516@,3i) = -1
+        end
+        Char.SetAreaVisible(500@(516@,3i), 14)
+        Char.WarpIntoCar(500@(516@,3i), 509@(516@,3i))
+    end
+end
+return
+
+:KICKSTA_COOP_UPDATE
+if or
+    515@ == 0
+    528@ == 1
+then
+    return
+end
+gosub @KICKSTA_COOP_REFRESH_ROSTER
+522@ = 0
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if
+        519@ == 1
+    then
+        if
+            not Car.DoesExist(509@(516@,3i))
+        then
+            522@ = 1
+        else
+            if
+                Car.IsDead(509@(516@,3i))
+            then
+                522@ = 1
+            end
+        end
+    end
+end
+if or
+    521@ == 1
+    522@ == 1
+then
+    gosub @KICKSTA_COOP_STAGE_PARTICIPANTS
+end
+gosub @KICKSTA_COOP_UPDATE_OBJECTIVES
+return
+
+:KICKSTA_COOP_CHECK_CHECKPOINT_CONTRIBUTORS
+if
+    533@ == 0
+then
+    return
+end
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if and
+        519@ == 1
+        520@ == 0
+    then
+        if and
+            Char.LocateAnyMeans3D(500@(516@,3i), 0, 50@(253@,33f), 83@(253@,33f), 116@(253@,33f), 1.5, 1.5, 1.5)
+            Char.IsInModel(500@(516@,3i), 468)
+        then
+            520@ = 1
+        end
+    end
+end
+return
+
+:KICKSTA_COOP_UPDATE_OBJECTIVES
+522@ = -1
+for 516@ = 0 to 32
+    if and
+        522@ == -1
+        182@(516@,33i) == 0
+    then
+        set_lvar_int_to_lvar_int 522@ = 516@
+    end
+end
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if and
+        519@ == 1
+        not is_int_lvar_equal_to_int_lvar 523@(516@,3i) == 522@
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@(516@,3i))
+        if
+            522@ >= 0
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(50@(522@,33f), 83@(522@,33f), 116@(522@,33f), 3.0, 3.0, 3.0, 500@(516@,3i))
+            Coop.PrintNowForNetworkPlayer('KICK_26', 5000, 1, 500@(516@,3i))
+        end
+        if
+            Car.DoesExist(509@(516@,3i))
+        then
+            512@(516@,3i) = Coop.GetVehicleNetworkId(509@(516@,3i))
+            if
+                512@(516@,3i) <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(500@(516@,3i), 509@(516@,3i), True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        set_lvar_int_to_lvar_int 523@(516@,3i) = 522@
+    end
+end
+return
+
+:KICKSTA_COOP_NOTIFY_FAILURE
+if
+    527@ <> 0
+then
+    return
+end
+527@ = 1
+gosub @KICKSTA_COOP_REFRESH_ROSTER
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if
+        519@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@(516@,3i))
+    end
+end
+return
+
+:KICKSTA_COOP_NOTIFY_PASS
+if
+    527@ <> 0
+then
+    return
+end
+527@ = 2
+gosub @KICKSTA_COOP_REFRESH_ROSTER
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if
+        519@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@(516@,3i))
+    end
+end
+return
+
+:KICKSTA_COOP_CLEANUP
+if
+    528@ == 1
+then
+    return
+end
+528@ = 1
+if
+    515@ == 0
+then
+    return
+end
+gosub @KICKSTA_COOP_REFRESH_ROSTER
+Coop.TeleportPlayersToHostSafely(500@, 501@, 502@)
+for 516@ = 0 to 2
+    gosub @KICKSTA_COOP_VALIDATE_SLOT
+    if
+        519@ == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@(516@,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@(516@,3i))
+    end
+    if
+        Car.DoesExist(509@(516@,3i))
+    then
+        Car.Delete(509@(516@,3i))
+    end
+end
+Player.SetControl($player1, True)
+return
 
 //-------------Mission 130---------------
 // Originally: Beat the Cock!
