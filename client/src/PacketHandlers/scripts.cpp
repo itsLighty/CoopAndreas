@@ -102,11 +102,14 @@ PACKET_HANDLER(ePacketType::SKIP_CUTSCENE, Packets::Scripts::SkipCutscene* pSkip
 
 PACKET_HANDLER(ePacketType::PLAY_MISSION_AUDIO, Packets::Scripts::PlayMissionAudio* pPlayMissionAudio)
 {	
-	if (CLocalPlayer::m_bIsHost || ShouldIgnoreMissionEffect())
+	const auto& missionSession = CMissionSessionClient::GetState();
+	if (CLocalPlayer::m_bIsHost || !missionSession.IsActive() || ShouldIgnoreMissionEffect() ||
+		pPlayMissionAudio->slotid >= 4)
 		return;
 
 	plugin::CallMethod<0x507290>(&AudioEngine, pPlayMissionAudio->slotid, pPlayMissionAudio->audioid); // CAudioEngine__PreloadMissionAudio
 	COpCodeSync::ms_abLoadingMissionAudio[pPlayMissionAudio->slotid] = true;
+	COpCodeSync::ms_anLoadingMissionAudioSessionIds[pPlayMissionAudio->slotid] = missionSession.sessionId;
 }
 
 PACKET_HANDLER(ePacketType::TELEPORT_PLAYER_SCRIPTED, Packets::Scripts::TeleportPlayerScripted* pTeleportPlayerScripted)

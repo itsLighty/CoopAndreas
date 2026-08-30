@@ -91,11 +91,30 @@ public:
 
             if (/*CNetwork::m_bConnected*/ CNetwork::m_bAuthenticated)
             {
+                CMissionSessionClient::Process();
+
                 // TODO: refactor
-                if (COpCodeSync::ms_bLoadingCutscene && !CLocalPlayer::m_bIsHost && CCutsceneMgr::ms_cutsceneName[0] &&
+                bool bHasStaleDeferredMedia = COpCodeSync::ms_bLoadingCutscene &&
+                    !CMissionSessionClient::IsDeferredMediaSessionCurrent(
+                        COpCodeSync::ms_nLoadingCutsceneSessionId);
+                for (uint8_t i = 0; i < 4 && !bHasStaleDeferredMedia; ++i)
+                {
+                    bHasStaleDeferredMedia = COpCodeSync::ms_abLoadingMissionAudio[i] &&
+                        !CMissionSessionClient::IsDeferredMediaSessionCurrent(
+                            COpCodeSync::ms_anLoadingMissionAudioSessionIds[i]);
+                }
+                if (bHasStaleDeferredMedia)
+                {
+                    CMissionSessionClient::CancelPendingMissionMedia();
+                }
+
+                if (COpCodeSync::ms_bLoadingCutscene && !CLocalPlayer::m_bIsHost &&
+                    CMissionSessionClient::IsDeferredMediaSessionCurrent(COpCodeSync::ms_nLoadingCutsceneSessionId) &&
+                    CCutsceneMgr::ms_cutsceneName[0] &&
                     CCutsceneMgr::ms_cutsceneLoadStatus == 2)
                 {
                     COpCodeSync::ms_bLoadingCutscene = false;
+                    COpCodeSync::ms_nLoadingCutsceneSessionId = 0;
                     Command<Commands::START_CUTSCENE>();
                 }
 
@@ -104,17 +123,17 @@ public:
                     for (uint8_t i = 0; i < 4; i++)
                     {
                         if (COpCodeSync::ms_abLoadingMissionAudio[i] &&
+                            CMissionSessionClient::IsDeferredMediaSessionCurrent(
+                                COpCodeSync::ms_anLoadingMissionAudioSessionIds[i]) &&
                             plugin::CallMethodAndReturn<int8_t, 0x5072A0>(&AudioEngine, i) ==
                                 1)  // CAudioEngine__GetMissionAudioLoadingStatus
                         {
                             plugin::CallMethod<0x5072B0>(&AudioEngine, i);  // CAudioEngine__PlayLoadedMissionAudio
                             COpCodeSync::ms_abLoadingMissionAudio[i] = false;
+                            COpCodeSync::ms_anLoadingMissionAudioSessionIds[i] = 0;
                         }
                     }
                 }
-
-                CMissionSessionClient::Process();
-
                 unsigned int tickCount = GetTickCount();
 
                 CPassengerEnter::Process();

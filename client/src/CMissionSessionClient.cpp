@@ -3,6 +3,7 @@
 
 #include <CNetworkCheckpoint.h>
 #include <CNetworkEntityBlip.h>
+#include <COpCodeSync.h>
 
 using namespace Packets::Scripts;
 
@@ -35,6 +36,8 @@ eMissionSessionRequestAction CMissionSessionClient::m_PendingTerminalAction = eM
 eMissionSessionResult CMissionSessionClient::m_PendingTerminalResult = eMissionSessionResult::NONE;
 uint32_t CMissionSessionClient::m_nNextRequestId = 0;
 eMissionSessionResult CMissionSessionClient::m_PendingEndAfterLaunchResult = eMissionSessionResult::NONE;
+eMissionSessionResult CMissionSessionClient::m_ObservedScmMissionResult = eMissionSessionResult::NONE;
+uint64_t CMissionSessionClient::m_nObservedScmMissionResultSessionId = 0;
 
 void CMissionSessionClient::Process()
 {
@@ -85,12 +88,12 @@ void CMissionSessionClient::Process()
     }
     else if (IsLocalPlayerSessionHost())
     {
-        RequestEnd(eMissionSessionResult::COMPLETED);
+        RequestEnd(ResolveScmMissionResult());
     }
     else if (m_bLaunchRequestPending)
     {
         // A native local mission can finish before its reliable launch acknowledgement arrives.
-        m_PendingEndAfterLaunchResult = eMissionSessionResult::COMPLETED;
+        m_PendingEndAfterLaunchResult = ResolveScmMissionResult();
     }
 }
 
@@ -128,6 +131,7 @@ void CMissionSessionClient::HandleLegacyMissionFlag(bool bOnMission)
 void CMissionSessionClient::Reset()
 {
     ApplyLocalMissionFlag(false);
+    CancelPendingMissionMedia();
     m_State = MissionSessionState{};
     m_DeferredState = MissionSessionState{};
     m_bHasDeferredState = false;
@@ -142,6 +146,8 @@ void CMissionSessionClient::Reset()
     m_nApprovedLocalLaunchWaitFrames = 0;
     m_nNextRequestId = 0;
     m_PendingEndAfterLaunchResult = eMissionSessionResult::NONE;
+    m_ObservedScmMissionResult = eMissionSessionResult::NONE;
+    m_nObservedScmMissionResultSessionId = 0;
 }
 
 bool CMissionSessionClient::RequestLaunch(uint16_t missionId, bool bLaunchLocallyOnApproval)
@@ -164,6 +170,8 @@ bool CMissionSessionClient::RequestLaunch(uint16_t missionId, bool bLaunchLocall
     m_nPendingLaunchRequestId = 0;
     m_nLaunchRetryCount = 0;
     m_PendingEndAfterLaunchResult = eMissionSessionResult::NONE;
+    m_ObservedScmMissionResult = eMissionSessionResult::NONE;
+    m_nObservedScmMissionResultSessionId = 0;
     if (!SendPendingLaunchRequest())
     {
         ClearPendingLaunch();
@@ -215,6 +223,7 @@ bool CMissionSessionClient::RequestAbort()
         return false;
     }
 
+    CancelPendingMissionMedia();
     ClearPendingStage();
     m_bTerminalRequestPending = true;
     m_PendingTerminalAction = eMissionSessionRequestAction::ABORT;
@@ -224,6 +233,50 @@ bool CMissionSessionClient::RequestAbort()
         return SendPendingTerminalRequest();
     }
     return true;
+}
+
+void CMissionSessionClient::ReportScmMissionResult(eMissionSessionResult result)
+{
+    if ((result != eMissionSessionResult::SUCCEEDED && result != eMissionSessionResult::FAILED) ||
+        !CNetwork::m_bAuthenticated || !CLocalPlayer::m_bIsHost ||
+        (!IsLocalPlayerSessionHost() && !m_bLaunchRequestPending))
+    {
+        return;
+    }
+
+    m_ObservedScmMissionResult = result;
+    m_nObservedScmMissionResultSessionId = m_State.IsActive() ? m_State.sessionId : 0;
+}
+
+bool CMissionSessionClient::IsDeferredMediaSessionCurrent(uint64_t sessionId)
+{
+    if (sessionId == 0 || !m_State.IsActive() || m_State.sessionId != sessionId || IsSpectator())
+    {
+        return false;
+    }
+
+    return CTheScripts::OnAMissionFlag &&
+           static_cast<bool>(CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag]);
+}
+
+void CMissionSessionClient::CancelPendingMissionMedia()
+{
+    for (uint8_t slot = 0; slot < 4; ++slot)
+    {
+        if (COpCodeSync::ms_abLoadingMissionAudio[slot])
+        {
+            Command<Commands::CLEAR_MISSION_AUDIO>(slot);
+        }
+        COpCodeSync::ms_abLoadingMissionAudio[slot] = false;
+        COpCodeSync::ms_anLoadingMissionAudioSessionIds[slot] = 0;
+    }
+
+    if (COpCodeSync::ms_bLoadingCutscene)
+    {
+        Command<Commands::CLEAR_CUTSCENE>();
+    }
+    COpCodeSync::ms_bLoadingCutscene = false;
+    COpCodeSync::ms_nLoadingCutsceneSessionId = 0;
 }
 
 const MissionSessionState& CMissionSessionClient::GetState()
@@ -267,6 +320,22 @@ void CMissionSessionClient::ApplyState(const MissionSessionState& state)
 
     const bool bLocalPlayerIsHost = state.hostId == localPlayerId;
     const bool bLocalPlayerParticipates = state.ContainsGameplayParticipant(localPlayerId);
+
+    if (!state.IsActive())
+    {
+        CancelPendingMissionMedia();
+        m_ObservedScmMissionResult = eMissionSessionResult::NONE;
+        m_nObservedScmMissionResultSessionId = 0;
+    }
+    else if (state.sessionId != m_State.sessionId)
+    {
+        if (!(bLaunchAcknowledged && m_ObservedScmMissionResult != eMissionSessionResult::NONE &&
+              m_nObservedScmMissionResultSessionId == 0))
+        {
+            m_ObservedScmMissionResult = eMissionSessionResult::NONE;
+        }
+        m_nObservedScmMissionResultSessionId = state.sessionId;
+    }
     m_State = state;
 
     if (bLaunchAcknowledged)
@@ -384,6 +453,7 @@ void CMissionSessionClient::ApplyLocalMissionFlag(bool bOnMission)
 
 void CMissionSessionClient::CleanupLocalMissionState()
 {
+    CancelPendingMissionMedia();
     CNetworkCheckpoint::Remove();
     CNetworkEntityBlip::ClearEntityBlips();
     TheCamera.SetWideScreenOff();
@@ -452,16 +522,23 @@ bool CMissionSessionClient::PrepareGameplayRoster(const MissionSessionState& sta
         seenPlayerIds[player->m_iPlayerId] = true;
     }
 
-    for (size_t rosterIndex = 1; rosterIndex < state.participantCount; ++rosterIndex)
+    for (size_t rosterIndex = 1; rosterIndex < state.gameplayParticipantCount; ++rosterIndex)
     {
         const int participantId = state.participantIds[rosterIndex];
         CNetworkPlayer* participant = CNetworkPlayerManager::GetPlayer(participantId);
-        if (participant == nullptr ||
-            (rosterIndex < state.gameplayParticipantCount && participant->m_pPed == nullptr))
+        if (participant == nullptr || participant->m_pPed == nullptr)
         {
             return false;
         }
         orderedPlayers.push_back(participant);
+    }
+
+    for (size_t rosterIndex = state.gameplayParticipantCount; rosterIndex < state.participantCount; ++rosterIndex)
+    {
+        if (CNetworkPlayer* spectator = CNetworkPlayerManager::GetPlayer(state.participantIds[rosterIndex]))
+        {
+            orderedPlayers.push_back(spectator);
+        }
     }
 
     for (CNetworkPlayer* player : CNetworkPlayerManager::m_pPlayers)
@@ -605,6 +682,20 @@ bool CMissionSessionClient::IsLocalPlayerSessionHost()
     return CNetwork::m_bAuthenticated && CLocalPlayer::m_bIsHost && m_State.IsActive() &&
            m_State.hostId == CNetworkPlayerManager::m_nMyId &&
            m_State.ContainsGameplayParticipant(CNetworkPlayerManager::m_nMyId);
+}
+
+eMissionSessionResult CMissionSessionClient::ResolveScmMissionResult()
+{
+    const bool bMatchesActiveSession = m_State.IsActive() &&
+                                       m_nObservedScmMissionResultSessionId == m_State.sessionId;
+    const bool bMatchesPendingLaunch = m_bLaunchRequestPending &&
+                                       m_nObservedScmMissionResultSessionId == 0;
+    if (m_ObservedScmMissionResult != eMissionSessionResult::NONE &&
+        (bMatchesActiveSession || bMatchesPendingLaunch))
+    {
+        return m_ObservedScmMissionResult;
+    }
+    return eMissionSessionResult::COMPLETED;
 }
 
 uint32_t CMissionSessionClient::NextRequestId()

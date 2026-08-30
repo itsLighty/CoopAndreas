@@ -1,11 +1,21 @@
 #include "stdafx.h"
 #include "CCommandShowTextStyledForNetworkPlayer.h"
+#include <CMissionSessionClient.h>
 
 void CCommandShowTextStyledForNetworkPlayer::Process(CRunningScript* script)
 {
 	char gxt[8];
 	script->ReadTextLabelFromScript(gxt, 8);
 	gxt[7] = '\0';
+
+	if (_strnicmp(gxt, "M_FAIL", 6) == 0)
+	{
+		CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::FAILED);
+	}
+	else if (_strnicmp(gxt, "M_PASS", 6) == 0)
+	{
+		CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+	}
 
 	script->CollectParameters(3);
 

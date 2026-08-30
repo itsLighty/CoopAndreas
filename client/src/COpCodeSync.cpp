@@ -38,6 +38,7 @@
 #include "CEntryExitMarkerSync.h"
 #include <CTaskSequenceSync.h>
 #include <CNetworkAnimQueue.h>
+#include <CMissionSessionClient.h>
 
 // Keep sorted!
 const SSyncedOpCode syncedOpcodes[] =
@@ -365,6 +366,26 @@ std::vector<uint8_t> COpCodeSync::SerializeOpcode(int idx, int& outSize)
 
 void BuildAndSendOpcode()
 {
+    if (lastProcessedScript && lastProcessedScript->m_bIsMission)
+    {
+        if (lastOpCodeProcessed == COMMAND_REGISTER_MISSION_PASSED)
+        {
+            CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+        }
+        else if ((lastOpCodeProcessed == COMMAND_PRINT_BIG ||
+                  lastOpCodeProcessed == COMMAND_PRINT_WITH_NUMBER_BIG) && textParamCount > 0)
+        {
+            if (_strnicmp(textParamBuffer[0], "M_FAIL", 6) == 0)
+            {
+                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::FAILED);
+            }
+            else if (_strnicmp(textParamBuffer[0], "M_PASS", 6) == 0)
+            {
+                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+            }
+        }
+    }
+
     if (!CTaskSequenceSync::OnOpCodeExecuted((eScriptCommands)lastOpCodeProcessed))
     {
         memset(textParamBuffer, 0, sizeof textParamBuffer);
@@ -682,7 +703,13 @@ void COpCodeSync::HandlePacket(const uint8_t* buffer, int bufferSize)
     {
         if(CCutsceneMgr::ms_cutsceneLoadStatus != 2)
         {
+            const uint64_t sessionId = CMissionSessionClient::GetState().sessionId;
+            if (!CMissionSessionClient::IsDeferredMediaSessionCurrent(sessionId))
+            {
+                return;
+            }
             COpCodeSync::ms_bLoadingCutscene = true;
+            COpCodeSync::ms_nLoadingCutsceneSessionId = sessionId;
             return; // dont process opcode
         }
     }

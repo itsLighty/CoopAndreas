@@ -14,6 +14,9 @@ public:
     static bool RequestStage(uint32_t stage);
     static bool RequestEnd(Packets::Scripts::eMissionSessionResult result);
     static bool RequestAbort();
+    static void ReportScmMissionResult(Packets::Scripts::eMissionSessionResult result);
+    static bool IsDeferredMediaSessionCurrent(uint64_t sessionId);
+    static void CancelPendingMissionMedia();
 
     // The returned state retains the full frozen roster. IsSpectator reflects the narrower SCM gameplay subset.
     static const Packets::Scripts::MissionSessionState& GetState();
@@ -44,6 +47,8 @@ private:
     static Packets::Scripts::eMissionSessionResult m_PendingTerminalResult;
     static uint32_t m_nNextRequestId;
     static Packets::Scripts::eMissionSessionResult m_PendingEndAfterLaunchResult;
+    static Packets::Scripts::eMissionSessionResult m_ObservedScmMissionResult;
+    static uint64_t m_nObservedScmMissionResultSessionId;
 
     static void ApplyState(const Packets::Scripts::MissionSessionState& state);
     static void ApplyLocalMissionFlag(bool bOnMission);
@@ -59,6 +64,7 @@ private:
     static bool SendPendingStageRequest();
     static bool SendPendingTerminalRequest();
     static bool IsLocalPlayerSessionHost();
+    static Packets::Scripts::eMissionSessionResult ResolveScmMissionResult();
     static uint32_t NextRequestId();
     static void FillRequestFromCurrentState(Packets::Scripts::MissionSessionRequest& request);
 };

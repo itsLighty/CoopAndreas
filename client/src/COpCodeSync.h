@@ -61,8 +61,10 @@ class COpCodeSync
 {
 public:
 	static inline bool ms_bSyncingEnabled = true;
-	static inline bool ms_bLoadingCutscene = true;
+	static inline bool ms_bLoadingCutscene = false;
+	static inline uint64_t ms_nLoadingCutsceneSessionId = 0;
 	static inline bool ms_abLoadingMissionAudio[4];
+	static inline uint64_t ms_anLoadingMissionAudioSessionIds[4];
 	
     static inline uint32_t ms_iFreeSyncedScript = 0;
     static inline char ms_aszSyncedScripts[256][8];
