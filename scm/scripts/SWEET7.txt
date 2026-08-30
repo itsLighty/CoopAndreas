@@ -47,6 +47,7 @@ end
 588@ = 0 // participants frozen for a host cinematic
 589@ = 0 // cooperative cleanup completed
 590@ = 0 // at least one entity registration timed out
+591@ = 0 // shared mission result announced: 0 pending, 1 failed, 2 passed
 592@ = 0 // cemetery combat entities registered
 593@ = 0 // Kane escape entities registered
 594@ = 0 // ally-command cooldown
@@ -5227,11 +5228,23 @@ Car.MarkAsNoLongerNeeded(78@)
 return 
 
 :SWEET7_32404
+if
+  591@ <> 0
+then
+  return
+end
+591@ = 1
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 gosub @SWEET7_COOP_NOTIFY_FAILURE_RESULT
 return 
 
 :SWEET7_32422
+if
+  591@ <> 0
+then
+  return
+end
+591@ = 2
 281@ = Stat.GetInt(68)
 281@ = Stat.GetInt(68)
 Stat.RegisterMissionPassed('SWEET_7')
