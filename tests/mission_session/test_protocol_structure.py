@@ -107,6 +107,27 @@ class MissionSessionProtocolStructureTests(unittest.TestCase):
         self.assertIn("invalid SCM character handle is `0`", protocol)
         self.assertIn("Runtime limitations", protocol)
 
+    def test_shared_badlands_races_abort_through_stock_cleanup(self):
+        wrapper = (ROOT / "scm/scripts/BCESAR4.txt").read_text(encoding="utf-8")
+        race = (ROOT / "scm/scripts/CPRACE.txt").read_text(encoding="utf-8")
+        self.assertRegex(
+            wrapper,
+            r"\$failed_cesar_race\s*=\s*0\s+start_new_script\s+@BCESAR4_COOP_RACE",
+        )
+        self.assertIn("$failed_cesar_race = 1", wrapper)
+        self.assertIn(
+            "set_var_int_to_lvar_int $flag_bcesar_mission_counter = 41@", wrapper
+        )
+        for evidence in (
+            "$failed_cesar_race == 1",
+            "$race_selection == 7",
+            "$race_selection == 8",
+            "229@ = 1",
+            "450@ = 2",
+            "49@ = 13",
+        ):
+            self.assertIn(evidence, race)
+
 
 if __name__ == "__main__":
     unittest.main()

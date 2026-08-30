@@ -814,6 +814,9 @@ then
         42@ == 0
         42@ == 5
     then
+        // CPRACE uses this as the shared-abort signal for the two Badlands races.
+        // Clear the legacy Cesar-race value so an earlier loss cannot abort a retry.
+        $failed_cesar_race = 0
         start_new_script @BCESAR4_COOP_RACE $NETWORK_PLAYER[0] $NETWORK_PLAYER[1] $NETWORK_PLAYER[2] 44@ 45@ 46@ 42@
         67@ = 1
     end
@@ -907,6 +910,8 @@ Text.LoadMissionText('RACETOR')
 44@ = 0 // host recorded in supplemental finish order
 45@ = 0 // supplemental connected-player finish sequence
 56@ = 0 // cleanup completed
+59@ = 0 // deterministic connected-participant death failure latch
+60@ = 0 // shared participant-death result has been announced
 for $temp_int = 0 to 2
     10@($temp_int,3i) = 0 // 0 absent/disconnected, 1 racing, 2 finished, 3 DNF
     13@($temp_int,3i) = -1 // supplemental vehicle
@@ -1309,10 +1314,10 @@ for $temp_int = 0 to 2
         if
             Char.IsDead(0@($temp_int,3i))
         then
+            59@ = 1
             10@($temp_int,3i) = 3
             Coop.RemoveCheckpointForNetworkPlayer(31@)
             Coop.ClearAllEntityBlipsForNetworkPlayer(31@)
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 3000, TextStyle.Middle, 31@)
         else
             50@ = 0
             if
@@ -1386,14 +1391,40 @@ for $temp_int = 0 to 2
         end
     end
 end
+if and
+    59@ == 1
+    60@ == 0
+then
+    // COOP_PARTICIPANT_DEATH: CPRACE consumes this signal and enters its canonical
+    // failure/cleanup state so vehicles, HUD, camera, and world state are restored.
+    60@ = 1
+    $failed_cesar_race = 1
+    gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
+    for $temp_int = 0 to 2
+        if
+            28@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_lvar_int 31@ = 0@($temp_int,3i)
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 31@)
+        end
+    end
+end
 goto @BCESAR4_COOP_RACE_LOOP
 
 :BCESAR4_COOP_RACE_RESULT
 55@ = 0
-if
+if and
+    59@ == 0
     not is_int_lvar_greater_than_int_var 42@ > $flag_bcesar_mission_counter
 then
     55@ = 1
+end
+if
+    59@ == 1
+then
+    // CPRACE must not advance after a shared failure. Restore the launch/retry
+    // state defensively while its stock failure path performs canonical cleanup.
+    set_var_int_to_lvar_int $flag_bcesar_mission_counter = 41@
 end
 gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
 for $temp_int = 0 to 2
@@ -1406,7 +1437,11 @@ for $temp_int = 0 to 2
         then
             Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 31@)
         else
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 31@)
+            if
+                60@ == 0
+            then
+                Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 31@)
+            end
         end
     end
 end

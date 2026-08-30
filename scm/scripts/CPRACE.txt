@@ -364,6 +364,20 @@ $race_debug = -1
 
 :CPRACE_2634
 wait 0
+if
+  $failed_cesar_race == 1
+then
+  if or
+    $race_selection == 7
+    $race_selection == 8
+  then
+    // A frozen co-op participant died. Record a non-winning place and enter the
+    // stock result state so all canonical race resources are cleaned up once.
+    229@ = 1
+    450@ = 2
+    49@ = 13
+  end
+end
 $game_timer = Clock.GetGameTimer()
 if 
   13 > 49@
