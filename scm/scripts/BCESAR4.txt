@@ -3,6 +3,36 @@
 
 :BCESAR4
 script_name 'BCESAR4'
+Coop.EnableSyncingThisScript()
+// BCESAR4 hands both story branches to CPRACE. Register that stock controller
+// before either handoff so its canonical vehicles, drivers, passengers, camera,
+// countdown, and race text are replicated without changing its host-side logic.
+script_name 'CPRACE'
+Coop.EnableSyncingThisScript()
+script_name 'BCESAR4'
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+set_lvar_int_to_var_int 42@ = $flag_bcesar_mission_counter // progression branch captured at entry
+43@ = 0 // frozen remote roster size
+65@ = 0 // cooperative cutscene transport prepared
+66@ = 0 // cooperative main cleanup completed
+67@ = 0 // supplemental race controller started
+for $temp_int = 0 to 2
+    44@($temp_int,3i) = -1 // frozen internal network identity
+    47@($temp_int,3i) = 0 // currently valid frozen-roster actor
+    53@($temp_int,3i) = -1 // vehicle preserved across this cutscene
+    56@($temp_int,3i) = -1 // preserved vehicle network id
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        44@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            44@($temp_int,3i) <> -1
+        then
+            47@($temp_int,3i) = 1
+            43@ += 1
+        end
+    end
+end
 gosub @BCESAR4_47
 if 
   has_deatharrest_been_executed 
@@ -37,6 +67,7 @@ goto @BCESAR4_175
 34@ = -1
 
 :BCESAR4_175
+gosub @BCESAR4_COOP_PREPARE_CUTSCENE
 World.ClearArea(1, 1557.162, 24.305, 22.7313, 100.0)
 Player.MakeSafeForCutscene($player1)
 Streaming.Switch(False)
@@ -86,6 +117,7 @@ $z -= 1000.0
 Car.SetCoordinates(34@, $x, $y, $z)
 
 :BCESAR4_394
+gosub @BCESAR4_COOP_START_RACE
 goto @BCESAR4_2685
 
 :BCESAR4_401
@@ -106,6 +138,7 @@ wait 0
 goto @BCESAR4_481
 
 :BCESAR4_505
+gosub @BCESAR4_COOP_PREPARE_CUTSCENE
 Streaming.RequestModel(439)
 Streaming.RequestModel(475)
 Streaming.RequestModel(526)
@@ -162,6 +195,17 @@ goto @BCESAR4_787
 35@ = Car.Create(439, -536.7188, -192.5453, 77.404)
 38@ = Char.Create(24, 101, -530.4067, -188.8082, 77.3986)
 Car.SetHeading(35@, 287.0)
+36@ = Car.Create(475, -536.158, -185.2865, 77.398)
+39@ = Char.Create(24, 23, -530.4067, -187.8082, 77.3986)
+Char.SetHeading(39@, 180.0)
+Car.SetHeading(36@, 243.0)
+37@ = Car.Create(526, -524.9425, -184.208, 77.2766)
+40@ = Char.CreateInsideCar(PedType.Mission1, 290, 37@)
+Car.SetHeading(37@, 239.0)
+// The synced script creates these asynchronously on peers. A bounded handshake
+// ensures entity-targeted sequences have IDs; a missing/dead entity degrades to
+// the original local cutscene instead of stalling progression.
+gosub @BCESAR4_COOP_WAIT_FOR_CUTSCENE_ENTITIES
 41@ = Sequence.Open()
 Task.PlayAnim(-1, "GIFT_GIVE", "KISSING", 1000.0, False, False, False, False, -2)
 Task.EnterCarAsDriver(-1, 35@, -2)
@@ -169,10 +213,6 @@ Task.CarDriveToCoord(-1, 35@, -507.5502, -99.2875, 61.825, 10.0, DriveMode.Norma
 Sequence.Close(41@)
 Char.PerformSequence(38@, 41@)
 Sequence.Clear(41@)
-36@ = Car.Create(475, -536.158, -185.2865, 77.398)
-39@ = Char.Create(24, 23, -530.4067, -187.8082, 77.3986)
-Char.SetHeading(39@, 180.0)
-Car.SetHeading(36@, 243.0)
 41@ = Sequence.Open()
 Task.PlayAnim(-1, "GIFT_GET", "KISSING", 1000.0, False, False, False, False, -2)
 Task.EnterCarAsDriver(-1, 36@, -2)
@@ -180,9 +220,6 @@ Task.CarDriveToCoord(-1, 36@, -507.5502, -99.2875, 61.825, 10.0, DriveMode.Norma
 Sequence.Close(41@)
 Char.PerformSequence(39@, 41@)
 Sequence.Clear(41@)
-37@ = Car.Create(526, -524.9425, -184.208, 77.2766)
-40@ = Char.CreateInsideCar(PedType.Mission1, 290, 37@)
-Car.SetHeading(37@, 239.0)
 41@ = Sequence.Open()
 Task.Pause(-1, 7000)
 Task.CarDriveToCoord(-1, 37@, -507.5502, -99.2875, 61.825, 10.0, DriveMode.Normal, 0, DrivingMode.PloughThrough)
@@ -295,6 +332,7 @@ goto @BCESAR4_1717
 34@ = -1
 
 :BCESAR4_1717
+gosub @BCESAR4_COOP_PREPARE_CUTSCENE
 World.ClearArea(1, -526.7778, -189.0571, 76.9917, 100.0)
 Player.MakeSafeForCutscene($player1)
 Streaming.Switch(False)
@@ -366,6 +404,7 @@ if
   $flag_bcesar_mission_counter == 5
 goto_if_false @BCESAR4_2222
 Text.LoadMissionText('BCESAR4')
+gosub @BCESAR4_COOP_PREPARE_CUTSCENE
 World.ClearArea(1, -526.7778, -189.0571, 76.9917, 100.0)
 Char.SetCoordinates($scplayer, -495.9034, -196.2218, 77.3986)
 Player.MakeSafeForCutscene($player1)
@@ -404,6 +443,7 @@ goto @BCESAR4_2182
 :BCESAR4_2206
 Cutscene.Clear
 $start_the_bcesar_race = 1
+gosub @BCESAR4_COOP_START_RACE
 goto @BCESAR4_2685
 
 :BCESAR4_2222
@@ -426,6 +466,7 @@ goto @BCESAR4_2339
 34@ = -1
 
 :BCESAR4_2339
+gosub @BCESAR4_COOP_PREPARE_CUTSCENE
 World.ClearArea(1, 1557.162, 24.305, 22.7313, 100.0)
 Player.MakeSafeForCutscene($player1)
 Streaming.Switch(False)
@@ -516,6 +557,7 @@ Car.FreezePosition(34@, False)
 return 
 
 :BCESAR4_2736
+gosub @BCESAR4_COOP_MAIN_CLEANUP
 $flag_bcesar_mission_counter += 1
 $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
@@ -534,3 +576,1386 @@ Camera.DoFade(0, Fade.Out)
 :BCESAR4_2805
 return 
 
+// Refresh only the actors whose internal network identities were captured by the
+// single mission-start roster collection. A disconnected slot can never be
+// inherited by a late joiner that happens to reuse its script handle.
+:BCESAR4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    47@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        59@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 59@ == 44@($temp_int,3i)
+        then
+            47@($temp_int,3i) = 1
+        end
+    end
+end
+return
+
+// Preserve each participant and any occupied network vehicle above the scene.
+// Player.SetControl calls in the original synced cutscenes apply to every client;
+// these actor/vehicle moves additionally prevent remote interference and provide
+// deterministic post-cutscene regrouping for both progression branches.
+:BCESAR4_COOP_PREPARE_CUTSCENE
+if or
+    43@ == 0
+    65@ == 1
+then
+    return
+end
+gosub @BCESAR4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    53@($temp_int,3i) = -1
+    56@($temp_int,3i) = -1
+    if and
+        47@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            53@($temp_int,3i) = Char.GetCarIsUsing($NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+gosub @BCESAR4_COOP_WAIT_FOR_REMOTE_VEHICLES
+for $temp_int = 0 to 2
+    if and
+        47@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        64@ = 0
+        if
+            56@($temp_int,3i) <> -1
+        then
+            if
+                Car.DoesExist(53@($temp_int,3i))
+            then
+                if
+                    not Car.IsDead(53@($temp_int,3i))
+                then
+                    64@ = 1
+                    60@, 61@, 62@ = Car.GetCoordinates(53@($temp_int,3i))
+                    62@ += 1000.0
+                    Car.SetAsMissionCar(53@($temp_int,3i))
+                    Car.FreezePosition(53@($temp_int,3i), True)
+                    Car.SetVisible(53@($temp_int,3i), False)
+                    Car.SetCollision(53@($temp_int,3i), False)
+                    Car.SetCoordinates(53@($temp_int,3i), 60@, 61@, 62@)
+                end
+            end
+        end
+        if
+            64@ == 0
+        then
+            56@($temp_int,3i) = -1
+            60@, 61@, 62@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+            62@ += 1000.0
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 60@, 61@, 62@)
+        end
+    end
+end
+65@ = 1
+return
+
+// Every vehicle-ID wait is bounded to 2.5 seconds and guarded by actor identity,
+// vehicle existence, and vehicle death. Missing ownership simply falls back to
+// transporting that participant on foot during cleanup.
+:BCESAR4_COOP_WAIT_FOR_REMOTE_VEHICLES
+63@ = Clock.GetGameTimer()
+63@ += 2500
+
+:BCESAR4_COOP_WAIT_FOR_REMOTE_VEHICLES_LOOP
+64@ = 0
+for $temp_int = 0 to 2
+    if and
+        47@($temp_int,3i) == 1
+        53@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(53@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(53@($temp_int,3i))
+            then
+                56@($temp_int,3i) = Coop.GetVehicleNetworkId(53@($temp_int,3i))
+                if
+                    56@($temp_int,3i) == -1
+                then
+                    64@ += 1
+                end
+            end
+        end
+    end
+end
+59@ = Clock.GetGameTimer()
+if and
+    64@ > 0
+    is_int_lvar_greater_than_int_lvar 63@ > 59@
+goto_if_false @BCESAR4_COOP_WAIT_FOR_REMOTE_VEHICLES_DONE
+wait 0
+goto @BCESAR4_COOP_WAIT_FOR_REMOTE_VEHICLES_LOOP
+
+:BCESAR4_COOP_WAIT_FOR_REMOTE_VEHICLES_DONE
+return
+
+// The three cars and three actors in the branch-2 scripted scene need valid
+// network instances before their entity-targeted sequences are emitted.
+:BCESAR4_COOP_WAIT_FOR_CUTSCENE_ENTITIES
+for $temp_int = 0 to 2
+    68@($temp_int,3i) = -1
+    71@($temp_int,3i) = -1
+end
+74@ = Clock.GetGameTimer()
+74@ += 2500
+
+:BCESAR4_COOP_WAIT_FOR_CUTSCENE_ENTITIES_LOOP
+75@ = 0
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(35@($temp_int,3i))
+    then
+        if
+            not Car.IsDead(35@($temp_int,3i))
+        then
+            68@($temp_int,3i) = Coop.GetVehicleNetworkId(35@($temp_int,3i))
+            if
+                68@($temp_int,3i) == -1
+            then
+                75@ += 1
+            end
+        end
+    end
+    if
+        Char.DoesExist(38@($temp_int,3i))
+    then
+        if
+            not Char.IsDead(38@($temp_int,3i))
+        then
+            71@($temp_int,3i) = Coop.GetPedNetworkId(38@($temp_int,3i))
+            if
+                71@($temp_int,3i) == -1
+            then
+                75@ += 1
+            end
+        end
+    end
+end
+76@ = Clock.GetGameTimer()
+if and
+    75@ > 0
+    is_int_lvar_greater_than_int_lvar 74@ > 76@
+goto_if_false @BCESAR4_COOP_WAIT_FOR_CUTSCENE_ENTITIES_DONE
+wait 0
+goto @BCESAR4_COOP_WAIT_FOR_CUTSCENE_ENTITIES_LOOP
+
+:BCESAR4_COOP_WAIT_FOR_CUTSCENE_ENTITIES_DONE
+return
+
+:BCESAR4_COOP_START_RACE
+if and
+    43@ > 0
+    67@ == 0
+then
+    if or
+        42@ == 0
+        42@ == 5
+    then
+        start_new_script @BCESAR4_COOP_RACE $NETWORK_PLAYER[0] $NETWORK_PLAYER[1] $NETWORK_PLAYER[2] 44@ 45@ 46@ 42@
+        67@ = 1
+    end
+end
+return
+
+// Safe on normal completion, death/arrest, cutscene skip, and repeated calls.
+:BCESAR4_COOP_MAIN_CLEANUP
+if
+    66@ == 1
+then
+    return
+end
+66@ = 1
+Player.SetControl($player1, True)
+gosub @BCESAR4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    60@, 61@, 62@ = Char.GetCoordinates($scplayer)
+    if
+        $temp_int == 0
+    then
+        61@ += 4.0
+    end
+    if
+        $temp_int == 1
+    then
+        60@ += 4.0
+        61@ += 4.0
+    end
+    if
+        $temp_int == 2
+    then
+        60@ -= 4.0
+        61@ += 4.0
+    end
+    64@ = 0
+    if
+        53@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(53@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(53@($temp_int,3i))
+            then
+                64@ = 1
+                Car.SetCoordinates(53@($temp_int,3i), 60@, 61@, 62@)
+                Car.SetVisible(53@($temp_int,3i), True)
+                Car.SetCollision(53@($temp_int,3i), True)
+                Car.FreezePosition(53@($temp_int,3i), False)
+            end
+        end
+    end
+    if
+        47@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('RACES24', $NETWORK_PLAYER[$temp_int])
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            if
+                64@ == 1
+            then
+                Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 53@($temp_int,3i))
+            else
+                Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 60@, 61@, 62@)
+            end
+        end
+    end
+end
+65@ = 0
+return
+
+// Supplemental cooperative race controller. CPRACE remains authoritative for
+// CJ, canonical opponent ordering, success/failure, progression, stats, and the
+// $5000 Wu Zi Mu reward. Current Coop APIs expose neither CPRACE's local place
+// array nor an insertion API, so remote finish order is tracked only here and can
+// never promote/demote the host. This is the required host-authoritative fallback.
+:BCESAR4_COOP_RACE
+script_name 'BC4COOP'
+Coop.EnableSyncingThisScript()
+Text.LoadMissionText('RACETOR')
+31@ = 0 // actor scratch; reused as teleport slot zero after race resolution
+43@ = 0 // supplemental race has started
+44@ = 0 // host recorded in supplemental finish order
+45@ = 0 // supplemental connected-player finish sequence
+56@ = 0 // cleanup completed
+for $temp_int = 0 to 2
+    10@($temp_int,3i) = 0 // 0 absent/disconnected, 1 racing, 2 finished, 3 DNF
+    13@($temp_int,3i) = -1 // supplemental vehicle
+    16@($temp_int,3i) = 0 // next canonical route point
+    19@($temp_int,3i) = -1 // supplemental vehicle network id
+    22@($temp_int,3i) = 0 // out-of-car prompt/blip state
+    25@($temp_int,3i) = 0 // supplemental finish position
+    28@($temp_int,3i) = 0 // current frozen-roster identity validity
+end
+if
+    6@ == 0
+then
+    7@ = 7
+    8@ = 439
+    9@ = 31
+    34@ = 1559.983
+    35@ = 17.468
+    36@ = 23.1563
+    37@ = 178.0
+    41@ = 2
+    42@ = 3
+else
+    7@ = 8
+    8@ = 477
+    9@ = 33
+    34@ = -544.8638
+    35@ = -189.4458
+    36@ = 77.8383
+    37@ = 275.0
+    41@ = 7
+    42@ = 8
+end
+gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
+if
+    57@ == 0
+then
+    terminate_this_script
+end
+32@ = Clock.GetGameTimer()
+32@ += 45000
+
+:BCESAR4_COOP_RACE_WAIT_FOR_LAUNCH
+wait 0
+gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
+if
+    57@ == 0
+then
+    goto @BCESAR4_COOP_RACE_CLEANUP_SILENT
+end
+if and
+    $onmission == 1
+    is_int_var_equal_to_int_lvar $race_selection == 7@
+    is_int_var_equal_to_int_lvar $flag_bcesar_mission_counter == 41@
+then
+    goto @BCESAR4_COOP_RACE_WAIT_FOR_GRID
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 32@
+then
+    goto @BCESAR4_COOP_RACE_CLEANUP_SILENT
+end
+goto @BCESAR4_COOP_RACE_WAIT_FOR_LAUNCH
+
+:BCESAR4_COOP_RACE_WAIT_FOR_GRID
+32@ = Clock.GetGameTimer()
+32@ += 30000
+
+:BCESAR4_COOP_RACE_WAIT_FOR_GRID_LOOP
+wait 0
+if
+    $onmission == 0
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+if and
+    not Char.IsDead($scplayer)
+    Char.LocateAnyMeans3D($scplayer, 0, 34@, 35@, 36@, 90.0, 90.0, 35.0)
+then
+    goto @BCESAR4_COOP_RACE_PREPARE_GRID
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 32@
+then
+    goto @BCESAR4_COOP_RACE_CLEANUP_SILENT
+end
+goto @BCESAR4_COOP_RACE_WAIT_FOR_GRID_LOOP
+
+:BCESAR4_COOP_RACE_PREPARE_GRID
+Streaming.RequestModel(8@)
+51@ = Clock.GetGameTimer()
+51@ += 10000
+
+:BCESAR4_COOP_RACE_WAIT_FOR_MODEL
+wait 0
+if
+    Streaming.HasModelLoaded(8@)
+then
+    goto @BCESAR4_COOP_RACE_CREATE_GRID
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 51@
+then
+    goto @BCESAR4_COOP_RACE_CLEANUP_SILENT
+end
+goto @BCESAR4_COOP_RACE_WAIT_FOR_MODEL
+
+:BCESAR4_COOP_RACE_CREATE_GRID
+for $temp_int = 0 to 2
+    if
+        28@($temp_int,3i) == 1
+    then
+        if
+            7@ == 7
+        then
+            if
+                $temp_int == 0
+            then
+                38@ = 1552.0
+                39@ = 31.0
+            end
+            if
+                $temp_int == 1
+            then
+                38@ = 1559.0
+                39@ = 31.0
+            end
+            if
+                $temp_int == 2
+            then
+                38@ = 1566.0
+                39@ = 31.0
+            end
+        else
+            38@ = -531.0
+            if
+                $temp_int == 0
+            then
+                39@ = -197.0
+            end
+            if
+                $temp_int == 1
+            then
+                39@ = -189.5
+            end
+            if
+                $temp_int == 2
+            then
+                39@ = -182.0
+            end
+        end
+        13@($temp_int,3i) = Car.Create(8@, 38@, 39@, 36@)
+        Car.SetAsMissionCar(13@($temp_int,3i))
+        Car.SetHeading(13@($temp_int,3i), 37@)
+        Car.SetHealth(13@($temp_int,3i), 1500)
+        Car.SetCanBurstTires(13@($temp_int,3i), False)
+        Car.FreezePosition(13@($temp_int,3i), True)
+        10@($temp_int,3i) = 1
+        16@($temp_int,3i) = 1
+    end
+end
+// Supplemental creation is asynchronous too. The 2.5-second wait has explicit
+// existence/death guards; one failed ID eliminates only that remote role.
+32@ = Clock.GetGameTimer()
+32@ += 2500
+
+:BCESAR4_COOP_RACE_WAIT_FOR_VEHICLE_IDS
+40@ = 0
+for $temp_int = 0 to 2
+    if
+        10@($temp_int,3i) == 1
+    then
+        if
+            Car.DoesExist(13@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(13@($temp_int,3i))
+            then
+                set_lvar_int_to_lvar_int 58@ = 13@($temp_int,3i)
+                19@($temp_int,3i) = Coop.GetVehicleNetworkId(58@)
+                if
+                    19@($temp_int,3i) == -1
+                then
+                    40@ += 1
+                end
+            else
+                10@($temp_int,3i) = 3
+            end
+        else
+            10@($temp_int,3i) = 3
+        end
+    end
+end
+33@ = Clock.GetGameTimer()
+if and
+    40@ > 0
+    is_int_lvar_greater_than_int_lvar 32@ > 33@
+goto_if_false @BCESAR4_COOP_RACE_VEHICLE_IDS_DONE
+wait 0
+goto @BCESAR4_COOP_RACE_WAIT_FOR_VEHICLE_IDS
+
+:BCESAR4_COOP_RACE_VEHICLE_IDS_DONE
+for $temp_int = 0 to 2
+    if
+        10@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 31@ = 0@($temp_int,3i)
+        set_lvar_int_to_lvar_int 58@ = 13@($temp_int,3i)
+        if
+            19@($temp_int,3i) == -1
+        then
+            10@($temp_int,3i) = 3
+            if
+                28@($temp_int,3i) == 1
+            then
+                Coop.PrintNowForNetworkPlayer('RACES24', 5000, 1, 31@)
+            end
+        else
+            38@, 39@, 50@ = Car.GetCoordinates(13@($temp_int,3i))
+            Char.ClearTasksImmediately(0@($temp_int,3i))
+            Char.SetCoordinates(0@($temp_int,3i), 38@, 39@, 50@)
+            Char.SetHeading(0@($temp_int,3i), 37@)
+            Char.WarpIntoCar(0@($temp_int,3i), 13@($temp_int,3i))
+            Coop.UpdateCarBlipForNetworkPlayer(31@, 58@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            46@ = 1
+            gosub @BCESAR4_COOP_RACE_RESOLVE_ROUTE_POINT
+            Coop.UpdateCheckpointForNetworkPlayer(47@, 48@, 49@, 12.0, 12.0, 8.0, 31@)
+        end
+    end
+end
+Streaming.MarkModelAsNoLongerNeeded(8@)
+set_lvar_int_to_var_int 52@ = $races_timer
+53@ = Clock.GetGameTimer()
+53@ += 15000
+
+:BCESAR4_COOP_RACE_WAIT_COUNTDOWN_THREE
+wait 0
+if
+    $onmission == 0
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+set_lvar_int_to_var_int 54@ = $races_timer
+if and
+    not is_int_lvar_equal_to_int_lvar 54@ == 52@
+    is_int_lvar_greater_than_int_var 54@ > $game_timer
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_THREE
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 53@
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_FALLBACK_THREE
+end
+goto @BCESAR4_COOP_RACE_WAIT_COUNTDOWN_THREE
+
+:BCESAR4_COOP_RACE_COUNTDOWN_THREE
+set_lvar_int_to_lvar_int 52@ = 54@
+53@ = Clock.GetGameTimer()
+53@ += 3000
+
+:BCESAR4_COOP_RACE_WAIT_COUNTDOWN_TWO
+wait 0
+if
+    $onmission == 0
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+set_lvar_int_to_var_int 54@ = $races_timer
+if and
+    not is_int_lvar_equal_to_int_lvar 54@ == 52@
+    is_int_lvar_greater_than_int_var 54@ > $game_timer
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_TWO
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 53@
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_FALLBACK_TWO
+end
+goto @BCESAR4_COOP_RACE_WAIT_COUNTDOWN_TWO
+
+:BCESAR4_COOP_RACE_COUNTDOWN_TWO
+set_lvar_int_to_lvar_int 52@ = 54@
+53@ = Clock.GetGameTimer()
+53@ += 3000
+
+:BCESAR4_COOP_RACE_WAIT_COUNTDOWN_ONE
+wait 0
+if
+    $onmission == 0
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+set_lvar_int_to_var_int 54@ = $races_timer
+if and
+    not is_int_lvar_equal_to_int_lvar 54@ == 52@
+    is_int_lvar_greater_than_int_var 54@ > $game_timer
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_ONE
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 53@
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_FALLBACK_ONE
+end
+goto @BCESAR4_COOP_RACE_WAIT_COUNTDOWN_ONE
+
+:BCESAR4_COOP_RACE_COUNTDOWN_ONE
+53@ = Clock.GetGameTimer()
+53@ += 3000
+
+:BCESAR4_COOP_RACE_WAIT_COUNTDOWN_GO
+wait 0
+if
+    $onmission == 0
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+if
+    is_int_var_greater_than_int_var $game_timer > $races_timer
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_GO
+end
+33@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 33@ > 53@
+then
+    goto @BCESAR4_COOP_RACE_COUNTDOWN_GO
+end
+goto @BCESAR4_COOP_RACE_WAIT_COUNTDOWN_GO
+
+:BCESAR4_COOP_RACE_COUNTDOWN_FALLBACK_THREE
+wait 1000
+
+:BCESAR4_COOP_RACE_COUNTDOWN_FALLBACK_TWO
+wait 1000
+
+:BCESAR4_COOP_RACE_COUNTDOWN_FALLBACK_ONE
+wait 1000
+
+:BCESAR4_COOP_RACE_COUNTDOWN_GO
+// CPRACE is registered for script synchronization, so its canonical countdown
+// text and control opcodes are the per-player prompt; this thread only matches GO.
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(13@($temp_int,3i))
+    then
+        if
+            not Car.IsDead(13@($temp_int,3i))
+        then
+            Car.FreezePosition(13@($temp_int,3i), False)
+        end
+    end
+end
+43@ = 1
+
+:BCESAR4_COOP_RACE_LOOP
+wait 0
+gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
+if
+    57@ == 0
+then
+    goto @BCESAR4_COOP_RACE_CLEANUP_SILENT
+end
+if
+    not is_int_lvar_greater_than_int_var 42@ > $flag_bcesar_mission_counter
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+if and
+    43@ == 1
+    $races_timer == 0
+then
+    goto @BCESAR4_COOP_RACE_RESULT
+end
+set_lvar_int_to_lvar_int 46@ = 9@
+46@ -= 1
+gosub @BCESAR4_COOP_RACE_RESOLVE_ROUTE_POINT
+if and
+    44@ == 0
+    not Char.IsDead($scplayer)
+    Char.LocateAnyMeans3D($scplayer, 0, 47@, 48@, 49@, 18.0, 18.0, 12.0)
+then
+    45@ += 1
+    set_lvar_int_to_lvar_int 44@ = 45@
+end
+for $temp_int = 0 to 2
+    if and
+        28@($temp_int,3i) == 1
+        10@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 31@ = 0@($temp_int,3i)
+        set_lvar_int_to_lvar_int 58@ = 13@($temp_int,3i)
+        if
+            Char.IsDead(0@($temp_int,3i))
+        then
+            10@($temp_int,3i) = 3
+            Coop.RemoveCheckpointForNetworkPlayer(31@)
+            Coop.ClearAllEntityBlipsForNetworkPlayer(31@)
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 3000, TextStyle.Middle, 31@)
+        else
+            50@ = 0
+            if
+                Car.DoesExist(13@($temp_int,3i))
+            then
+                if
+                    Car.IsDead(13@($temp_int,3i))
+                then
+                    50@ = 2
+                else
+                    if
+                        Char.IsInCar(0@($temp_int,3i), 13@($temp_int,3i))
+                    then
+                        50@ = 1
+                    end
+                end
+            else
+                50@ = 2
+            end
+            if
+                50@ == 2
+            then
+                10@($temp_int,3i) = 3
+                Coop.RemoveCheckpointForNetworkPlayer(31@)
+                Coop.ClearAllEntityBlipsForNetworkPlayer(31@)
+                Coop.PrintNowForNetworkPlayer('RACES24', 5000, 1, 31@)
+            end
+            if
+                50@ == 0
+            then
+                if
+                    22@($temp_int,3i) == 0
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(31@, 58@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+                    Coop.PrintNowForNetworkPlayer('RACES24', 3000, 1, 31@)
+                    22@($temp_int,3i) = 1
+                end
+            end
+            if
+                50@ == 1
+            then
+                if
+                    22@($temp_int,3i) == 1
+                then
+                    Coop.RemoveCarBlipForNetworkPlayer(31@, 58@)
+                    Coop.ClearThisPrintForNetworkPlayer('RACES24', 31@)
+                    22@($temp_int,3i) = 0
+                end
+                set_lvar_int_to_lvar_int 46@ = 16@($temp_int,3i)
+                gosub @BCESAR4_COOP_RACE_RESOLVE_ROUTE_POINT
+                if
+                    Char.LocateAnyMeans3D(0@($temp_int,3i), 0, 47@, 48@, 49@, 12.0, 12.0, 8.0)
+                then
+                    16@($temp_int,3i) += 1
+                    if
+                        not is_int_lvar_greater_than_int_lvar 9@ > 16@($temp_int,3i)
+                    then
+                        45@ += 1
+                        set_lvar_int_to_lvar_int 25@($temp_int,3i) = 45@
+                        10@($temp_int,3i) = 2
+                        Coop.RemoveCheckpointForNetworkPlayer(31@)
+                        Coop.ClearAllEntityBlipsForNetworkPlayer(31@)
+                        Coop.PrintBigForNetworkPlayer('RACES18', 3000, TextStyle.Middle, 31@)
+                    else
+                        set_lvar_int_to_lvar_int 46@ = 16@($temp_int,3i)
+                        gosub @BCESAR4_COOP_RACE_RESOLVE_ROUTE_POINT
+                        Coop.UpdateCheckpointForNetworkPlayer(47@, 48@, 49@, 12.0, 12.0, 8.0, 31@)
+                    end
+                end
+            end
+        end
+    end
+end
+goto @BCESAR4_COOP_RACE_LOOP
+
+:BCESAR4_COOP_RACE_RESULT
+55@ = 0
+if
+    not is_int_lvar_greater_than_int_var 42@ > $flag_bcesar_mission_counter
+then
+    55@ = 1
+end
+gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        28@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 31@ = 0@($temp_int,3i)
+        if
+            55@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 31@)
+        else
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 31@)
+        end
+    end
+end
+31@ = -1
+32@ = -1
+33@ = -1
+for $temp_int = 0 to 2
+    if and
+        28@($temp_int,3i) == 1
+        not Char.IsDead(0@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(0@($temp_int,3i))
+        set_lvar_int_to_lvar_int 31@($temp_int,1i) = 0@($temp_int,3i)
+    end
+end
+Coop.TeleportPlayersToHostSafely(31@, 32@, 33@)
+goto @BCESAR4_COOP_RACE_CLEANUP
+
+:BCESAR4_COOP_RACE_CLEANUP_SILENT
+gosub @BCESAR4_COOP_RACE_UPDATE_ROSTER
+
+:BCESAR4_COOP_RACE_CLEANUP
+if
+    56@ == 1
+then
+    terminate_this_script
+end
+56@ = 1
+for $temp_int = 0 to 2
+    if
+        28@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 31@ = 0@($temp_int,3i)
+        Coop.RemoveCheckpointForNetworkPlayer(31@)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(31@)
+        Coop.ClearThisPrintForNetworkPlayer('RACES24', 31@)
+    end
+    if
+        Car.DoesExist(13@($temp_int,3i))
+    then
+        Car.FreezePosition(13@($temp_int,3i), False)
+        Car.MarkAsNoLongerNeeded(13@($temp_int,3i))
+    end
+    13@($temp_int,3i) = -1
+end
+terminate_this_script
+
+:BCESAR4_COOP_RACE_UPDATE_ROSTER
+57@ = 0
+for $temp_int = 0 to 2
+    28@($temp_int,3i) = 0
+    set_lvar_int_to_lvar_int 31@ = 0@($temp_int,3i)
+    if
+        Coop.IsNetworkPlayerActorValid(31@)
+    then
+        33@ = Coop.GetNetworkPlayerInternalId(31@)
+        if
+            is_int_lvar_equal_to_int_lvar 33@ == 3@($temp_int,3i)
+        then
+            28@($temp_int,3i) = 1
+            57@ += 1
+        else
+            if
+                10@($temp_int,3i) == 1
+            then
+                10@($temp_int,3i) = 0
+            end
+        end
+    else
+        if
+            10@($temp_int,3i) == 1
+        then
+            10@($temp_int,3i) = 0
+        end
+    end
+end
+return
+
+// Exact CPRACE route tables for progression selections 7 and 8. Supplemental
+// checkpoints use these coordinates but do not mutate CPRACE's local arrays.
+:BCESAR4_COOP_RACE_RESOLVE_ROUTE_POINT
+set_lvar_float_to_lvar_float 47@ = 34@
+set_lvar_float_to_lvar_float 48@ = 35@
+set_lvar_float_to_lvar_float 49@ = 36@
+if and
+    7@ == 7
+    46@ == 0
+then
+    47@ = 1559.983
+    48@ = 17.468
+    49@ = 26.1563
+end
+if and
+    7@ == 7
+    46@ == 1
+then
+    47@ = 1556.426
+    48@ = -94.0345
+    49@ = 19.4957
+end
+if and
+    7@ == 7
+    46@ == 2
+then
+    47@ = 1434.738
+    48@ = -214.9645
+    49@ = 7.3527
+end
+if and
+    7@ == 7
+    46@ == 3
+then
+    47@ = 1321.254
+    48@ = -195.8984
+    49@ = 15.7447
+end
+if and
+    7@ == 7
+    46@ == 4
+then
+    47@ = 1211.007
+    48@ = -102.6927
+    49@ = 39.3603
+end
+if and
+    7@ == 7
+    46@ == 5
+then
+    47@ = 892.2923
+    48@ = -88.1123
+    49@ = 22.4405
+end
+if and
+    7@ == 7
+    46@ == 6
+then
+    47@ = 789.9247
+    48@ = -124.3171
+    49@ = 21.3365
+end
+if and
+    7@ == 7
+    46@ == 7
+then
+    47@ = 659.6545
+    48@ = -196.7497
+    49@ = 11.7663
+end
+if and
+    7@ == 7
+    46@ == 8
+then
+    47@ = 419.4744
+    48@ = -302.5507
+    49@ = 6.446
+end
+if and
+    7@ == 7
+    46@ == 9
+then
+    47@ = 289.8085
+    48@ = -380.3828
+    49@ = 7.8753
+end
+if and
+    7@ == 7
+    46@ == 10
+then
+    47@ = 207.4451
+    48@ = -298.923
+    49@ = 0.4375
+end
+if and
+    7@ == 7
+    46@ == 11
+then
+    47@ = 182.497
+    48@ = -217.8004
+    49@ = 0.4216
+end
+if and
+    7@ == 7
+    46@ == 12
+then
+    47@ = 22.0727
+    48@ = -207.7681
+    49@ = 0.5827
+end
+if and
+    7@ == 7
+    46@ == 13
+then
+    47@ = -114.231
+    48@ = -132.3417
+    49@ = 2.1236
+end
+if and
+    7@ == 7
+    46@ == 14
+then
+    47@ = -38.4818
+    48@ = 140.8613
+    49@ = 2.1234
+end
+if and
+    7@ == 7
+    46@ == 15
+then
+    47@ = -141.4718
+    48@ = 187.6611
+    49@ = 6.2406
+end
+if and
+    7@ == 7
+    46@ == 16
+then
+    47@ = -329.7878
+    48@ = 173.921
+    49@ = 5.403
+end
+if and
+    7@ == 7
+    46@ == 17
+then
+    47@ = -507.6872
+    48@ = 221.0444
+    49@ = 8.7633
+end
+if and
+    7@ == 7
+    46@ == 18
+then
+    47@ = -661.1096
+    48@ = 226.3879
+    49@ = 16.7064
+end
+if and
+    7@ == 7
+    46@ == 19
+then
+    47@ = -618.4406
+    48@ = -67.8995
+    49@ = 62.3489
+end
+if and
+    7@ == 7
+    46@ == 20
+then
+    47@ = -507.8417
+    48@ = -45.9077
+    49@ = 59.2556
+end
+if and
+    7@ == 7
+    46@ == 21
+then
+    47@ = -520.6511
+    48@ = 79.6011
+    49@ = 32.2117
+end
+if and
+    7@ == 7
+    46@ == 22
+then
+    47@ = -715.4454
+    48@ = 225.1288
+    49@ = 0.2899
+end
+if and
+    7@ == 7
+    46@ == 23
+then
+    47@ = -770.0811
+    48@ = 130.1324
+    49@ = 9.4651
+end
+if and
+    7@ == 7
+    46@ == 24
+then
+    47@ = -738.1151
+    48@ = 25.555
+    49@ = 32.2336
+end
+if and
+    7@ == 7
+    46@ == 25
+then
+    47@ = -885.785
+    48@ = -41.3927
+    49@ = 33.2347
+end
+if and
+    7@ == 7
+    46@ == 26
+then
+    47@ = -716.4521
+    48@ = 5.1206
+    49@ = 59.1055
+end
+if and
+    7@ == 7
+    46@ == 27
+then
+    47@ = -759.2693
+    48@ = -92.0455
+    49@ = 64.8686
+end
+if and
+    7@ == 7
+    46@ == 28
+then
+    47@ = -826.881
+    48@ = -167.7603
+    49@ = 64.99
+end
+if and
+    7@ == 7
+    46@ == 29
+then
+    47@ = -728.9467
+    48@ = -173.5218
+    49@ = 65.1248
+end
+if and
+    7@ == 7
+    46@ == 30
+then
+    47@ = -544.8638
+    48@ = -189.4458
+    49@ = 77.8383
+end
+if and
+    7@ == 8
+    46@ == 0
+then
+    47@ = -544.8638
+    48@ = -189.4458
+    49@ = 81.8383
+end
+if and
+    7@ == 8
+    46@ == 1
+then
+    47@ = -728.9467
+    48@ = -173.5218
+    49@ = 65.1248
+end
+if and
+    7@ == 8
+    46@ == 2
+then
+    47@ = -826.881
+    48@ = -167.7603
+    49@ = 64.99
+end
+if and
+    7@ == 8
+    46@ == 3
+then
+    47@ = -759.2693
+    48@ = -92.0455
+    49@ = 64.8686
+end
+if and
+    7@ == 8
+    46@ == 4
+then
+    47@ = -716.4521
+    48@ = 5.1206
+    49@ = 59.1055
+end
+if and
+    7@ == 8
+    46@ == 5
+then
+    47@ = -885.785
+    48@ = -41.3927
+    49@ = 33.2347
+end
+if and
+    7@ == 8
+    46@ == 6
+then
+    47@ = -738.1151
+    48@ = 25.555
+    49@ = 32.2336
+end
+if and
+    7@ == 8
+    46@ == 7
+then
+    47@ = -770.0811
+    48@ = 130.1324
+    49@ = 9.4651
+end
+if and
+    7@ == 8
+    46@ == 8
+then
+    47@ = -715.4454
+    48@ = 225.1288
+    49@ = 0.2899
+end
+if and
+    7@ == 8
+    46@ == 9
+then
+    47@ = -624.6024
+    48@ = 187.2405
+    49@ = 15.4381
+end
+if and
+    7@ == 8
+    46@ == 10
+then
+    47@ = -520.6511
+    48@ = 79.6011
+    49@ = 32.2117
+end
+if and
+    7@ == 8
+    46@ == 11
+then
+    47@ = -507.8417
+    48@ = -45.9077
+    49@ = 59.2556
+end
+if and
+    7@ == 8
+    46@ == 12
+then
+    47@ = -618.4406
+    48@ = -67.8995
+    49@ = 62.3489
+end
+if and
+    7@ == 8
+    46@ == 13
+then
+    47@ = -658.3503
+    48@ = 146.4855
+    49@ = 28.2693
+end
+if and
+    7@ == 8
+    46@ == 14
+then
+    47@ = -507.6872
+    48@ = 221.0444
+    49@ = 8.7633
+end
+if and
+    7@ == 8
+    46@ == 15
+then
+    47@ = -329.7878
+    48@ = 173.921
+    49@ = 5.5
+end
+if and
+    7@ == 8
+    46@ == 16
+then
+    47@ = -149.4881
+    48@ = 189.6471
+    49@ = 7.2644
+end
+if and
+    7@ == 8
+    46@ == 17
+then
+    47@ = -38.4818
+    48@ = 140.8613
+    49@ = 2.1234
+end
+if and
+    7@ == 8
+    46@ == 18
+then
+    47@ = -114.231
+    48@ = -132.3417
+    49@ = 2.1236
+end
+if and
+    7@ == 8
+    46@ == 19
+then
+    47@ = 22.0727
+    48@ = -207.7681
+    49@ = 0.5827
+end
+if and
+    7@ == 8
+    46@ == 20
+then
+    47@ = 182.497
+    48@ = -217.8004
+    49@ = 0.4216
+end
+if and
+    7@ == 8
+    46@ == 21
+then
+    47@ = 207.4451
+    48@ = -298.923
+    49@ = 0.4375
+end
+if and
+    7@ == 8
+    46@ == 22
+then
+    47@ = 279.6441
+    48@ = -378.3416
+    49@ = 7.9003
+end
+if and
+    7@ == 8
+    46@ == 23
+then
+    47@ = 419.4744
+    48@ = -302.5507
+    49@ = 6.446
+end
+if and
+    7@ == 8
+    46@ == 24
+then
+    47@ = 573.52
+    48@ = -202.8494
+    49@ = 13.7118
+end
+if and
+    7@ == 8
+    46@ == 25
+then
+    47@ = 748.4567
+    48@ = -150.8298
+    49@ = 18.3722
+end
+if and
+    7@ == 8
+    46@ == 26
+then
+    47@ = 820.4231
+    48@ = -111.5991
+    49@ = 23.2476
+end
+if and
+    7@ == 8
+    46@ == 27
+then
+    47@ = 1000.325
+    48@ = -80.3516
+    49@ = 21.0326
+end
+if and
+    7@ == 8
+    46@ == 28
+then
+    47@ = 1187.393
+    48@ = -83.879
+    49@ = 35.2576
+end
+if and
+    7@ == 8
+    46@ == 29
+then
+    47@ = 1265.847
+    48@ = -153.0857
+    49@ = 36.8097
+end
+if and
+    7@ == 8
+    46@ == 30
+then
+    47@ = 1434.738
+    48@ = -214.9645
+    49@ = 7.3527
+end
+if and
+    7@ == 8
+    46@ == 31
+then
+    47@ = 1548.963
+    48@ = -146.2702
+    49@ = 16.4932
+end
+if and
+    7@ == 8
+    46@ == 32
+then
+    47@ = 1559.983
+    48@ = 17.468
+    49@ = 23.1563
+end
+return
