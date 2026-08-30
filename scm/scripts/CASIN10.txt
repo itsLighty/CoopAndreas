@@ -3,6 +3,7 @@
 
 :CASIN10
 script_name 'CASIN10'
+Coop.EnableSyncingThisScript()
 gosub @CASIN10_294
 if 
   has_deatharrest_been_executed 
@@ -10,6 +11,7 @@ goto_if_false @CASIN10_38
 gosub @CASIN10_15190
 
 :CASIN10_38
+gosub @CASIN10_COOP_CLEANUP
 gosub @CASIN10_15491
 terminate_this_script 
 
@@ -44,6 +46,7 @@ return
 :CASIN10_294
 Stat.RegisterMissionGiven
 $onmission = 1
+gosub @CASIN10_COOP_INIT
 36@ = 0
 43@ = 0
 42@ = 0
@@ -257,6 +260,10 @@ if
 goto_if_false @CASIN10_1934
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('CAS11AA', 10000, 1)
+set_lvar_text_label 229@s = 'CAS11AA'
+230@ = 10000
+231@ = 1
+gosub @CASIN10_COOP_PRINT_NOW
 Char.StartFacialTalk($scplayer, 999999)
 Task.PlayAnimNonInterruptable($scplayer, "IDLE_CHAT", "PED", 4.0, True, False, False, False, -1)
 goto @CASIN10_1953
@@ -320,6 +327,10 @@ Char.StopFacialTalk($scplayer)
 Audio.LoadMissionAudio(7202, 1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('CAS11AB', 10000, 1)
+set_lvar_text_label 229@s = 'CAS11AB'
+230@ = 10000
+231@ = 1
+gosub @CASIN10_COOP_PRINT_NOW
 Char.StartFacialTalk($scplayer, 999999)
 
 :CASIN10_2239
@@ -381,6 +392,10 @@ if
 goto_if_false @CASIN10_2593
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('CAS11AC', 10000, 1)
+set_lvar_text_label 229@s = 'CAS11AC'
+230@ = 10000
+231@ = 1
+gosub @CASIN10_COOP_PRINT_NOW
 Char.StartFacialTalk(107@, 999999)
 Task.PlayAnimNonInterruptable(107@, "IDLE_CHAT", "PED", 4.0, True, False, False, False, -1)
 goto @CASIN10_2616
@@ -449,6 +464,10 @@ goto_if_false @CASIN10_2955
 Task.LookAtChar(109@, $scplayer, -2)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('CAS11AD', 10000, 1)
+set_lvar_text_label 229@s = 'CAS11AD'
+230@ = 10000
+231@ = 1
+gosub @CASIN10_COOP_PRINT_NOW
 Char.StartFacialTalk(109@, 999999)
 goto @CASIN10_2997
 
@@ -681,6 +700,8 @@ Game.SetEveryoneIgnorePlayer($player1, False)
 Game.SetPoliceIgnorePlayer($player1, False)
 
 :CASIN10_4237
+204@ = 1
+gosub @CASIN10_COOP_PHASE_CHANGED
 Text.PrintNow('CM10_1', 10000, 1)
 35@ = Blip.AddForCoord(1707.828, 1606.639, 9.055)
 World.ClearArea(0, 1707.828, 1606.639, 9.055, 2.0)
@@ -690,6 +711,12 @@ if
   not Char.LocateAnyMeans3D($scplayer, 0, 1707.828, 1606.639, 9.055, 4.0, 4.0, 3.0)
 goto_if_false @CASIN10_4378
 wait 0
+gosub @CASIN10_COOP_UPDATE
+if
+  202@ == 1
+then
+  goto @CASIN10_15190
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @CASIN10_4371
@@ -705,6 +732,8 @@ World.ClearArea(1, 1479.714, 1758.306, 12.098, 2.0)
 112@ = Car.Create(519, 1479.714, 1758.306, 12.098)
 Car.SetOnlyDamagedByPlayer(112@, True)
 Car.SetHeading(112@, 180.0)
+204@ = 2
+gosub @CASIN10_COOP_PHASE_CHANGED
 34@ = Blip.AddForCar(112@)
 Blip.SetAsFriendly(34@, True)
 
@@ -713,6 +742,12 @@ if
   not Char.IsInCar($scplayer, 112@)
 goto_if_false @CASIN10_4552
 wait 0
+gosub @CASIN10_COOP_UPDATE
+if
+  202@ == 1
+then
+  goto @CASIN10_15190
+end
 if 
   Car.IsDead(112@)
 goto_if_false @CASIN10_4545
@@ -724,6 +759,8 @@ goto @CASIN10_15190
 goto @CASIN10_4478
 
 :CASIN10_4552
+204@ = 3
+gosub @CASIN10_COOP_PHASE_CHANGED
 if 
   not Car.IsDead(112@)
 goto_if_false @CASIN10_4582
@@ -747,6 +784,12 @@ if or
   not Char.IsSittingInCar($scplayer, 112@)
 goto_if_false @CASIN10_4995
 wait 0
+gosub @CASIN10_COOP_UPDATE
+if
+  202@ == 1
+then
+  goto @CASIN10_15190
+end
 if 
   Car.IsDead(112@)
 goto_if_false @CASIN10_4764
@@ -795,6 +838,8 @@ $blob_flag = 0
 goto @CASIN10_4658
 
 :CASIN10_4995
+204@ = 4
+gosub @CASIN10_COOP_BEGIN_CINEMATIC
 Blip.Remove(126@)
 Camera.SetFadingColor(0, 0, 0)
 Camera.DoFade(0, 500)
@@ -1365,6 +1410,10 @@ if
 goto_if_false @CASIN10_8809
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('CAS11DA', 10000, 1)
+set_lvar_text_label 229@s = 'CAS11DA'
+230@ = 10000
+231@ = 1
+gosub @CASIN10_COOP_PRINT_NOW
 Char.StartFacialTalk(73@, 999999)
 Char.ShutUpForScriptedSpeech(73@, True)
 goto @CASIN10_8845
@@ -1416,6 +1465,10 @@ goto_if_false @CASIN10_9015
 :CASIN10_9015
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('CAS11DB', 4000, 1)
+set_lvar_text_label 229@s = 'CAS11DB'
+230@ = 4000
+231@ = 1
+gosub @CASIN10_COOP_PRINT_NOW
 Char.StartFacialTalk($scplayer, 999999)
 Char.ShutUpForScriptedSpeech($scplayer, True)
 Camera.SetFixedPosition(-785.9136, 497.3071, 1375.579, 0.0, 0.0, 0.0)
@@ -1618,6 +1671,8 @@ Player.SetControl($player1, True)
 Game.SetPoliceIgnorePlayer($player1, False)
 Game.SetEveryoneIgnorePlayer($player1, False)
 Char.SetProofs($scplayer, False, False, False, False, False)
+204@ = 5
+gosub @CASIN10_COOP_PHASE_CHANGED
 if 
   not Char.IsDead(73@)
 goto_if_false @CASIN10_10387
@@ -1744,6 +1799,12 @@ if
   152@ <> 19
 goto_if_false @CASIN10_13775
 wait 0
+gosub @CASIN10_COOP_UPDATE
+if
+  202@ == 1
+then
+  goto @CASIN10_15190
+end
 if 
   118@ == 0
 goto_if_false @CASIN10_11020
@@ -2148,6 +2209,8 @@ Blip.Remove(41@)
 goto @CASIN10_10900
 
 :CASIN10_13775
+204@ = 6
+gosub @CASIN10_COOP_BEGIN_CINEMATIC
 wait 3000
 Player.SetControl($player1, False)
 Game.SetEveryoneIgnorePlayer($player1, True)
@@ -2302,6 +2365,8 @@ goto @CASIN10_14491
 Player.SetControl($player1, True)
 Game.SetEveryoneIgnorePlayer($player1, False)
 Game.SetPoliceIgnorePlayer($player1, False)
+204@ = 7
+gosub @CASIN10_COOP_PHASE_CHANGED
 if 
   not Car.IsDead(112@)
 goto_if_false @CASIN10_14576
@@ -2330,6 +2395,12 @@ if or
   not Char.IsInArea3D($scplayer, 0, 1636.319, 1144.478, 7.0, 1261.411, 1780.672, 14.0)
 goto_if_false @CASIN10_15159
 wait 0
+gosub @CASIN10_COOP_UPDATE
+if
+  202@ == 1
+then
+  goto @CASIN10_15190
+end
 if 
   Car.IsDead(112@)
 goto_if_false @CASIN10_14826
@@ -2394,6 +2465,8 @@ Text.ClearPrints
 goto @CASIN10_15339
 
 :CASIN10_15190
+203@ = 2
+gosub @CASIN10_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 if or
   Char.IsInWater($scplayer)
@@ -2420,6 +2493,15 @@ Skip.SetUpAfterMission(2149.609, 1681.117, 9.82, 90.0)
 return 
 
 :CASIN10_15339
+gosub @CASIN10_COOP_UPDATE_ROSTER
+if
+  202@ == 1
+then
+  goto @CASIN10_15190
+end
+203@ = 1
+204@ = 8
+gosub @CASIN10_COOP_NOTIFY_RESULT
 $flag_casino_mission_counter += 1
 Stat.RegisterMissionPassed('CASIN10')
 Stat.PlayerMadeProgress(1)
@@ -3342,6 +3424,7 @@ if
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @CASIN10_20513
 Text.PrintNow($casino10_chat(131@,17s), 4000, 1)
+gosub @CASIN10_COOP_PRINT_CHAT
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 132@ = 2
 
@@ -3413,6 +3496,1220 @@ Char.SetStayInSamePlace(122@, False)
 
 :CASIN10_20830
 return 
+
+// Cooperative Saint Mark's Bistro layer. Canonical travel triggers, enemy-death
+// count, rewards, and story state remain host-owned. Only identities frozen at
+// mission entry are participants; late arrivals remain spectators.
+:CASIN10_COOP_INIT
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+200@ = 0 // immutable participant count
+201@ = 0 // idempotent cleanup guard
+202@ = 0 // deterministic participant-death failure
+203@ = 0 // outcome: 0 active, 1 passed, 2 failed
+204@ = 0 // cooperative phase
+205@ = 0 // previous cooperative phase
+206@ = 0 // next objective refresh
+207@ = 0 // next registration probe
+208@ = 0 // next combat/protection/regroup pass
+209@ = 0 // clock / unused weapon-model output
+210@ = 0 // actor or entity scratch
+211@ = -1 // internal or network id scratch
+212@ = 0 // roster-candidate iterator
+213@ = 0 // a frozen participant reconnected this frame
+214@ = 1 // peers are frozen for a cinematic
+215@ = 0 // one or more entity registrations are degraded
+216@ = 0 // entity registry index
+217@ = 0 // result-notification guard
+218@ = 0 // role briefing guard
+219@ = 0 // boolean scratch
+220@ = 0 // host health before friendly fire
+221@ = 0 // health scratch
+222@ = 0 // nested participant iterator
+223@ = 0 // objective token / boolean scratch
+224@ = 0 // previous connected state
+225@ = -1 // teleport argument zero
+226@ = -1 // teleport argument one
+227@ = -1 // teleport argument two
+230@ = 0 // subtitle duration
+231@ = 0 // subtitle style
+234@ = 0 // next combat retarget
+235@ = 0 // next degraded-combat pulse
+237@ = 0 // host visible area
+238@ = 0 // peer visible area
+239@ = 0 // regroup reason
+414@ = 1 // support-aircraft model requested
+for $temp_int = 0 to 2
+    240@($temp_int,3i) = 0 // current actor for the frozen identity
+    243@($temp_int,3i) = -1 // immutable internal network identity
+    246@($temp_int,3i) = 0 // currently connected participant
+    249@($temp_int,3i) = -1 // last objective token sent
+    252@($temp_int,3i) = 0 // regroup deadline
+    255@($temp_int,3i) = 0 // pre-mission selected weapon
+    258@($temp_int,3i) = 0 // pre-mission role-slot weapon
+    261@($temp_int,3i) = 0 // pre-mission role-slot ammunition
+    264@($temp_int,3i) = 0 // stable role: scout, breacher, enforcer
+    267@($temp_int,3i) = -1 // phase in which temporary loadout was granted
+    270@($temp_int,3i) = 0 // reconnected this frame
+    273@($temp_int,3i) = 0 // inventory snapshot is valid
+    276@($temp_int,3i) = 0 // health before friendly fire
+    set_lvar_int_to_var_int 240@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    if
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        243@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(240@($temp_int,3i))
+        if
+            243@($temp_int,3i) <> -1
+        then
+            246@($temp_int,3i) = 1
+            set_lvar_int_to_var_int 264@($temp_int,3i) = $temp_int
+            264@($temp_int,3i) += 1
+            255@($temp_int,3i) = Char.GetCurrentWeapon(240@($temp_int,3i))
+            if
+                264@($temp_int,3i) == 1
+            then
+                258@($temp_int,3i), 261@($temp_int,3i), 209@ = Char.GetWeaponInSlot(240@($temp_int,3i), WeaponSlot.SMG)
+            end
+            if
+                264@($temp_int,3i) == 2
+            then
+                258@($temp_int,3i), 261@($temp_int,3i), 209@ = Char.GetWeaponInSlot(240@($temp_int,3i), WeaponSlot.Shotguns)
+            end
+            if
+                264@($temp_int,3i) == 3
+            then
+                258@($temp_int,3i), 261@($temp_int,3i), 209@ = Char.GetWeaponInSlot(240@($temp_int,3i), WeaponSlot.Assault)
+            end
+            273@($temp_int,3i) = 1
+            276@($temp_int,3i) = Char.GetHealth(240@($temp_int,3i))
+            200@ += 1
+        end
+    end
+end
+for 216@ = 0 to 18
+    300@(216@,19i) = 0 // registered ped handle
+    319@(216@,19i) = -1 // ped network id
+    338@(216@,19i) = 0 // attempts in the current bounded burst
+    357@(216@,19i) = 0 // next ped retry deadline
+end
+for 216@ = 0 to 7
+    376@(216@,8i) = 0 // registered vehicle handle
+    384@(216@,8i) = -1 // vehicle network id
+    392@(216@,8i) = 0 // attempts in the current bounded burst
+    400@(216@,8i) = 0 // next vehicle retry deadline
+end
+for $temp_int = 0 to 2
+    408@($temp_int,3i) = 0 // role support aircraft
+    411@($temp_int,3i) = -1 // phase in which aircraft was staged
+end
+Streaming.RequestModel(593)
+if
+    not Char.IsDead($scplayer)
+then
+    220@ = Char.GetHealth($scplayer)
+end
+gosub @CASIN10_COOP_FREEZE_REMOTES
+return
+
+// Recollect actor handles and match them against immutable identities. Recycled
+// handles and late joiners cannot inherit a mission role; same-identity
+// reconnects are restaged without blocking host progression.
+:CASIN10_COOP_UPDATE_ROSTER
+420@, 421@, 422@ = Coop.CollectNetworkPlayersForTheMission()
+213@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 224@ = 246@($temp_int,3i)
+    if and
+        224@ == 1
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        211@ = Coop.GetNetworkPlayerInternalId(240@($temp_int,3i))
+        if and
+            is_int_lvar_equal_to_int_lvar 211@ == 243@($temp_int,3i)
+            Char.IsDead(240@($temp_int,3i))
+        then
+            202@ = 1
+            203@ = 2
+        end
+    end
+    246@($temp_int,3i) = 0
+    270@($temp_int,3i) = 0
+    if
+        243@($temp_int,3i) <> -1
+    then
+        for 212@ = 0 to 2
+            set_lvar_int_to_lvar_int 210@ = 420@(212@,3i)
+            if
+                Coop.IsNetworkPlayerActorValid(210@)
+            then
+                211@ = Coop.GetNetworkPlayerInternalId(210@)
+                if
+                    is_int_lvar_equal_to_int_lvar 211@ == 243@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 240@($temp_int,3i) = 210@
+                    246@($temp_int,3i) = 1
+                end
+            end
+        end
+        if
+            246@($temp_int,3i) == 1
+        then
+            if
+                224@ == 0
+            then
+                213@ = 1
+                270@($temp_int,3i) = 1
+                249@($temp_int,3i) = -1
+                252@($temp_int,3i) = 0
+                if
+                    204@ == 5
+                then
+                    267@($temp_int,3i) = -1
+                end
+                if
+                    214@ == 1
+                then
+                    gosub @CASIN10_COOP_TELEPORT_CURRENT
+                    if
+                        Char.IsInAnyCar(240@($temp_int,3i))
+                    then
+                        430@, 431@, 432@ = Char.GetCoordinates($scplayer)
+                        Char.WarpFromCarToCoord(240@($temp_int,3i), 430@, 431@, 432@)
+                    end
+                    Char.ClearTasksImmediately(240@($temp_int,3i))
+                    Char.FreezePosition(240@($temp_int,3i), True)
+                    Char.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+                    Char.SetCollision(240@($temp_int,3i), False)
+                    Char.SetVisible(240@($temp_int,3i), False)
+                    Task.StandStill(240@($temp_int,3i), -1)
+                end
+            end
+            if
+                Char.IsDead(240@($temp_int,3i))
+            then
+                202@ = 1
+                203@ = 2
+            end
+        end
+    end
+end
+return
+
+:CASIN10_COOP_BUILD_ACTIVE_ARGS
+225@ = -1
+226@ = -1
+227@ = -1
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 225@($temp_int,3i) = 240@($temp_int,3i)
+    end
+end
+return
+
+:CASIN10_COOP_TELEPORT_ACTIVE
+if
+    200@ == 0
+then
+    return
+end
+gosub @CASIN10_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(225@, 226@, 227@)
+return
+
+:CASIN10_COOP_TELEPORT_CURRENT
+225@ = -1
+226@ = -1
+227@ = -1
+set_lvar_int_to_lvar_int 225@($temp_int,3i) = 240@($temp_int,3i)
+Coop.TeleportPlayersToHostSafely(225@, 226@, 227@)
+return
+
+:CASIN10_COOP_FREEZE_REMOTES
+gosub @CASIN10_COOP_UPDATE_ROSTER
+gosub @CASIN10_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        if
+            Char.IsInAnyCar(240@($temp_int,3i))
+        then
+            430@, 431@, 432@ = Char.GetCoordinates($scplayer)
+            Char.WarpFromCarToCoord(240@($temp_int,3i), 430@, 431@, 432@)
+        end
+        Char.ClearTasksImmediately(240@($temp_int,3i))
+        Char.FreezePosition(240@($temp_int,3i), True)
+        Char.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(240@($temp_int,3i), False)
+        Char.SetVisible(240@($temp_int,3i), False)
+        Task.StandStill(240@($temp_int,3i), -1)
+    end
+end
+214@ = 1
+return
+
+:CASIN10_COOP_BEGIN_CINEMATIC
+if
+    200@ == 0
+then
+    return
+end
+gosub @CASIN10_COOP_CLEAR_OBJECTIVES
+gosub @CASIN10_COOP_FREEZE_REMOTES
+set_lvar_int_to_lvar_int 205@ = 204@
+return
+
+:CASIN10_COOP_APPLY_LOADOUT
+if or
+    246@($temp_int,3i) <> 1
+    204@ <> 5
+then
+    return
+end
+if
+    is_int_lvar_equal_to_int_lvar 267@($temp_int,3i) == 204@
+then
+    return
+end
+if
+    264@($temp_int,3i) == 1
+then
+    Char.GiveWeapon(240@($temp_int,3i), WeaponType.MicroUzi, 360)
+    Char.SetCurrentWeapon(240@($temp_int,3i), WeaponType.MicroUzi)
+end
+if
+    264@($temp_int,3i) == 2
+then
+    Char.GiveWeapon(240@($temp_int,3i), WeaponType.Shotgun, 72)
+    Char.SetCurrentWeapon(240@($temp_int,3i), WeaponType.Shotgun)
+end
+if
+    264@($temp_int,3i) == 3
+then
+    Char.GiveWeapon(240@($temp_int,3i), WeaponType.Ak47, 360)
+    Char.SetCurrentWeapon(240@($temp_int,3i), WeaponType.Ak47)
+end
+set_lvar_int_to_lvar_int 267@($temp_int,3i) = 204@
+return
+
+:CASIN10_COOP_STAGE_CURRENT
+if
+    246@($temp_int,3i) <> 1
+then
+    return
+end
+if
+    Char.IsDead(240@($temp_int,3i))
+then
+    202@ = 1
+    203@ = 2
+    return
+end
+gosub @CASIN10_COOP_TELEPORT_CURRENT
+237@ = Char.GetAreaVisible($scplayer)
+Char.ClearTasksImmediately(240@($temp_int,3i))
+Char.FreezePosition(240@($temp_int,3i), False)
+Char.SetProofs(240@($temp_int,3i), False, False, False, False, False)
+Char.SetCollision(240@($temp_int,3i), True)
+Char.SetVisible(240@($temp_int,3i), True)
+Char.SetAreaVisible(240@($temp_int,3i), 237@)
+Task.StandStill(240@($temp_int,3i), 0)
+if or
+    204@ == 2
+    204@ == 3
+    204@ == 7
+then
+    gosub @CASIN10_COOP_ENSURE_SUPPORT_AIRCRAFT
+end
+if or
+    204@ == 3
+    204@ == 7
+then
+    if or
+        not Car.DoesExist(408@($temp_int,3i))
+        Car.IsDead(408@($temp_int,3i))
+    then
+        if and
+            Car.DoesExist(112@)
+            not Car.IsDead(112@)
+        then
+            Char.WarpIntoCarAsPassenger(240@($temp_int,3i), 112@, $temp_int)
+        end
+    end
+end
+gosub @CASIN10_COOP_APPLY_LOADOUT
+276@($temp_int,3i) = Char.GetHealth(240@($temp_int,3i))
+252@($temp_int,3i) = 0
+249@($temp_int,3i) = -1
+return
+
+:CASIN10_COOP_STAGE_ACTIVE
+if
+    200@ == 0
+then
+    return
+end
+gosub @CASIN10_COOP_UPDATE_ROSTER
+gosub @CASIN10_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        gosub @CASIN10_COOP_STAGE_CURRENT
+    end
+end
+if and
+    204@ == 5
+    not Char.IsDead($scplayer)
+then
+    220@ = Char.GetHealth($scplayer)
+end
+214@ = 0
+if and
+    218@ == 0
+    200@ > 0
+then
+    Coop.AddChatMessage("{00ff00}[Saint Mark's Bistro]{ffffff} Wing pilots escort CJ; inside, Scout marks threats, Breacher clears stairs, Enforcer covers the escape.")
+    218@ = 1
+end
+gosub @CASIN10_COOP_REFRESH_OBJECTIVES
+return
+
+:CASIN10_COOP_PHASE_CHANGED
+gosub @CASIN10_COOP_CLEAR_OBJECTIVES
+if or
+    204@ == 1
+    204@ == 2
+    204@ == 3
+    204@ == 5
+    204@ == 7
+then
+    gosub @CASIN10_COOP_STAGE_ACTIVE
+end
+set_lvar_int_to_lvar_int 205@ = 204@
+return
+
+// Each connected role gets a small escort aircraft for the outbound and escape
+// flights. Model streaming is non-blocking; unavailable aircraft degrade to a
+// seat in CJ's canonical mission plane.
+:CASIN10_COOP_ENSURE_SUPPORT_AIRCRAFT
+if or
+    246@($temp_int,3i) <> 1
+    2 > 204@
+    7 < 204@
+    204@ == 4
+    204@ == 5
+    204@ == 6
+then
+    return
+end
+if
+    not Streaming.HasModelLoaded(593)
+then
+    Streaming.RequestModel(593)
+    return
+end
+if
+    not is_int_lvar_equal_to_int_lvar 411@($temp_int,3i) == 204@
+then
+    430@, 431@, 432@ = Char.GetCoordinates($scplayer)
+    if
+        $temp_int == 0
+    then
+        430@ += 14.0
+    end
+    if
+        $temp_int == 1
+    then
+        430@ += 28.0
+    end
+    if
+        $temp_int == 2
+    then
+        430@ += 42.0
+    end
+    if or
+        not Car.DoesExist(408@($temp_int,3i))
+        Car.IsDead(408@($temp_int,3i))
+    then
+        if
+            Car.DoesExist(408@($temp_int,3i))
+        then
+            Car.MarkAsNoLongerNeeded(408@($temp_int,3i))
+        end
+        408@($temp_int,3i) = Car.Create(593, 430@, 431@, 432@)
+        Car.SetCanBurstTires(408@($temp_int,3i), False)
+        Car.LockDoors(408@($temp_int,3i), CarLock.Unlocked)
+    else
+        Car.SetCoordinates(408@($temp_int,3i), 430@, 431@, 432@)
+    end
+    if
+        204@ == 7
+    then
+        Car.SetHeading(408@($temp_int,3i), 110.0)
+        Plane.StartsInAir(408@($temp_int,3i))
+        Car.SetForwardSpeed(408@($temp_int,3i), 30.0)
+    else
+        Car.SetHeading(408@($temp_int,3i), 180.0)
+    end
+    Char.WarpIntoCar(240@($temp_int,3i), 408@($temp_int,3i))
+    set_lvar_int_to_lvar_int 411@($temp_int,3i) = 204@
+end
+set_lvar_int_to_var_int 216@ = $temp_int
+216@ += 5
+set_lvar_int_to_lvar_int 210@ = 408@($temp_int,3i)
+gosub @CASIN10_COOP_REGISTER_VEHICLE
+return
+
+// Each registration performs at most eight non-blocking probes, followed by a
+// five-second degraded interval. No network-id handshake can stall the story.
+:CASIN10_COOP_REGISTER_PED
+if
+    not is_int_lvar_equal_to_int_lvar 300@(216@,19i) == 210@
+then
+    set_lvar_int_to_lvar_int 300@(216@,19i) = 210@
+    319@(216@,19i) = -1
+    338@(216@,19i) = 0
+    357@(216@,19i) = 0
+end
+if or
+    210@ == 0
+    not Char.DoesExist(210@)
+then
+    319@(216@,19i) = -1
+    338@(216@,19i) = 0
+    return
+end
+if
+    Char.IsDead(210@)
+then
+    return
+end
+if and
+    319@(216@,19i) == -1
+    is_int_lvar_greater_or_equal_to_int_lvar 209@ >= 357@(216@,19i)
+then
+    319@(216@,19i) = Coop.GetPedNetworkId(210@)
+    338@(216@,19i) += 1
+    if
+        319@(216@,19i) == -1
+    then
+        215@ = 1
+        if
+            338@(216@,19i) >= 8
+        then
+            338@(216@,19i) = 0
+            set_lvar_int_to_lvar_int 357@(216@,19i) = 209@
+            357@(216@,19i) += 5000
+        end
+    else
+        338@(216@,19i) = 0
+        Coop.PedTakeHost(210@, True)
+    end
+end
+return
+
+:CASIN10_COOP_REGISTER_VEHICLE
+if
+    not is_int_lvar_equal_to_int_lvar 376@(216@,8i) == 210@
+then
+    set_lvar_int_to_lvar_int 376@(216@,8i) = 210@
+    384@(216@,8i) = -1
+    392@(216@,8i) = 0
+    400@(216@,8i) = 0
+end
+if or
+    210@ == 0
+    not Car.DoesExist(210@)
+then
+    384@(216@,8i) = -1
+    392@(216@,8i) = 0
+    return
+end
+if
+    Car.IsDead(210@)
+then
+    return
+end
+if and
+    384@(216@,8i) == -1
+    is_int_lvar_greater_or_equal_to_int_lvar 209@ >= 400@(216@,8i)
+then
+    384@(216@,8i) = Coop.GetVehicleNetworkId(210@)
+    392@(216@,8i) += 1
+    if
+        384@(216@,8i) == -1
+    then
+        215@ = 1
+        if
+            392@(216@,8i) >= 8
+        then
+            392@(216@,8i) = 0
+            set_lvar_int_to_lvar_int 400@(216@,8i) = 209@
+            400@(216@,8i) += 5000
+        end
+    else
+        392@(216@,8i) = 0
+    end
+end
+return
+
+:CASIN10_COOP_POLL_REGISTRATIONS
+215@ = 0
+216@ = 0
+set_lvar_int_to_lvar_int 210@ = 40@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 1
+set_lvar_int_to_lvar_int 210@ = 47@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 2
+set_lvar_int_to_lvar_int 210@ = 50@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 3
+set_lvar_int_to_lvar_int 210@ = 53@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 4
+set_lvar_int_to_lvar_int 210@ = 56@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 5
+set_lvar_int_to_lvar_int 210@ = 59@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 6
+set_lvar_int_to_lvar_int 210@ = 62@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 7
+set_lvar_int_to_lvar_int 210@ = 65@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 8
+set_lvar_int_to_lvar_int 210@ = 69@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 9
+set_lvar_int_to_lvar_int 210@ = 73@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 10
+set_lvar_int_to_lvar_int 210@ = 77@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 11
+set_lvar_int_to_lvar_int 210@ = 81@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 12
+set_lvar_int_to_lvar_int 210@ = 84@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 13
+set_lvar_int_to_lvar_int 210@ = 87@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 14
+set_lvar_int_to_lvar_int 210@ = 90@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 15
+set_lvar_int_to_lvar_int 210@ = 93@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 16
+set_lvar_int_to_lvar_int 210@ = 120@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 17
+set_lvar_int_to_lvar_int 210@ = 121@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 18
+set_lvar_int_to_lvar_int 210@ = 122@
+gosub @CASIN10_COOP_REGISTER_PED
+216@ = 0
+set_lvar_int_to_lvar_int 210@ = 112@
+gosub @CASIN10_COOP_REGISTER_VEHICLE
+216@ = 1
+set_lvar_int_to_lvar_int 210@ = 111@
+gosub @CASIN10_COOP_REGISTER_VEHICLE
+216@ = 2
+set_lvar_int_to_lvar_int 210@ = 161@
+gosub @CASIN10_COOP_REGISTER_VEHICLE
+216@ = 3
+set_lvar_int_to_lvar_int 210@ = 163@
+gosub @CASIN10_COOP_REGISTER_VEHICLE
+216@ = 4
+set_lvar_int_to_lvar_int 210@ = 123@
+gosub @CASIN10_COOP_REGISTER_VEHICLE
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 216@ = $temp_int
+    216@ += 5
+    set_lvar_int_to_lvar_int 210@ = 408@($temp_int,3i)
+    gosub @CASIN10_COOP_REGISTER_VEHICLE
+end
+return
+
+:CASIN10_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(240@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_1', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_10', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_18', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_2', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_19', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('IN_VEH', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_11', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_12', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_13', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_14', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CM10_17', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAS11AA', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAS11AB', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAS11AC', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAS11AD', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAS11DA', 240@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAS11DB', 240@($temp_int,3i))
+    end
+    249@($temp_int,3i) = -1
+end
+return
+
+// Inputs: 210@ ped and 216@ registry index.
+:CASIN10_COOP_OBJECTIVE_PED
+if and
+    is_int_lvar_equal_to_int_lvar 300@(216@,19i) == 210@
+    319@(216@,19i) <> -1
+    Char.DoesExist(210@)
+    not Char.IsDead(210@)
+then
+    Coop.UpdateCharBlipForNetworkPlayer(240@($temp_int,3i), 210@, False, BlipDisplay.Both, BlipColor.Red, 3)
+end
+return
+
+// Inputs: 210@ vehicle and 216@ registry index.
+:CASIN10_COOP_OBJECTIVE_CAR
+if and
+    is_int_lvar_equal_to_int_lvar 376@(216@,8i) == 210@
+    384@(216@,8i) <> -1
+    Car.DoesExist(210@)
+    not Car.IsDead(210@)
+then
+    Coop.UpdateCarBlipForNetworkPlayer(240@($temp_int,3i), 210@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+end
+return
+
+:CASIN10_COOP_REFRESH_OBJECTIVES
+if or
+    214@ == 1
+    203@ > 0
+then
+    return
+end
+set_lvar_int_to_lvar_int 223@ = 204@
+223@ *= 10
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(240@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(240@($temp_int,3i))
+        430@ = 1707.828
+        431@ = 1606.639
+        432@ = 9.055
+        if
+            204@ == 2
+        then
+            430@ = 1479.714
+            431@ = 1758.306
+            432@ = 12.098
+        end
+        if
+            204@ == 3
+        then
+            430@ = 7500.0
+            431@ = 2478.34
+            432@ = 200.0
+        end
+        if
+            204@ == 5
+        then
+            430@ = -788.0
+            431@ = 499.0
+            432@ = 1371.0
+        end
+        if
+            204@ == 7
+        then
+            430@ = 1477.225
+            431@ = 1640.364
+            432@ = 9.86
+        end
+        Coop.UpdateCheckpointForNetworkPlayer(430@, 431@, 432@, 10.0, 10.0, 8.0, 240@($temp_int,3i))
+        if
+            not is_int_lvar_equal_to_int_lvar 249@($temp_int,3i) == 223@
+        then
+            if
+                204@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CM10_1', 7000, 1, 240@($temp_int,3i))
+            end
+            if
+                204@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('CM10_10', 7000, 1, 240@($temp_int,3i))
+            end
+            if
+                204@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('CM10_18', 7000, 1, 240@($temp_int,3i))
+            end
+            if
+                204@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('CM10_2', 7000, 1, 240@($temp_int,3i))
+            end
+            if
+                204@ == 7
+            then
+                Coop.PrintNowForNetworkPlayer('CM10_19', 7000, 1, 240@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 249@($temp_int,3i) = 223@
+        end
+        if or
+            204@ == 2
+            204@ == 3
+            204@ == 7
+        then
+            216@ = 0
+            set_lvar_int_to_lvar_int 210@ = 112@
+            gosub @CASIN10_COOP_OBJECTIVE_CAR
+            if and
+                Car.DoesExist(408@($temp_int,3i))
+                not Car.IsDead(408@($temp_int,3i))
+            then
+                set_lvar_int_to_var_int 216@ = $temp_int
+                216@ += 5
+                set_lvar_int_to_lvar_int 210@ = 408@($temp_int,3i)
+                gosub @CASIN10_COOP_OBJECTIVE_CAR
+            end
+        end
+        if
+            204@ == 5
+        then
+            for 216@ = 0 to 18
+                set_lvar_int_to_lvar_int 210@ = 300@(216@,19i)
+                gosub @CASIN10_COOP_OBJECTIVE_PED
+            end
+        end
+    end
+end
+return
+
+:CASIN10_COOP_PRINT_NOW
+gosub @CASIN10_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer(229@s, 230@, 231@, 240@($temp_int,3i))
+    end
+end
+return
+
+:CASIN10_COOP_PRINT_CHAT
+gosub @CASIN10_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer($casino10_chat(131@,17s), 4000, 1, 240@($temp_int,3i))
+    end
+end
+return
+
+// Friendly fire against CJ or another frozen participant is rolled back while
+// enemy and world damage remains authoritative.
+:CASIN10_COOP_PROTECT_FRIENDLIES
+if
+    204@ <> 5
+then
+    return
+end
+if
+    not Char.IsDead($scplayer)
+then
+    221@ = Char.GetHealth($scplayer)
+    223@ = 0
+    for $temp_int = 0 to 2
+        if and
+            246@($temp_int,3i) == 1
+            Char.HasBeenDamagedByChar($scplayer, 240@($temp_int,3i))
+        then
+            Char.ClearLastDamageEntity($scplayer)
+            223@ = 1
+        end
+    end
+    if and
+        223@ == 1
+        220@ > 0
+    then
+        Char.SetHealth($scplayer, 220@)
+    else
+        set_lvar_int_to_lvar_int 220@ = 221@
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        221@ = Char.GetHealth(240@($temp_int,3i))
+        223@ = 0
+        if
+            Char.HasBeenDamagedByChar(240@($temp_int,3i), $scplayer)
+        then
+            Char.ClearLastDamageEntity(240@($temp_int,3i))
+            223@ = 1
+        end
+        for 222@ = 0 to 2
+            if and
+                not is_int_lvar_equal_to_int_var 222@ == $temp_int
+                246@(222@,3i) == 1
+                Char.HasBeenDamagedByChar(240@($temp_int,3i), 240@(222@,3i))
+            then
+                Char.ClearLastDamageEntity(240@($temp_int,3i))
+                223@ = 1
+            end
+        end
+        if and
+            223@ == 1
+            276@($temp_int,3i) > 0
+        then
+            Char.SetHealth(240@($temp_int,3i), 276@($temp_int,3i))
+        else
+            set_lvar_int_to_lvar_int 276@($temp_int,3i) = 221@
+        end
+    end
+end
+return
+
+// Mission enemies prefer nearby peer threats once the assault starts, giving
+// every role real combat pressure without replacing stock death progression.
+:CASIN10_COOP_RETARGET_COMBAT
+if or
+    204@ <> 5
+    is_int_lvar_greater_than_int_lvar 234@ > 209@
+then
+    return
+end
+for 216@ = 0 to 18
+    set_lvar_int_to_lvar_int 210@ = 300@(216@,19i)
+    if and
+        Char.DoesExist(210@)
+        not Char.IsDead(210@)
+    then
+        for $temp_int = 0 to 2
+            if and
+                246@($temp_int,3i) == 1
+                not Char.IsDead(240@($temp_int,3i))
+            then
+                if or
+                    Char.HasBeenDamagedByChar(210@, 240@($temp_int,3i))
+                    Char.LocateAnyMeansChar3D(240@($temp_int,3i), 210@, 8.0, 8.0, 5.0, False)
+                then
+                    Task.KillCharOnFoot(210@, 240@($temp_int,3i))
+                    break
+                end
+            end
+        end
+    end
+end
+set_lvar_int_to_lvar_int 234@ = 209@
+234@ += 750
+return
+
+// If a ped never receives a network id, close-range peer fire applies a small
+// host-side damage pulse. Coordinate objectives remain available in this mode.
+:CASIN10_COOP_DEGRADED_COMBAT
+if or
+    204@ <> 5
+    is_int_lvar_greater_than_int_lvar 235@ > 209@
+then
+    return
+end
+for 216@ = 0 to 18
+    set_lvar_int_to_lvar_int 210@ = 300@(216@,19i)
+    if and
+        319@(216@,19i) == -1
+        Char.DoesExist(210@)
+        not Char.IsDead(210@)
+    then
+        433@, 434@, 435@ = Char.GetCoordinates(210@)
+        for $temp_int = 0 to 2
+            if and
+                246@($temp_int,3i) == 1
+                not Char.IsDead(240@($temp_int,3i))
+                Char.IsShooting(240@($temp_int,3i))
+                Char.LocateAnyMeansChar3D(240@($temp_int,3i), 210@, 18.0, 18.0, 8.0, False)
+            then
+                430@, 431@, 432@ = Char.GetCoordinates(240@($temp_int,3i))
+                if
+                    World.IsLineOfSightClear(430@, 431@, 432@, 433@, 434@, 435@, True, False, False, False, False)
+                then
+                    221@ = Char.GetHealth(210@)
+                    221@ -= 18
+                    if
+                        1 > 221@
+                    then
+                        221@ = 0
+                    end
+                    Char.SetHealth(210@, 221@)
+                    break
+                end
+            end
+        end
+    end
+end
+set_lvar_int_to_lvar_int 235@ = 209@
+235@ += 500
+return
+
+// Same-identity reconnects are immediate. Wrong interiors recover after 1.5
+// seconds, abandoned mission aircraft after three seconds, and stragglers after
+// ten seconds. Disconnected identities never block host progression.
+:CASIN10_COOP_UPDATE_REGROUP
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        if
+            270@($temp_int,3i) == 1
+        then
+            gosub @CASIN10_COOP_STAGE_CURRENT
+        else
+            239@ = 0
+            237@ = Char.GetAreaVisible($scplayer)
+            238@ = Char.GetAreaVisible(240@($temp_int,3i))
+            if
+                not is_int_lvar_equal_to_int_lvar 238@ == 237@
+            then
+                239@ = 2
+            else
+                if or
+                    204@ == 3
+                    204@ == 7
+                then
+                    219@ = 0
+                    if and
+                        Car.DoesExist(112@)
+                        Char.IsInCar(240@($temp_int,3i), 112@)
+                    then
+                        219@ = 1
+                    end
+                    if and
+                        Car.DoesExist(408@($temp_int,3i))
+                        Char.IsInCar(240@($temp_int,3i), 408@($temp_int,3i))
+                    then
+                        219@ = 1
+                    end
+                    if
+                        219@ == 0
+                    then
+                        239@ = 3
+                    end
+                end
+                if and
+                    239@ == 0
+                    not Char.LocateAnyMeansChar3D(240@($temp_int,3i), $scplayer, 175.0, 175.0, 80.0, False)
+                then
+                    239@ = 1
+                end
+            end
+            if
+                239@ > 0
+            then
+                if
+                    252@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 252@($temp_int,3i) = 209@
+                    if
+                        239@ == 2
+                    then
+                        252@($temp_int,3i) += 1500
+                    end
+                    if
+                        239@ == 3
+                    then
+                        252@($temp_int,3i) += 3000
+                    end
+                    if
+                        239@ == 1
+                    then
+                        252@($temp_int,3i) += 10000
+                    end
+                else
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 209@ >= 252@($temp_int,3i)
+                    then
+                        gosub @CASIN10_COOP_STAGE_CURRENT
+                    end
+                end
+            else
+                252@($temp_int,3i) = 0
+            end
+        end
+    else
+        252@($temp_int,3i) = 0
+    end
+end
+return
+
+:CASIN10_COOP_UPDATE
+if
+    201@ == 1
+then
+    return
+end
+if
+    214@ == 0
+then
+    gosub @CASIN10_COOP_PROTECT_FRIENDLIES
+end
+gosub @CASIN10_COOP_UPDATE_ROSTER
+if
+    202@ == 1
+then
+    return
+end
+209@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 209@ >= 207@
+then
+    gosub @CASIN10_COOP_POLL_REGISTRATIONS
+    set_lvar_int_to_lvar_int 207@ = 209@
+    207@ += 250
+end
+if and
+    214@ == 0
+    204@ > 0
+    8 > 204@
+then
+    if
+        is_int_lvar_greater_or_equal_to_int_lvar 209@ >= 206@
+    then
+        gosub @CASIN10_COOP_REFRESH_OBJECTIVES
+        set_lvar_int_to_lvar_int 206@ = 209@
+        206@ += 2500
+    end
+    if
+        is_int_lvar_greater_or_equal_to_int_lvar 209@ >= 208@
+    then
+        gosub @CASIN10_COOP_PROTECT_FRIENDLIES
+        gosub @CASIN10_COOP_RETARGET_COMBAT
+        gosub @CASIN10_COOP_DEGRADED_COMBAT
+        gosub @CASIN10_COOP_UPDATE_REGROUP
+        set_lvar_int_to_lvar_int 208@ = 209@
+        208@ += 250
+    end
+end
+return
+
+:CASIN10_COOP_NOTIFY_RESULT
+if or
+    203@ == 0
+    is_int_lvar_equal_to_int_lvar 217@ == 203@
+then
+    return
+end
+gosub @CASIN10_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        246@($temp_int,3i) == 1
+    then
+        if
+            203@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 240@($temp_int,3i))
+        end
+        if
+            203@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 240@($temp_int,3i))
+        end
+    end
+end
+set_lvar_int_to_lvar_int 217@ = 203@
+return
+
+:CASIN10_COOP_CLEANUP
+if
+    201@ == 1
+then
+    return
+end
+201@ = 1
+gosub @CASIN10_COOP_UPDATE_ROSTER
+gosub @CASIN10_COOP_CLEAR_OBJECTIVES
+gosub @CASIN10_COOP_TELEPORT_ACTIVE
+237@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(240@($temp_int,3i))
+        Char.FreezePosition(240@($temp_int,3i), False)
+        Char.SetProofs(240@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(240@($temp_int,3i), True)
+        Char.SetVisible(240@($temp_int,3i), True)
+        Char.SetAreaVisible(240@($temp_int,3i), 237@)
+        if
+            267@($temp_int,3i) <> -1
+        then
+            if
+                264@($temp_int,3i) == 1
+            then
+                Char.RemoveWeapon(28, 240@($temp_int,3i))
+            end
+            if
+                264@($temp_int,3i) == 2
+            then
+                Char.RemoveWeapon(25, 240@($temp_int,3i))
+            end
+            if
+                264@($temp_int,3i) == 3
+            then
+                Char.RemoveWeapon(30, 240@($temp_int,3i))
+            end
+            if and
+                273@($temp_int,3i) == 1
+                258@($temp_int,3i) > 0
+                261@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(240@($temp_int,3i), 258@($temp_int,3i), 261@($temp_int,3i))
+            end
+            if and
+                273@($temp_int,3i) == 1
+                255@($temp_int,3i) >= 0
+            then
+                Char.SetCurrentWeapon(240@($temp_int,3i), 255@($temp_int,3i))
+            end
+        end
+        Task.StandStill(240@($temp_int,3i), 0)
+    end
+    if
+        Car.DoesExist(408@($temp_int,3i))
+    then
+        Car.SetCanBurstTires(408@($temp_int,3i), True)
+        Car.LockDoors(408@($temp_int,3i), CarLock.Unlocked)
+        Car.MarkAsNoLongerNeeded(408@($temp_int,3i))
+    end
+    408@($temp_int,3i) = 0
+    411@($temp_int,3i) = -1
+    240@($temp_int,3i) = 0
+    243@($temp_int,3i) = -1
+    246@($temp_int,3i) = 0
+    249@($temp_int,3i) = -1
+    252@($temp_int,3i) = 0
+    267@($temp_int,3i) = -1
+    270@($temp_int,3i) = 0
+end
+Streaming.MarkModelAsNoLongerNeeded(593)
+214@ = 0
+return
 
 //-------------Mission 93---------------
 // Originally: Misappropriation
