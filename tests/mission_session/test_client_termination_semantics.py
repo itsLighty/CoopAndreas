@@ -29,10 +29,45 @@ class ClientTerminationSemanticsTests(unittest.TestCase):
             "m_ObservedScmMissionResult != eMissionSessionResult::NONE",
             self.session,
         )
+        build = re.search(
+            r"void BuildAndSendOpcode\(\)\s*\{(.*?)\n\}", self.opcodes, re.S
+        ).group(1)
         self.assertLess(
-            self.opcodes.index("if (!COpCodeSync::IsOpcodeSyncable"),
-            self.opcodes.index("Observe only host opcodes"),
+            build.index("ObserveMissionResultFromSynchronizedOpcode()"),
+            build.index("if (!COpCodeSync::IsOpcodeSyncable"),
         )
+        self.assertRegex(
+            build,
+            r"(?s)if \(ObserveMissionResultFromSynchronizedOpcode\(\)\).*?"
+            r"ResetCollectedOpcodeParameters\(\);\s*return;",
+        )
+        observer = re.search(
+            r"bool ObserveMissionResultFromSynchronizedOpcode\(\)\s*\{(.*?)\n\}",
+            self.opcodes,
+            re.S,
+        ).group(1)
+        self.assertIn("IsCurrentOpcodeFromSynchronizedMission()", observer)
+        self.assertIn("COMMAND_REGISTER_MISSION_PASSED", observer)
+        self.assertIn("IsMissionResultTextOpcode", observer)
+        self.assertNotIn("IsOpcodeSyncable", observer)
+        registered_script = re.search(
+            r"bool IsRegisteredSynchronizedScript\(.*?\)\s*\{(.*?)\n\}",
+            self.opcodes,
+            re.S,
+        ).group(1)
+        self.assertIn("ms_aszSyncedScripts", registered_script)
+        self.assertIn("strnicmp", registered_script)
+        collector = re.search(
+            r"void CollectTextParameters\(\)\s*\{(.*?)\n\}", self.opcodes, re.S
+        ).group(1)
+        self.assertIn("IsMissionResultTextOpcode", collector)
+        self.assertIn("IsCurrentOpcodeFromSynchronizedMission", collector)
+        whitelist = re.search(
+            r"const SSyncedOpCode syncedOpcodes\[\]\s*=\s*\{(.*?)\n\};",
+            self.opcodes,
+            re.S,
+        ).group(1)
+        self.assertNotIn("0x0318", whitelist)
         self.assertIn("script->m_bIsMission", self.styled_text)
 
     def test_cleanup_cancels_and_untags_all_deferred_media(self):

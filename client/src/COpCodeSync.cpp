@@ -44,10 +44,9 @@
 const SSyncedOpCode syncedOpcodes[] =
 {
     // Messages 
-    {0x00BA}, // print_big {key} [gxt_key] {time} [int] {style} [TextStyle]
+    {0x00BA}, // non-result print_big messages; mission result labels are consumed locally before broadcast
     {0x00BE}, // clear_prints
-    {0x01E3}, // print_with_number_big {key} [gxt_key] {num} [int] {duration} [int] {style}[TextStyle]
-    {0x0318}, // register_mission_passed {key} [gxt_key]
+    {0x01E3}, // non-result print_with_number_big messages; result labels are consumed locally before broadcast
     {0x03E5}, // print_help {key} [gxt_key]
     {0x054C}, // load_mission_text {tableName} [string]
     {0x0998}, // award_player_mission_respect {value} [int]
@@ -170,6 +169,42 @@ static uint16_t textParamCount = 0;
 static uint32_t lastOpCodeProcessed;
 static CRunningScript* lastProcessedScript;
 
+bool IsRegisteredSynchronizedScript(const CRunningScript* script)
+{
+    if (script == nullptr)
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < COpCodeSync::ms_iFreeSyncedScript; ++i)
+    {
+        if (strnicmp(COpCodeSync::ms_aszSyncedScripts[i], script->m_szName, 7) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool IsMissionResultTextOpcode(uint32_t opcode)
+{
+    return opcode == COMMAND_PRINT_BIG || opcode == COMMAND_PRINT_WITH_NUMBER_BIG;
+}
+
+bool IsCurrentOpcodeFromSynchronizedMission()
+{
+    return CLocalPlayer::m_bIsHost && COpCodeSync::ms_bSyncingEnabled && lastProcessedScript != nullptr &&
+           lastProcessedScript->m_bIsMission && IsRegisteredSynchronizedScript(lastProcessedScript);
+}
+
+void ResetCollectedOpcodeParameters()
+{
+    memset(textParamBuffer, 0, sizeof textParamBuffer);
+    memset(textLengthBuffer, 0, sizeof textLengthBuffer);
+    scriptParamCount = 0;
+    textParamCount = 0;
+}
+
 static uint8_t currentStringIdx = 0;
 
 static uint16_t argCount = 0;
@@ -193,19 +228,7 @@ void __fastcall CRunningScript__ReadTextLabelFromScript_Hook_SwitchParametersCon
 /// <param name="opcodeIdx">syncedOpcodes index</param>
 bool COpCodeSync::IsOpcodeSyncable(int opcode, int* opcodeIdx, bool ignoreOpCodeSync)
 {
-    bool bScriptSynced = false;
-
-    if (lastProcessedScript)
-    {
-        for (size_t i = 0; i < ms_iFreeSyncedScript; ++i)
-        {
-            if (strnicmp(ms_aszSyncedScripts[i], lastProcessedScript->m_szName, 7) == 0)
-            {
-                bScriptSynced = true;
-                break;
-            }
-        }
-    }
+    const bool bScriptSynced = IsRegisteredSynchronizedScript(lastProcessedScript);
 
     if (((CLocalPlayer::m_bIsHost && ms_bSyncingEnabled) && bScriptSynced)
         || ignoreOpCodeSync
@@ -225,6 +248,37 @@ bool COpCodeSync::IsOpcodeSyncable(int opcode, int* opcodeIdx, bool ignoreOpCode
         }
     }
 
+    return false;
+}
+
+bool ObserveMissionResultFromSynchronizedOpcode()
+{
+    if (!IsCurrentOpcodeFromSynchronizedMission())
+    {
+        return false;
+    }
+
+    if (lastOpCodeProcessed == COMMAND_REGISTER_MISSION_PASSED)
+    {
+        CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+        return true;
+    }
+
+    if (!IsMissionResultTextOpcode(lastOpCodeProcessed) || textParamCount == 0)
+    {
+        return false;
+    }
+
+    if (_strnicmp(textParamBuffer[0], "M_FAIL", 6) == 0)
+    {
+        CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::FAILED);
+        return true;
+    }
+    if (_strnicmp(textParamBuffer[0], "M_PASS", 6) == 0)
+    {
+        CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
+        return true;
+    }
     return false;
 }
 
@@ -368,10 +422,7 @@ void BuildAndSendOpcode()
 {
     if (!CTaskSequenceSync::OnOpCodeExecuted((eScriptCommands)lastOpCodeProcessed))
     {
-        memset(textParamBuffer, 0, sizeof textParamBuffer);
-        memset(textLengthBuffer, 0, sizeof textLengthBuffer);
-        scriptParamCount = 0;
-        textParamCount = 0;
+        ResetCollectedOpcodeParameters();
         return;
     }
 
@@ -388,30 +439,19 @@ void BuildAndSendOpcode()
         break;
     }
 
+    // Result signals are host-local protocol input. Consume them before the ordinary broadcast whitelist so
+    // REGISTER_MISSION_PASSED and result-labelled big prints never depend on, or travel through, opcode sync.
+    if (ObserveMissionResultFromSynchronizedOpcode())
+    {
+        ResetCollectedOpcodeParameters();
+        return;
+    }
+
     int idx = 0;
     if (!COpCodeSync::IsOpcodeSyncable(lastOpCodeProcessed, &idx))
-        return;
-
-    // Observe only host opcodes emitted by a script registered for synchronization. The result is latched here
-    // and published when the mission flag clears, so stock SCM cleanup still runs to completion.
-    if (lastProcessedScript && lastProcessedScript->m_bIsMission)
     {
-        if (lastOpCodeProcessed == COMMAND_REGISTER_MISSION_PASSED)
-        {
-            CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
-        }
-        else if ((lastOpCodeProcessed == COMMAND_PRINT_BIG ||
-                  lastOpCodeProcessed == COMMAND_PRINT_WITH_NUMBER_BIG) && textParamCount > 0)
-        {
-            if (_strnicmp(textParamBuffer[0], "M_FAIL", 6) == 0)
-            {
-                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::FAILED);
-            }
-            else if (_strnicmp(textParamBuffer[0], "M_PASS", 6) == 0)
-            {
-                CMissionSessionClient::ReportScmMissionResult(Packets::Scripts::eMissionSessionResult::SUCCEEDED);
-            }
-        }
+        ResetCollectedOpcodeParameters();
+        return;
     }
 
     int dataSize = 0;
@@ -423,10 +463,7 @@ void BuildAndSendOpcode()
     memcpy(packet.buffer, buffer.data(), dataSize);
     GetPacketFactory().Send(packet);
 
-    memset(textParamBuffer, 0, sizeof textParamBuffer);
-    memset(textLengthBuffer, 0, sizeof textLengthBuffer);
-    scriptParamCount = 0;
-    textParamCount = 0;
+    ResetCollectedOpcodeParameters();
 }
 
 
@@ -848,7 +885,9 @@ void CollectTextParameters()
 {
     if (textPointer
         && lastProcessedScript
-        && (COpCodeSync::IsOpcodeSyncable(lastOpCodeProcessed) || CTaskSequenceSync::IsNeededToCollectParametes((eScriptCommands)lastOpCodeProcessed)))
+        && (COpCodeSync::IsOpcodeSyncable(lastOpCodeProcessed) ||
+            (IsMissionResultTextOpcode(lastOpCodeProcessed) && IsCurrentOpcodeFromSynchronizedMission()) ||
+            CTaskSequenceSync::IsNeededToCollectParametes((eScriptCommands)lastOpCodeProcessed)))
     {
         textLengthBuffer[textParamCount] = VMIN(textLength, strlen(textPointer));
         strncpy_s(textParamBuffer[textParamCount], textPointer, textLengthBuffer[textParamCount]);
