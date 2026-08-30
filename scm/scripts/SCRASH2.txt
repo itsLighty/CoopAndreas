@@ -3,6 +3,7 @@
 
 :SCRASH2
 script_name 'SCRASH2'
+Coop.EnableSyncingThisScript()
 $g_SCrash2_spookKM = 0
 gosub @SCRASH2_54
 if 
@@ -17,6 +18,75 @@ terminate_this_script
 :SCRASH2_54
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Freeze the cooperative roster once by both actor handle and immutable internal
+// network identity. A disconnected slot is ignored until that exact actor returns;
+// a late joiner can never inherit the mission slot and remains a spectator.
+533@ = 0 // frozen remote roster size
+534@ = 0 // currently active frozen participants
+535@ = 0 // cooperative participant/friendly-fire failure
+536@ = 0 // cooperative failure reason
+537@ = 0 // idempotent cooperative cleanup guard
+538@ = -1 // derived cooperative objective phase
+539@ = 0 // next objective refresh
+540@ = -1 // last canonical story stage observed
+541@ = 0 // canonical stage transition timestamp
+542@ = 0 // current time
+543@ = 0 // current internal player id / temporary flag
+544@ = 0 // temporary actor
+545@ = -1 // reporter network id
+546@ = -1 // mission train network id
+547@ = -1 // taxi network id
+548@ = -1 // taxi driver network id
+549@ = -1 // informant network id
+550@ = 0 // reporter registration attempts
+551@ = 0 // train registration attempts
+552@ = 0 // taxi registration attempts
+553@ = 0 // taxi driver registration attempts
+554@ = 0 // informant registration attempts
+555@ = 0 // next bounded entity-registration poll
+556@ = 0 // at least one entity registration degraded
+557@ = 0 // next remote suspicion tick
+558@ = 0 // a remote is currently spooking the reporter
+559@ = 0 // cleanup outcome: 0 silent, 1 fail, 2 pass
+560@ = 0 // Los Santos vehicle regroup completed
+561@ = 0 // a frozen participant reconnected this frame
+562@ = 0.0 // temporary X / distance
+563@ = 0.0 // temporary Y / distance
+564@ = 0.0 // temporary Z / distance
+565@ = 0.0 // temporary distance
+566@ = 0.0 // temporary distance
+567@ = 0 // temporary actor/vehicle
+568@ = 0 // temporary actor/vehicle
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // frozen actor handle
+    503@($temp_int,3i) = -1 // frozen internal network identity
+    506@($temp_int,3i) = 0 // currently active frozen participant
+    509@($temp_int,3i) = 0 // reconnect needs a safe regroup
+    512@($temp_int,3i) = -1 // last cooperative objective phase
+    515@($temp_int,3i) = 0 // weapon selected before mission grant
+    518@($temp_int,3i) = 0 // sniper ammo before mission grant
+    521@($temp_int,3i) = 0 // inventory snapshot is valid
+    524@($temp_int,3i) = 0 // temporary mission sniper granted
+    527@($temp_int,3i) = -1 // participant support vehicle
+    530@($temp_int,3i) = -1 // support vehicle network id
+    569@($temp_int,3i) = 0 // bounded support-vehicle registration attempts
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            503@($temp_int,3i) <> -1
+        then
+            506@($temp_int,3i) = 1
+            set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+            515@($temp_int,3i) = Char.GetCurrentWeapon(544@)
+            518@($temp_int,3i) = Char.GetAmmoInWeapon(544@, 34)
+            521@($temp_int,3i) = 1
+            533@ += 1
+        end
+    end
+end
 75@ = 0
 76@ = 0
 77@ = 0
@@ -72,10 +142,12 @@ goto_if_false @SCRASH2_404
 
 :SCRASH2_605
 Text.LoadMissionText('SCRASH2')
+gosub @SCRASH2_COOP_FREEZE_REMOTES
 gosub @SCRASH2_20312
 96@ = DecisionMakerChar.Load(DecisionMakerType.Empty)
 97@ = DecisionMakerChar.Load(DecisionMakerType.Tough)
 gosub @SCRASH2_20489
+gosub @SCRASH2_COOP_START_PLAY
 131@ = Char.GetAmmoInWeapon($scplayer, 34)
 155@ = 1
 
@@ -99,6 +171,18 @@ goto @SCRASH2_1017
 :SCRASH2_740
 gosub @SCRASH2_20209
 gosub @SCRASH2_20243
+gosub @SCRASH2_COOP_UPDATE
+if
+  535@ == 1
+then
+    37@ = 1
+    if
+      45@ == 0
+    then
+        set_lvar_int_to_lvar_int 45@ = 536@
+    end
+    goto @SCRASH2_1017
+end
 if 
   Char.IsDead($scplayer)
 goto_if_false @SCRASH2_784
@@ -201,9 +285,19 @@ if
 goto_if_false @SCRASH2_1259
 if 
   Pickup.HasBeenCollected(95@)
-goto_if_false @SCRASH2_1259
-Blip.Remove(94@)
-35@ = 99
+then
+    // Pickups have no collector-specific network opcode. Keep the canonical
+    // story gate host-owned; if a remote touches it first, recreate it for CJ.
+    if
+        Char.LocateAnyMeans3D($scplayer, False, -2063.225, 258.3273, 35.3958, 6.0, 6.0, 5.0)
+    then
+        Blip.Remove(94@)
+        35@ = 99
+    else
+        Blip.Remove(94@)
+        gosub @SCRASH2_10051
+    end
+end
 
 :SCRASH2_1259
 if 
@@ -1669,6 +1763,9 @@ return
 59@ = 23.8414
 World.ClearArea(1, 57@, 58@, 59@, 60.0)
 81@ = Train.Create(57@, 58@, 59@, 11, 0)
+546@ = -1
+551@ = 0
+555@ = 0
 166@ = 1
 return 
 
@@ -1679,6 +1776,9 @@ return
 63@ = 90.4279
 World.ClearArea(1, 57@, 58@, 59@, 1.0)
 78@ = Char.Create(4, 147, 57@, 58@, 59@)
+545@ = -1
+550@ = 0
+555@ = 0
 Char.SetHeading(78@, 63@)
 Char.SetIsTargetPriority(78@, True)
 167@ = 1
@@ -2001,6 +2101,9 @@ return
 :SCRASH2_12265
 83@ = Train.GetCarriage(81@, 2)
 78@ = Char.CreateInsideCar(PedType.CivMale, 147, 83@)
+545@ = -1
+550@ = 0
+555@ = 0
 Char.SetDecisionMaker(78@, 96@)
 Task.LeaveCar(78@, 83@)
 167@ = 1
@@ -2035,6 +2138,11 @@ goto @SCRASH2_12482
 :SCRASH2_12482
 World.ClearArea(1, 57@, 58@, 59@, 10.0)
 87@ = Car.Create(420, 57@, 58@, 59@)
+547@ = -1
+548@ = -1
+552@ = 0
+553@ = 0
+555@ = 0
 Car.SetHeading(87@, 63@)
 79@ = Char.CreateInsideCar(PedType.CivMale, 18, 87@)
 if 
@@ -2506,6 +2614,9 @@ return
 63@ = 271.1917
 World.ClearArea(1, 57@, 58@, 59@, 10.0)
 80@ = Char.Create(4, 46, 57@, 58@, 59@)
+549@ = -1
+554@ = 0
+555@ = 0
 Char.SetHeading(80@, 63@)
 Char.SetIsTargetPriority(80@, True)
 169@ = 1
@@ -3453,6 +3564,8 @@ goto @SCRASH2_20914
 return 
 
 :SCRASH2_20955
+559@ = 1
+gosub @SCRASH2_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Text.ClearSmallPrints
 switch_start 45@ total_jumps 7 default_jump 0 @SCRASH2_21197 jumps 1 @SCRASH2_21036 2 @SCRASH2_21059 3 @SCRASH2_21082 4 @SCRASH2_21105 5 @SCRASH2_21128 6 @SCRASH2_21151 7 @SCRASH2_21174
@@ -3490,6 +3603,8 @@ goto @SCRASH2_21197
 return 
 
 :SCRASH2_21206
+559@ = 2
+gosub @SCRASH2_COOP_CLEANUP
 Text.ClearSmallPrints
 Text.PrintWithNumberBig('M_PASSD', 0, 5000, TextStyle.Middle)
 Player.ClearWantedLevel($player1)
@@ -3504,6 +3619,7 @@ $garage_contact_blip = Blip.AddSpriteForContactPoint($garage_blip_icon, $garageX
 return 
 
 :SCRASH2_21293
+gosub @SCRASH2_COOP_CLEANUP
 if 
   Player.IsPlaying($player1)
 goto_if_false @SCRASH2_21398
@@ -3600,4 +3716,1028 @@ World.SetRailtrackResistanceMult(-1.0)
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative Snail Trail layer. The host remains authoritative for the rifle
+// pickup, cutscenes, train/taxi state machine, wanted state and story rewards.
+// Frozen participants receive synchronized transport, route guidance and final
+// combat access while their own stealth violations feed the canonical spook meter.
+:SCRASH2_COOP_UPDATE_ROSTER
+534@ = 0
+561@ = 0
+for $temp_int = 0 to 2
+    543@ = 0
+    if
+        506@($temp_int,3i) == 1
+    then
+        543@ = 1
+    end
+    506@($temp_int,3i) = 0
+    if and
+        503@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        542@ = Coop.GetNetworkPlayerInternalId(544@)
+        if
+            is_int_lvar_equal_to_int_lvar 542@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+            534@ += 1
+            Char.SetAreaVisible(544@, 0)
+            if
+                543@ == 0
+            then
+                509@($temp_int,3i) = 1
+                512@($temp_int,3i) = -1
+                561@ = 1
+            end
+            if
+                Char.IsDead(544@)
+            then
+                535@ = 1
+                536@ = 0
+            end
+        end
+    end
+end
+return
+
+:SCRASH2_COOP_BUILD_ACTIVE_ARGS
+572@ = -1
+573@ = -1
+574@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 572@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:SCRASH2_COOP_TELEPORT_ACTIVE
+if
+    533@ == 0
+then
+    return
+end
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+gosub @SCRASH2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(572@, 573@, 574@)
+return
+
+:SCRASH2_COOP_FREEZE_REMOTES
+if
+    533@ == 0
+then
+    return
+end
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        Char.FreezePosition(500@($temp_int,3i), True)
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), -1)
+    end
+end
+return
+
+:SCRASH2_COOP_RELEASE_REMOTES
+if
+    533@ == 0
+then
+    return
+end
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), 0)
+    end
+end
+return
+
+// Each frozen participant gets an empty support vehicle after the host cutscene.
+// These are optional cooperative transport: their destruction never blocks the
+// canonical train/taxi progression and ambient vehicles remain a safe fallback.
+:SCRASH2_COOP_START_PLAY
+if
+    533@ == 0
+then
+    return
+end
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        503@($temp_int,3i) <> -1
+    then
+        562@ = -2028.0
+        563@ = 153.0
+        564@ = 27.5
+        if
+            $temp_int == 1
+        then
+            563@ = 158.0
+        end
+        if
+            $temp_int == 2
+        then
+            563@ = 163.0
+        end
+        527@($temp_int,3i) = Car.Create(468, 562@, 563@, 564@)
+        530@($temp_int,3i) = -1
+        569@($temp_int,3i) = 0
+        if
+            Car.DoesExist(527@($temp_int,3i))
+        then
+            Car.SetHeading(527@($temp_int,3i), 90.0)
+            Car.LockDoors(527@($temp_int,3i), CarLock.Unlocked)
+        end
+    end
+end
+555@ = 0
+gosub @SCRASH2_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Car.DoesExist(527@($temp_int,3i))
+    then
+        if
+            not Car.IsDead(527@($temp_int,3i))
+        then
+            Char.ClearTasksImmediately(500@($temp_int,3i))
+            Char.WarpIntoCar(500@($temp_int,3i), 527@($temp_int,3i))
+        end
+    end
+end
+gosub @SCRASH2_COOP_RELEASE_REMOTES
+Char.ClearLastDamageEntity($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearLastDamageEntity(500@($temp_int,3i))
+    end
+end
+gosub @SCRASH2_COOP_GRANT_SNIPERS
+gosub @SCRASH2_COOP_INVALIDATE_OBJECTIVES
+return
+
+:SCRASH2_COOP_GRANT_SNIPERS
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        524@($temp_int,3i) == 0
+    then
+        if
+            not Char.IsDead(500@($temp_int,3i))
+        then
+            Char.GiveWeapon(500@($temp_int,3i), WeaponType.Sniper, 10)
+            Char.SetCurrentWeapon(500@($temp_int,3i), WeaponType.Sniper)
+            524@($temp_int,3i) = 1
+        end
+    end
+end
+return
+
+:SCRASH2_COOP_INVALIDATE_OBJECTIVES
+539@ = 0
+for $temp_int = 0 to 2
+    512@($temp_int,3i) = -1
+end
+return
+
+:SCRASH2_COOP_UPDATE
+if
+    533@ == 0
+then
+    return
+end
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+if
+    535@ == 1
+then
+    return
+end
+if
+    561@ == 1
+then
+    gosub @SCRASH2_COOP_REGROUP_RECONNECTED
+end
+if
+    not is_int_lvar_equal_to_int_lvar 540@ == 34@
+then
+    set_lvar_int_to_lvar_int 540@ = 34@
+    541@ = Clock.GetGameTimer()
+    gosub @SCRASH2_COOP_INVALIDATE_OBJECTIVES
+    if and
+        34@ == 4
+        560@ == 0
+    then
+        gosub @SCRASH2_COOP_REGROUP_LOS_SANTOS
+    end
+end
+gosub @SCRASH2_COOP_GRANT_SNIPERS
+gosub @SCRASH2_COOP_POLL_REGISTRATIONS
+gosub @SCRASH2_COOP_CHECK_PARTICIPANTS
+if
+    535@ == 1
+then
+    return
+end
+gosub @SCRASH2_COOP_UPDATE_REMOTE_SUSPICION
+gosub @SCRASH2_COOP_UPDATE_OBJECTIVES
+return
+
+// Reconnects are accepted only when the frozen actor still reports the original
+// identity. The supported safe teleport is one-shot and never waits for a peer.
+:SCRASH2_COOP_REGROUP_RECONNECTED
+572@ = -1
+573@ = -1
+574@ = -1
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 572@($temp_int,3i) = 500@($temp_int,3i)
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetAreaVisible(500@($temp_int,3i), 0)
+        Task.StandStill(500@($temp_int,3i), 0)
+        509@($temp_int,3i) = 0
+        512@($temp_int,3i) = -1
+    end
+end
+Coop.TeleportPlayersToHostSafely(572@, 573@, 574@)
+return
+
+// The canonical train transfers CJ to Los Santos. Support vehicles and active
+// frozen participants are moved once to a safe staging strip near Market Station.
+:SCRASH2_COOP_REGROUP_LOS_SANTOS
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        562@ = 808.0
+        563@ = -1322.0
+        564@ = 12.5
+        if
+            $temp_int == 1
+        then
+            562@ = 812.0
+        end
+        if
+            $temp_int == 2
+        then
+            562@ = 816.0
+        end
+        if and
+            Car.DoesExist(527@($temp_int,3i))
+            not Car.IsDead(527@($temp_int,3i))
+        then
+            Car.SetCoordinates(527@($temp_int,3i), 562@, 563@, 564@)
+            Car.SetHeading(527@($temp_int,3i), 180.0)
+            if
+                not Char.IsInCar(500@($temp_int,3i), 527@($temp_int,3i))
+            then
+                if
+                    Char.IsInAnyCar(500@($temp_int,3i))
+                then
+                    Char.WarpFromCarToCoord(500@($temp_int,3i), 562@, 563@, 564@)
+                else
+                    Char.SetCoordinates(500@($temp_int,3i), 562@, 563@, 564@)
+                end
+                Char.WarpIntoCar(500@($temp_int,3i), 527@($temp_int,3i))
+            end
+        else
+            if
+                Char.IsInAnyCar(500@($temp_int,3i))
+            then
+                Char.WarpFromCarToCoord(500@($temp_int,3i), 562@, 563@, 564@)
+            else
+                Char.SetCoordinates(500@($temp_int,3i), 562@, 563@, 564@)
+            end
+        end
+        Char.SetAreaVisible(500@($temp_int,3i), 0)
+        512@($temp_int,3i) = -1
+    end
+end
+560@ = 1
+return
+
+// Registration is polled at most ten times per entity at 500 ms intervals. A
+// timeout degrades to coordinate checkpoints; mission progression never waits.
+:SCRASH2_COOP_POLL_REGISTRATIONS
+542@ = Clock.GetGameTimer()
+if
+    555@ > 542@
+then
+    return
+end
+555@ = Clock.GetGameTimer()
+555@ += 500
+if and
+    545@ == -1
+    10 > 550@
+    167@ == 1
+then
+    if
+        Char.DoesExist(78@)
+    then
+        545@ = Coop.GetPedNetworkId(78@)
+        550@ += 1
+        if
+            545@ <> -1
+        then
+            539@ = 0
+        end
+    end
+end
+if and
+    546@ == -1
+    10 > 551@
+    166@ == 1
+then
+    if
+        Car.DoesExist(81@)
+    then
+        546@ = Coop.GetVehicleNetworkId(81@)
+        551@ += 1
+        if
+            546@ <> -1
+        then
+            539@ = 0
+        end
+    end
+end
+if and
+    547@ == -1
+    10 > 552@
+    168@ == 1
+then
+    if
+        Car.DoesExist(87@)
+    then
+        547@ = Coop.GetVehicleNetworkId(87@)
+        552@ += 1
+        if
+            547@ <> -1
+        then
+            539@ = 0
+        end
+    end
+end
+if and
+    548@ == -1
+    10 > 553@
+    168@ == 1
+then
+    if
+        Char.DoesExist(79@)
+    then
+        548@ = Coop.GetPedNetworkId(79@)
+        553@ += 1
+        if
+            548@ <> -1
+        then
+            539@ = 0
+        end
+    end
+end
+if and
+    549@ == -1
+    10 > 554@
+    169@ == 1
+then
+    if
+        Char.DoesExist(80@)
+    then
+        549@ = Coop.GetPedNetworkId(80@)
+        554@ += 1
+        if
+            549@ <> -1
+        then
+            539@ = 0
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        530@($temp_int,3i) == -1
+        10 > 569@($temp_int,3i)
+        527@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(527@($temp_int,3i))
+        then
+            530@($temp_int,3i) = Coop.GetVehicleNetworkId(527@($temp_int,3i))
+            569@($temp_int,3i) += 1
+            if
+                530@($temp_int,3i) <> -1
+            then
+                539@ = 0
+            end
+        end
+    end
+end
+if and
+    545@ == -1
+    550@ >= 10
+then
+    556@ = 1
+end
+if and
+    546@ == -1
+    551@ >= 10
+then
+    556@ = 1
+end
+if and
+    547@ == -1
+    552@ >= 10
+then
+    556@ = 1
+end
+if and
+    548@ == -1
+    553@ >= 10
+then
+    556@ = 1
+end
+if and
+    549@ == -1
+    554@ >= 10
+then
+    556@ = 1
+end
+return
+
+// Participant death and intra-party friendly fire fail deterministically. Before
+// the assassination stage, damaging the reporter, driver or taxi also preserves
+// the original "reporter spooked" failure semantics. At the pier, remote damage
+// instead makes both canonical targets react to that participant.
+:SCRASH2_COOP_CHECK_PARTICIPANTS
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        if
+            Char.IsDead(544@)
+        then
+            535@ = 1
+            536@ = 0
+            return
+        end
+        if or
+            Char.HasBeenDamagedByChar($scplayer, 544@)
+            Char.HasBeenDamagedByChar(544@, $scplayer)
+        then
+            535@ = 1
+            536@ = 7
+            return
+        end
+        for 575@ = 0 to 2
+            if and
+                575@ <> $temp_int
+                506@(575@,3i) == 1
+            then
+                if
+                    Char.HasBeenDamagedByChar(544@, 500@(575@,3i))
+                then
+                    535@ = 1
+                    536@ = 7
+                    return
+                end
+            end
+        end
+        if
+            6 > 34@
+        then
+            if
+                Char.DoesExist(78@)
+            then
+                if
+                    Char.HasBeenDamagedByChar(78@, 544@)
+                then
+                    535@ = 1
+                    536@ = 7
+                    return
+                end
+            end
+            if
+                Car.DoesExist(87@)
+            then
+                if
+                    Char.IsInCar(544@, 87@)
+                then
+                    535@ = 1
+                    536@ = 7
+                    return
+                end
+                if
+                    Car.HasBeenDamagedByChar(87@, 544@)
+                then
+                    543@ = 1
+                    if
+                        Char.IsInAnyCar(544@)
+                    then
+                        562@ = Char.GetSpeed(544@)
+                        if
+                            13.0 > 562@
+                        then
+                            543@ = 0
+                            Car.ClearLastDamageEntity(87@)
+                        end
+                    end
+                    if
+                        543@ == 1
+                    then
+                        535@ = 1
+                        536@ = 7
+                        return
+                    end
+                end
+            end
+            if
+                Char.DoesExist(79@)
+            then
+                if
+                    Char.HasBeenDamagedByChar(79@, 544@)
+                then
+                    535@ = 1
+                    536@ = 7
+                    return
+                end
+            end
+        else
+            if and
+                Char.DoesExist(78@)
+                not Char.IsDead(78@)
+            then
+                if
+                    Char.HasBeenDamagedByChar(78@, 544@)
+                then
+                    146@ = 1
+                    Task.SmartFleeChar(78@, 544@, 4000.0, 3600000)
+                end
+            end
+            if and
+                Char.DoesExist(80@)
+                not Char.IsDead(80@)
+            then
+                if
+                    Char.HasBeenDamagedByChar(80@, 544@)
+                then
+                    146@ = 1
+                    Char.GiveWeapon(80@, WeaponType.Pistol, 99)
+                    Char.SetDecisionMaker(80@, 97@)
+                    Task.KillCharOnFootWhileDucking(80@, 544@, 4, 4000, 34)
+                end
+            end
+        end
+    end
+end
+return
+
+:SCRASH2_COOP_UPDATE_REMOTE_SUSPICION
+if or
+    4 > 34@
+    34@ > 5
+then
+    558@ = 0
+    return
+end
+if or
+    not Char.DoesExist(78@)
+    Char.IsDead(78@)
+then
+    return
+end
+543@ = 0
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        568@ = 0
+        if
+            Char.LocateAnyMeansChar3D(544@, 78@, 100.0, 100.0, 35.0, False)
+        then
+            if
+                Char.IsShooting(544@)
+            then
+                568@ = 1
+            end
+        end
+        if
+            34@ == 4
+        then
+            if
+                Char.LocateAnyMeansChar3D(544@, 78@, 18.0, 18.0, 8.0, False)
+            then
+                568@ = 1
+            end
+        end
+        if
+            34@ == 5
+        then
+            if
+                Char.LocateAnyMeansChar3D(544@, 78@, 35.0, 35.0, 12.0, False)
+            then
+                568@ = 1
+            end
+            if
+                149@ == 1
+            then
+                562@, 563@, 564@ = Char.GetCoordinates(78@)
+                565@ = Math.GetDistanceBetweenCoords3D(562@, 563@, 564@, 372.661, -2088.79, 6.836)
+                562@, 563@, 564@ = Char.GetCoordinates(544@)
+                566@ = Math.GetDistanceBetweenCoords3D(562@, 563@, 564@, 372.661, -2088.79, 6.836)
+                if
+                    is_float_lvar_greater_than_float_lvar 565@ > 566@
+                then
+                    568@ = 1
+                end
+            end
+        end
+        if
+            568@ == 1
+        then
+            543@ = 1
+            if
+                558@ == 0
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_08', 6000, 1, 544@)
+            end
+            if
+                not Char.IsInAnyCar(78@)
+            then
+                Task.SmartFleeChar(78@, 544@, 9999.0, 10000)
+            end
+        end
+    end
+end
+if
+    543@ == 1
+then
+    558@ = 1
+    542@ = Clock.GetGameTimer()
+    if
+        542@ > 557@
+    then
+        $g_SCrash2_spookKM += 3
+        557@ = Clock.GetGameTimer()
+        557@ += 60
+        if
+            $g_SCrash2_spookKM > 100
+        then
+            $g_SCrash2_spookKM = 100
+            535@ = 1
+            536@ = 7
+        end
+    end
+else
+    558@ = 0
+end
+return
+
+:SCRASH2_COOP_UPDATE_OBJECTIVES
+542@ = Clock.GetGameTimer()
+if
+    539@ > 542@
+then
+    return
+end
+539@ = Clock.GetGameTimer()
+539@ += 750
+538@ = 0
+if
+    34@ == 1
+then
+    538@ = 10
+end
+if
+    34@ == 2
+then
+    538@ = 20
+end
+if
+    34@ == 3
+then
+    538@ = 30
+end
+if
+    34@ == 4
+then
+    538@ = 40
+end
+if
+    34@ == 5
+then
+    538@ = 50
+end
+if
+    34@ == 6
+then
+    538@ = 60
+end
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(544@)
+        Coop.RemoveCheckpointForNetworkPlayer(544@)
+        if
+            not is_int_lvar_equal_to_int_lvar 512@($temp_int,3i) == 538@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_00', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_02', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_04', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_07', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_08', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_19', 544@)
+            if or
+                538@ == 10
+                538@ == 20
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_00', 8000, 1, 544@)
+            end
+            if
+                538@ == 30
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_02', 8000, 1, 544@)
+            end
+            if
+                538@ == 40
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_04', 7000, 1, 544@)
+            end
+            if
+                538@ == 50
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_07', 7000, 1, 544@)
+            end
+            if
+                538@ == 60
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_19', 10000, 1, 544@)
+            end
+            set_lvar_int_to_lvar_int 512@($temp_int,3i) = 538@
+        end
+        if or
+            538@ == 10
+            538@ == 20
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1952.791, 136.5608, 25.2734, 8.0, 8.0, 6.0, 544@)
+            if and
+                530@($temp_int,3i) <> -1
+                Car.DoesExist(527@($temp_int,3i))
+            then
+                if
+                    not Car.IsDead(527@($temp_int,3i))
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(544@, 527@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Blue, 2)
+                end
+            end
+        end
+        if
+            538@ == 30
+        then
+            if and
+                546@ <> -1
+                Car.DoesExist(81@)
+            then
+                if
+                    not Car.IsDead(81@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(544@, 81@, False, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            else
+                Coop.UpdateCheckpointForNetworkPlayer(833.7101, -1383.643, -2.6352, 20.0, 20.0, 10.0, 544@)
+            end
+        end
+        if
+            538@ == 40
+        then
+            if and
+                545@ <> -1
+                Char.DoesExist(78@)
+            then
+                if
+                    not Char.IsDead(78@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(544@, 78@, False, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            else
+                Coop.UpdateCheckpointForNetworkPlayer(812.4495, -1343.488, 12.532, 30.0, 30.0, 12.0, 544@)
+            end
+        end
+        if
+            538@ == 50
+        then
+            if and
+                547@ <> -1
+                Car.DoesExist(87@)
+            then
+                if
+                    not Car.IsDead(87@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(544@, 87@, False, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            else
+                if and
+                    545@ <> -1
+                    Char.DoesExist(78@)
+                then
+                    if
+                        not Char.IsDead(78@)
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(544@, 78@, False, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                else
+                    Coop.UpdateCheckpointForNetworkPlayer(366.4698, -2030.643, 6.6582, 25.0, 25.0, 10.0, 544@)
+                end
+            end
+        end
+        if
+            538@ == 60
+        then
+            543@ = 0
+            if and
+                545@ <> -1
+                Char.DoesExist(78@)
+            then
+                if
+                    not Char.IsDead(78@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(544@, 78@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                    543@ = 1
+                end
+            end
+            if and
+                549@ <> -1
+                Char.DoesExist(80@)
+            then
+                if
+                    not Char.IsDead(80@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(544@, 80@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                    543@ = 1
+                end
+            end
+            if
+                543@ == 0
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(362.5, -2036.0, 6.836, 30.0, 30.0, 12.0, 544@)
+            end
+        end
+    end
+end
+return
+
+:SCRASH2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        503@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        542@ = Coop.GetNetworkPlayerInternalId(544@)
+        if
+            is_int_lvar_equal_to_int_lvar 542@ == 503@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(544@)
+            Coop.RemoveCheckpointForNetworkPlayer(544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_00', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_02', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_04', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_07', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_08', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_19', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('SCR2_23', 544@)
+        end
+    end
+    512@($temp_int,3i) = -1
+end
+return
+
+:SCRASH2_COOP_CLEANUP
+if
+    537@ == 1
+then
+    return
+end
+537@ = 1
+gosub @SCRASH2_COOP_UPDATE_ROSTER
+gosub @SCRASH2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        Char.FreezePosition(544@, False)
+        Char.SetProofs(544@, False, False, False, False, False)
+        Char.SetCollision(544@, True)
+        Char.SetVisible(544@, True)
+        Char.SetAreaVisible(544@, 0)
+        Task.StandStill(544@, 0)
+        if and
+            521@($temp_int,3i) == 1
+            524@($temp_int,3i) == 1
+            not Char.IsDead(544@)
+        then
+            Char.RemoveWeapon(34, 544@)
+            if
+                518@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(544@, WeaponType.Sniper, 518@($temp_int,3i))
+            end
+            if
+                515@($temp_int,3i) == 0
+            then
+                Char.SetCurrentWeapon(544@, WeaponType.Unarmed)
+            else
+                if
+                    Char.HasGotWeapon(544@, 515@($temp_int,3i))
+                then
+                    Char.SetCurrentWeapon(544@, 515@($temp_int,3i))
+                end
+            end
+        end
+        if
+            559@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 544@)
+            if
+                45@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_80', 5000, 1, 544@)
+            end
+            if
+                45@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_81', 5000, 1, 544@)
+            end
+            if
+                45@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_82', 5000, 1, 544@)
+            end
+            if
+                45@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_83', 5000, 1, 544@)
+            end
+            if
+                45@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_84', 5000, 1, 544@)
+            end
+            if
+                45@ == 6
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_85', 5000, 1, 544@)
+            end
+            if
+                45@ == 7
+            then
+                Coop.PrintNowForNetworkPlayer('SCR2_86', 5000, 1, 544@)
+            end
+        end
+        if
+            559@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 544@)
+        end
+    end
+    if
+        527@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(527@($temp_int,3i))
+        then
+            Car.MarkAsNoLongerNeeded(527@($temp_int,3i))
+        end
+    end
+    527@($temp_int,3i) = -1
+    530@($temp_int,3i) = -1
+    569@($temp_int,3i) = 0
+end
+return
 
