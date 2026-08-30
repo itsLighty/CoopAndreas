@@ -360,10 +360,10 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] Flight school
   - [X] Bike school
   - [X] Boat school
-- [ ] Asset Missions
-  - [ ] Trucker (8 missions)
-  - [ ] Valet (5 missions)
-  - [ ] Career (7 missions)
+- [X] Asset Missions
+  - [X] Trucker (8 missions)
+  - [X] Valet (5 missions)
+  - [X] Quarry (7 missions)
 - [X] Courier
   - [X] Los Santos - Roboi's Food Mart
   - [X] San Fierro - Hippy Shopper
