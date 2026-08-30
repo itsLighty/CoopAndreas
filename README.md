@@ -338,13 +338,13 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 ### Already done ✓
 ### Current Tasks
 - [ ] Property purchase sync
-- [ ] Submissions
+- [X] Submissions
   - [X] Taxi driver
   - [X] Firefighter
   - [X] Vigilante
   - [X] Paramedic
-  - [ ] Pimp
-  - [ ] Freight Train Missions
+  - [X] Pimp
+  - [X] Freight Train Missions
 - [ ] Hiden races
   - [ ] BMX
   - [ ] NRG-500
