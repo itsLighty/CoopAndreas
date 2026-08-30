@@ -161,6 +161,8 @@ for $temp_int = 0 to 2
     if
         206@($temp_int,3i) == 1
     then
+        // COOP_PARTICIPANT_DEATH_POLICY: this connected actor matched its immutable
+        // frozen identity above, so death enters the stock failure/result path.
         if
             Char.IsDead(200@($temp_int,3i))
         then

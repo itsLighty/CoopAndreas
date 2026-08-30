@@ -4094,6 +4094,8 @@ for $temp_int = 0 to 2
             554@($temp_int,3i) = -1
             557@($temp_int,3i) = 0
         end
+        // COOP_PARTICIPANT_DEATH_POLICY: this connected actor matched its immutable
+        // frozen identity above, so death enters the canonical failure path.
         if
             Char.IsDead(500@($temp_int,3i))
         then

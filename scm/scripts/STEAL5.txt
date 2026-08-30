@@ -1714,6 +1714,8 @@ for $temp_int = 0 to 2
             512@($temp_int,3i) = -1
             542@ = 1
         end
+        // COOP_PARTICIPANT_DEATH_POLICY: only this connected, immutable-ID-matched
+        // frozen participant predicate can fail the shared mission for peer death.
         if
             Char.IsDead(500@($temp_int,3i))
         then

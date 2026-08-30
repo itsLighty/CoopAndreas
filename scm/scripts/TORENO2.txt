@@ -47,6 +47,7 @@ end
 350@ = 0 // cooperative friendly-fire protection applied
 351@ = 0 // escort bikes deployed
 352@ = 0 // bounded registration timeout count
+368@ = 0 // shared failure: connected frozen participant died
 gosub @TORENO2_47
 if 
   has_deatharrest_been_executed 
@@ -282,6 +283,11 @@ Camera.DoFade(1, 500)
 :TORENO2_1616
 wait 0
 gosub @TORENO2_COOP_UPDATE
+if
+  368@ == 1
+then
+    goto @TORENO2_10697
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @TORENO2_1642
@@ -2798,6 +2804,11 @@ then
 end
 gosub @TORENO2_COOP_UPDATE_ROSTER
 if
+    368@ == 1
+then
+    return
+end
+if
     not is_int_lvar_equal_to_int_lvar 331@ == 41@
 then
     if
@@ -2839,8 +2850,8 @@ gosub @TORENO2_COOP_UPDATE_OBJECTIVES
 return
 
 // Refresh handles only when their immutable mission-start identity still
-// matches. Death does not fail the host mission; a respawn or same-ID reconnect
-// is safely restaged and receives the current objective again.
+// matches. Disconnected slots remain inert, and same-ID reconnects are safely
+// restaged without allowing late joiners to inherit the role.
 :TORENO2_COOP_UPDATE_ROSTER
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
@@ -2850,9 +2861,12 @@ for $temp_int = 0 to 2
         346@ == 1
     then
         304@($temp_int,3i) = 1
+        // COOP_PARTICIPANT_DEATH_POLICY: validation above proves this actor is a
+        // currently connected immutable frozen participant; death fails the attempt.
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
+            368@ = 1
             307@($temp_int,3i) = 0
             319@($temp_int,3i) = 0
         else

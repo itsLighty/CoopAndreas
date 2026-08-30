@@ -17,6 +17,7 @@ $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetwork
 267@ = 0 // canonical result propagated: 0 pending, 1 failed, 2 passed
 272@ = 0 // peer trucks prepared
 273@ = 0 // peer race released from the grid
+277@ = 0 // shared failure: connected frozen participant died
 for $temp_int = 0 to 2
     234@($temp_int,3i) = -1 // immutable internal network identity
     237@($temp_int,3i) = 0 // currently valid frozen-roster actor
@@ -819,6 +820,11 @@ Player.SetControl($player1, True)
 :TORENO1_5247
 wait 0
 gosub @TORENO1_COOP_UPDATE_RACE
+if
+  277@ == 1
+then
+    goto @TORENO1_14439
+end
 if 
   83@ == 0
 goto_if_false @TORENO1_5563
@@ -2034,6 +2040,17 @@ for $temp_int = 0 to 2
             end
         end
     end
+    if
+        237@($temp_int,3i) == 1
+    then
+        // COOP_PARTICIPANT_DEATH_POLICY: this actor is currently connected and
+        // identity-matched to its immutable frozen slot; death fails everyone.
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            277@ = 1
+        end
+    end
 end
 return
 
@@ -2163,8 +2180,7 @@ for $temp_int = 0 to 2
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
-            249@($temp_int,3i) = 3
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 3000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+            277@ = 1
         else
             268@ = -712.5
             269@ = 973.0
@@ -2313,7 +2329,7 @@ return
 if
     Char.IsDead($NETWORK_PLAYER[$temp_int])
 then
-    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    277@ = 1
     return
 end
 if and
@@ -2465,7 +2481,7 @@ end
 if
     Char.IsDead($NETWORK_PLAYER[$temp_int])
 then
-    gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+    277@ = 1
     return
 end
 if
@@ -2673,6 +2689,11 @@ then
 end
 gosub @TORENO1_COOP_RETRY_REGISTRATIONS
 gosub @TORENO1_COOP_VALIDATE_ROSTER
+if
+    277@ == 1
+then
+    return
+end
 gosub @TORENO1_COOP_UPDATE_CONNECTIONS
 if and
     83@ == 2
@@ -2694,7 +2715,7 @@ for $temp_int = 0 to 2
             if
                 Char.IsDead($NETWORK_PLAYER[$temp_int])
             then
-                gosub @TORENO1_COOP_DNF_CURRENT_SLOT
+                277@ = 1
             else
                 if
                     Car.DoesExist(240@($temp_int,3i))

@@ -3946,6 +3946,8 @@ for $temp_int = 0 to 2
             697@($temp_int,3i) = -1
             754@ = 1
         end
+        // COOP_PARTICIPANT_DEATH_POLICY: this handle is connected and matched the
+        // immutable frozen identity above; its death uses shared stock failure.
         if
             Char.IsDead(780@)
         then
