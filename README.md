@@ -345,10 +345,10 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] Paramedic
   - [X] Pimp
   - [X] Freight Train Missions
-- [ ] Hiden races
-  - [ ] BMX
-  - [ ] NRG-500
-  - [ ] The Chiliad Challenge 
+- [X] Hiden races
+  - [X] BMX
+  - [X] NRG-500
+  - [X] The Chiliad Challenge 
 - [ ] Stadions
   - [ ] 8-Track
   - [ ] Blood Bowl
@@ -364,10 +364,10 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [ ] Trucker (8 missions)
   - [ ] Valet (5 missions)
   - [ ] Career (7 missions)
-- [ ] Courier
-  - [ ] Los Santos - Roboi's Food Mart
-  - [ ] San Fierro - Hippy Shopper
-  - [ ] Las Venturas - Burger Shot
+- [X] Courier
+  - [X] Los Santos - Roboi's Food Mart
+  - [X] San Fierro - Hippy Shopper
+  - [X] Las Venturas - Burger Shot
 - [ ] Street Racing (22)
   - [ ] Little Loop
   - [ ] Backroad Wanderer
