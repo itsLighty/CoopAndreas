@@ -556,14 +556,14 @@ Car.SetStraightLineDistance(71@, 40)
 Car.SetDrivingStyle(71@, DrivingMode.PloughThrough)
 79@ = Char.CreateInsideCar(PedType.CivMale, 50, 71@)
 Char.SetDecisionMaker(79@, 66@)
-297@ = 71@
+set_lvar_int_to_lvar_int 297@ = 71@
 gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
 if
     301@ == 0
 then
     gosub @SWEET6_COOP_REGISTRATION_ABORT
 end
-297@ = 79@
+set_lvar_int_to_lvar_int 297@ = 79@
 gosub @SWEET6_COOP_WAIT_FOR_PED
 if
     301@ == 0
@@ -1773,14 +1773,14 @@ goto_if_false @SWEET6_10686
 Char.WarpIntoCarAsPassenger(101@, 74@, 0)
 
 :SWEET6_10686
-297@ = 78@
+set_lvar_int_to_lvar_int 297@ = 78@
 gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
 if
     301@ == 0
 then
     gosub @SWEET6_COOP_REGISTRATION_ABORT
 end
-297@ = 101@
+set_lvar_int_to_lvar_int 297@ = 101@
 gosub @SWEET6_COOP_WAIT_FOR_PED
 if
     301@ == 0
@@ -3539,14 +3539,14 @@ goto_if_false @SWEET6_22314
 Char.Delete(283@)
 
 :SWEET6_22314
-297@ = 78@
+set_lvar_int_to_lvar_int 297@ = 78@
 gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
 if
     301@ == 0
 then
     gosub @SWEET6_COOP_REGISTRATION_ABORT
 end
-297@ = 102@
+set_lvar_int_to_lvar_int 297@ = 102@
 gosub @SWEET6_COOP_WAIT_FOR_PED
 if
     301@ == 0
@@ -4083,14 +4083,14 @@ goto_if_false @SWEET6_26136
 Char.WarpIntoCarAsPassenger(102@, 71@, 0)
 
 :SWEET6_26136
-297@ = 78@
+set_lvar_int_to_lvar_int 297@ = 78@
 gosub @SWEET6_COOP_WAIT_FOR_VEHICLE
 if
     301@ == 0
 then
     gosub @SWEET6_COOP_REGISTRATION_ABORT
 end
-297@ = 102@
+set_lvar_int_to_lvar_int 297@ = 102@
 gosub @SWEET6_COOP_WAIT_FOR_PED
 if
     301@ == 0

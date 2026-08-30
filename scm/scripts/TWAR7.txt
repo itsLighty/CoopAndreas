@@ -160,7 +160,7 @@ Char.SetAnimGroup($sweet, "GANG2")
 Char.SetNextDesiredMoveState(MoveState.Walk)
 Task.EnterCarAsPassenger($sweet, 37@, 2, -2)
 Char.SetDecisionMaker($sweet, 149@)
-534@ = 37@
+set_lvar_int_to_lvar_int 534@ = 37@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
@@ -572,7 +572,7 @@ DecisionMakerChar.ClearEventResponse(148@, 79)
 DecisionMakerChar.ClearEventResponse(148@, 36)
 DecisionMakerChar.AddEventResponse(148@, 36, 1022, 0.0, 100.0, 0.0, 0.0, True, True)
 Char.SetDecisionMaker($mc_strap, 148@)
-534@ = 37@
+set_lvar_int_to_lvar_int 534@ = 37@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
@@ -1059,21 +1059,21 @@ Char.SetDecisionMaker(34@, 149@)
 Task.DriveBy(-1, 34@, -1, 0.0, 0.0, 0.0, 300.0, DriveByType.Ai, False, 100)
 Sequence.Close(147@)
 Group.SetSequence($Players_Group, 147@)
-534@ = 36@
+set_lvar_int_to_lvar_int 534@ = 36@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 35@
+set_lvar_int_to_lvar_int 534@ = 35@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 34@
+set_lvar_int_to_lvar_int 534@ = 34@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -1512,14 +1512,14 @@ Task.Die(40@)
 41@ = Char.CreateRandom(2578.8, -1348.3, 35.5)
 Char.SetHeading(41@, 260.0)
 Task.PlayAnim(41@, "WEAPON_CROUCH", "PED", 4.0, False, False, False, True, -1)
-534@ = 40@
+set_lvar_int_to_lvar_int 534@ = 40@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 41@
+set_lvar_int_to_lvar_int 534@ = 41@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -1966,14 +1966,14 @@ gosub @TWAR7_26168
 Car.SetLoadCollisionFlag(42@, True)
 Car.SetHeading(42@, 322.3)
 Car.StartPlayback(42@, 50)
-534@ = 42@
+set_lvar_int_to_lvar_int 534@ = 42@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 52@
+set_lvar_int_to_lvar_int 534@ = 52@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -1987,14 +1987,14 @@ gosub @TWAR7_26168
 Car.SetLoadCollisionFlag(43@, True)
 Car.SetHeading(43@, 321.2)
 Car.StartPlayback(43@, 51)
-534@ = 43@
+set_lvar_int_to_lvar_int 534@ = 43@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 53@
+set_lvar_int_to_lvar_int 534@ = 53@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2006,14 +2006,14 @@ end
 Car.SetLoadCollisionFlag(44@, True)
 Car.SetHeading(44@, 320.8)
 Car.StartPlayback(44@, 52)
-534@ = 44@
+set_lvar_int_to_lvar_int 534@ = 44@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 54@
+set_lvar_int_to_lvar_int 534@ = 54@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2027,14 +2027,14 @@ gosub @TWAR7_26168
 Car.SetLoadCollisionFlag(45@, True)
 Car.SetHeading(45@, 350.3)
 Car.StartPlayback(45@, 53)
-534@ = 45@
+set_lvar_int_to_lvar_int 534@ = 45@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 55@
+set_lvar_int_to_lvar_int 534@ = 55@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2052,14 +2052,14 @@ Car.SetHeading(46@, 343.7)
 Car.SetLoadCollisionFlag(46@, True)
 56@ = Char.CreateRandomAsDriver(46@)
 Car.StartPlayback(46@, 54)
-534@ = 46@
+set_lvar_int_to_lvar_int 534@ = 46@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 56@
+set_lvar_int_to_lvar_int 534@ = 56@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2079,14 +2079,14 @@ Car.SetHeading(47@, 348.7)
 Car.SetLoadCollisionFlag(47@, True)
 57@ = Char.CreateRandomAsDriver(47@)
 Car.StartPlayback(47@, 55)
-534@ = 47@
+set_lvar_int_to_lvar_int 534@ = 47@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 57@
+set_lvar_int_to_lvar_int 534@ = 57@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2106,14 +2106,14 @@ Car.SetHeading(48@, 352.1)
 Car.SetLoadCollisionFlag(48@, True)
 58@ = Char.CreateRandomAsDriver(48@)
 Car.StartPlayback(48@, 56)
-534@ = 48@
+set_lvar_int_to_lvar_int 534@ = 48@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 58@
+set_lvar_int_to_lvar_int 534@ = 58@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2133,14 +2133,14 @@ Car.SetHeading(49@, 353.6)
 Car.SetLoadCollisionFlag(49@, True)
 59@ = Char.CreateRandomAsDriver(49@)
 Car.StartPlayback(49@, 57)
-534@ = 49@
+set_lvar_int_to_lvar_int 534@ = 49@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 59@
+set_lvar_int_to_lvar_int 534@ = 59@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2160,14 +2160,14 @@ Car.SetHeading(50@, 357.2)
 Car.SetLoadCollisionFlag(50@, True)
 60@ = Char.CreateRandomAsDriver(50@)
 Car.StartPlayback(50@, 58)
-534@ = 50@
+set_lvar_int_to_lvar_int 534@ = 50@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 60@
+set_lvar_int_to_lvar_int 534@ = 60@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2187,14 +2187,14 @@ Car.SetHeading(51@, 51.9)
 Car.SetLoadCollisionFlag(51@, True)
 61@ = Char.CreateRandomAsDriver(51@)
 Car.StartPlayback(51@, 60)
-534@ = 51@
+set_lvar_int_to_lvar_int 534@ = 51@
 gosub @TWAR7_COOP_WAIT_FOR_VEHICLE
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 61@
+set_lvar_int_to_lvar_int 534@ = 61@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2324,14 +2324,14 @@ Char.MarkAsNoLongerNeeded(61@)
 Char.SetHeading(38@, 180.0)
 39@ = Char.CreateRandom(1778.4, -1344.1, 14.7)
 Char.SetHeading(39@, 0.0)
-534@ = 38@
+set_lvar_int_to_lvar_int 534@ = 38@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = 39@
+set_lvar_int_to_lvar_int 534@ = 39@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2706,7 +2706,7 @@ Char.SetHeading(62@, 358.5)
 Char.GiveWeapon(62@, WeaponType.Tec9, 30000)
 Char.SetKindaStayInSamePlace(62@, True)
 Char.SetDecisionMaker(62@, 149@)
-534@ = 62@
+set_lvar_int_to_lvar_int 534@ = 62@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2723,7 +2723,7 @@ Char.SetHeading(63@, 18.5)
 Char.GiveWeapon(63@, WeaponType.Tec9, 30000)
 Char.SetKindaStayInSamePlace(63@, True)
 Char.SetDecisionMaker(63@, 149@)
-534@ = 63@
+set_lvar_int_to_lvar_int 534@ = 63@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -2740,7 +2740,7 @@ Char.SetHeading(64@, 5.9)
 Char.GiveWeapon(64@, WeaponType.Tec9, 30000)
 Char.SetKindaStayInSamePlace(64@, True)
 Char.SetDecisionMaker(64@, 149@)
-534@ = 64@
+set_lvar_int_to_lvar_int 534@ = 64@
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0

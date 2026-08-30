@@ -420,7 +420,7 @@ Sequence.Clear(68@)
 
 :HOODS5_2233
 37@ = Char.Create(25, 106, 2751.515, -1973.178, 16.3051)
-409@ = 37@
+set_lvar_int_to_lvar_int 409@ = 37@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
@@ -440,7 +440,7 @@ Sequence.Close(68@)
 Char.PerformSequence(37@, 68@)
 Sequence.Clear(68@)
 38@ = Char.Create(25, 105, 2753.197, -1973.946, 16.3051)
-409@ = 38@
+set_lvar_int_to_lvar_int 409@ = 38@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
@@ -690,7 +690,7 @@ set_lvar_int_to_constant 144@ = 106
 123@ = 12.3837
 set_lvar_int_to_constant 145@ = 105
 172@ = Car.Create(492, 2766.923, -1974.348, 12.3783)
-409@ = 172@
+set_lvar_int_to_lvar_int 409@ = 172@
 gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
 if
     413@ == 0
@@ -705,7 +705,7 @@ if
   5 > 36@
 goto_if_false @HOODS5_4165
 37@(36@,6i) = Char.Create(24, 140@(36@,6i), 106@(36@,6f), 112@(36@,6f), 118@(36@,6f))
-409@ = 37@(36@,6i)
+set_lvar_int_to_lvar_int 409@ = 37@(36@,6i)
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
@@ -981,7 +981,7 @@ if or
   is_int_lvar_equal_to_constant 102@ == 596
   is_int_lvar_equal_to_constant 102@ == 420
 goto_if_false @HOODS5_5465
-409@ = 59@
+set_lvar_int_to_lvar_int 409@ = 59@
 gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
 if
     413@ == 0
@@ -1083,14 +1083,14 @@ DecisionMakerChar.ClearEventResponse(47@, 36)
 DecisionMakerChar.AddEventResponse(47@, 36, 1022, 0.0, 100.0, 0.0, 0.0, True, False)
 75@ = Char.Create(26, 290, 2752.341, -1948.867, 16.3125)
 43@ = Char.Create(26, 12, 2751.282, -1948.867, 16.3125)
-409@ = 75@
+set_lvar_int_to_lvar_int 409@ = 75@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
 then
     gosub @HOODS5_COOP_REGISTRATION_ABORT
 end
-409@ = 43@
+set_lvar_int_to_lvar_int 409@ = 43@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
@@ -1105,14 +1105,14 @@ Char.SetOnlyDamagedByPlayer(75@, False)
 Char.SetOnlyDamagedByPlayer(43@, False)
 62@ = Car.Create(405, 2766.665, -1901.943, 10.005)
 63@ = Car.Create(405, 2772.638, -1903.127, 10.1479)
-409@ = 62@
+set_lvar_int_to_lvar_int 409@ = 62@
 gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
 if
     413@ == 0
 then
     gosub @HOODS5_COOP_REGISTRATION_ABORT
 end
-409@ = 63@
+set_lvar_int_to_lvar_int 409@ = 63@
 gosub @HOODS5_COOP_WAIT_FOR_VEHICLE
 if
     413@ == 0
@@ -1127,14 +1127,14 @@ Car.StartPlayback(62@, 153)
 Car.StartPlayback(63@, 154)
 65@ = Char.CreateInsideCar(PedType.Mission1, 105, 63@)
 64@ = Char.CreateInsideCar(PedType.Mission1, 105, 62@)
-409@ = 65@
+set_lvar_int_to_lvar_int 409@ = 65@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
 then
     gosub @HOODS5_COOP_REGISTRATION_ABORT
 end
-409@ = 64@
+set_lvar_int_to_lvar_int 409@ = 64@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0
@@ -1992,7 +1992,7 @@ if and
 goto_if_false @HOODS5_11006
 Char.Delete(75@)
 75@ = Char.Create(4, 290, 2752.341, -1948.867, 16.3125)
-409@ = 75@
+set_lvar_int_to_lvar_int 409@ = 75@
 gosub @HOODS5_COOP_WAIT_FOR_PED
 if
     413@ == 0

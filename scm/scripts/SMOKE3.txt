@@ -162,11 +162,11 @@ Train.SetSpeed(40@, 0.0)
 Train.SetCruiseSpeed(40@, 0.0)
 43@ = Train.GetCarriage(40@, 1)
 44@ = Train.GetCarriage(40@, 2)
-138@ = 40@
+set_lvar_int_to_lvar_int 138@ = 40@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
-138@ = 43@
+set_lvar_int_to_lvar_int 138@ = 43@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
-138@ = 44@
+set_lvar_int_to_lvar_int 138@ = 44@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetProofs(40@, True, True, True, True, True)
 Train.SetForcedToSlowDown(40@, False)
@@ -182,7 +182,7 @@ Car.ChangeColor(78@, 98, 14)
 Car.SetHeading(78@, 271.822)
 Car.SetHealth(78@, 1000)
 $big_smoke = Char.CreateAsPassenger(PedType.Special, 290, 78@, 0)
-138@ = 78@
+set_lvar_int_to_lvar_int 138@ = 78@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 138@ = $big_smoke
 gosub @SMOKE3_COOP_WAIT_FOR_PED
@@ -505,28 +505,28 @@ World.ClearArea(0, 1699.31, -1938.799, 100.0, 100.0)
 52@ = Object.CreateNoOffset(#IMMMCRAN, 2194.438, -1912.756, 11.907)
 Object.SetHeading(52@, 0.0)
 34@ = Char.Create(24, 108, 1682.546, -1959.222, 20.99)
-138@ = 34@
+set_lvar_int_to_lvar_int 138@ = 34@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(34@, 0.0)
 Char.SetFollowNodeThresholdDistance(34@, 500.0)
 Char.SetProofs(34@, True, True, True, True, True)
 Char.SetDecisionMaker(34@, 75@)
 35@ = Char.Create(24, 110, 1682.546, -1958.222, 20.99)
-138@ = 35@
+set_lvar_int_to_lvar_int 138@ = 35@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(35@, 180.0)
 Char.SetFollowNodeThresholdDistance(35@, 500.0)
 Char.SetProofs(35@, True, True, True, True, True)
 Char.SetDecisionMaker(35@, 75@)
 36@ = Char.Create(24, 109, 1681.038, -1958.03, 20.99)
-138@ = 36@
+set_lvar_int_to_lvar_int 138@ = 36@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(36@, 182.467)
 Char.SetFollowNodeThresholdDistance(36@, 500.0)
 Char.SetProofs(36@, True, True, True, True, True)
 Char.SetDecisionMaker(36@, 75@)
 37@ = Char.Create(24, 110, 1681.129, -1959.63, 20.99)
-138@ = 37@
+set_lvar_int_to_lvar_int 138@ = 37@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(37@, 6.22)
 Char.SetFollowNodeThresholdDistance(37@, 500.0)
@@ -863,7 +863,7 @@ if
 goto_if_false @SMOKE3_5820
 Text.ClearPrints
 54@ = Car.Create(468, 1778.624, -1939.905, 12.5598)
-138@ = 54@
+set_lvar_int_to_lvar_int 138@ = 54@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(54@, 176.7993)
 Car.SetHealth(54@, 10000)
@@ -1128,25 +1128,25 @@ Char.Delete(35@)
 Char.Delete(36@)
 Char.Delete(37@)
 34@ = Char.Create(24, 108, 1682.618, -1957.88, 20.9453)
-138@ = 34@
+set_lvar_int_to_lvar_int 138@ = 34@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 34@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(34@, False)
 35@ = Char.Create(24, 110, 1682.99, -1947.17, 20.03)
-138@ = 35@
+set_lvar_int_to_lvar_int 138@ = 35@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 35@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(35@, False)
 36@ = Char.Create(24, 110, 1681.618, -1957.88, 20.9453)
-138@ = 36@
+set_lvar_int_to_lvar_int 138@ = 36@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 36@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(36@, False)
 37@ = Char.Create(27, 110, 1682.5, -1945.17, 20.033)
-138@ = 37@
+set_lvar_int_to_lvar_int 138@ = 37@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 37@
 gosub @SMOKE3_20002
@@ -1280,11 +1280,11 @@ Train.SetSpeed(40@, 10.0)
 Train.SetCruiseSpeed(40@, 10.0)
 43@ = Train.GetCarriage(40@, 1)
 44@ = Train.GetCarriage(40@, 2)
-138@ = 40@
+set_lvar_int_to_lvar_int 138@ = 40@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
-138@ = 43@
+set_lvar_int_to_lvar_int 138@ = 43@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
-138@ = 44@
+set_lvar_int_to_lvar_int 138@ = 44@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetProofs(40@, True, True, True, True, True)
 Car.LockDoors(40@, CarLock.Locked)
@@ -1293,25 +1293,25 @@ Car.LockDoors(44@, CarLock.Locked)
 Car.SetProofs(43@, True, True, True, True, True)
 Car.SetProofs(44@, True, True, True, True, True)
 34@ = Char.Create(24, 108, 1682.618, -1957.88, 20.9453)
-138@ = 34@
+set_lvar_int_to_lvar_int 138@ = 34@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 34@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(34@, False)
 35@ = Char.Create(24, 110, 1682.99, -1947.17, 20.03)
-138@ = 35@
+set_lvar_int_to_lvar_int 138@ = 35@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 35@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(35@, False)
 36@ = Char.Create(24, 110, 1681.618, -1957.88, 20.9453)
-138@ = 36@
+set_lvar_int_to_lvar_int 138@ = 36@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 36@
 gosub @SMOKE3_20002
 Char.SetSuffersCriticalHits(36@, False)
 37@ = Char.Create(27, 110, 1682.5, -1945.17, 20.033)
-138@ = 37@
+set_lvar_int_to_lvar_int 138@ = 37@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 set_lvar_int_to_lvar_int 61@ = 37@
 gosub @SMOKE3_20002
@@ -1398,7 +1398,7 @@ if
   114@ == 0
 goto_if_false @SMOKE3_9177
 54@ = Car.Create(468, 1778.624, -1939.905, 12.5598)
-138@ = 54@
+set_lvar_int_to_lvar_int 138@ = 54@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(54@, 176.7993)
 Car.SetHealth(54@, 10000)
@@ -1606,9 +1606,9 @@ if
 goto_if_false @SMOKE3_10551
 56@ = Car.Create(466, 2295.777, -1481.268, 22.91)
 60@ = Char.CreateInsideCar(PedType.CivMale, 108, 56@)
-138@ = 56@
+set_lvar_int_to_lvar_int 138@ = 56@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
-138@ = 60@
+set_lvar_int_to_lvar_int 138@ = 60@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Car.SetHeading(56@, 88.47)
 Car.GotoCoordinatesAccurate(56@, 2280.45, -1480.961, 22.483)
@@ -1724,7 +1724,7 @@ if
   not Char.LocateAnyMeans2D($scplayer, 0, 2289.69, -1034.14, 20.0, 20.0)
 goto_if_false @SMOKE3_11243
 41@ = Train.Create(2289.69, -1034.14, 26.29, 11, 1)
-138@ = 41@
+set_lvar_int_to_lvar_int 138@ = 41@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Train.SetSpeed(41@, 30.0)
 Train.SetCruiseSpeed(41@, 15.0)
@@ -1777,7 +1777,7 @@ if
   not Char.LocateAnyMeans2D($scplayer, 0, 2283.36, -336.9, 30.0, 30.0)
 goto_if_false @SMOKE3_11584
 41@ = Train.Create(2283.36, -336.9, 37.27, 11, 1)
-138@ = 41@
+set_lvar_int_to_lvar_int 138@ = 41@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Train.SetSpeed(41@, 30.0)
 Train.SetCruiseSpeed(41@, 15.0)
@@ -1842,15 +1842,15 @@ Task.Duck(36@, -1)
 
 :SMOKE3_11898
 57@ = Car.Create(466, 2200.07, -1731.94, 12.28)
-138@ = 57@
+set_lvar_int_to_lvar_int 138@ = 57@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(57@, 277.116)
 58@ = Char.Create(26, 7, 2201.55, -1728.59, 12.43)
-138@ = 58@
+set_lvar_int_to_lvar_int 138@ = 58@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(58@, 285.1)
 59@ = Char.Create(26, 7, 2202.93, -1728.36, 12.43)
-138@ = 59@
+set_lvar_int_to_lvar_int 138@ = 59@
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetHeading(59@, 393.56)
 Task.PlayAnim(58@, "IDLE_CHAT", "PED", 4.0, True, False, False, False, -1)
@@ -2186,7 +2186,7 @@ if
 goto_if_false @SMOKE3_14013
 87@ = 1
 116@ += 1
-138@ = 34@
+set_lvar_int_to_lvar_int 138@ = 34@
 gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(119@)
@@ -2202,7 +2202,7 @@ if
 goto_if_false @SMOKE3_14082
 88@ = 1
 116@ += 1
-138@ = 35@
+set_lvar_int_to_lvar_int 138@ = 35@
 gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(120@)
@@ -2218,7 +2218,7 @@ if
 goto_if_false @SMOKE3_14151
 89@ = 1
 116@ += 1
-138@ = 36@
+set_lvar_int_to_lvar_int 138@ = 36@
 gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(121@)
@@ -2234,7 +2234,7 @@ if
 goto_if_false @SMOKE3_14220
 90@ = 1
 116@ += 1
-138@ = 37@
+set_lvar_int_to_lvar_int 138@ = 37@
 gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   Blip.DoesExist(122@)

@@ -53,7 +53,7 @@ Char.SetHeading(394@, 400@)
 Char.SetAccuracy(394@, 90)
 Char.SetAnimGroup(394@, "FATMAN")
 Char.SetProofs(394@, True, False, False, False, False)
-556@ = 394@
+set_lvar_int_to_lvar_int 556@ = 394@
 gosub @SWEET4_COOP_WAIT_FOR_PED
 if
     560@ == 0
@@ -76,7 +76,7 @@ Char.SetHeading(401@, 407@)
 Char.SetAccuracy(401@, 90)
 Char.SetAnimGroup(401@, "GANG1")
 Char.SetProofs(401@, True, False, False, False, False)
-556@ = 401@
+set_lvar_int_to_lvar_int 556@ = 401@
 gosub @SWEET4_COOP_WAIT_FOR_PED
 if
     560@ == 0
@@ -101,7 +101,7 @@ Char.SetHeading(408@, 414@)
 Char.SetAccuracy(408@, 90)
 Char.SetAnimGroup(408@, "GANG2")
 Char.SetProofs(408@, True, False, False, False, False)
-556@ = 408@
+set_lvar_int_to_lvar_int 556@ = 408@
 gosub @SWEET4_COOP_WAIT_FOR_PED
 if
     560@ == 0
@@ -221,7 +221,7 @@ goto_if_false @SWEET4_1417
 436@ = Blip.AddForChar(418@)
 
 :SWEET4_1417
-556@ = 523@
+set_lvar_int_to_lvar_int 556@ = 523@
 gosub @SWEET4_COOP_WAIT_FOR_VEHICLE
 if
     560@ == 0
@@ -306,7 +306,7 @@ goto_if_false @SWEET4_1987
 440@ = Blip.AddForChar(422@)
 
 :SWEET4_1987
-556@ = 524@
+set_lvar_int_to_lvar_int 556@ = 524@
 gosub @SWEET4_COOP_WAIT_FOR_VEHICLE
 if
     560@ == 0
@@ -503,7 +503,7 @@ Car.SetHeading(543@, 548@)
 Blip.SetAsFriendly(544@, True)
 Car.SetCanBurstTires(543@, False)
 Car.SetHealth(543@, 1450)
-556@ = 543@
+set_lvar_int_to_lvar_int 556@ = 543@
 gosub @SWEET4_COOP_WAIT_FOR_VEHICLE
 if
     560@ == 0

@@ -959,7 +959,7 @@ Char.WarpIntoCar($scplayer, $sweet_car)
 :SWEET3_5792
 World.ClearArea(1, 2411.31, -1928.837, 12.3906, 10.0)
 40@ = Car.Create(412, 2411.31, -1928.837, 12.3906)
-116@ = 40@
+set_lvar_int_to_lvar_int 116@ = 40@
 gosub @SWEET3_COOP_WAIT_FOR_VEHICLE
 if
     120@ == 0
@@ -974,7 +974,7 @@ Car.LockDoors(40@, CarLock.LockoutPlayerOnly)
 Car.SetHeading(40@, 178.7106)
 52@ = Blip.AddForCar(40@)
 89@ = Char.CreateInsideCar(PedType.Mission2, 103, 40@)
-116@ = 89@
+set_lvar_int_to_lvar_int 116@ = 89@
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -988,7 +988,7 @@ Char.SetAccuracy(89@, 40)
 Char.PerformSequence(89@, 65@)
 Sequence.Clear(65@)
 90@ = Char.CreateAsPassenger(PedType.Mission2, 103, 40@, 0)
-116@ = 90@
+set_lvar_int_to_lvar_int 116@ = 90@
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -1001,7 +1001,7 @@ Char.SetCurrentWeapon(90@, WeaponType.Tec9)
 Char.SetAccuracy(90@, 40)
 Task.DriveBy(90@, -1, $sweet_car, 0.0, 0.0, 0.0, 5000.0, DriveByType.Ai, True, 60)
 53@ = Char.Create(24, 106, 2506.45, -1681.02, 12.53)
-116@ = 53@
+set_lvar_int_to_lvar_int 116@ = 53@
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -1014,7 +1014,7 @@ Char.GiveWeapon(53@, WeaponType.Tec9, 99999)
 Char.SetStayInSamePlace(53@, True)
 Char.SetNeverTargeted(53@, True)
 54@ = Char.Create(24, 107, 2507.3, -1680.1, 13.0)
-116@ = 54@
+set_lvar_int_to_lvar_int 116@ = 54@
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0

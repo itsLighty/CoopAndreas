@@ -1535,7 +1535,7 @@ end
 goto @CESAR1_COOP_WAIT_COUNTDOWN_THREE
 
 :CESAR1_COOP_COUNTDOWN_THREE
-64@ = 66@
+set_lvar_int_to_lvar_int 64@ = 66@
 set_lvar_text_label 90@s = 'RACES_4'
 gosub @CESAR1_COOP_PRINT_BIG_ALL
 65@ = Clock.GetGameTimer()
@@ -1564,7 +1564,7 @@ end
 goto @CESAR1_COOP_WAIT_COUNTDOWN_TWO
 
 :CESAR1_COOP_COUNTDOWN_TWO
-64@ = 66@
+set_lvar_int_to_lvar_int 64@ = 66@
 set_lvar_text_label 90@s = 'RACES_5'
 gosub @CESAR1_COOP_PRINT_BIG_ALL
 65@ = Clock.GetGameTimer()
@@ -1593,7 +1593,7 @@ end
 goto @CESAR1_COOP_WAIT_COUNTDOWN_ONE
 
 :CESAR1_COOP_COUNTDOWN_ONE
-64@ = 66@
+set_lvar_int_to_lvar_int 64@ = 66@
 set_lvar_text_label 90@s = 'RACES_6'
 gosub @CESAR1_COOP_PRINT_BIG_ALL
 65@ = Clock.GetGameTimer()

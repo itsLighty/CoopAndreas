@@ -2577,7 +2577,7 @@ end
 return
 
 :TRUTH1_COOP_UPDATE_OBJECTIVE
-608@ = 118@
+set_lvar_int_to_lvar_int 608@ = 118@
 608@ *= 10
 608@ += 117@
 if

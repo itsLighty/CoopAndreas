@@ -3195,75 +3195,75 @@ end
 
 :DRUGS3_COOP_SYNC_WORLD_PASS
 203@ = 0
-205@ = 62@
+set_lvar_int_to_lvar_int 205@ = 62@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 63@
+set_lvar_int_to_lvar_int 205@ = 63@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 64@
+set_lvar_int_to_lvar_int 205@ = 64@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 65@
+set_lvar_int_to_lvar_int 205@ = 65@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 66@
+set_lvar_int_to_lvar_int 205@ = 66@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 67@
+set_lvar_int_to_lvar_int 205@ = 67@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 68@
+set_lvar_int_to_lvar_int 205@ = 68@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 83@
+set_lvar_int_to_lvar_int 205@ = 83@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 84@
+set_lvar_int_to_lvar_int 205@ = 84@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 85@
+set_lvar_int_to_lvar_int 205@ = 85@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 86@
+set_lvar_int_to_lvar_int 205@ = 86@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 87@
+set_lvar_int_to_lvar_int 205@ = 87@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 88@
+set_lvar_int_to_lvar_int 205@ = 88@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 89@
+set_lvar_int_to_lvar_int 205@ = 89@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 90@
+set_lvar_int_to_lvar_int 205@ = 90@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 92@
+set_lvar_int_to_lvar_int 205@ = 92@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 93@
+set_lvar_int_to_lvar_int 205@ = 93@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 94@
+set_lvar_int_to_lvar_int 205@ = 94@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 95@
+set_lvar_int_to_lvar_int 205@ = 95@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 96@
+set_lvar_int_to_lvar_int 205@ = 96@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 97@
+set_lvar_int_to_lvar_int 205@ = 97@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 98@
+set_lvar_int_to_lvar_int 205@ = 98@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 99@
+set_lvar_int_to_lvar_int 205@ = 99@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 100@
+set_lvar_int_to_lvar_int 205@ = 100@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 101@
+set_lvar_int_to_lvar_int 205@ = 101@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 109@
+set_lvar_int_to_lvar_int 205@ = 109@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 110@
+set_lvar_int_to_lvar_int 205@ = 110@
 gosub @DRUGS3_COOP_SYNC_PED_ONCE
-205@ = 54@
+set_lvar_int_to_lvar_int 205@ = 54@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 55@
+set_lvar_int_to_lvar_int 205@ = 55@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 56@
+set_lvar_int_to_lvar_int 205@ = 56@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 57@
+set_lvar_int_to_lvar_int 205@ = 57@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 58@
+set_lvar_int_to_lvar_int 205@ = 58@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 59@
+set_lvar_int_to_lvar_int 205@ = 59@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 60@
+set_lvar_int_to_lvar_int 205@ = 60@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
-205@ = 61@
+set_lvar_int_to_lvar_int 205@ = 61@
 gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
 for $temp_int = 0 to 2
     if
@@ -3625,53 +3625,53 @@ end
 return
 
 :DRUGS3_COOP_COMBAT_TARGETS
-212@ = 64@
+set_lvar_int_to_lvar_int 212@ = 64@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 65@
+set_lvar_int_to_lvar_int 212@ = 65@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 66@
+set_lvar_int_to_lvar_int 212@ = 66@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 67@
+set_lvar_int_to_lvar_int 212@ = 67@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 68@
+set_lvar_int_to_lvar_int 212@ = 68@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 83@
+set_lvar_int_to_lvar_int 212@ = 83@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 84@
+set_lvar_int_to_lvar_int 212@ = 84@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 85@
+set_lvar_int_to_lvar_int 212@ = 85@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 86@
+set_lvar_int_to_lvar_int 212@ = 86@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 87@
+set_lvar_int_to_lvar_int 212@ = 87@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 88@
+set_lvar_int_to_lvar_int 212@ = 88@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 89@
+set_lvar_int_to_lvar_int 212@ = 89@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 90@
+set_lvar_int_to_lvar_int 212@ = 90@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 92@
+set_lvar_int_to_lvar_int 212@ = 92@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 93@
+set_lvar_int_to_lvar_int 212@ = 93@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 94@
+set_lvar_int_to_lvar_int 212@ = 94@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 95@
+set_lvar_int_to_lvar_int 212@ = 95@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 96@
+set_lvar_int_to_lvar_int 212@ = 96@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 97@
+set_lvar_int_to_lvar_int 212@ = 97@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 98@
+set_lvar_int_to_lvar_int 212@ = 98@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 99@
+set_lvar_int_to_lvar_int 212@ = 99@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 100@
+set_lvar_int_to_lvar_int 212@ = 100@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 109@
+set_lvar_int_to_lvar_int 212@ = 109@
 gosub @DRUGS3_COOP_RETARGET_ONE
-212@ = 110@
+set_lvar_int_to_lvar_int 212@ = 110@
 gosub @DRUGS3_COOP_RETARGET_ONE
 return
 
@@ -3740,7 +3740,7 @@ then
     set_lvar_int_to_lvar_int 209@ = 201@
     return
 end
-241@ = 201@
+set_lvar_int_to_lvar_int 241@ = 201@
 241@ -= 209@
 if
   241@ > 12000
@@ -3906,127 +3906,127 @@ end
 return
 
 :DRUGS3_COOP_CLEANUP_ENTITIES
-205@ = 62@
+set_lvar_int_to_lvar_int 205@ = 62@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 63@
+set_lvar_int_to_lvar_int 205@ = 63@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 64@
+set_lvar_int_to_lvar_int 205@ = 64@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 65@
+set_lvar_int_to_lvar_int 205@ = 65@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 66@
+set_lvar_int_to_lvar_int 205@ = 66@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 67@
+set_lvar_int_to_lvar_int 205@ = 67@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 68@
+set_lvar_int_to_lvar_int 205@ = 68@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 83@
+set_lvar_int_to_lvar_int 205@ = 83@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 84@
+set_lvar_int_to_lvar_int 205@ = 84@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 85@
+set_lvar_int_to_lvar_int 205@ = 85@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 86@
+set_lvar_int_to_lvar_int 205@ = 86@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 87@
+set_lvar_int_to_lvar_int 205@ = 87@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 88@
+set_lvar_int_to_lvar_int 205@ = 88@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 89@
+set_lvar_int_to_lvar_int 205@ = 89@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 90@
+set_lvar_int_to_lvar_int 205@ = 90@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 92@
+set_lvar_int_to_lvar_int 205@ = 92@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 93@
+set_lvar_int_to_lvar_int 205@ = 93@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 94@
+set_lvar_int_to_lvar_int 205@ = 94@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 95@
+set_lvar_int_to_lvar_int 205@ = 95@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 96@
+set_lvar_int_to_lvar_int 205@ = 96@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 97@
+set_lvar_int_to_lvar_int 205@ = 97@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 98@
+set_lvar_int_to_lvar_int 205@ = 98@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 99@
+set_lvar_int_to_lvar_int 205@ = 99@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 100@
+set_lvar_int_to_lvar_int 205@ = 100@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 101@
+set_lvar_int_to_lvar_int 205@ = 101@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 109@
+set_lvar_int_to_lvar_int 205@ = 109@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 110@
+set_lvar_int_to_lvar_int 205@ = 110@
 gosub @DRUGS3_COOP_RELEASE_CHAR
-205@ = 54@
+set_lvar_int_to_lvar_int 205@ = 54@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 55@
+set_lvar_int_to_lvar_int 205@ = 55@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 56@
+set_lvar_int_to_lvar_int 205@ = 56@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 57@
+set_lvar_int_to_lvar_int 205@ = 57@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 58@
+set_lvar_int_to_lvar_int 205@ = 58@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 59@
+set_lvar_int_to_lvar_int 205@ = 59@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 60@
+set_lvar_int_to_lvar_int 205@ = 60@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 61@
+set_lvar_int_to_lvar_int 205@ = 61@
 gosub @DRUGS3_COOP_DELETE_CAR
-205@ = 34@
+set_lvar_int_to_lvar_int 205@ = 34@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 35@
+set_lvar_int_to_lvar_int 205@ = 35@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 36@
+set_lvar_int_to_lvar_int 205@ = 36@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 37@
+set_lvar_int_to_lvar_int 205@ = 37@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 38@
+set_lvar_int_to_lvar_int 205@ = 38@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 39@
+set_lvar_int_to_lvar_int 205@ = 39@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 40@
+set_lvar_int_to_lvar_int 205@ = 40@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 41@
+set_lvar_int_to_lvar_int 205@ = 41@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 42@
+set_lvar_int_to_lvar_int 205@ = 42@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 43@
+set_lvar_int_to_lvar_int 205@ = 43@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 44@
+set_lvar_int_to_lvar_int 205@ = 44@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 45@
+set_lvar_int_to_lvar_int 205@ = 45@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 46@
+set_lvar_int_to_lvar_int 205@ = 46@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 47@
+set_lvar_int_to_lvar_int 205@ = 47@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 48@
+set_lvar_int_to_lvar_int 205@ = 48@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 49@
+set_lvar_int_to_lvar_int 205@ = 49@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 50@
+set_lvar_int_to_lvar_int 205@ = 50@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 51@
+set_lvar_int_to_lvar_int 205@ = 51@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 69@
+set_lvar_int_to_lvar_int 205@ = 69@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 70@
+set_lvar_int_to_lvar_int 205@ = 70@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 71@
+set_lvar_int_to_lvar_int 205@ = 71@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 72@
+set_lvar_int_to_lvar_int 205@ = 72@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 73@
+set_lvar_int_to_lvar_int 205@ = 73@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 74@
+set_lvar_int_to_lvar_int 205@ = 74@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 102@
+set_lvar_int_to_lvar_int 205@ = 102@
 gosub @DRUGS3_COOP_DELETE_OBJECT
-205@ = 111@
+set_lvar_int_to_lvar_int 205@ = 111@
 gosub @DRUGS3_COOP_DELETE_OBJECT
 return
 

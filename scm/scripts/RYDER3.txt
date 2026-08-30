@@ -220,7 +220,7 @@ Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWOR
 Car.SetModelComponents(600, 4, 4)
 Car.CustomPlateForNextCar(600, "_SHERM__")
 108@ = Car.Create(600, 2476.035, -1678.379, 12.3457)
-184@ = 108@
+set_lvar_int_to_lvar_int 184@ = 108@
 gosub @RYDER3_COOP_WAIT_FOR_VEHICLE
 Car.SetCanBurstTires(108@, False)
 Car.SetHeading(108@, 43.9007)
@@ -362,14 +362,14 @@ if and
   Streaming.HasModelLoaded(569)
 goto_if_false @RYDER3_3444
 129@ = Train.Create(2278.177, -1144.882, 27.5107, 10, 1)
-184@ = 129@
+set_lvar_int_to_lvar_int 184@ = 129@
 gosub @RYDER3_COOP_WAIT_FOR_VEHICLE
 Car.LockDoors(129@, CarLock.Locked)
 Train.SetSpeed(129@, 0.0)
 Train.SetCruiseSpeed(129@, 0.0)
 Car.FreezePosition(129@, True)
 163@ = Train.GetCaboose(129@)
-184@ = 163@
+set_lvar_int_to_lvar_int 184@ = 163@
 gosub @RYDER3_COOP_WAIT_FOR_VEHICLE
 74@ = Object.Create(#AMMOTRN_OBJ, 2278.177, -1144.882, 27.5107)
 Object.AttachToCar(74@, 163@, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -392,7 +392,7 @@ Game.SetRelationship(RelationshipType.Hate, PedType.Mission1, PedType.Mission2)
 Game.SetRelationship(RelationshipType.Hate, PedType.Mission2, PedType.Player1)
 Game.SetRelationship(RelationshipType.Hate, PedType.Mission2, PedType.Mission1)
 142@ = Char.Create(4, 106, 2291.969, -1131.63, 25.7468)
-184@ = 142@
+set_lvar_int_to_lvar_int 184@ = 142@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(142@, 188.6236)
 Task.PlayAnimNonInterruptable(142@, "KO_SHOT_FRONT", "PED", 2.0, False, False, False, True, -1)
@@ -400,7 +400,7 @@ Char.SetCollision(142@, False)
 Char.SetNeverTargeted(142@, True)
 Char.SetDecisionMaker(142@, 105@)
 143@ = Char.Create(4, 108, 2290.66, -1146.023, 25.7507)
-184@ = 143@
+set_lvar_int_to_lvar_int 184@ = 143@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(143@, 180.7254)
 Task.PlayAnimNonInterruptable(143@, "KO_SHOT_FRONT", "PED", 2.0, False, False, False, True, -1)
@@ -408,45 +408,45 @@ Char.SetCollision(143@, False)
 Char.SetNeverTargeted(143@, True)
 Char.SetDecisionMaker(143@, 105@)
 130@ = Char.Create(25, 108, 2295.683, -1128.682, 25.8647)
-184@ = 130@
+set_lvar_int_to_lvar_int 184@ = 130@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(130@, 175.3117)
 Task.StayInSamePlace(130@, True)
 Char.SetIsTargetPriority(130@, True)
 131@ = Char.Create(25, 109, 2289.14, -1131.133, 25.7539)
-184@ = 131@
+set_lvar_int_to_lvar_int 184@ = 131@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(131@, 190.007)
 Task.StayInSamePlace(131@, True)
 Char.SetIsTargetPriority(131@, True)
 132@ = Char.Create(25, 109, 2293.741, -1130.343, 25.8004)
-184@ = 132@
+set_lvar_int_to_lvar_int 184@ = 132@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(132@, 178.0093)
 Task.ToggleDuck(132@, True)
 Task.StayInSamePlace(132@, True)
 Char.SetIsTargetPriority(132@, True)
 133@ = Char.Create(25, 110, 2285.522, -1135.369, 28.0)
-184@ = 133@
+set_lvar_int_to_lvar_int 184@ = 133@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(133@, 202.6963)
 Char.SetOnlyDamagedByPlayer(133@, True)
 Task.StayInSamePlace(133@, True)
 Char.SetIsTargetPriority(133@, True)
 144@ = Char.Create(24, 105, 2296.282, -1158.184, 25.6529)
-184@ = 144@
+set_lvar_int_to_lvar_int 184@ = 144@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(144@, 9.002)
 Task.ToggleDuck(144@, True)
 Task.StayInSamePlace(144@, True)
 145@ = Char.Create(24, 106, 2287.524, -1150.041, 25.7574)
-184@ = 145@
+set_lvar_int_to_lvar_int 184@ = 145@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(145@, 347.622)
 Task.StayInSamePlace(145@, True)
 Task.ToggleDuck(145@, True)
 146@ = Char.Create(24, 105, 2301.257, -1157.372, 25.597)
-184@ = 146@
+set_lvar_int_to_lvar_int 184@ = 146@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(146@, 9.002)
 Task.StayInSamePlace(146@, True)
@@ -1143,27 +1143,27 @@ goto @RYDER3_7250
 
 :RYDER3_7295
 150@ = Car.Create(492, 2340.055, -1151.432, 25.9546)
-184@ = 150@
+set_lvar_int_to_lvar_int 184@ = 150@
 gosub @RYDER3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(150@, 92.6857)
 Car.GotoCoordinates(150@, 2313.414, -1150.093, 25.7997)
 Car.SetDrivingStyle(150@, DrivingMode.PloughThrough)
 Car.SetCruiseSpeed(150@, 25.0)
 151@ = Char.CreateInsideCar(PedType.Mission2, 102, 150@)
-184@ = 151@
+set_lvar_int_to_lvar_int 184@ = 151@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(151@, 227.7265)
 152@ = Char.CreateAsPassenger(PedType.Mission2, 104, 150@, 0)
-184@ = 152@
+set_lvar_int_to_lvar_int 184@ = 152@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(152@, 301.1901)
 153@ = Char.CreateAsPassenger(PedType.Mission2, 102, 150@, 1)
-184@ = 153@
+set_lvar_int_to_lvar_int 184@ = 153@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(153@, 82.8733)
 Char.SetOnlyDamagedByPlayer(153@, True)
 154@ = Char.CreateAsPassenger(PedType.Mission2, 104, 150@, 2)
-184@ = 154@
+set_lvar_int_to_lvar_int 184@ = 154@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(154@, 82.8733)
 Char.SetOnlyDamagedByPlayer(154@, True)
@@ -1493,7 +1493,7 @@ if
   not Car.IsDead(108@)
 goto_if_false @RYDER3_9711
 162@ = Char.Create(24, 105, 2294.554, -1156.382, 25.6646)
-184@ = 162@
+set_lvar_int_to_lvar_int 184@ = 162@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHeading(162@, 9.002)
 if 
@@ -1509,7 +1509,7 @@ if
   Char.IsDead(162@)
 goto_if_false @RYDER3_9706
 162@ = Char.CreateInsideCar(PedType.Mission1, 105, 108@)
-184@ = 162@
+set_lvar_int_to_lvar_int 184@ = 162@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetNeverTargeted(162@, True)
 Char.GiveWeapon(162@, WeaponType.MicroUzi, 9999)
@@ -2203,7 +2203,7 @@ goto_if_false @RYDER3_14356
 Camera.PointAtCar(108@, CameraMode.Fixed, SwitchType.JumpCut)
 Char.Delete(162@)
 162@ = Char.CreateAsPassenger(PedType.Mission1, 105, 108@, 0)
-184@ = 162@
+set_lvar_int_to_lvar_int 184@ = 162@
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHealth(162@, 800)
 Char.SetMaxHealth(162@, 800)
@@ -3183,7 +3183,7 @@ goto @RYDER3_19076
 
 :RYDER3_19103
 182@ = Car.Create(600, 2298.39, -1149.012, 25.7656)
-184@ = 182@
+set_lvar_int_to_lvar_int 184@ = 182@
 gosub @RYDER3_COOP_WAIT_FOR_VEHICLE
 Car.SetHeading(182@, 45.766)
 if 
@@ -3246,7 +3246,7 @@ goto @RYDER3_19334
 
 :RYDER3_19371
 183@ = Train.Create(2278.177, -1144.882, 27.5107, 10, 1)
-184@ = 183@
+set_lvar_int_to_lvar_int 184@ = 183@
 gosub @RYDER3_COOP_WAIT_FOR_VEHICLE
 Streaming.MarkModelAsNoLongerNeeded(537)
 Streaming.MarkModelAsNoLongerNeeded(569)
@@ -3494,14 +3494,14 @@ return
 
 :RYDER3_COOP_MAINTAIN_PARTICIPANTS
 202@ = Clock.GetGameTimer()
-211@ = 202@
+set_lvar_int_to_lvar_int 211@ = 202@
 211@ -= 201@
 if
     3000 > 211@
 then
     return
 end
-201@ = 202@
+set_lvar_int_to_lvar_int 201@ = 202@
 gosub @RYDER3_COOP_REFRESH_OBJECTIVES
 if or
     89@ == 2
@@ -3740,7 +3740,7 @@ then
     return
 end
 202@ = Clock.GetGameTimer()
-211@ = 202@
+set_lvar_int_to_lvar_int 211@ = 202@
 211@ -= 200@
 if
     7000 > 211@
@@ -3781,7 +3781,7 @@ if
 then
     return
 end
-200@ = 202@
+set_lvar_int_to_lvar_int 200@ = 202@
 $collected_guns += 1
 if
     $r3_total_guns > 0
@@ -3889,7 +3889,7 @@ then
     return
 end
 202@ = Clock.GetGameTimer()
-211@ = 202@
+set_lvar_int_to_lvar_int 211@ = 202@
 211@ -= 205@
 if
     15000 > 211@

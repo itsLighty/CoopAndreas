@@ -1706,7 +1706,7 @@ Char.SetSuffersCriticalHits(250@(212@,12i), False)
 Char.SetIsTargetPriority(250@(212@,12i), True)
 Char.SetDecisionMaker(250@(212@,12i), 43@)
 232@ = 40
-233@ = 214@
+set_lvar_int_to_lvar_int 233@ = 214@
 233@ *= 10
 232@ += 233@
 Char.SetAccuracy(250@(212@,12i), 232@)

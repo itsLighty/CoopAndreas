@@ -3902,24 +3902,24 @@ end
 return
 
 :GARAG1_COOP_UPDATE_OBJECTIVE
-608@ = 134@
+set_lvar_int_to_lvar_int 608@ = 134@
 608@ *= 100
-609@ = 101@
+set_lvar_int_to_lvar_int 609@ = 101@
 609@ *= 1
 608@ += 609@
-609@ = 102@
+set_lvar_int_to_lvar_int 609@ = 102@
 609@ *= 2
 608@ += 609@
-609@ = 103@
+set_lvar_int_to_lvar_int 609@ = 103@
 609@ *= 4
 608@ += 609@
-609@ = 105@
+set_lvar_int_to_lvar_int 609@ = 105@
 609@ *= 8
 608@ += 609@
-609@ = 106@
+set_lvar_int_to_lvar_int 609@ = 106@
 609@ *= 16
 608@ += 609@
-609@ = 107@
+set_lvar_int_to_lvar_int 609@ = 107@
 609@ *= 32
 608@ += 609@
 if

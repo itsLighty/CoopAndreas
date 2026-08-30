@@ -2732,7 +2732,7 @@ for $temp_int = 0 to 2
         336@($temp_int,3i) = -1
     end
 end
-315@ = 302@
+set_lvar_int_to_lvar_int 315@ = 302@
 return
 
 :SYND4_COOP_CREATE_SUPPORT_TRANSPORT
@@ -2946,9 +2946,9 @@ for 329@ = 0 to 3
     set_lvar_int_to_lvar_int 351@ = 102@(329@,10i)
     gosub @SYND4_COOP_SYNC_PED
 end
-351@ = 130@
+set_lvar_int_to_lvar_int 351@ = 130@
 gosub @SYND4_COOP_SYNC_PED
-351@ = 131@
+set_lvar_int_to_lvar_int 351@ = 131@
 gosub @SYND4_COOP_SYNC_PED
 if
     354@ == 0

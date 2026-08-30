@@ -10623,7 +10623,7 @@ if
 then
     386@ = 1
 end
-385@ = 40@
+set_lvar_int_to_lvar_int 385@ = 40@
 gosub @DRUGS4_COOP_SYNC_VEHICLE
 386@ = 0
 for $temp_int = 0 to 2
@@ -11022,39 +11022,39 @@ if or
 then
     return
 end
-385@ = 47@
+set_lvar_int_to_lvar_int 385@ = 47@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 48@
+set_lvar_int_to_lvar_int 385@ = 48@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 51@
+set_lvar_int_to_lvar_int 385@ = 51@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 52@
+set_lvar_int_to_lvar_int 385@ = 52@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 53@
+set_lvar_int_to_lvar_int 385@ = 53@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 54@
+set_lvar_int_to_lvar_int 385@ = 54@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 68@
+set_lvar_int_to_lvar_int 385@ = 68@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 69@
+set_lvar_int_to_lvar_int 385@ = 69@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 70@
+set_lvar_int_to_lvar_int 385@ = 70@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 71@
+set_lvar_int_to_lvar_int 385@ = 71@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 72@
+set_lvar_int_to_lvar_int 385@ = 72@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 73@
+set_lvar_int_to_lvar_int 385@ = 73@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 74@
+set_lvar_int_to_lvar_int 385@ = 74@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 78@
+set_lvar_int_to_lvar_int 385@ = 78@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 79@
+set_lvar_int_to_lvar_int 385@ = 79@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 80@
+set_lvar_int_to_lvar_int 385@ = 80@
 gosub @DRUGS4_COOP_RETARGET_PED
-385@ = 81@
+set_lvar_int_to_lvar_int 385@ = 81@
 gosub @DRUGS4_COOP_RETARGET_PED
 return
 
@@ -11090,7 +11090,7 @@ then
     set_lvar_int_to_lvar_int 355@ = 363@
     return
 end
-359@ = 363@
+set_lvar_int_to_lvar_int 359@ = 363@
 359@ -= 355@
 if
   359@ > 12000

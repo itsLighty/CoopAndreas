@@ -222,7 +222,7 @@ Char.SetNeverTargeted($big_smoke, True)
 Char.SetDecisionMaker($big_smoke, 35@)
 Char.SetCantBeDraggedOut($big_smoke, True)
 Char.SetStayInCarWhenJacked($big_smoke, True)
-291@ = 34@
+set_lvar_int_to_lvar_int 291@ = 34@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
@@ -695,7 +695,7 @@ goto @DRUGS1_3382
 
 :DRUGS1_3409
 37@ = Char.Create(24, 93, 1718.283, -1633.178, 19.2035)
-291@ = 37@
+set_lvar_int_to_lvar_int 291@ = 37@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.ShutUp(37@, True)
 Char.SetHeading(37@, 59.5412)
@@ -703,7 +703,7 @@ Task.PlayAnimNonInterruptable(37@, "SEAT_IDLE", "PED", 4.0, True, False, False, 
 Char.SetDecisionMaker(37@, 35@)
 Char.ShutUp(37@, True)
 38@ = Char.Create(24, 93, 1717.72, -1633.952, 19.2029)
-291@ = 38@
+set_lvar_int_to_lvar_int 291@ = 38@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(38@, 313.3566)
 Char.ShutUp(38@, True)
@@ -711,7 +711,7 @@ Task.PlayAnimNonInterruptable(38@, "SEAT_IDLE", "PED", 4.0, True, False, False, 
 Char.SetDecisionMaker(38@, 35@)
 Char.ShutUp(38@, True)
 39@ = Char.Create(24, 93, 1712.811, -1629.454, 19.201)
-291@ = 39@
+set_lvar_int_to_lvar_int 291@ = 39@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(39@, 48.5227)
 Char.ShutUp(39@, True)
@@ -719,7 +719,7 @@ Task.PlayAnimNonInterruptable(39@, "SEAT_IDLE", "PED", 4.0, True, False, False, 
 Char.SetDecisionMaker(39@, 35@)
 Char.ShutUp(39@, True)
 40@ = Char.Create(24, 93, 1712.146, -1630.165, 19.2003)
-291@ = 40@
+set_lvar_int_to_lvar_int 291@ = 40@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(40@, 322.1413)
 Char.ShutUp(40@, True)
@@ -727,7 +727,7 @@ Task.PlayAnimNonInterruptable(40@, "SEAT_IDLE", "PED", 4.0, True, False, False, 
 Char.SetDecisionMaker(40@, 35@)
 Char.ShutUp(40@, True)
 41@ = Char.Create(24, 93, 1732.528, -1627.45, 19.2044)
-291@ = 41@
+set_lvar_int_to_lvar_int 291@ = 41@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(41@, 275.6598)
 Char.ShutUp(41@, True)
@@ -892,7 +892,7 @@ Char.SetHeading($scplayer, 180.0)
 Char.SetCoordinates($big_smoke, 1726.815, -1633.001, 19.18)
 Char.SetHeading($big_smoke, 180.0)
 63@ = Char.Create(24, 91, 1727.757, -1632.918, 19.18)
-291@ = 63@
+set_lvar_int_to_lvar_int 291@ = 63@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(63@, 270.0)
 Char.SetDecisionMaker(63@, 35@)
@@ -2772,7 +2772,7 @@ Car.SetCanBurstTires(161@, False)
 Char.GiveWeapon($scplayer, WeaponType.MicroUzi, 99999)
 Car.SetHealth(161@, 2000)
 Car.SetCanBurstTires(161@, False)
-291@ = 161@
+set_lvar_int_to_lvar_int 291@ = 161@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
@@ -3453,7 +3453,7 @@ if
   Car.Locate2D(161@, 0, 1545.68, -1437.35, 10.0, 10.0)
 goto_if_false @DRUGS1_20677
 175@ = Car.Create(516, 1394.751, -1427.224, 13.24)
-291@ = 175@
+set_lvar_int_to_lvar_int 291@ = 175@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetHeading(175@, 184.525)
 Car.ChangeColor(175@, 99, 99)
@@ -3476,7 +3476,7 @@ Car.Delete(172@)
 Car.Delete(167@)
 Car.Delete(168@)
 176@ = Car.Create(437, 1457.689, -1371.728, 13.235)
-291@ = 176@
+set_lvar_int_to_lvar_int 291@ = 176@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetHeading(176@, 177.712)
 Car.StartPlayback(176@, 253)
@@ -3485,9 +3485,9 @@ Car.SetPlaybackSpeed(176@, 0.9)
 Car.SetHealth(190@, 400)
 Car.SetHeading(190@, 193.922)
 52@ = Char.CreateAsPassenger(PedType.Mission1, 111, 190@, 0)
-291@ = 190@
+set_lvar_int_to_lvar_int 291@ = 190@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
-291@ = 52@
+set_lvar_int_to_lvar_int 291@ = 52@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.GiveWeapon(52@, WeaponType.MicroUzi, 99999)
 Char.SetDecisionMaker(52@, 35@)
@@ -3514,7 +3514,7 @@ Blip.ChangeScale(229@, 2)
 Car.OpenDoor(193@, CarDoor.LeftFrontDoor)
 Car.OpenDoor(193@, CarDoor.RightFrontDoor)
 53@ = Char.Create(24, 111, 1399.464, -1431.604, 12.3905)
-291@ = 53@
+set_lvar_int_to_lvar_int 291@ = 53@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetDecisionMaker(53@, 35@)
 Char.GiveWeapon(53@, WeaponType.MicroUzi, 99999)
@@ -3526,7 +3526,7 @@ gosub @DRUGS1_51987
 Blip.ChangeDisplay(235@, BlipDisplay.BlipOnly)
 Blip.ChangeScale(235@, 2)
 61@ = Char.Create(24, 111, 1401.466, -1427.389, 12.3905)
-291@ = 61@
+set_lvar_int_to_lvar_int 291@ = 61@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetDecisionMaker(61@, 35@)
 Char.GiveWeapon(61@, WeaponType.MicroUzi, 99999)
@@ -3538,7 +3538,7 @@ gosub @DRUGS1_51987
 Blip.ChangeDisplay(236@, BlipDisplay.BlipOnly)
 Blip.ChangeScale(236@, 2)
 54@ = Char.Create(24, 111, 1374.992, -1397.639, 12.438)
-291@ = 54@
+set_lvar_int_to_lvar_int 291@ = 54@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetDecisionMaker(54@, 35@)
 Char.GiveWeapon(54@, WeaponType.MicroUzi, 99999)
@@ -3550,7 +3550,7 @@ gosub @DRUGS1_51943
 Blip.ChangeDisplay(226@, BlipDisplay.BlipOnly)
 Blip.ChangeScale(226@, 2)
 55@ = Char.Create(24, 111, 1374.543, -1404.678, 12.425)
-291@ = 55@
+set_lvar_int_to_lvar_int 291@ = 55@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetDecisionMaker(55@, 35@)
 Char.GiveWeapon(55@, WeaponType.MicroUzi, 99999)
@@ -4595,7 +4595,7 @@ Char.GiveWeapon(49@, WeaponType.MicroUzi, 99999)
 Char.SetDecisionMaker(49@, 35@)
 Char.SetHealth(49@, 10)
 188@ = Car.Create(443, 1550.873, -1737.122, 14.1055)
-291@ = 188@
+set_lvar_int_to_lvar_int 291@ = 188@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetPetrolTankWeakpoint(188@, False)
 Car.SetHeading(188@, 245.14)
@@ -4608,7 +4608,7 @@ Char.SetDecisionMaker(197@, 35@)
 Char.GiveWeapon(198@, WeaponType.MicroUzi, 99999)
 Char.SetDecisionMaker(198@, 35@)
 208@ = Car.Create(560, 1550.873, -1737.122, -14.1055)
-291@ = 208@
+set_lvar_int_to_lvar_int 291@ = 208@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetPetrolTankWeakpoint(208@, False)
 Car.SetHeading(208@, 256.415)
@@ -4616,7 +4616,7 @@ Car.SetProofs(208@, True, True, True, True, True)
 Car.AttachToCar(208@, 188@, 0.0, -4.6, 0.65, 15.0, 0.0, 0.0)
 269@ = 0
 207@ = Car.Create(560, 1550.873, -1737.122, 14.1055)
-291@ = 207@
+set_lvar_int_to_lvar_int 291@ = 207@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetPetrolTankWeakpoint(207@, False)
 Car.SetHeading(207@, 256.415)
@@ -5371,7 +5371,7 @@ goto @DRUGS1_32902
 
 :DRUGS1_32944
 188@ = Car.Create(443, 1601.915, -1755.917, 4.6)
-291@ = 188@
+set_lvar_int_to_lvar_int 291@ = 188@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetPetrolTankWeakpoint(188@, False)
 Car.SetHeading(188@, 256.415)
@@ -5385,7 +5385,7 @@ Char.SetOnlyDamagedByPlayer(197@, True)
 Blip.ChangeDisplay(209@, BlipDisplay.BlipOnly)
 Blip.ChangeScale(209@, 2)
 208@ = Car.Create(560, 1550.873, -1737.122, -14.1055)
-291@ = 208@
+set_lvar_int_to_lvar_int 291@ = 208@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetPetrolTankWeakpoint(208@, False)
 Car.SetHeading(208@, 256.415)
@@ -5393,7 +5393,7 @@ Car.SetProofs(208@, True, True, True, True, True)
 Car.AttachToCar(208@, 188@, 0.0, -4.6, 0.65, 15.0, 0.0, 0.0)
 273@ = 1
 207@ = Car.Create(560, 1550.873, -1737.122, 14.1055)
-291@ = 207@
+set_lvar_int_to_lvar_int 291@ = 207@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 Car.SetPetrolTankWeakpoint(207@, False)
 Car.SetHeading(207@, 256.415)
@@ -6953,14 +6953,14 @@ Car.SetProofs(165@, True, False, False, False, False)
 Car.SetHeading(166@, 263.7667)
 Car.SetProofs(166@, True, False, False, False, False)
 37@ = Char.Create(24, 111, 2578.022, -1674.761, 0.7667)
-291@ = 37@
+set_lvar_int_to_lvar_int 291@ = 37@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(37@, 162.2371)
 Char.SetDecisionMaker(37@, 35@)
 Char.GiveWeapon(37@, WeaponType.MicroUzi, 9999)
 Task.ShootAtCoord(37@, 2574.87, -1686.48, 2.02, 3000)
 38@ = Char.Create(24, 111, 2574.336, -1674.478, 0.7734)
-291@ = 38@
+set_lvar_int_to_lvar_int 291@ = 38@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(38@, 162.2371)
 Char.SetDecisionMaker(38@, 35@)
@@ -6968,14 +6968,14 @@ Char.GiveWeapon(38@, WeaponType.MicroUzi, 9999)
 Task.ShootAtCoord(38@, 2572.21, -1686.56, 3.13, 3000)
 Task.ToggleDuck(38@, True)
 39@ = Char.Create(24, 111, 2569.295, -1674.4, 0.7752)
-291@ = 39@
+set_lvar_int_to_lvar_int 291@ = 39@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(39@, 170.9985)
 Char.SetDecisionMaker(39@, 35@)
 Char.GiveWeapon(39@, WeaponType.MicroUzi, 9999)
 Task.ShootAtCoord(39@, 2566.95, -1686.14, 2.5, 3000)
 40@ = Char.Create(24, 111, 2565.314, -1673.921, 0.7864)
-291@ = 40@
+set_lvar_int_to_lvar_int 291@ = 40@
 gosub @DRUGS1_COOP_SYNC_PED
 Char.SetHeading(40@, 170.9985)
 Char.SetDecisionMaker(40@, 35@)
@@ -8533,7 +8533,7 @@ then
 end
 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
-291@ = 63@
+set_lvar_int_to_lvar_int 291@ = 63@
 gosub @DRUGS1_COOP_SYNC_PED
 $temp_int = 0
 while $temp_int < 23
@@ -8556,7 +8556,7 @@ then
 end
 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
-291@ = 161@
+set_lvar_int_to_lvar_int 291@ = 161@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
 $temp_int = 0
 while $temp_int < 25

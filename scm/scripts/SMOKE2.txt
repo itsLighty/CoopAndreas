@@ -891,14 +891,14 @@ DecisionMakerChar.ClearEventResponse(124@, 79)
 Char.SetDecisionMaker(35@, 124@)
 Char.ClearAllRelationships(35@, RelationshipType.Dislike)
 Char.ClearAllRelationships(35@, RelationshipType.Hate)
-207@ = 34@
+set_lvar_int_to_lvar_int 207@ = 34@
 gosub @SMOKE2_COOP_WAIT_FOR_VEHICLE
 if
     211@ == 0
 then
     gosub @SMOKE2_COOP_REGISTRATION_ABORT
 end
-207@ = 35@
+set_lvar_int_to_lvar_int 207@ = 35@
 gosub @SMOKE2_COOP_WAIT_FOR_PED
 if
     211@ == 0
@@ -953,28 +953,28 @@ Car.SetHeading(188@, 180.0)
 189@ = Car.Create(192@, 2453.7, -1408.14, 23.68)
 191@ = Char.CreateRandomAsDriver(189@)
 Car.SetHeading(189@, 0.0)
-207@ = 188@
+set_lvar_int_to_lvar_int 207@ = 188@
 gosub @SMOKE2_COOP_WAIT_FOR_VEHICLE
 if
     211@ == 0
 then
     gosub @SMOKE2_COOP_REGISTRATION_ABORT
 end
-207@ = 190@
+set_lvar_int_to_lvar_int 207@ = 190@
 gosub @SMOKE2_COOP_WAIT_FOR_PED
 if
     211@ == 0
 then
     gosub @SMOKE2_COOP_REGISTRATION_ABORT
 end
-207@ = 189@
+set_lvar_int_to_lvar_int 207@ = 189@
 gosub @SMOKE2_COOP_WAIT_FOR_VEHICLE
 if
     211@ == 0
 then
     gosub @SMOKE2_COOP_REGISTRATION_ABORT
 end
-207@ = 191@
+set_lvar_int_to_lvar_int 207@ = 191@
 gosub @SMOKE2_COOP_WAIT_FOR_PED
 if
     211@ == 0
@@ -1122,7 +1122,7 @@ Char.SetAccuracy(41@, 5)
 Char.SetStayInSamePlace(41@, True)
 Char.ClearAllRelationships(41@, RelationshipType.Dislike)
 Char.ClearAllRelationships(41@, RelationshipType.Hate)
-207@ = 41@
+set_lvar_int_to_lvar_int 207@ = 41@
 gosub @SMOKE2_COOP_WAIT_FOR_PED
 if
     211@ == 0
@@ -1376,14 +1376,14 @@ Task.KillCharOnFoot(44@(113@,2i), $scplayer)
 goto @SMOKE2_7975
 
 :SMOKE2_8090
-207@ = 42@
+set_lvar_int_to_lvar_int 207@ = 42@
 gosub @SMOKE2_COOP_WAIT_FOR_VEHICLE
 if
     211@ == 0
 then
     gosub @SMOKE2_COOP_REGISTRATION_ABORT
 end
-207@ = 43@
+set_lvar_int_to_lvar_int 207@ = 43@
 gosub @SMOKE2_COOP_WAIT_FOR_PED
 if
     211@ == 0
