@@ -340,9 +340,9 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [ ] Property purchase sync
 - [ ] Submissions
   - [X] Taxi driver
-  - [ ] Firefighter
-  - [ ] Vigilante
-  - [ ] Paramedic
+  - [X] Firefighter
+  - [X] Vigilante
+  - [X] Paramedic
   - [ ] Pimp
   - [ ] Freight Train Missions
 - [ ] Hiden races
