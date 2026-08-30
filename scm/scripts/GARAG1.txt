@@ -3,6 +3,7 @@
 
 :GARAG1
 script_name 'GARAG1'
+Coop.EnableSyncingThisScript()
 gosub @GARAG1_47
 if 
   has_deatharrest_been_executed 
@@ -15,6 +16,18 @@ terminate_this_script
 
 :GARAG1_47
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+600@ = 0 // identity-stable remote participant count
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        600@ += 1
+    end
+end
+605@ = 0 // cooperative participant failure
+606@ = -1 // last remote route signature
+607@ = 0 // cooperative cleanup has run
 Weather.ForceNow(WeatherType.SunnySf)
 Stat.RegisterMissionGiven
 Text.LoadMissionText('GARAGE1')
@@ -398,10 +411,34 @@ Char.SetProofs(93@, False, False, False, True, False)
 Char.SetHealth(93@, 200)
 Char.SetSuffersCriticalHits(93@, False)
 Char.SetHeading($scplayer, 0.0)
+if
+    600@ > 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+    601@ = 34@
+    gosub @GARAG1_COOP_WAIT_FOR_VEHICLE
+    601@ = 93@
+    gosub @GARAG1_COOP_WAIT_FOR_PED
+end
 Camera.SetBehindPlayer
 
 :GARAG1_3532
 wait 0
+gosub @GARAG1_COOP_CHECK_PLAYERS
+if
+    605@ == 1
+then
+    Text.PrintNow('M_FAIL', 3000, 1)
+    101@ = 0
+    102@ = 0
+    103@ = 0
+    105@ = 0
+    106@ = 0
+    107@ = 0
+    109@ = 0
+    110@ = 1
+end
+gosub @GARAG1_COOP_UPDATE_OBJECTIVE
 if 
   101@ == 1
 goto_if_false @GARAG1_3561
@@ -3728,6 +3765,7 @@ Text.ClearThisPrint($garage1_text(348@,106s))
 return 
 
 :GARAG1_24446
+gosub @GARAG1_COOP_CLEANUP
 Text.PrintWithNumberBig('M_PASSD', 0, 5000, TextStyle.Middle)
 Player.ClearWantedLevel($player1)
 Audio.PlayMissionPassedTune(1)
@@ -3739,10 +3777,12 @@ $flag_garage_mission_counter += 1
 return 
 
 :GARAG1_24512
+gosub @GARAG1_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :GARAG1_24530
+gosub @GARAG1_COOP_CLEANUP
 Camera.ResetNewScriptables
 World.DisableAllEntryExits(False)
 if 
@@ -3841,4 +3881,165 @@ Particle.Stop(350@)
 $onmission = 0
 Mission.Finish
 return 
+
+// The dialogue and recruitment cutscenes remain host-authored, while remote
+// participants form a synchronized convoy with the same route, friendly vehicle,
+// recruit guidance, and failure semantics. Registration waits are bounded so a
+// streamed-out recruit can never stall story progression.
+:GARAG1_COOP_CHECK_PLAYERS
+605@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            605@ = 1
+        end
+    end
+end
+return
+
+:GARAG1_COOP_UPDATE_OBJECTIVE
+608@ = 134@
+608@ *= 100
+609@ = 101@
+609@ *= 1
+608@ += 609@
+609@ = 102@
+609@ *= 2
+608@ += 609@
+609@ = 103@
+609@ *= 4
+608@ += 609@
+609@ = 105@
+609@ *= 8
+608@ += 609@
+609@ = 106@
+609@ *= 16
+608@ += 609@
+609@ = 107@
+609@ *= 32
+608@ += 609@
+if
+    606@ == 608@
+then
+    return
+end
+set_lvar_int_to_lvar_int 606@ = 608@
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            not Car.IsDead(34@)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+        end
+        if or
+            101@ == 1
+            102@ == 1
+            103@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(54@(134@,5f), 59@(134@,5f), 64@(134@,5f), 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('GAR1_22', 6000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            105@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(45@, 46@, 47@, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            106@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(48@, 49@, 50@, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            107@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(69@, 70@, 71@, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+:GARAG1_COOP_CLEANUP
+if
+    607@ == 1
+then
+    return
+end
+607@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:GARAG1_COOP_WAIT_FOR_PED
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Char.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Char.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetPedNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
+
+:GARAG1_COOP_WAIT_FOR_VEHICLE
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Car.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Car.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetVehicleNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
 
