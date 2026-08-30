@@ -3,6 +3,7 @@
 
 :CAT1
 script_name 'CAT1'
+Coop.EnableSyncingThisScript()
 gosub @CAT1_47
 if 
   has_deatharrest_been_executed 
@@ -15,6 +16,18 @@ terminate_this_script
 
 :CAT1_47
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+600@ = 0 // identity-stable remote participant count
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        600@ += 1
+    end
+end
+605@ = 0 // cooperative participant failure
+606@ = -1 // last published mission-stage signature
+607@ = 0 // cooperative cleanup has run
 Camera.DoFade(0, Fade.Out)
 34@ = 0
 35@ = 0
@@ -34,6 +47,15 @@ TIMERB = 0
 
 :CAT1_165
 wait 0
+gosub @CAT1_COOP_CHECK_PLAYERS
+if
+    605@ == 1
+then
+    Text.PrintNow('M_FAIL', 3000, 1)
+    37@ = 1
+end
+gosub @CAT1_COOP_COLLECT_DROPS
+gosub @CAT1_COOP_UPDATE_OBJECTIVE
 if 
 is_ps2_keyboard_key_just_pressed 88
 goto_if_false @CAT1_260
@@ -570,6 +592,11 @@ Char.WarpFromCarToCoord($scplayer, 259.9737, -78.3268, 0.6181)
 Char.SetHeading($scplayer, 38.3173)
 
 :CAT1_3938
+if
+    600@ > 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+end
 79@ = Car.Create(471, 230.6799, -85.1536, 0.4296)
 Car.SetHeading(79@, 17.5494)
 Car.SetCruiseSpeed(79@, 20.0)
@@ -676,6 +703,24 @@ Char.SetHeading(77@, 354.6266)
 Char.SetDecisionMaker(77@, 67@)
 Task.ChatWithChar(76@, 77@, True, 1)
 Task.ChatWithChar(77@, 76@, False, 1)
+if
+    600@ > 0
+then
+    set_lvar_int_to_var_int 601@ = $catalina
+    gosub @CAT1_COOP_WAIT_FOR_PED
+    601@ = 72@
+    gosub @CAT1_COOP_WAIT_FOR_PED
+    601@ = 73@
+    gosub @CAT1_COOP_WAIT_FOR_PED
+    601@ = 74@
+    gosub @CAT1_COOP_WAIT_FOR_PED
+    601@ = 79@
+    gosub @CAT1_COOP_WAIT_FOR_VEHICLE
+    601@ = 80@
+    gosub @CAT1_COOP_WAIT_FOR_VEHICLE
+    601@ = 81@
+    gosub @CAT1_COOP_WAIT_FOR_VEHICLE
+end
 134@ = 261.814
 135@ = -79.2233
 136@ = 3.2479
@@ -4940,10 +4985,12 @@ TIMERB = 0
 return 
 
 :CAT1_32495
+gosub @CAT1_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :CAT1_32513
+gosub @CAT1_COOP_CLEANUP
 $flag_cat_mission1_passed = 1
 Text.PrintWithNumberBig('M_PASS', 1000, 5000, TextStyle.Middle)
 Player.AddScore($player1, 1000)
@@ -4969,6 +5016,7 @@ $cat_counter += 1
 return 
 
 :CAT1_32644
+gosub @CAT1_COOP_CLEANUP
 Hud.SwitchWidescreen(False)
 if 
   Player.IsPlaying($player1)
@@ -5004,6 +5052,183 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+// Quad-bike ownership and the chase state remain canonical on the host. Remote
+// players can destroy the synchronized robbers, collect any dropped briefcases
+// through a host-authoritative proximity fallback, and regroup with Catalina.
+:CAT1_COOP_CHECK_PLAYERS
+605@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            605@ = 1
+        end
+    end
+end
+return
+
+:CAT1_COOP_COLLECT_DROPS
+if
+    34@ <> 2
+then
+    return
+end
+for 608@ = 0 to 2
+    if
+        Pickup.DoesExist(95@(608@,3i))
+    then
+        $x, $y, $z = Pickup.GetCoordinates(95@(608@,3i))
+        609@ = 0
+        for $temp_int = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+            then
+                if
+                    Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, $x, $y, $z, 1.8, 1.8, 2.5)
+                then
+                    609@ = 1
+                end
+            end
+        end
+        if
+            609@ == 1
+        then
+            Blip.Remove(91@(608@,3i))
+            Pickup.Remove(95@(608@,3i))
+            95@(608@,3i) = -1
+            Text.ClearPrints
+            Audio.ReportMissionAudioEventAtPosition(-1000.0, -1000.0, -1000.0, 1058)
+            $cat1_pickups_collected += 1
+            606@ = -1
+        end
+    end
+end
+return
+
+:CAT1_COOP_UPDATE_OBJECTIVE
+610@ = 34@
+610@ *= 10
+610@ += $cat1_pickups_collected
+if
+    606@ == 610@
+then
+    return
+end
+set_lvar_int_to_lvar_int 606@ = 610@
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            34@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(259.9737, -78.3268, 0.6181, 8.0, 8.0, 5.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            34@ == 2
+        then
+            for 611@ = 0 to 2
+                if
+                    not Char.IsDead(72@(611@,4i))
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 72@(611@,4i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+            Coop.PrintNowForNetworkPlayer('CAT108', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            34@ == 4
+        then
+            Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $catalina, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            Coop.UpdateCheckpointForNetworkPlayer($catX, $catY, $catZ, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('CAT112', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+:CAT1_COOP_CLEANUP
+if
+    607@ == 1
+then
+    return
+end
+607@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:CAT1_COOP_WAIT_FOR_PED
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Char.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Char.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetPedNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
+
+:CAT1_COOP_WAIT_FOR_VEHICLE
+602@ = -1
+603@ = Clock.GetGameTimer()
+while 602@ == -1
+    if
+        not Car.DoesExist(601@)
+    then
+        break
+    end
+    if
+        Car.IsDead(601@)
+    then
+        break
+    end
+    602@ = Coop.GetVehicleNetworkId(601@)
+    if
+        602@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
 
 //-------------Mission 42---------------
 // Originally: Small Town Bank
