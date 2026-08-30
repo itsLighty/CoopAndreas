@@ -206,21 +206,21 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [ ] move
   - [ ] rotation
   - [X] weapon aim interpolation
-- [ ] npc sync
+- [X] npc sync
   - [X] pos, rot, speed
   - [X] weapons
-  - [ ] in vehicle sync
-    - [ ] driver
+  - [X] in vehicle sync
+    - [X] driver
       - [X] position velocity rotation  
       - [X] gas/break lights
       - [X] wheel movement
-      - [ ] horn
-      - [ ] siren
+      - [X] horn
+      - [X] siren
       - [X] current path, target entity, mission
     - [X] passenger
-  - [ ] aim
+  - [X] aim
   - [X] shots
-  - [ ] task sync (good luck, warrior!)
+  - [X] task sync (good luck, warrior!)
   - [X] radar icon?
   - [X] speech sync
 - [ ] player voice commands
