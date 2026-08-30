@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "CUnicode.h"
 #include "CChatGamepadKeyboard.h"
+#include "CChatReactions.h"
 
 std::vector<CChatMessage> CChat::m_aMessages{};
 std::vector<std::wstring> CChat::m_aPrevMessages{};
@@ -287,7 +288,20 @@ void CChat::AddMessage(bool isSplit, const wchar_t* format, ...)
 
 void CChat::SendPlayerMessage(const char* name, int id, const wchar_t* message)
 {
-    CChat::AddMessage(true, L"{FF2D2D}%s(%d): {FFFFFF}%s", CUnicode::ConvertUtf8ToUtf16(name).c_str(), id, message);
+    const std::wstring playerName = CUnicode::ConvertUtf8ToUtf16(name);
+    const CChatReactions::CommandResult reaction =
+        CChatReactions::HandleAuthenticatedMessage(playerName, id, message);
+    if (reaction.recognized)
+    {
+        if (reaction.accepted)
+        {
+            CChat::AddMessage(true, L"{FF2D2D}%s(%d) {FFFFFF}reacted: %s",
+                playerName.c_str(), id, reaction.displayName);
+        }
+        return;
+    }
+
+    CChat::AddMessage(true, L"{FF2D2D}%s(%d): {FFFFFF}%s", playerName.c_str(), id, message);
 }
 
 void CChat::AddPreviousMessage(const std::wstring& message)
@@ -373,6 +387,8 @@ std::vector<std::vector<CTextSegment>> CChat::SplitSegmentsByLength(const std::v
 
 void CChat::Draw()
 {
+    CChatReactions::Draw();
+
     const CScreenTransform transform = CUtil::GetScreenTransform();
     if (!transform.valid || m_aMessages.empty())
         return;
