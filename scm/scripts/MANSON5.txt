@@ -3,6 +3,64 @@
 
 :MANSON5
 script_name 'MANSON5'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Cut Throat Business keeps Madd Dogg, OG Loc, recorded chases, rewards and
+// story state host-owned. Frozen peers receive phase-matched pursuit vehicles
+// and can keep the chase alive or reach its phase gates first.
+220@ = 0 // frozen remote-roster size
+221@ = 0 // deterministic participant failure
+222@ = 0 // idempotent cooperative cleanup guard
+223@ = 0 // cooperative play has begun
+224@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+225@ = 0 // result notification guard
+226@ = 1 // cinematic transition/freeze guard
+227@ = 0 // next bounded registration poll
+228@ = 0 // next objective refresh
+229@ = 0 // connected frozen participants
+230@ = 1 // cooperative chase phase
+231@ = 0 // previous cooperative chase phase
+232@ = 0 // timer/internal-id scratch
+233@ = 0 // actor/entity scratch
+234@ = 0 // previous connection scratch
+235@ = 0.0 // coordinate scratch X
+236@ = 0.0 // coordinate scratch Y
+237@ = 0.0 // coordinate scratch Z
+238@, 239@, 240@ = Coop.CollectNetworkPlayersForTheMission()
+241@ = -1 // active teleport argument 1
+242@ = -1 // active teleport argument 2
+243@ = -1 // active teleport argument 3
+244@ = -1 // Madd Dogg network id
+245@ = -1 // OG Loc network id
+246@ = -1 // OG Loc chase-vehicle network id
+247@ = 0 // Madd Dogg registration attempts
+248@ = 0 // OG Loc registration attempts
+249@ = 0 // chase-vehicle registration attempts
+250@ = 0 // a peer reached the hovercraft phase gate
+251@ = 0 // a peer remains close enough to OG Loc
+252@ = 1000 // previous Madd Dogg health
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 260@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    263@($temp_int,3i) = -1 // immutable internal network identity
+    266@($temp_int,3i) = 0 // currently connected participant
+    269@($temp_int,3i) = 0 // reconnect requires restaging
+    272@($temp_int,3i) = -1 // phase-matched support pursuit vehicle
+    275@($temp_int,3i) = -1 // support pursuit vehicle network id
+    278@($temp_int,3i) = 0 // bounded support registration attempts
+    281@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        263@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(260@($temp_int,3i))
+        if
+            263@($temp_int,3i) <> -1
+        then
+            266@($temp_int,3i) = 1
+            220@ += 1
+        end
+    end
+end
+gosub @MANSON5_COOP_FREEZE_REMOTES
 gosub @MANSON5_47
 if 
   has_deatharrest_been_executed 
@@ -177,9 +235,17 @@ Camera.DoFade(1, Fade.Out)
 54@ = 0
 TIMERB = 0
 Text.PrintNow('MAN5_G0', 7500, 1)
+gosub @MANSON5_COOP_START_PLAY
 
 :MANSON5_1350
 wait 0
+gosub @MANSON5_COOP_UPDATE
+if
+  221@ == 1
+then
+  62@ = 0
+  goto @MANSON5_13113
+end
 if 
   not Char.IsDead(34@)
 goto_if_false @MANSON5_1966
@@ -215,6 +281,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Car.MarkAsNoLongerNeeded(45@)
 Streaming.MarkModelAsNoLongerNeeded(424)
 Streaming.MarkModelAsNoLongerNeeded(471)
+gosub @MANSON5_COOP_BEGIN_TRANSITION
 Camera.DoFade(0, Fade.Out)
 
 :MANSON5_1596
@@ -806,6 +873,7 @@ Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
+gosub @MANSON5_COOP_STAGE_ACTIVE
 if 
   not Char.IsDead(73@)
 goto_if_false @MANSON5_5130
@@ -882,6 +950,13 @@ TIMERA = 0
 
 :MANSON5_5730
 wait 0
+gosub @MANSON5_COOP_UPDATE
+if
+  221@ == 1
+then
+  62@ = 0
+  goto @MANSON5_13113
+end
 if 
   not Char.IsDead(34@)
 goto_if_false @MANSON5_5978
@@ -893,16 +968,18 @@ gosub @MANSON5_8993
 gosub @MANSON5_9399
 $x, $y, $z = Char.GetCoordinates(35@)
 $distance = Math.GetDistanceBetweenCoords2D($x, $y, $player_x, $player_y)
-if 
+if and
   $distance >= 240.0
+  251@ == 0
 goto_if_false @MANSON5_5874
 62@ = 1
 set_lvar_text_label 63@s = 'MAN5_F2'
 goto @MANSON5_13113
 
 :MANSON5_5874
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 820.3243, -1918.42, 11.8624, 852.5646, -1894.725, 13.0)
+  250@ == 1
 goto_if_false @MANSON5_5929
 goto @MANSON5_6013
 
@@ -927,6 +1004,7 @@ goto @MANSON5_13113
 goto @MANSON5_5730
 
 :MANSON5_6013
+gosub @MANSON5_COOP_BEGIN_TRANSITION
 Camera.DoFade(0, Fade.Out)
 Audio.SetRadioChannel(RadioChannel.UserTracks)
 World.SetPedDensityMultiplier(0.3)
@@ -1302,10 +1380,18 @@ Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Text.PrintNow('MAN5_G5', 8000, 1)
+gosub @MANSON5_COOP_STAGE_ACTIVE
 TIMERA = 0
 
 :MANSON5_7989
 wait 0
+gosub @MANSON5_COOP_UPDATE
+if
+  221@ == 1
+then
+  62@ = 0
+  goto @MANSON5_13113
+end
 if 
   not Char.IsDead(34@)
 goto_if_false @MANSON5_8244
@@ -1329,8 +1415,9 @@ if
 goto_if_false @MANSON5_8195
 $x, $y, $z = Char.GetCoordinates(35@)
 $distance = Math.GetDistanceBetweenCoords2D($x, $y, $player_x, $player_y)
-if 
+if and
   $distance >= 130.0
+  251@ == 0
 goto_if_false @MANSON5_8195
 62@ = 1
 set_lvar_text_label 63@s = 'MAN5_F2'
@@ -1357,6 +1444,7 @@ goto @MANSON5_13113
 goto @MANSON5_7989
 
 :MANSON5_8279
+gosub @MANSON5_COOP_BEGIN_TRANSITION
 Camera.DoFade(0, Fade.Out)
 Audio.SetRadioChannel(RadioChannel.UserTracks)
 Blip.Remove(37@)
@@ -2054,6 +2142,8 @@ goto @MANSON5_12904
 return 
 
 :MANSON5_12906
+224@ = 2
+gosub @MANSON5_COOP_NOTIFY_RESULT
 $flag_mansion_mission_counter += 1
 Stat.RegisterMissionPassed('MAN_5')
 Stat.PlayerMadeProgress(1)
@@ -2086,6 +2176,8 @@ Blip.Remove($mansion_contact_blip)
 return 
 
 :MANSON5_13113
+224@ = 1
+gosub @MANSON5_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 if 
   62@ == 1
@@ -2096,6 +2188,7 @@ Text.PrintNow(63@s, 5000, 1)
 return 
 
 :MANSON5_13159
+gosub @MANSON5_COOP_CLEANUP
 if 
   Player.IsPlaying($player1)
 goto_if_false @MANSON5_13186
@@ -2211,4 +2304,618 @@ Streaming.MarkModelAsNoLongerNeeded(#WATERJUMPX2)
 $onmission = 0
 Mission.Finish
 return 
+
+:MANSON5_COOP_UPDATE_ROSTER
+229@ = 0
+238@, 239@, 240@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 234@ = 266@($temp_int,3i)
+    266@($temp_int,3i) = 0
+    if and
+        263@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        232@ = Coop.GetNetworkPlayerInternalId(260@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 232@ == 263@($temp_int,3i)
+        then
+            266@($temp_int,3i) = 1
+        end
+    end
+    if and
+        263@($temp_int,3i) <> -1
+        266@($temp_int,3i) == 0
+    then
+        for 233@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(238@(233@,3i))
+            then
+                232@ = Coop.GetNetworkPlayerInternalId(238@(233@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 232@ == 263@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 260@($temp_int,3i) = 238@(233@,3i)
+                    266@($temp_int,3i) = 1
+                    if and
+                        223@ == 1
+                        234@ == 0
+                    then
+                        269@($temp_int,3i) = 1
+                        281@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        266@($temp_int,3i) == 1
+    then
+        229@ += 1
+        if and
+            224@ == 0
+            Char.IsDead(260@($temp_int,3i))
+        then
+            221@ = 1
+        end
+    end
+end
+return
+
+:MANSON5_COOP_BUILD_ACTIVE_ARGS
+241@ = -1
+242@ = -1
+243@ = -1
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 241@($temp_int,3i) = 260@($temp_int,3i)
+    end
+end
+return
+
+:MANSON5_COOP_FREEZE_REMOTES
+if
+    220@ == 0
+then
+    return
+end
+235@, 236@, 237@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(260@($temp_int,3i))
+        if
+            Char.IsInAnyCar(260@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(260@($temp_int,3i), 235@, 236@, 237@)
+        else
+            Char.SetCoordinates(260@($temp_int,3i), 235@, 236@, 237@)
+        end
+        Char.SetVisible(260@($temp_int,3i), False)
+        Char.SetCollision(260@($temp_int,3i), False)
+        Char.SetProofs(260@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(260@($temp_int,3i), -1)
+        Char.FreezePosition(260@($temp_int,3i), True)
+    end
+end
+return
+
+:MANSON5_COOP_DELETE_SUPPORT
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(272@($temp_int,3i))
+    then
+        Car.Delete(272@($temp_int,3i))
+    end
+    272@($temp_int,3i) = -1
+    275@($temp_int,3i) = -1
+    278@($temp_int,3i) = 0
+end
+return
+
+:MANSON5_COOP_COMPUTE_PHASE
+230@ = 1
+if
+    Car.DoesExist(39@)
+then
+    230@ = 2
+end
+if
+    Car.DoesExist(42@)
+then
+    230@ = 3
+end
+return
+
+:MANSON5_COOP_ENSURE_SUPPORT
+if or
+    220@ == 0
+    226@ == 1
+then
+    return
+end
+253@ = 424
+if
+    230@ == 2
+then
+    253@ = 539
+end
+if
+    230@ == 3
+then
+    253@ = 571
+end
+Streaming.RequestModel(253@)
+if
+    not Streaming.HasModelLoaded(253@)
+then
+    return
+end
+235@, 236@, 237@ = Char.GetCoordinates($scplayer)
+254@ = Char.GetHeading($scplayer)
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        not Char.IsDead(260@($temp_int,3i))
+    then
+        if
+            Car.IsDead(272@($temp_int,3i))
+        then
+            if
+                Car.DoesExist(272@($temp_int,3i))
+            then
+                Car.Delete(272@($temp_int,3i))
+            end
+            272@($temp_int,3i) = -1
+            275@($temp_int,3i) = -1
+            278@($temp_int,3i) = 0
+        end
+        if
+            272@($temp_int,3i) == -1
+        then
+            255@ = 4.0
+            if
+                $temp_int == 1
+            then
+                255@ = 8.0
+            end
+            if
+                $temp_int == 2
+            then
+                255@ = 12.0
+            end
+            add_float_lvar_to_float_lvar 235@ += 255@
+            272@($temp_int,3i) = Car.Create(253@, 235@, 236@, 237@)
+            sub_float_lvar_from_float_lvar 235@ -= 255@
+            if
+                Car.DoesExist(272@($temp_int,3i))
+            then
+                Car.SetHeading(272@($temp_int,3i), 254@)
+                Car.SetHealth(272@($temp_int,3i), 1000)
+                Car.SetCanBurstTires(272@($temp_int,3i), False)
+                Car.LockDoors(272@($temp_int,3i), CarLock.Unlocked)
+                Char.ClearTasksImmediately(260@($temp_int,3i))
+                if
+                    Char.IsInAnyCar(260@($temp_int,3i))
+                then
+                    Char.WarpFromCarToCoord(260@($temp_int,3i), 235@, 236@, 237@)
+                end
+                Char.WarpIntoCar(260@($temp_int,3i), 272@($temp_int,3i))
+            end
+        end
+    end
+end
+return
+
+:MANSON5_COOP_RELEASE_REMOTES
+226@ = 0
+gosub @MANSON5_COOP_UPDATE_ROSTER
+gosub @MANSON5_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(241@, 242@, 243@)
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        not Char.IsDead(260@($temp_int,3i))
+    then
+        Char.SetAreaVisible(260@($temp_int,3i), 0)
+        Char.SetVisible(260@($temp_int,3i), True)
+        Char.SetCollision(260@($temp_int,3i), True)
+        Char.SetProofs(260@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(260@($temp_int,3i), False)
+        Task.StandStill(260@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(260@($temp_int,3i))
+        269@($temp_int,3i) = 0
+        281@($temp_int,3i) = -1
+    end
+end
+228@ = 0
+return
+
+:MANSON5_COOP_START_PLAY
+if
+    223@ == 1
+then
+    return
+end
+223@ = 1
+gosub @MANSON5_COOP_COMPUTE_PHASE
+gosub @MANSON5_COOP_RELEASE_REMOTES
+gosub @MANSON5_COOP_ENSURE_SUPPORT
+set_lvar_int_to_lvar_int 231@ = 230@
+227@ = 0
+228@ = 0
+gosub @MANSON5_COOP_POLL_REGISTRATIONS
+gosub @MANSON5_COOP_UPDATE_OBJECTIVES
+return
+
+:MANSON5_COOP_BEGIN_TRANSITION
+if
+    226@ == 1
+then
+    return
+end
+226@ = 1
+gosub @MANSON5_COOP_UPDATE_ROSTER
+gosub @MANSON5_COOP_CLEAR_OBJECTIVES
+gosub @MANSON5_COOP_FREEZE_REMOTES
+gosub @MANSON5_COOP_DELETE_SUPPORT
+return
+
+:MANSON5_COOP_STAGE_ACTIVE
+gosub @MANSON5_COOP_UPDATE_ROSTER
+gosub @MANSON5_COOP_COMPUTE_PHASE
+gosub @MANSON5_COOP_DELETE_SUPPORT
+gosub @MANSON5_COOP_RELEASE_REMOTES
+gosub @MANSON5_COOP_ENSURE_SUPPORT
+set_lvar_int_to_lvar_int 231@ = 230@
+244@ = -1
+245@ = -1
+246@ = -1
+247@ = 0
+248@ = 0
+249@ = 0
+227@ = 0
+228@ = 0
+gosub @MANSON5_COOP_POLL_REGISTRATIONS
+gosub @MANSON5_COOP_UPDATE_OBJECTIVES
+return
+
+:MANSON5_COOP_POLL_REGISTRATIONS
+if
+    223@ == 0
+then
+    return
+end
+232@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 227@ > 232@
+then
+    return
+end
+227@ = Clock.GetGameTimer()
+227@ += 500
+if and
+    244@ == -1
+    247@ < 10
+    Char.DoesExist(34@)
+then
+    244@ = Coop.GetPedNetworkId(34@)
+    247@ += 1
+end
+if and
+    245@ == -1
+    248@ < 10
+    Char.DoesExist(35@)
+then
+    245@ = Coop.GetPedNetworkId(35@)
+    248@ += 1
+end
+233@ = -1
+if and
+    230@ == 2
+    Car.DoesExist(41@)
+then
+    set_lvar_int_to_lvar_int 233@ = 41@
+end
+if and
+    230@ == 3
+    Car.DoesExist(44@)
+then
+    set_lvar_int_to_lvar_int 233@ = 44@
+end
+if and
+    246@ == -1
+    249@ < 10
+    233@ <> -1
+then
+    246@ = Coop.GetVehicleNetworkId(233@)
+    249@ += 1
+end
+for $temp_int = 0 to 2
+    if and
+        275@($temp_int,3i) == -1
+        278@($temp_int,3i) < 10
+        Car.DoesExist(272@($temp_int,3i))
+    then
+        275@($temp_int,3i) = Coop.GetVehicleNetworkId(272@($temp_int,3i))
+        278@($temp_int,3i) += 1
+    end
+end
+return
+
+:MANSON5_COOP_PROTECT_MADD_DOGG
+if or
+    not Char.DoesExist(34@)
+    Char.IsDead(34@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        Char.HasBeenDamagedByChar(34@, 260@($temp_int,3i))
+    then
+        Char.SetHealth(34@, 252@)
+        Char.ClearLastDamageEntity(34@)
+    end
+end
+252@ = Char.GetHealth(34@)
+return
+
+:MANSON5_COOP_REFRESH_SHARED_TRIGGERS
+250@ = 0
+251@ = 0
+if
+    not Char.IsDead(35@)
+then
+    for $temp_int = 0 to 2
+        if
+            266@($temp_int,3i) == 1
+        then
+            if
+                230@ == 2
+            then
+                if
+                    Char.IsInArea3D(260@($temp_int,3i), 0, 820.3243, -1918.42, 11.8624, 852.5646, -1894.725, 13.0)
+                then
+                    250@ = 1
+                end
+                if
+                    Char.LocateAnyMeansChar2D(260@($temp_int,3i), 35@, 240.0, 240.0, False)
+                then
+                    251@ = 1
+                end
+            end
+            if
+                230@ == 3
+            then
+                if
+                    Char.LocateAnyMeansChar2D(260@($temp_int,3i), 35@, 130.0, 130.0, False)
+                then
+                    251@ = 1
+                end
+                if
+                    Char.LocateAnyMeansChar2D(260@($temp_int,3i), 35@, 40.0, 40.0, False)
+                then
+                    54@ = 1
+                end
+            end
+        end
+    end
+end
+return
+
+:MANSON5_COOP_UPDATE_OBJECTIVES
+if or
+    220@ == 0
+    223@ == 0
+    226@ == 1
+then
+    return
+end
+232@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 228@ > 232@
+then
+    return
+end
+228@ = Clock.GetGameTimer()
+228@ += 750
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(233@)
+        Coop.RemoveCheckpointForNetworkPlayer(233@)
+        if
+            not is_int_lvar_equal_to_int_lvar 281@($temp_int,3i) == 230@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('MAN5_G0', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN5_G4', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN5_G5', 233@)
+            if
+                230@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('MAN5_G0', 7500, 1, 233@)
+            end
+            if
+                230@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('MAN5_G4', 8000, 1, 233@)
+            end
+            if
+                230@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('MAN5_G5', 8000, 1, 233@)
+            end
+            set_lvar_int_to_lvar_int 281@($temp_int,3i) = 230@
+        end
+        if
+            230@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-12.2064, -1117.876, 7.0705, 10.0, 10.0, 6.0, 233@)
+        end
+        if
+            230@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(836.0, -1906.0, 12.0, 14.0, 14.0, 8.0, 233@)
+        end
+        if
+            230@ == 3
+        then
+            if and
+                246@ <> -1
+                Car.DoesExist(44@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(233@, 44@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if and
+            245@ <> -1
+            Char.DoesExist(35@)
+        then
+            if
+                not Char.IsDead(35@)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(233@, 35@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if and
+            244@ <> -1
+            Char.DoesExist(34@)
+        then
+            if
+                not Char.IsDead(34@)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(233@, 34@, True, BlipDisplay.Both, BlipColor.Green, 2)
+            end
+        end
+    end
+end
+return
+
+:MANSON5_COOP_UPDATE
+if or
+    220@ == 0
+    224@ <> 0
+then
+    return
+end
+gosub @MANSON5_COOP_UPDATE_ROSTER
+if
+    221@ == 1
+then
+    return
+end
+if
+    226@ == 1
+then
+    gosub @MANSON5_COOP_FREEZE_REMOTES
+    return
+end
+gosub @MANSON5_COOP_COMPUTE_PHASE
+if
+    not is_int_lvar_equal_to_int_lvar 230@ == 231@
+then
+    gosub @MANSON5_COOP_STAGE_ACTIVE
+end
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        269@($temp_int,3i) == 1
+    then
+        gosub @MANSON5_COOP_RELEASE_REMOTES
+        gosub @MANSON5_COOP_ENSURE_SUPPORT
+    end
+end
+gosub @MANSON5_COOP_ENSURE_SUPPORT
+gosub @MANSON5_COOP_POLL_REGISTRATIONS
+gosub @MANSON5_COOP_PROTECT_MADD_DOGG
+gosub @MANSON5_COOP_REFRESH_SHARED_TRIGGERS
+gosub @MANSON5_COOP_UPDATE_OBJECTIVES
+return
+
+:MANSON5_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        263@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        232@ = Coop.GetNetworkPlayerInternalId(233@)
+        if
+            is_int_lvar_equal_to_int_lvar 232@ == 263@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(233@)
+            Coop.RemoveCheckpointForNetworkPlayer(233@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN5_G0', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN5_G4', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN5_G5', 233@)
+        end
+    end
+    281@($temp_int,3i) = -1
+end
+return
+
+:MANSON5_COOP_NOTIFY_RESULT
+if or
+    220@ == 0
+    225@ == 1
+then
+    return
+end
+225@ = 1
+gosub @MANSON5_COOP_UPDATE_ROSTER
+gosub @MANSON5_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        if
+            224@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 260@($temp_int,3i))
+        end
+        if
+            224@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 260@($temp_int,3i))
+        end
+    end
+end
+return
+
+:MANSON5_COOP_CLEANUP
+if
+    222@ == 1
+then
+    return
+end
+222@ = 1
+gosub @MANSON5_COOP_UPDATE_ROSTER
+gosub @MANSON5_COOP_CLEAR_OBJECTIVES
+gosub @MANSON5_COOP_DELETE_SUPPORT
+235@, 236@, 237@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        Char.FreezePosition(233@, False)
+        Char.SetProofs(233@, False, False, False, False, False)
+        Char.SetCollision(233@, True)
+        Char.SetVisible(233@, True)
+        Char.SetAreaVisible(233@, 0)
+        if and
+            226@ == 1
+            not Char.IsDead(233@)
+        then
+            Char.SetCoordinates(233@, 235@, 236@, 237@)
+        end
+    end
+end
+return
 
