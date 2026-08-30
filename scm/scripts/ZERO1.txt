@@ -3433,7 +3433,7 @@ for $temp_int = 0 to 2
             Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
             Char.SetCollision(500@($temp_int,3i), True)
             Char.SetVisible(500@($temp_int,3i), True)
-            Char.RemoveWeapon(WeaponType.Minigun, 500@($temp_int,3i))
+            Char.RemoveWeapon(38, 500@($temp_int,3i))
             if
                 512@($temp_int,3i) > 0
             then
