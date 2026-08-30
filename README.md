@@ -161,9 +161,9 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [ ] jetpack sync
   - [X] flight 
   - [ ] pickup (related to task above) 
-- [ ] cutscenes
+- [X] cutscenes
   - [X] cutscenes
-  - [ ] vote to skip
+  - [X] vote to skip
 - [ ] Players map sync
   - [ ] Areas aka GangZones
   - [X] Mission icons
@@ -337,7 +337,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 ## TODO Other Scripts
 ### Already done ✓
 ### Current Tasks
-- [ ] Property purchase sync
+- [X] Property purchase sync
 - [X] Submissions
   - [X] Taxi driver
   - [X] Firefighter
