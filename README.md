@@ -182,11 +182,11 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] max hp sync
 - [ ] fire sync
 - [ ] cheat code sync
-- [ ] anim sync
+- [X] anim sync
   - [X] sprunk drinking
   - [X] fast food eating
-  - [ ] idle anims
-  - [ ] funny TAB+NUM4 (or NUM6) anim sync (did you know about this?)
+  - [X] idle anims
+  - [X] funny TAB+NUM4 (or NUM6) anim sync (did you know about this?)
 - [ ] gang groups sync
 - [ ] stream in/out players, peds, vehicles, etc.
 - [ ] vehicle sync
