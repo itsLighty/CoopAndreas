@@ -13,6 +13,93 @@ terminate_this_script
 $onmission = 1
 Stat.RegisterMissionGiven
 script_name 'FINALEA'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// End of the Line part one remains host-authoritative for every canonical
+// story state, mission flag, camera, audio cue, object mutation and handoff to
+// part two. Entry identities are immutable: matching reconnects recover while
+// replacements and late joins remain spectators for this part.
+202@ = 0 // frozen remote-roster size
+203@ = 0 // deterministic participant-death failure
+204@ = 0 // idempotent cooperative cleanup guard
+205@ = 0 // cooperative play has begun
+206@ = 0 // canonical result: 0 active, 1 failed, 2 continued
+207@ = 0 // result notification guard
+208@ = 0 // remotes frozen for a host cinematic
+209@ = 0 // next bounded entity-registration poll
+210@ = 0 // next objective refresh
+211@ = 0 // currently connected frozen participants
+212@ = 0 // identity/time scratch
+213@ = 0 // actor/entity scratch
+214@ = 0 // previous connection state scratch
+215@ = 0 // visible-area scratch
+216@ = 0 // next hostile-retarget scan
+217@ = -1 // derived cooperative story phase
+218@ = -1 // previously registered cooperative story phase
+219@ = 0 // degraded entity registration observed
+220@ = 0 // entity-list iterator scratch
+221@ = Char.GetHealth($scplayer) // host health before friendly fire
+222@ = Char.GetArmor($scplayer) // host armor before friendly fire
+223@ = 0 // health scratch
+224@ = 0 // armor scratch
+225@ = 0 // participant-attributed damage flag
+226@ = 0 // armor restoration delta
+227@ = 100 // previous Sweet health
+228@ = 0 // an active participant occupies the canonical assault vehicle
+229@ = 0 // shared-trigger code
+230@ = 0 // next regroup scan
+231@ = 0 // cooperative entity iterator
+232@ = 0 // cooperative target iterator
+233@ = 0 // reconnect/spectator scratch
+234@ = 0 // at least one participant reconnected this frame
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 240@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    243@($temp_int,3i) = -1 // immutable internal participant identity
+    246@($temp_int,3i) = 0 // currently connected immutable participant
+    249@($temp_int,3i) = 0 // previous connection state
+    252@($temp_int,3i) = 0 // exact pre-part M4 ammo
+    255@($temp_int,3i) = 0 // exact pre-part selected weapon
+    258@($temp_int,3i) = 0 // participant originally owned an M4
+    261@($temp_int,3i) = 0 // temporary M4 granted by this part
+    264@($temp_int,3i) = 100 // health before participant friendly fire
+    267@($temp_int,3i) = 0 // armor before participant friendly fire
+    270@($temp_int,3i) = 0 // entry-time visible area
+    273@($temp_int,3i) = -1 // last published objective phase
+    276@($temp_int,3i) = 0 // separated-player regroup deadline
+    279@($temp_int,3i) = -1 // last spectator identity cleared
+    if
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        243@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(240@($temp_int,3i))
+        if
+            243@($temp_int,3i) <> -1
+        then
+            246@($temp_int,3i) = 1
+            249@($temp_int,3i) = 1
+            202@ += 1
+            set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+            252@($temp_int,3i) = Char.GetAmmoInWeapon(213@, 31)
+            255@($temp_int,3i) = Char.GetCurrentWeapon(213@)
+            264@($temp_int,3i) = Char.GetHealth(213@)
+            267@($temp_int,3i) = Char.GetArmor(213@)
+            270@($temp_int,3i) = Char.GetAreaVisible(213@)
+            if
+                Char.HasGotWeapon(213@, 31)
+            then
+                258@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+for 231@ = 0 to 27
+    328@(231@,28i) = -1 // current hostile/friendly ped network identity
+    356@(231@,28i) = 0 // bounded ped registration attempts
+end
+for 231@ = 0 to 6
+    391@(231@,7i) = -1 // current canonical vehicle network identity
+    398@(231@,7i) = 0 // bounded vehicle registration attempts
+end
+gosub @FINALEA_COOP_FREEZE_REMOTES
 wait 0
 Text.LoadMissionText('RIOT4')
 Streaming.SetAreaVisible(1)
@@ -123,6 +210,11 @@ Player.SetControl($player1, True)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Text.PrintNow('RM4_1', 7000, 1)
+set_lvar_text_label 412@s = 'RM4_1'
+414@ = 7000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
+gosub @FINALEA_COOP_START_PLAY
 Player.SetGroupRecruitment($player1, False)
 41@ = 2505.215
 41@ -= 2508.17
@@ -211,6 +303,12 @@ World.CreateScriptRoadblock(2462.0, -1449.0, 24.0, 2463.0, -1439.0, 24.0, 1)
 
 :FINALEA_1473
 wait 0
+gosub @FINALEA_COOP_UPDATE
+if
+  203@ == 1
+then
+    goto @FINALEA_32509
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @FINALEA_1499
@@ -235,6 +333,10 @@ goto_if_false @FINALEA_1641
 Blip.Remove(128@)
 128@ = Blip.AddForCoord(2507.82, -1309.226, 33.6726)
 Text.PrintNow('RM4_2', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_2'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 TIMERB = 0
 146@ = 1
 
@@ -393,6 +495,7 @@ goto_if_false @FINALEA_4955
 if 
   Char.IsSittingInCar($scplayer, $sweet_car)
 goto_if_false @FINALEA_4955
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 $car = Char.StoreCarIsInNoSave($scplayer)
 Task.CarTempAction($scplayer, $car, TempAction.HandbrakeStraight, 2000000)
@@ -658,7 +761,15 @@ goto @FINALEA_4878
 
 :FINALEA_4902
 Text.PrintNow('RM4_4', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_4'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 Text.Print('RM4_14', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_14'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT
 TIMERA = 0
 151@ = 0
 skip_cutscene_start_internal @FINALEA_5387
@@ -699,6 +810,10 @@ Camera.PointAtPoint(2371.46, -1328.005, 23.2292, SwitchType.JumpCut)
 TIMERA = 0
 Text.ClearPrints
 Text.PrintNow('RM4_5', 8000, 1)
+set_lvar_text_label 412@s = 'RM4_5'
+414@ = 8000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 146@ = 5
 
 :FINALEA_5241
@@ -757,6 +872,10 @@ goto_if_false @FINALEA_5533
 129@ = Blip.AddForCar(57@)
 Blip.SetAsFriendly(129@, True)
 Text.PrintNow('RM4_6', 7000, 1)
+set_lvar_text_label 412@s = 'RM4_6'
+414@ = 7000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 152@ = 1
 
 :FINALEA_5533
@@ -772,6 +891,7 @@ Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
+gosub @FINALEA_COOP_STAGE_PLAY
 World.CreateScriptRoadblock(2456.468, -1262.2, 23.87, 2455.625, -1250.55, 23.89, 1)
 World.CreateScriptRoadblock(2375.778, -1358.43, 23.878, 2365.675, -1358.34, 24.036, 1)
 World.SetPedDensityMultiplier(0.5)
@@ -803,8 +923,9 @@ goto_if_false @FINALEA_6167
 if 
   not Car.IsDead(57@)
 goto_if_false @FINALEA_6167
-if 
+if or
   Char.IsInCar($scplayer, 57@)
+  228@ == 1
 goto_if_false @FINALEA_6167
 if 
   not Char.IsDead(64@)
@@ -887,12 +1008,17 @@ if
   not Car.IsDead(57@)
 goto_if_false @FINALEA_6356
 if 
-  Char.LocateInCar2D($scplayer, 0, 2521.91, -1273.05, 30.0, 30.0)
+  Car.Locate2D(57@, 0, 2521.91, -1273.05, 30.0, 30.0)
 goto_if_false @FINALEA_6356
-if 
+if or
   Char.IsInCar($scplayer, 57@)
+  228@ == 1
 goto_if_false @FINALEA_6356
 Text.PrintNow('RM4_15', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_15'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 Streaming.MarkModelAsNoLongerNeeded(596)
 Streaming.MarkModelAsNoLongerNeeded(285)
 Char.MarkAsNoLongerNeeded(64@)
@@ -939,11 +1065,16 @@ goto_if_false @FINALEA_6575
 if 
   not Car.IsDead(57@)
 goto_if_false @FINALEA_6575
-if 
+if or
   Char.IsSittingInCar($scplayer, 57@)
+  228@ == 1
 goto_if_false @FINALEA_6575
 Blip.Remove(129@)
 Text.PrintNow('RM4_8', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_8'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 130@ = Blip.AddForCoord(2522.79, -1272.85, 34.19)
 152@ = 2
 
@@ -954,13 +1085,18 @@ goto_if_false @FINALEA_6671
 if 
   not Car.IsDead(57@)
 goto_if_false @FINALEA_6671
-if 
+if and
   not Char.IsSittingInCar($scplayer, 57@)
+  228@ == 0
 goto_if_false @FINALEA_6671
 Blip.Remove(130@)
 129@ = Blip.AddForCar(57@)
 Blip.SetAsFriendly(129@, True)
 Text.PrintNow('RM4_9', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_9'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 152@ = 1
 
 :FINALEA_6671
@@ -972,6 +1108,10 @@ if
   Car.IsDead(57@)
 goto_if_false @FINALEA_6735
 Text.PrintNow('RM4_10', 7000, 1)
+set_lvar_text_label 412@s = 'RM4_10'
+414@ = 7000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 goto @FINALEA_32509
 
 :FINALEA_6735
@@ -989,6 +1129,10 @@ if
 goto_if_false @FINALEA_6851
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('ROT4_CA', 2000, 1)
+set_lvar_text_label 412@s = 'ROT4_CA'
+414@ = 2000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 148@ = 1
 
 :FINALEA_6851
@@ -1022,6 +1166,10 @@ Blip.Remove(128@)
 128@ = Blip.AddForCar($sweet_car)
 Blip.SetAsFriendly(128@, True)
 Text.PrintNow('RM4_7', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_7'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 146@ = 100
 149@ = 0
 
@@ -1035,6 +1183,10 @@ goto_if_false @FINALEA_7155
 Blip.Remove(128@)
 128@ = Blip.AddForCoord(2507.82, -1309.226, 33.6726)
 Text.PrintNow('RM4_2', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_2'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 146@ = 1
 149@ = 1
 
@@ -1043,6 +1195,10 @@ if
   Char.IsDead($sweet)
 goto_if_false @FINALEA_7194
 Text.PrintNow('RM4_11', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_11'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 goto @FINALEA_32509
 
 :FINALEA_7194
@@ -1050,6 +1206,10 @@ if
   Car.IsDead($sweet_car)
 goto_if_false @FINALEA_7233
 Text.PrintNow('RM4_12', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_12'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 goto @FINALEA_32509
 
 :FINALEA_7233
@@ -1126,6 +1286,10 @@ Char.SetHeading(82@, 104.5)
 Char.SetHealth(82@, 3)
 Task.PlayAnim(82@, "CRCKIDLE4", "CRACK", 1000.0, True, False, False, True, -1)
 Text.PrintNow('RM4_13', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_13'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 130@ = Blip.AddForCoord(2542.1, -1303.99, 34.03)
 155@ = 1
 
@@ -1134,6 +1298,10 @@ if
   Char.IsDead($sweet)
 goto_if_false @FINALEA_8194
 Text.PrintNow('RM4_11', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_11'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 goto @FINALEA_32509
 
 :FINALEA_8194
@@ -1196,6 +1364,7 @@ Task.FleeChar(82@, $scplayer, 100.0, 30000)
 if 
   53@ == 2
 goto_if_false @FINALEA_8584
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Camera.DoFade(0, 1000)
 
 :FINALEA_8546
@@ -1258,6 +1427,9 @@ Blip.SetEntryExit(130@, 2540.83, -1304.05, 1.0)
 World.ClearArea(1, 2578.0, -1306.0, 200.0, 200.0)
 Camera.DoFade(1, 1000)
 Text.PrintBig('RM4_17', 1000, TextStyle.BottomRight)
+set_lvar_text_label 412@s = 'RM4_17'
+414@ = 1000
+gosub @FINALEA_COOP_PRINT_BIG
 
 :FINALEA_8942
 if 
@@ -1445,6 +1617,11 @@ Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
 Text.ClearPrints
 Text.PrintNow('RM4_16', 7000, 1)
+set_lvar_text_label 412@s = 'RM4_16'
+414@ = 7000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
+gosub @FINALEA_COOP_STAGE_PLAY
 156@ = 2
 
 :FINALEA_10806
@@ -1454,6 +1631,7 @@ goto_if_false @FINALEA_11026
 if or
   Char.LocateAnyMeans3D($scplayer, 0, 2543.38, -1310.38, 1028.26, 5.0, 5.0, 5.0)
   Char.IsShooting($scplayer)
+  229@ == 102
 goto_if_false @FINALEA_11026
 if 
   173@ == 0
@@ -1489,6 +1667,7 @@ goto_if_false @FINALEA_11274
 if or
   Char.IsInArea3D($scplayer, 0, 2540.95, -1314.42, 1028.79, 2529.24, -1333.21, 1035.04)
   Char.LocateAnyMeans3D($scplayer, 0, 2534.44, -1318.92, 1031.17, 5.5, 5.5, 4.0)
+  229@ == 103
 goto_if_false @FINALEA_11192
 if 
   174@ == 0
@@ -1525,6 +1704,7 @@ goto_if_false @FINALEA_11408
 if or
   Char.LocateAnyMeans3D($scplayer, 0, 2527.18, -1304.24, 1027.0, 6.0, 6.0, 5.0)
   Char.IsDead(88@)
+  229@ == 104
 goto_if_false @FINALEA_11408
 if 
   175@ == 0
@@ -1546,6 +1726,7 @@ goto_if_false @FINALEA_12191
 if or
   Char.IsInArea3D($scplayer, 0, 2529.33, -1308.3, 1027.55, 2537.78, -1272.14, 1035.76)
   Char.IsShootingInArea($scplayer, 0, 2522.87, -1299.61, 2529.85, -1287.66)
+  229@ == 105
 goto_if_false @FINALEA_12191
 if 
   163@ == 0
@@ -1675,8 +1856,9 @@ Task.KillCharOnFoot(82@, $scplayer)
 if 
   156@ == 6
 goto_if_false @FINALEA_12370
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2529.88, -1307.89, 1027.0, 2538.32, -1277.63, 1032.54)
+  229@ == 106
 goto_if_false @FINALEA_12370
 Char.MarkAsNoLongerNeeded(85@)
 Char.MarkAsNoLongerNeeded(86@)
@@ -1702,8 +1884,9 @@ gosub @FINALEA_31604
 if 
   156@ == 7
 goto_if_false @FINALEA_12443
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2546.43, -1277.49, 1027.0, 2568.06, -1310.79, 1032.54)
+  229@ == 107
 goto_if_false @FINALEA_12443
 156@ = 8
 
@@ -2104,8 +2287,9 @@ gosub @FINALEA_31653
 if 
   156@ == 9
 goto_if_false @FINALEA_14973
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2566.14, -1307.43, 1027.0, 2580.06, -1279.36, 1034.16)
+  229@ == 109
 goto_if_false @FINALEA_14973
 if 
   172@ == 1
@@ -2130,9 +2314,11 @@ gosub @FINALEA_31735
 if 
   156@ == 10
 goto_if_false @FINALEA_15360
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2577.98, -1307.44, 1034.5, 2583.49, -1298.94, 1039.3)
+  229@ == 110
 goto_if_false @FINALEA_15360
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Hud.SwitchWidescreen(True)
 Player.SetControl($player1, False)
 Blip.Remove(130@)
@@ -2176,6 +2362,9 @@ Streaming.MarkModelAsNoLongerNeeded(#IMCOMPMOVEDR1_LAS)
 Camera.SetFixedPosition(2579.686, -1310.002, 1037.224, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2579.736, -1309.022, 1037.418, SwitchType.JumpCut)
 Text.PrintBig('RM4_18', 1000, TextStyle.BottomRight)
+set_lvar_text_label 412@s = 'RM4_18'
+414@ = 1000
+gosub @FINALEA_COOP_PRINT_BIG
 wait 1000
 Task.GoStraightToCoord($scplayer, 2580.091, -1305.649, 1036.773, MoveState.Walk, 4000)
 156@ = 11
@@ -2368,6 +2557,11 @@ Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Text.ClearPrints
 Text.PrintNow('RM4_23', 7000, 1)
+set_lvar_text_label 412@s = 'RM4_23'
+414@ = 7000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
+gosub @FINALEA_COOP_STAGE_PLAY
 147@ = 3
 157@ = 1
 156@ = 12
@@ -2379,8 +2573,9 @@ goto_if_false @FINALEA_21863
 if 
   157@ == 1
 goto_if_false @FINALEA_17324
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2576.3, -1299.12, 1039.71, 2584.46, -1281.22, 1046.6)
+  229@ == 201
 goto_if_false @FINALEA_17324
 if 
   159@ == 0
@@ -2413,8 +2608,9 @@ Task.KillCharOnFoot(72@, $scplayer)
 if 
   157@ == 2
 goto_if_false @FINALEA_18351
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2571.502, -1311.993, 1041.858, 2560.806, -1276.365, 1046.727)
+  229@ == 202
 goto_if_false @FINALEA_18351
 if 
   159@ == 0
@@ -2797,8 +2993,9 @@ goto_if_false @FINALEA_19868
 if 
   183@ > 5
 goto_if_false @FINALEA_19868
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2551.12, -1276.34, 1046.55, 2543.07, -1287.63, 1050.46)
+  229@ == 203
 goto_if_false @FINALEA_19868
 87@ = Char.Create(24, 173, 2573.448, -1301.981, 1043.133)
 Char.SetHeading(87@, 87.1597)
@@ -2838,8 +3035,9 @@ goto_if_false @FINALEA_20201
 if 
   183@ > 8
 goto_if_false @FINALEA_20201
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2566.09, -1301.26, 1046.91, 2554.56, -1309.06, 1050.0)
+  229@ == 204
 goto_if_false @FINALEA_20201
 89@ = Char.Create(24, 173, 2527.271, -1305.648, 1047.297)
 Char.SetHeading(89@, 269.5592)
@@ -2912,9 +3110,11 @@ Char.MarkAsNoLongerNeeded(90@)
 178@ = 2
 
 :FINALEA_20413
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2522.35, -1309.65, 1045.6, 2513.5, -1295.97, 1050.32)
+  229@ == 205
 goto_if_false @FINALEA_20746
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Hud.SwitchWidescreen(True)
 Player.SetControl($player1, False)
 Char.SetCoordinates($scplayer, 2525.079, -1301.891, 1047.297)
@@ -2950,6 +3150,9 @@ Streaming.MarkModelAsNoLongerNeeded(#BARREL4)
 Camera.SetFixedPosition(2520.282, -1306.363, 1047.599, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2520.3, -1305.388, 1047.823, SwitchType.JumpCut)
 Text.PrintBig('RM4_19', 1000, TextStyle.BottomRight)
+set_lvar_text_label 412@s = 'RM4_19'
+414@ = 1000
+gosub @FINALEA_COOP_PRINT_BIG
 wait 1000
 Task.GoStraightToCoord($scplayer, 2520.025, -1301.845, 1047.289, MoveState.Walk, 5000)
 157@ = 4
@@ -3081,6 +3284,11 @@ Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Text.ClearPrints
 Text.PrintNow('RM4_21', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_21'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
+gosub @FINALEA_COOP_STAGE_PLAY
 147@ = 4
 158@ = 1
 157@ = 5
@@ -3092,8 +3300,9 @@ goto_if_false @FINALEA_27576
 if 
   158@ == 1
 goto_if_false @FINALEA_22010
-if 
+if or
   Char.LocateAnyMeans3D($scplayer, 0, 2520.23, -1293.09, 1051.49, 6.0, 6.0, 5.0)
+  229@ == 301
 goto_if_false @FINALEA_22010
 if 
   177@ == 0
@@ -3112,8 +3321,9 @@ gosub @FINALEA_31697
 if 
   158@ == 2
 goto_if_false @FINALEA_22229
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2522.32, -1293.64, 1052.5, 2532.41, -1273.44, 1055.89)
+  229@ == 302
 goto_if_false @FINALEA_22146
 TIMERA = 0
 if 
@@ -3133,6 +3343,7 @@ goto @FINALEA_22229
 if or
   Char.HasBeenDamagedByChar(71@, $scplayer)
   Char.HasBeenDamagedByChar(72@, $scplayer)
+  229@ == 303
 goto_if_false @FINALEA_22229
 if 
   160@ == 0
@@ -3169,8 +3380,9 @@ Task.KillCharOnFoot(71@, $scplayer)
 if 
   158@ == 4
 goto_if_false @FINALEA_22759
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2530.68, -1306.62, 1052.16, 2542.05, -1275.19, 1057.08)
+  229@ == 304
 goto_if_false @FINALEA_22759
 if 
   not Char.IsDead(91@)
@@ -3245,8 +3457,9 @@ gosub @FINALEA_31697
 if 
   158@ == 5
 goto_if_false @FINALEA_23474
-if 
+if or
   Char.LocateAnyMeans3D($scplayer, 0, 2537.78, -1298.62, 1055.1, 5.0, 5.0, 5.0)
+  229@ == 305
 goto_if_false @FINALEA_23474
 76@ = Char.Create(24, 111, 2545.193, -1302.545, 1053.647)
 Char.SetHeading(76@, 359.6221)
@@ -3321,6 +3534,7 @@ goto_if_false @FINALEA_24207
 if or
   Char.IsInArea3D($scplayer, 0, 2543.87, -1308.98, 1050.78, 2553.03, -1276.55, 1059.5)
   Char.LocateAnyMeans3D($scplayer, 0, 2543.88, -1304.9, 1053.81, 3.0, 3.0, 3.0)
+  229@ == 306
 goto_if_false @FINALEA_24207
 Char.Delete(89@)
 Char.Delete(71@)
@@ -3430,8 +3644,9 @@ gosub @FINALEA_31973
 if 
   158@ == 7
 goto_if_false @FINALEA_24680
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2544.0, -1298.31, 1051.84, 2577.11, -1278.61, 1057.06)
+  229@ == 307
 goto_if_false @FINALEA_24680
 Char.Delete(91@)
 Char.Delete(74@)
@@ -3493,8 +3708,9 @@ gosub @FINALEA_31604
 if 
   187@ == 0
 goto_if_false @FINALEA_24947
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2556.98, -1298.58, 1052.0, 2569.69, -1035.12, 1056.21)
+  229@ == 308
 goto_if_false @FINALEA_24947
 139@ = Pickup.Create(#HEALTH, 3, 2552.298, -1306.06, 1054.681)
 87@ = Char.Create(24, 111, 2566.716, -1305.75, 1053.681)
@@ -3516,8 +3732,9 @@ Task.PlayAnim(92@, "STRIP_E", "STRIP", 8.0, True, True, True, False, -1)
 if 
   186@ == 0
 goto_if_false @FINALEA_25213
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 2558.94, -1290.24, 1052.74, 2568.72, -1283.56, 1057.43)
+  229@ == 309
 goto_if_false @FINALEA_25213
 136@ = Pickup.Create(#BODYARMOUR, 3, 2552.475, -1280.687, 1054.686)
 86@ = Char.Create(24, 111, 2567.987, -1281.41, 1053.687)
@@ -3775,8 +3992,13 @@ goto_if_false @FINALEA_26555
 if or
   Char.IsInArea3D($scplayer, 0, 2577.43, -1281.21, 1050.83, 2584.7, -1291.47, 1055.35)
   Char.LocateAnyMeans3D($scplayer, 0, 2579.82, -1284.91, 1054.12, 3.0, 3.0, 3.0)
+  229@ == 310
 goto_if_false @FINALEA_26555
 Text.PrintNow('RM4_24', 5000, 1)
+set_lvar_text_label 412@s = 'RM4_24'
+414@ = 5000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 Blip.Remove(130@)
 130@ = Blip.AddForCoord(2550.74, -1285.02, 1060.62)
 Blip.SetEntryExit(130@, 2540.83, -1304.05, 1.0)
@@ -3789,7 +4011,9 @@ goto_if_false @FINALEA_27576
 if or
   Char.IsInArea3D($scplayer, 0, 2577.46, -1306.59, 1058.27, 2571.97, -1275.1, 1063.08)
   Char.LocateAnyMeans3D($scplayer, 0, 2575.4, -1300.35, 1061.016, 3.0, 3.0, 3.0)
+  229@ == 311
 goto_if_false @FINALEA_27576
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Blip.Remove(130@)
 Char.Delete(92@)
 Char.Delete(93@)
@@ -3902,7 +4126,9 @@ Char.SetBulletproofVest($big_smoke, True)
 Char.SetHealth($big_smoke, 10000)
 Char.SetMaxHealth($big_smoke, 2000)
 Char.SetSuffersCriticalHits($big_smoke, False)
-Char.SetOnlyDamagedByPlayer($big_smoke, True)
+// Registered peers must be able to contribute real damage; the host remains
+// authoritative for Smoke's health threshold, death and every resulting flag.
+Char.SetOnlyDamagedByPlayer($big_smoke, False)
 131@ = Blip.AddForChar($big_smoke)
 Char.SetHasUsedEntryExit($big_smoke, 2540.83, -1304.05, 1.0)
 Char.SetFollowNodeThresholdDistance($big_smoke, 2.0)
@@ -3939,10 +4165,13 @@ goto @FINALEA_27499
 
 :FINALEA_27523
 Player.SetControl($player1, True)
+gosub @FINALEA_COOP_STAGE_PLAY
 193@ = 0
 194@ = 0
 195@ = 1
 Text.PrintHelp('RM4_28')
+set_lvar_text_label 412@s = 'RM4_28'
+gosub @FINALEA_COOP_PRINT_HELP
 158@ = 10
 147@ = 5
 
@@ -4365,6 +4594,7 @@ Task.Die($big_smoke)
 Camera.SetDarknessEffect(False, -1)
 Game.SetInfraredVision(False)
 Hud.ClearCounter($smokehealth_fa)
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 $player_x, $player_y, $player_z = Char.GetCoordinates($scplayer)
 World.ClearArea(1, $player_x, $player_y, 100.0, 100.0)
@@ -4427,6 +4657,8 @@ if
   Pickup.HasBeenCollected(142@)
 goto_if_false @FINALEA_30653
 Text.PrintHelp('RM4_36')
+set_lvar_text_label 412@s = 'RM4_36'
+gosub @FINALEA_COOP_PRINT_HELP
 192@ = 3
 goto @FINALEA_30704
 
@@ -4434,6 +4666,10 @@ goto @FINALEA_30704
 132@ = Blip.AddForPickup(142@)
 Blip.SetEntryExit(132@, 2540.83, -1304.05, 1.0)
 Text.PrintNow('RM4_31', 7000, 1)
+set_lvar_text_label 412@s = 'RM4_31'
+414@ = 7000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 192@ = 1
 
 :FINALEA_30704
@@ -4445,6 +4681,8 @@ if
 goto_if_false @FINALEA_30761
 Blip.Remove(132@)
 Text.PrintHelp('RM4_36')
+set_lvar_text_label 412@s = 'RM4_36'
+gosub @FINALEA_COOP_PRINT_HELP
 192@ = 2
 
 :FINALEA_30761
@@ -4528,6 +4766,7 @@ $smokehealth_fa = 0
 Camera.SetDarknessEffect(False, -1)
 Game.SetInfraredVision(False)
 Hud.ClearCounter($smokehealth_fa)
+gosub @FINALEA_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 $player_x, $player_y, $player_z = Char.GetCoordinates($scplayer)
 World.ClearArea(1, $player_x, $player_y, 100.0, 100.0)
@@ -4600,6 +4839,10 @@ if
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @FINALEA_31549
 Text.PrintNow(123@s, 4000, 1)
+set_lvar_text_label 412@s = 123@s
+414@ = 4000
+415@ = 1
+gosub @FINALEA_COOP_PRINT_NOW
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 194@ = 2
 
@@ -4718,6 +4961,13 @@ Sequence.Clear(122@)
 return 
 
 :FINALEA_32509
+if
+  206@ == 0
+then
+    206@ = 1
+end
+gosub @FINALEA_COOP_BEGIN_TRANSITION
+gosub @FINALEA_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Streaming.RemoveIplDiscreetly("CARTER")
 Object.Delete($carterwall)
@@ -4729,6 +4979,13 @@ Object.FreezePosition($carterwall, True)
 return 
 
 :FINALEA_32590
+if
+  206@ == 0
+then
+    206@ = 2
+end
+gosub @FINALEA_COOP_BEGIN_TRANSITION
+gosub @FINALEA_COOP_NOTIFY_RESULT
 201@ = 1
 $flag_riot_mission_counter += 1
 Player.ClearWantedLevel($player1)
@@ -4736,6 +4993,7 @@ Streaming.RequestIpl("CARTER")
 return 
 
 :FINALEA_32621
+gosub @FINALEA_COOP_CLEANUP
 World.ClearAllScriptRoadblocks
 World.DisableAllEntryExits(False)
 if 
@@ -4841,6 +5099,1317 @@ Camera.DoFade(0, Fade.Out)
 
 :FINALEA_33284
 return 
+
+// Cooperative End of the Line (part one) layer. Only the host mutates the
+// stock story machine. Peers contribute through the canonical Sweet drive,
+// SWAT-tank breach and interior combat while immutable identities, bounded
+// registration and coordinate fallbacks keep disconnects deterministic.
+:FINALEA_COOP_UPDATE
+if
+  206@ <> 0
+then
+    return
+end
+gosub @FINALEA_COOP_UPDATE_ROSTER
+if
+  203@ == 1
+then
+    return
+end
+gosub @FINALEA_COOP_DERIVE_PHASE
+gosub @FINALEA_COOP_SHARED_TRIGGERS
+if
+  208@ == 1
+then
+    return
+end
+if
+  234@ == 1
+then
+    gosub @FINALEA_COOP_RECOVER_RECONNECTS
+end
+gosub @FINALEA_COOP_POLL_REGISTRATIONS
+gosub @FINALEA_COOP_PROTECT_PARTICIPANTS
+gosub @FINALEA_COOP_RETARGET_HOSTILES
+gosub @FINALEA_COOP_UPDATE_REGROUP
+gosub @FINALEA_COOP_UPDATE_OBJECTIVES
+return
+
+// Resolve frozen identities against both their last actor and the current
+// collector. This tolerates collector-slot reordering, recovers the same
+// identity and clears unmatched late-join UI once without enrolling it.
+:FINALEA_COOP_UPDATE_ROSTER
+211@ = 0
+234@ = 0
+282@, 283@, 284@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 214@ = 246@($temp_int,3i)
+    249@($temp_int,3i) = 0
+    246@($temp_int,3i) = 0
+    if and
+        243@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        212@ = Coop.GetNetworkPlayerInternalId(240@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 212@ == 243@($temp_int,3i)
+        then
+            246@($temp_int,3i) = 1
+        end
+    end
+    if and
+        243@($temp_int,3i) <> -1
+        246@($temp_int,3i) == 0
+    then
+        for 232@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(282@(232@,3i))
+            then
+                212@ = Coop.GetNetworkPlayerInternalId(282@(232@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 212@ == 243@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 240@($temp_int,3i) = 282@(232@,3i)
+                    246@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        246@($temp_int,3i) == 1
+    then
+        211@ += 1
+        if
+            Char.IsDead(240@($temp_int,3i))
+        then
+            203@ = 1
+        else
+            if
+              214@ == 0
+            then
+                249@($temp_int,3i) = 1
+                273@($temp_int,3i) = -1
+                276@($temp_int,3i) = 0
+                234@ = 1
+                if
+                  208@ == 1
+                then
+                    Char.ClearTasksImmediately(240@($temp_int,3i))
+                    Char.SetVisible(240@($temp_int,3i), False)
+                    Char.SetCollision(240@($temp_int,3i), False)
+                    Char.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+                    Char.FreezePosition(240@($temp_int,3i), True)
+                    Task.StandStill(240@($temp_int,3i), -1)
+                    gosub @FINALEA_COOP_TELEPORT_CURRENT
+                end
+            end
+        end
+    else
+        273@($temp_int,3i) = -1
+        276@($temp_int,3i) = 0
+    end
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(282@($temp_int,3i))
+    then
+        212@ = Coop.GetNetworkPlayerInternalId(282@($temp_int,3i))
+        233@ = 0
+        for 232@ = 0 to 2
+            if and
+                243@(232@,3i) <> -1
+                is_int_lvar_equal_to_int_lvar 212@ == 243@(232@,3i)
+            then
+                233@ = 1
+            end
+        end
+        if and
+            233@ == 0
+            not is_int_lvar_equal_to_int_lvar 212@ == 279@($temp_int,3i)
+        then
+            set_lvar_int_to_lvar_int 213@ = 282@($temp_int,3i)
+            gosub @FINALEA_COOP_CLEAR_SPECTATOR
+            set_lvar_int_to_lvar_int 279@($temp_int,3i) = 212@
+        end
+    end
+end
+return
+
+:FINALEA_COOP_CLEAR_SPECTATOR
+Coop.RemoveCheckpointForNetworkPlayer(213@)
+Coop.ClearAllEntityBlipsForNetworkPlayer(213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_2', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_6', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_8', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_13', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_16', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_21', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_23', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_24', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_28', 213@)
+Coop.ClearThisPrintForNetworkPlayer('RM4_31', 213@)
+return
+
+:FINALEA_COOP_BUILD_ACTIVE_ARGS
+285@ = -1
+286@ = -1
+287@ = -1
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 285@($temp_int,3i) = 240@($temp_int,3i)
+    end
+end
+return
+
+:FINALEA_COOP_TELEPORT_CURRENT
+if
+  $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(240@, -1, -1)
+end
+if
+  $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 241@, -1)
+end
+if
+  $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 242@)
+end
+return
+
+:FINALEA_COOP_BEGIN_TRANSITION
+if
+  208@ == 1
+then
+    return
+end
+208@ = 1
+gosub @FINALEA_COOP_UPDATE_ROSTER
+gosub @FINALEA_COOP_CLEAR_OBJECTIVES
+gosub @FINALEA_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(285@, 286@, 287@)
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(240@($temp_int,3i))
+        Char.SetVisible(240@($temp_int,3i), False)
+        Char.SetCollision(240@($temp_int,3i), False)
+        Char.SetProofs(240@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(240@($temp_int,3i), -1)
+        Char.FreezePosition(240@($temp_int,3i), True)
+    end
+end
+return
+
+:FINALEA_COOP_FREEZE_REMOTES
+gosub @FINALEA_COOP_BEGIN_TRANSITION
+return
+
+:FINALEA_COOP_START_PLAY
+if
+  205@ == 1
+then
+    return
+end
+205@ = 1
+gosub @FINALEA_COOP_STAGE_PLAY
+return
+
+:FINALEA_COOP_STAGE_PLAY
+gosub @FINALEA_COOP_UPDATE_ROSTER
+gosub @FINALEA_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(285@, 286@, 287@)
+215@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        Char.ClearTasksImmediately(213@)
+        Char.SetAreaVisible(213@, 215@)
+        Char.SetVisible(213@, True)
+        Char.SetCollision(213@, True)
+        Char.SetProofs(213@, False, False, False, False, False)
+        Char.FreezePosition(213@, False)
+        Task.StandStill(213@, 0)
+        Char.ClearLastDamageEntity(213@)
+        if and
+            147@ >= 2
+            261@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(213@, WeaponType.M4, 800)
+            Char.SetCurrentWeapon(213@, WeaponType.M4)
+            261@($temp_int,3i) = 1
+        end
+        264@($temp_int,3i) = Char.GetHealth(213@)
+        267@($temp_int,3i) = Char.GetArmor(213@)
+        249@($temp_int,3i) = 0
+        273@($temp_int,3i) = -1
+        276@($temp_int,3i) = 0
+    end
+end
+208@ = 0
+210@ = 0
+218@ = -1
+gosub @FINALEA_COOP_DERIVE_PHASE
+return
+
+:FINALEA_COOP_RECOVER_RECONNECTS
+215@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        249@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        gosub @FINALEA_COOP_TELEPORT_CURRENT
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        Char.ClearTasksImmediately(213@)
+        Char.SetAreaVisible(213@, 215@)
+        Char.SetVisible(213@, True)
+        Char.SetCollision(213@, True)
+        Char.SetProofs(213@, False, False, False, False, False)
+        Char.FreezePosition(213@, False)
+        Task.StandStill(213@, 0)
+        if and
+            147@ >= 2
+            261@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(213@, WeaponType.M4, 800)
+            Char.SetCurrentWeapon(213@, WeaponType.M4)
+            261@($temp_int,3i) = 1
+        end
+        264@($temp_int,3i) = Char.GetHealth(213@)
+        267@($temp_int,3i) = Char.GetArmor(213@)
+        249@($temp_int,3i) = 0
+        273@($temp_int,3i) = -1
+        276@($temp_int,3i) = 0
+    end
+end
+234@ = 0
+210@ = 0
+return
+
+:FINALEA_COOP_DERIVE_PHASE
+217@ = 10
+if
+  147@ == 0
+then
+    if
+      146@ == 7
+    then
+        217@ = 20
+        if
+          152@ == 2
+        then
+            217@ = 21
+        end
+    end
+end
+if
+  147@ == 1
+then
+    217@ = 30
+end
+if
+  147@ == 2
+then
+    set_lvar_int_to_lvar_int 217@ = 156@
+    217@ += 100
+end
+if
+  147@ == 3
+then
+    set_lvar_int_to_lvar_int 217@ = 157@
+    217@ += 200
+end
+if
+  147@ == 4
+then
+    set_lvar_int_to_lvar_int 217@ = 158@
+    217@ += 300
+end
+if
+  147@ == 5
+then
+    217@ = 400
+end
+if
+    not is_int_lvar_equal_to_int_lvar 217@ == 218@
+then
+    set_lvar_int_to_lvar_int 218@ = 217@
+    210@ = 0
+    gosub @FINALEA_COOP_RESET_REGISTRATIONS
+end
+return
+
+// Shared gates are sampled once per host frame and tagged with the exact stock
+// phase that produced them. A peer can therefore advance only the same single
+// gate that CJ could have advanced; later gates cannot cascade in that frame.
+:FINALEA_COOP_SHARED_TRIGGERS
+228@ = 0
+229@ = 0
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        if and
+            Car.DoesExist(57@)
+            Char.IsInCar(213@, 57@)
+        then
+            228@ = 1
+        end
+        if and
+            229@ == 0
+            217@ == 102
+        then
+            if or
+                Char.LocateAnyMeans3D(213@, False, 2543.38, -1310.38, 1028.26, 6.0, 6.0, 5.0)
+                Char.IsShooting(213@)
+            then
+                229@ = 102
+            end
+        end
+        if and
+            229@ == 0
+            217@ == 103
+            Char.LocateAnyMeans3D(213@, False, 2534.44, -1318.92, 1031.17, 12.0, 15.0, 5.0)
+        then
+            229@ = 103
+        end
+        if and
+            229@ == 0
+            217@ == 104
+            Char.LocateAnyMeans3D(213@, False, 2527.18, -1304.24, 1029.0, 7.0, 7.0, 6.0)
+        then
+            229@ = 104
+        end
+        if and
+            229@ == 0
+            217@ == 105
+        then
+            if or
+                Char.LocateAnyMeans3D(213@, False, 2533.5, -1290.2, 1030.0, 11.0, 19.0, 6.0)
+                Char.IsShootingInArea(213@, False, 2522.87, -1299.61, 2529.85, -1287.66)
+            then
+                229@ = 105
+            end
+        end
+        if and
+            229@ == 0
+            217@ == 106
+            Char.LocateAnyMeans3D(213@, False, 2534.1, -1292.8, 1030.0, 6.0, 16.0, 5.0)
+        then
+            229@ = 106
+        end
+        if and
+            229@ == 0
+            217@ == 107
+            Char.LocateAnyMeans3D(213@, False, 2557.2, -1294.1, 1030.0, 12.0, 18.0, 5.0)
+        then
+            229@ = 107
+        end
+        if and
+            229@ == 0
+            217@ == 109
+            Char.LocateAnyMeans3D(213@, False, 2573.1, -1293.4, 1030.0, 9.0, 16.0, 5.0)
+        then
+            229@ = 109
+        end
+        if and
+            229@ == 0
+            217@ == 110
+            Char.LocateAnyMeans3D(213@, False, 2580.2, -1303.2, 1037.0, 4.5, 6.0, 4.0)
+        then
+            229@ = 110
+        end
+        if and
+            229@ == 0
+            217@ == 201
+            Char.LocateAnyMeans3D(213@, False, 2580.0, -1290.2, 1043.1, 5.0, 10.0, 5.0)
+        then
+            229@ = 201
+        end
+        if and
+            229@ == 0
+            217@ == 202
+            Char.LocateAnyMeans3D(213@, False, 2566.1, -1294.2, 1044.0, 7.0, 18.0, 5.0)
+        then
+            229@ = 202
+        end
+        if and
+            229@ == 0
+            217@ == 203
+        then
+            if
+                Char.LocateAnyMeans3D(213@, False, 2520.0, -1302.0, 1047.3, 6.0, 8.0, 5.0)
+            then
+                229@ = 205
+            else
+                if
+                    Char.LocateAnyMeans3D(213@, False, 2560.3, -1305.0, 1047.5, 8.0, 5.0, 4.0)
+                then
+                    229@ = 204
+                else
+                    if
+                        Char.LocateAnyMeans3D(213@, False, 2547.1, -1282.0, 1048.0, 7.0, 7.0, 4.0)
+                    then
+                        229@ = 203
+                    end
+                end
+            end
+        end
+        if and
+            229@ == 0
+            217@ == 301
+            Char.LocateAnyMeans3D(213@, False, 2520.23, -1293.09, 1054.0, 7.0, 7.0, 5.0)
+        then
+            229@ = 301
+        end
+        if and
+            229@ == 0
+            217@ == 302
+            Char.LocateAnyMeans3D(213@, False, 2527.3, -1284.0, 1054.0, 7.0, 11.0, 5.0)
+        then
+            229@ = 302
+        end
+        if and
+            229@ == 0
+            217@ == 302
+        then
+            if or
+                Char.HasBeenDamagedByChar(71@, 213@)
+                Char.HasBeenDamagedByChar(72@, 213@)
+            then
+                229@ = 303
+            end
+        end
+        if and
+            229@ == 0
+            217@ == 304
+            Char.LocateAnyMeans3D(213@, False, 2536.3, -1291.0, 1054.0, 7.0, 17.0, 6.0)
+        then
+            229@ = 304
+        end
+        if and
+            229@ == 0
+            217@ == 305
+            Char.LocateAnyMeans3D(213@, False, 2537.78, -1298.62, 1055.1, 6.0, 6.0, 5.0)
+        then
+            229@ = 305
+        end
+        if and
+            229@ == 0
+            217@ == 306
+            Char.LocateAnyMeans3D(213@, False, 2548.5, -1293.0, 1054.0, 7.0, 18.0, 6.0)
+        then
+            229@ = 306
+        end
+        if and
+            229@ == 0
+            217@ == 307
+            Char.LocateAnyMeans3D(213@, False, 2560.5, -1290.0, 1054.0, 17.0, 11.0, 5.0)
+        then
+            229@ = 307
+        end
+        if and
+            229@ == 0
+            217@ == 308
+        then
+            if
+                Char.LocateAnyMeans3D(213@, False, 2579.8, -1284.9, 1054.1, 5.0, 5.0, 4.0)
+            then
+                229@ = 310
+            else
+                if
+                    Char.LocateAnyMeans3D(213@, False, 2563.3, -1302.8, 1054.0, 7.0, 6.0, 4.0)
+                then
+                    229@ = 308
+                else
+                    if
+                        Char.LocateAnyMeans3D(213@, False, 2564.0, -1285.0, 1054.0, 7.0, 6.0, 4.0)
+                    then
+                        229@ = 309
+                    end
+                end
+            end
+        end
+        if and
+            229@ == 0
+            217@ == 309
+            Char.LocateAnyMeans3D(213@, False, 2575.4, -1300.35, 1061.016, 5.0, 8.0, 5.0)
+        then
+            229@ = 311
+        end
+    end
+end
+return
+
+// Registrations never block story progression. Each extant entity receives at
+// most ten asynchronous polls (five seconds total); coordinate checkpoints and
+// host-owned interactions remain available when a network identity never lands.
+:FINALEA_COOP_RESET_REGISTRATIONS
+for 231@ = 0 to 27
+    300@(231@,28i) = -1
+    328@(231@,28i) = -1
+    356@(231@,28i) = 0
+end
+for 231@ = 0 to 6
+    384@(231@,7i) = -1
+    391@(231@,7i) = -1
+    398@(231@,7i) = 0
+end
+gosub @FINALEA_COOP_REFRESH_ENTITY_HANDLES
+209@ = 0
+return
+
+:FINALEA_COOP_REFRESH_ENTITY_HANDLES
+220@ = 0
+213@ = -1
+if
+    147@ <= 1
+then
+    set_lvar_int_to_var_int 213@ = $sweet
+end
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+220@ = 1
+213@ = -1
+if
+    147@ == 5
+then
+    set_lvar_int_to_var_int 213@ = $big_smoke
+end
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+220@ = 2
+set_lvar_int_to_lvar_int 213@ = 64@
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+220@ = 3
+set_lvar_int_to_lvar_int 213@ = 65@
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+220@ = 4
+set_lvar_int_to_lvar_int 213@ = 66@
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+220@ = 5
+set_lvar_int_to_lvar_int 213@ = 67@
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+220@ = 6
+set_lvar_int_to_lvar_int 213@ = 68@
+gosub @FINALEA_COOP_REFRESH_PED_SLOT
+for 231@ = 0 to 20
+    set_lvar_int_to_lvar_int 220@ = 231@
+    220@ += 7
+    set_lvar_int_to_lvar_int 213@ = 71@(231@,21i)
+    gosub @FINALEA_COOP_REFRESH_PED_SLOT
+end
+220@ = 0
+set_lvar_int_to_var_int 213@ = $sweet_car
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+220@ = 1
+set_lvar_int_to_lvar_int 213@ = 54@
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+220@ = 2
+set_lvar_int_to_lvar_int 213@ = 55@
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+220@ = 3
+set_lvar_int_to_lvar_int 213@ = 57@
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+220@ = 4
+set_lvar_int_to_lvar_int 213@ = 58@
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+220@ = 5
+set_lvar_int_to_lvar_int 213@ = 59@
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+220@ = 6
+set_lvar_int_to_lvar_int 213@ = 63@
+gosub @FINALEA_COOP_REFRESH_VEHICLE_SLOT
+return
+
+:FINALEA_COOP_REFRESH_PED_SLOT
+if
+    not is_int_lvar_equal_to_int_lvar 300@(220@,28i) == 213@
+then
+    set_lvar_int_to_lvar_int 300@(220@,28i) = 213@
+    328@(220@,28i) = -1
+    356@(220@,28i) = 0
+end
+return
+
+:FINALEA_COOP_REFRESH_VEHICLE_SLOT
+if
+    not is_int_lvar_equal_to_int_lvar 384@(220@,7i) == 213@
+then
+    set_lvar_int_to_lvar_int 384@(220@,7i) = 213@
+    391@(220@,7i) = -1
+    398@(220@,7i) = 0
+end
+return
+
+:FINALEA_COOP_POLL_REGISTRATIONS
+212@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 209@ > 212@
+then
+    return
+end
+209@ = Clock.GetGameTimer()
+209@ += 500
+gosub @FINALEA_COOP_REFRESH_ENTITY_HANDLES
+for 231@ = 0 to 27
+    if and
+        328@(231@,28i) == -1
+        356@(231@,28i) < 10
+        Char.DoesExist(300@(231@,28i))
+    then
+        if
+            not Char.IsDead(300@(231@,28i))
+        then
+            328@(231@,28i) = Coop.GetPedNetworkId(300@(231@,28i))
+            356@(231@,28i) += 1
+            if and
+                328@(231@,28i) == -1
+                356@(231@,28i) >= 10
+            then
+                219@ = 1
+            end
+        end
+    end
+end
+for 231@ = 0 to 6
+    if and
+        391@(231@,7i) == -1
+        398@(231@,7i) < 10
+        Car.DoesExist(384@(231@,7i))
+    then
+        if
+            not Car.IsDead(384@(231@,7i))
+        then
+            391@(231@,7i) = Coop.GetVehicleNetworkId(384@(231@,7i))
+            398@(231@,7i) += 1
+            if and
+                391@(231@,7i) == -1
+                398@(231@,7i) >= 10
+            then
+                219@ = 1
+            end
+        end
+    end
+end
+return
+
+// Roll back only participant-attributed health/armor loss. Hostile, collision,
+// fire and world damage still drive the original failure and combat behavior.
+:FINALEA_COOP_PROTECT_PARTICIPANTS
+if
+    not Char.IsDead($scplayer)
+then
+    225@ = 0
+    for $temp_int = 0 to 2
+        if and
+            246@($temp_int,3i) == 1
+            Char.HasBeenDamagedByChar($scplayer, 240@($temp_int,3i))
+        then
+            225@ = 1
+        end
+    end
+    223@ = Char.GetHealth($scplayer)
+    224@ = Char.GetArmor($scplayer)
+    if
+      225@ == 1
+    then
+        if
+            is_int_lvar_greater_than_int_lvar 221@ > 223@
+        then
+            Char.SetHealth($scplayer, 221@)
+        else
+            set_lvar_int_to_lvar_int 221@ = 223@
+        end
+        if
+            is_int_lvar_greater_than_int_lvar 222@ > 224@
+        then
+            set_lvar_int_to_lvar_int 226@ = 222@
+            sub_int_lvar_from_int_lvar 226@ -= 224@
+            Char.AddArmor($scplayer, 226@)
+        else
+            set_lvar_int_to_lvar_int 222@ = 224@
+        end
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    else
+        set_lvar_int_to_lvar_int 221@ = 223@
+        set_lvar_int_to_lvar_int 222@ = 224@
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        225@ = 0
+        if
+            Char.HasBeenDamagedByChar(213@, $scplayer)
+        then
+            225@ = 1
+        end
+        for 232@ = 0 to 2
+            if and
+                not is_int_lvar_equal_to_int_var 232@ == $temp_int
+                246@(232@,3i) == 1
+                Char.HasBeenDamagedByChar(213@, 240@(232@,3i))
+            then
+                225@ = 1
+            end
+        end
+        223@ = Char.GetHealth(213@)
+        224@ = Char.GetArmor(213@)
+        if
+          225@ == 1
+        then
+            if
+                is_int_lvar_greater_than_int_lvar 264@($temp_int,3i) > 223@
+            then
+                Char.SetHealth(213@, 264@($temp_int,3i))
+            else
+                set_lvar_int_to_lvar_int 264@($temp_int,3i) = 223@
+            end
+            if
+                is_int_lvar_greater_than_int_lvar 267@($temp_int,3i) > 224@
+            then
+                set_lvar_int_to_lvar_int 226@ = 267@($temp_int,3i)
+                sub_int_lvar_from_int_lvar 226@ -= 224@
+                Char.AddArmor(213@, 226@)
+            else
+                set_lvar_int_to_lvar_int 267@($temp_int,3i) = 224@
+            end
+            Char.ClearLastDamageEntity(213@)
+            Char.ClearLastWeaponDamage(213@)
+        else
+            set_lvar_int_to_lvar_int 264@($temp_int,3i) = 223@
+            set_lvar_int_to_lvar_int 267@($temp_int,3i) = 224@
+        end
+    end
+end
+if and
+    147@ <= 1
+    Char.DoesExist($sweet)
+    not Char.IsDead($sweet)
+then
+    225@ = 0
+    if
+        Char.HasBeenDamagedByChar($sweet, $scplayer)
+    then
+        225@ = 1
+    end
+    for $temp_int = 0 to 2
+        if and
+            246@($temp_int,3i) == 1
+            Char.HasBeenDamagedByChar($sweet, 240@($temp_int,3i))
+        then
+            225@ = 1
+        end
+    end
+    223@ = Char.GetHealth($sweet)
+    if and
+        225@ == 1
+        is_int_lvar_greater_than_int_lvar 227@ > 223@
+    then
+        Char.SetHealth($sweet, 227@)
+        Char.ClearLastDamageEntity($sweet)
+        Char.ClearLastWeaponDamage($sweet)
+    else
+        set_lvar_int_to_lvar_int 227@ = 223@
+    end
+end
+return
+
+// A peer assaulting a registered hostile becomes a meaningful AI target. Slot
+// order is deterministic, and stock tasks remain untouched until peer contact.
+:FINALEA_COOP_RETARGET_HOSTILES
+212@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 216@ > 212@
+then
+    return
+end
+216@ = Clock.GetGameTimer()
+216@ += 500
+for 231@ = 1 to 27
+    if and
+        328@(231@,28i) <> -1
+        Char.DoesExist(300@(231@,28i))
+    then
+        if
+            not Char.IsDead(300@(231@,28i))
+        then
+            for $temp_int = 0 to 2
+                if and
+                    246@($temp_int,3i) == 1
+                    not Char.IsDead(240@($temp_int,3i))
+                    Char.HasBeenDamagedByChar(300@(231@,28i), 240@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(300@(231@,28i), 240@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+// Participants separated from the host for twenty seconds are caught up. A
+// disconnect retires its deadline; the same immutable identity starts fresh on
+// reconnect and receives the current visible area/objective.
+:FINALEA_COOP_UPDATE_REGROUP
+212@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 230@ > 212@
+then
+    return
+end
+230@ = Clock.GetGameTimer()
+230@ += 1000
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        if
+            not Char.LocateAnyMeansChar3D(240@($temp_int,3i), $scplayer, 250.0, 250.0, 100.0, False)
+        then
+            if
+              276@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 276@($temp_int,3i) = 212@
+                276@($temp_int,3i) += 20000
+            else
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 212@ >= 276@($temp_int,3i)
+                then
+                    gosub @FINALEA_COOP_TELEPORT_CURRENT
+                    215@ = Char.GetAreaVisible($scplayer)
+                    Char.SetAreaVisible(240@($temp_int,3i), 215@)
+                    273@($temp_int,3i) = -1
+                    276@($temp_int,3i) = 0
+                    210@ = 0
+                end
+            end
+        else
+            276@($temp_int,3i) = 0
+        end
+    else
+        276@($temp_int,3i) = 0
+    end
+end
+return
+
+:FINALEA_COOP_UPDATE_OBJECTIVES
+if or
+    202@ == 0
+    205@ == 0
+    208@ == 1
+then
+    return
+end
+212@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 210@ > 212@
+then
+    return
+end
+210@ = Clock.GetGameTimer()
+210@ += 750
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(213@)
+        if
+            not is_int_lvar_equal_to_int_lvar 273@($temp_int,3i) == 217@
+        then
+            Coop.RemoveCheckpointForNetworkPlayer(213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_2', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_6', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_8', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_13', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_16', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_21', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_23', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_24', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_28', 213@)
+            if
+              217@ < 20
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_2', 5000, 1, 213@)
+            end
+            if
+              217@ == 20
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_6', 7000, 1, 213@)
+            end
+            if
+              217@ == 21
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_8', 5000, 1, 213@)
+            end
+            if
+              217@ == 30
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_13', 5000, 1, 213@)
+            end
+            if and
+                217@ >= 100
+                217@ < 200
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_16', 7000, 1, 213@)
+            end
+            if and
+                217@ >= 200
+                217@ < 300
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_23', 7000, 1, 213@)
+            end
+            if and
+                217@ >= 300
+                217@ < 309
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_21', 5000, 1, 213@)
+            end
+            if
+              217@ == 309
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_24', 5000, 1, 213@)
+            end
+            if
+              217@ == 400
+            then
+                Coop.PrintHelpForNetworkPlayer('RM4_28', 213@)
+            end
+            set_lvar_int_to_lvar_int 273@($temp_int,3i) = 217@
+        end
+        if
+          217@ < 20
+        then
+            if and
+                391@ <> -1
+                Car.DoesExist($sweet_car)
+                not Car.IsDead($sweet_car)
+            then
+                405@, 406@, 407@ = Car.GetCoordinates($sweet_car)
+                Coop.UpdateCheckpointForNetworkPlayer(405@, 406@, 407@, 5.0, 5.0, 4.0, 213@)
+                Coop.UpdateCarBlipForNetworkPlayer(213@, $sweet_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            else
+                Coop.UpdateCheckpointForNetworkPlayer(2507.82, -1671.88, 12.49, 8.0, 8.0, 5.0, 213@)
+            end
+        end
+        if
+          217@ == 20
+        then
+            if and
+                394@ <> -1
+                Car.DoesExist(57@)
+                not Car.IsDead(57@)
+            then
+                405@, 406@, 407@ = Car.GetCoordinates(57@)
+                Coop.UpdateCheckpointForNetworkPlayer(405@, 406@, 407@, 6.0, 6.0, 5.0, 213@)
+                Coop.UpdateCarBlipForNetworkPlayer(213@, 57@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            else
+                Coop.UpdateCheckpointForNetworkPlayer(2374.36, -1323.792, 22.8389, 8.0, 8.0, 5.0, 213@)
+            end
+        end
+        if
+          217@ == 21
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2522.79, -1272.85, 34.19, 8.0, 8.0, 6.0, 213@)
+            if and
+                394@ <> -1
+                Car.DoesExist(57@)
+                not Car.IsDead(57@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(213@, 57@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+        end
+        if
+          217@ == 30
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2542.1, -1303.99, 34.03, 7.0, 7.0, 5.0, 213@)
+        end
+        if
+          217@ == 102
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2543.38, -1310.38, 1028.26, 6.0, 6.0, 5.0, 213@)
+        end
+        if or
+          217@ == 103
+          217@ == 104
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2534.44, -1318.92, 1031.17, 7.0, 7.0, 5.0, 213@)
+        end
+        if or
+          217@ == 105
+          217@ == 106
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2533.5, -1290.2, 1030.0, 7.0, 12.0, 5.0, 213@)
+        end
+        if or
+          217@ == 107
+          217@ == 108
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2560.0, -1293.0, 1030.4, 8.0, 10.0, 5.0, 213@)
+        end
+        if
+          217@ == 109
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2573.0, -1293.0, 1030.4, 7.0, 10.0, 5.0, 213@)
+        end
+        if or
+          217@ == 110
+          217@ == 111
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2580.09, -1305.65, 1036.78, 5.0, 5.0, 4.0, 213@)
+        end
+        if
+          217@ == 201
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2579.0, -1285.0, 1043.13, 6.0, 8.0, 5.0, 213@)
+        end
+        if
+          217@ == 202
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2561.0, -1294.0, 1043.13, 7.0, 12.0, 5.0, 213@)
+        end
+        if
+          217@ == 203
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2520.03, -1301.85, 1047.29, 6.0, 6.0, 5.0, 213@)
+        end
+        if or
+          217@ == 301
+          217@ == 302
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2527.3, -1284.0, 1053.68, 7.0, 10.0, 5.0, 213@)
+        end
+        if or
+          217@ == 303
+          217@ == 304
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2537.8, -1294.0, 1053.68, 7.0, 12.0, 5.0, 213@)
+        end
+        if or
+          217@ == 305
+          217@ == 306
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2548.5, -1293.0, 1053.68, 7.0, 12.0, 5.0, 213@)
+        end
+        if or
+          217@ == 307
+          217@ == 308
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2562.0, -1293.0, 1053.68, 8.0, 12.0, 5.0, 213@)
+        end
+        if
+          217@ == 309
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2575.4, -1300.35, 1061.016, 6.0, 8.0, 5.0, 213@)
+        end
+        if
+          217@ == 400
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2550.74, -1285.02, 1060.62, 8.0, 8.0, 5.0, 213@)
+            if and
+                329@ <> -1
+                Char.DoesExist($big_smoke)
+                not Char.IsDead($big_smoke)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(213@, $big_smoke, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        else
+            if
+              217@ >= 100
+            then
+                for 231@ = 2 to 27
+                    if and
+                        328@(231@,28i) <> -1
+                        Char.DoesExist(300@(231@,28i))
+                    then
+                        if
+                            not Char.IsDead(300@(231@,28i))
+                        then
+                            Coop.UpdateCharBlipForNetworkPlayer(213@, 300@(231@,28i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:FINALEA_COOP_PRINT_NOW
+gosub @FINALEA_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        Coop.PrintNowForNetworkPlayer(412@s, 414@, 415@, 240@($temp_int,3i))
+    end
+end
+return
+
+:FINALEA_COOP_PRINT
+gosub @FINALEA_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        Coop.PrintForNetworkPlayer(412@s, 414@, 415@, 240@($temp_int,3i))
+    end
+end
+return
+
+:FINALEA_COOP_PRINT_BIG
+gosub @FINALEA_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        Coop.PrintBigForNetworkPlayer(412@s, 414@, TextStyle.BottomRight, 240@($temp_int,3i))
+    end
+end
+return
+
+:FINALEA_COOP_PRINT_HELP
+gosub @FINALEA_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        not Char.IsDead(240@($temp_int,3i))
+    then
+        Coop.PrintHelpForNetworkPlayer(412@s, 240@($temp_int,3i))
+    end
+end
+return
+
+:FINALEA_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        243@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        212@ = Coop.GetNetworkPlayerInternalId(213@)
+        if
+            is_int_lvar_equal_to_int_lvar 212@ == 243@($temp_int,3i)
+        then
+            Coop.RemoveCheckpointForNetworkPlayer(213@)
+            Coop.ClearAllEntityBlipsForNetworkPlayer(213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_2', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_6', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_8', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_13', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_16', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_21', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_23', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_24', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_28', 213@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_31', 213@)
+        end
+    end
+    273@($temp_int,3i) = -1
+end
+return
+
+:FINALEA_COOP_NOTIFY_RESULT
+if
+  207@ == 1
+then
+    return
+end
+207@ = 1
+gosub @FINALEA_COOP_UPDATE_ROSTER
+gosub @FINALEA_COOP_CLEAR_OBJECTIVES
+if
+  206@ == 1
+then
+    for $temp_int = 0 to 2
+        if
+          246@($temp_int,3i) == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 240@($temp_int,3i))
+        end
+    end
+end
+// Result 2 deliberately shows no mission-passed card: the stock riot counter
+// immediately hands the same story into FINALEB, which owns the next result.
+return
+
+:FINALEA_COOP_CLEANUP
+if
+  204@ == 1
+then
+    return
+end
+204@ = 1
+gosub @FINALEA_COOP_UPDATE_ROSTER
+gosub @FINALEA_COOP_CLEAR_OBJECTIVES
+gosub @FINALEA_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(285@, 286@, 287@)
+215@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        246@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(240@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 213@ = 240@($temp_int,3i)
+        if
+          261@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(31, 213@)
+            if
+              258@($temp_int,3i) == 1
+            then
+                Char.GiveWeapon(213@, WeaponType.M4, 252@($temp_int,3i))
+            end
+        end
+        if
+          255@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(213@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(213@, 255@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(213@, 255@($temp_int,3i))
+            end
+        end
+        Char.ClearTasksImmediately(213@)
+        Char.SetAreaVisible(213@, 215@)
+        Char.SetVisible(213@, True)
+        Char.SetCollision(213@, True)
+        Char.SetProofs(213@, False, False, False, False, False)
+        Char.FreezePosition(213@, False)
+        Task.StandStill(213@, 0)
+        246@($temp_int,3i) = 0
+        249@($temp_int,3i) = 0
+        273@($temp_int,3i) = -1
+        276@($temp_int,3i) = 0
+    end
+end
+208@ = 0
+return
 
 //-------------Mission 111---------------
 // Originally: End Of The Line (2)
