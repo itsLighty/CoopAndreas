@@ -14,6 +14,77 @@ terminate_this_script
 $onmission = 1
 Stat.RegisterMissionGiven
 script_name 'ZERO2'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Supply Lines remains host-authoritative: the host alone flies the RC Baron,
+// spends its fuel, advances the five courier flags, returns it and earns rewards.
+// Remote membership is frozen by immutable internal identity at mission entry.
+536@ = 0 // frozen remote-roster size
+537@ = 0 // deterministic cooperative participant failure
+538@ = 0 // idempotent cooperative cleanup guard
+539@ = 0 // support play has begun
+540@ = 0 // cooperative phase: 0 cinematic, 1 couriers, 2 return
+541@ = 0 // next bounded entity-registration poll
+542@ = 0 // next objective refresh
+543@ = 0 // time/internal-id scratch
+544@ = 0 // actor/entity scratch
+545@ = 0 // a frozen participant reconnected this frame
+546@ = 0 // canonical outcome: 0 active, 1 failed, 2 passed
+547@ = 0 // result notification guard
+570@ = -1 // entity network-id scratch
+571@ = 0 // health/boolean scratch
+572@ = 0 // one fallback hit/checkpoint has been applied
+573@ = 0 // target index scratch
+574@ = 0 // next conservative unsynced-combat pass
+575@ = 0 // currently connected frozen participants
+576@ = 0 // previous slot activity scratch
+577@ = 0 // host area-visible scratch
+610@ = -1 // Berkley's van network id
+611@ = 0 // bounded van registration attempts
+612@ = -1 // Zero network id
+613@ = 0 // bounded Zero registration attempts
+614@ = -1 // host RC Baron network id
+615@ = 0 // bounded RC Baron registration attempts
+616@ = 0 // registration degraded after bounded retries
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // current actor for frozen identity
+    503@($temp_int,3i) = -1 // immutable internal network identity
+    506@($temp_int,3i) = 0 // currently connected frozen participant
+    509@($temp_int,3i) = 0 // reconnect requires safe restaging
+    512@($temp_int,3i) = -1 // last objective phase sent
+    515@($temp_int,3i) = 0 // pre-mission Micro Uzi ammunition
+    518@($temp_int,3i) = 0 // pre-mission selected weapon
+    521@($temp_int,3i) = 0 // inventory snapshot is valid
+    524@($temp_int,3i) = 0 // temporary support weapon granted
+    527@($temp_int,3i) = -1 // optional support Sanchez
+    530@($temp_int,3i) = -1 // support Sanchez network id
+    533@($temp_int,3i) = 0 // bounded support Sanchez registration attempts
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            503@($temp_int,3i) <> -1
+        then
+            506@($temp_int,3i) = 1
+            515@($temp_int,3i) = Char.GetAmmoInWeapon(500@($temp_int,3i), 28)
+            518@($temp_int,3i) = Char.GetCurrentWeapon(500@($temp_int,3i))
+            521@($temp_int,3i) = 1
+            536@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 4
+    580@($temp_int,5i) = -1 // courier vehicle network id
+    585@($temp_int,5i) = 0 // bounded courier vehicle registration attempts
+    590@($temp_int,5i) = -1 // courier driver network id
+    595@($temp_int,5i) = 0 // bounded courier driver registration attempts
+    600@($temp_int,5i) = -2 // only courier slots 0 and 3 have passengers
+    605@($temp_int,5i) = 0 // bounded courier passenger registration attempts
+end
+600@ = -1
+603@ = -1
+gosub @ZERO2_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Text.LoadMissionText('ZERO2')
 Hud.DisplayCarNames(False)
@@ -443,6 +514,7 @@ wait 0
 goto @ZERO2_2656
 
 :ZERO2_2680
+gosub @ZERO2_COOP_START_PLAY
 Player.SetControl($player1, True)
 129@ = 0
 
@@ -493,6 +565,12 @@ if
   110@ <> 1
 goto_if_false @ZERO2_7019
 wait 0
+gosub @ZERO2_COOP_UPDATE
+if
+    537@ == 1
+then
+    goto @ZERO2_8352
+end
 if 
   not Car.IsDead(34@)
 goto_if_false @ZERO2_3017
@@ -1352,6 +1430,12 @@ Text.PrintNow('ZER2_41', 5000, 1)
 return 
 
 :ZERO2_7177
+gosub @ZERO2_COOP_UPDATE
+if
+    537@ == 1
+then
+    goto @ZERO2_8352
+end
 if 
   not Car.IsDead(34@)
 goto_if_false @ZERO2_8352
@@ -1805,6 +1889,8 @@ return
 return 
 
 :ZERO2_9384
+546@ = 2
+gosub @ZERO2_COOP_NOTIFY_OUTCOME
 Player.ClearWantedLevel($player1)
 Stat.RegisterMissionPassed('ZERO_2')
 Stat.PlayerMadeProgress(1)
@@ -1812,9 +1898,12 @@ $flag_zero_mission_counter += 1
 return 
 
 :ZERO2_9413
+546@ = 1
+gosub @ZERO2_COOP_NOTIFY_OUTCOME
 return 
 
 :ZERO2_9415
+gosub @ZERO2_COOP_CLEANUP
 World.DisableAllEntryExits(False)
 Camera.ResetNewScriptables
 Hud.DisplayCarNames(True)
@@ -1868,3 +1957,800 @@ Text.ClearPrints
 Mission.Finish
 return 
 
+// Frozen identities may reacquire a new actor handle after reconnecting. Current
+// candidates are matched only by the internal id captured at mission entry, so a
+// late joiner or recycled actor can never inherit mission state or cleanup.
+:ZERO2_COOP_UPDATE_ROSTER
+575@ = 0
+545@ = 0
+560@, 561@, 562@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 576@ = 506@($temp_int,3i)
+    506@($temp_int,3i) = 0
+    571@ = 0
+    if and
+        503@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        543@ = Coop.GetNetworkPlayerInternalId(544@)
+        if
+            is_int_lvar_equal_to_int_lvar 543@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+        end
+    end
+    if and
+        503@($temp_int,3i) <> -1
+        506@($temp_int,3i) == 0
+    then
+        for 563@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(560@(563@,3i))
+            then
+                543@ = Coop.GetNetworkPlayerInternalId(560@(563@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 543@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 560@(563@,3i)
+                    506@($temp_int,3i) = 1
+                    571@ = 1
+                end
+            end
+        end
+    end
+    if
+        506@($temp_int,3i) == 1
+    then
+        575@ += 1
+        if and
+            539@ == 1
+            546@ == 0
+        then
+            if or
+                576@ == 0
+                571@ == 1
+            then
+                509@($temp_int,3i) = 1
+                512@($temp_int,3i) = -1
+                524@($temp_int,3i) = 0
+                545@ = 1
+            end
+        end
+        if and
+            546@ == 0
+            Char.IsDead(500@($temp_int,3i))
+        then
+            537@ = 1
+        end
+    end
+end
+return
+
+:ZERO2_COOP_BUILD_ACTIVE_ARGS
+554@ = -1
+555@ = -1
+556@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 554@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:ZERO2_COOP_FREEZE_REMOTES
+if
+    536@ == 0
+then
+    return
+end
+557@, 558@, 559@ = Char.GetCoordinates($scplayer)
+577@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 557@, 558@, 559@)
+        else
+            Char.SetCoordinates(500@($temp_int,3i), 557@, 558@, 559@)
+        end
+        Char.SetAreaVisible(500@($temp_int,3i), 577@)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+return
+
+// Every frozen slot owns an optional Sanchez. These transports never gate the
+// host's RC route; destruction simply falls back to on-foot/ambient assistance.
+:ZERO2_COOP_START_PLAY
+if
+    539@ == 1
+then
+    return
+end
+539@ = 1
+540@ = 1
+gosub @ZERO2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        503@($temp_int,3i) <> -1
+        527@($temp_int,3i) == -1
+    then
+        567@ = -2244.0
+        568@ = 142.0
+        569@ = 34.32
+        if
+            $temp_int == 1
+        then
+            568@ = 146.0
+        end
+        if
+            $temp_int == 2
+        then
+            568@ = 150.0
+        end
+        527@($temp_int,3i) = Car.Create(468, 567@, 568@, 569@)
+        if
+            Car.DoesExist(527@($temp_int,3i))
+        then
+            Car.SetHeading(527@($temp_int,3i), 90.0)
+            Car.SetHealth(527@($temp_int,3i), 1000)
+            Car.SetCanBurstTires(527@($temp_int,3i), False)
+            Car.LockDoors(527@($temp_int,3i), CarLock.Unlocked)
+        end
+    end
+end
+541@ = 0
+gosub @ZERO2_COOP_POLL_REGISTRATIONS
+gosub @ZERO2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(554@, 555@, 556@)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        567@ = -2244.0
+        568@ = 142.0
+        569@ = 34.32
+        if
+            $temp_int == 1
+        then
+            568@ = 146.0
+        end
+        if
+            $temp_int == 2
+        then
+            568@ = 150.0
+        end
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if and
+            Car.DoesExist(527@($temp_int,3i))
+            not Car.IsDead(527@($temp_int,3i))
+        then
+            Char.WarpIntoCar(500@($temp_int,3i), 527@($temp_int,3i))
+        else
+            Char.SetCoordinates(500@($temp_int,3i), 567@, 568@, 569@)
+        end
+        Char.SetAreaVisible(500@($temp_int,3i), 0)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Task.StandStill(500@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(500@($temp_int,3i))
+    end
+end
+Char.ClearLastDamageEntity($scplayer)
+gosub @ZERO2_COOP_GRANT_LOADOUTS
+542@ = 0
+574@ = 0
+gosub @ZERO2_COOP_UPDATE_OBJECTIVES
+return
+
+// A same-identity reconnect is regrouped once without waiting for that peer.
+:ZERO2_COOP_REGROUP_RECONNECTED
+554@ = -1
+555@ = -1
+556@ = -1
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 554@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+Coop.TeleportPlayersToHostSafely(554@, 555@, 556@)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        567@ = -2244.0
+        568@ = 142.0
+        569@ = 34.32
+        if
+            $temp_int == 1
+        then
+            568@ = 146.0
+        end
+        if
+            $temp_int == 2
+        then
+            568@ = 150.0
+        end
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if and
+            Car.DoesExist(527@($temp_int,3i))
+            not Car.IsDead(527@($temp_int,3i))
+        then
+            Char.WarpIntoCar(500@($temp_int,3i), 527@($temp_int,3i))
+        else
+            Char.SetCoordinates(500@($temp_int,3i), 567@, 568@, 569@)
+        end
+        Char.SetAreaVisible(500@($temp_int,3i), 0)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Task.StandStill(500@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(500@($temp_int,3i))
+        509@($temp_int,3i) = 0
+        512@($temp_int,3i) = -1
+    end
+end
+542@ = 0
+return
+
+:ZERO2_COOP_GRANT_LOADOUTS
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        524@($temp_int,3i) == 0
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        Char.GiveWeapon(500@($temp_int,3i), WeaponType.MicroUzi, 500)
+        Char.SetCurrentWeapon(500@($temp_int,3i), WeaponType.MicroUzi)
+        524@($temp_int,3i) = 1
+    end
+end
+return
+
+// Entity registration is a non-blocking bounded handshake: at most ten probes
+// per relevant ped/vehicle, spaced 500 ms apart. A timeout degrades objective
+// markers and combat credit without ever stalling canonical mission progression.
+:ZERO2_COOP_POLL_REGISTRATIONS
+if
+    539@ == 0
+then
+    return
+end
+543@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 541@ > 543@
+then
+    return
+end
+541@ = Clock.GetGameTimer()
+541@ += 500
+if and
+    610@ == -1
+    10 > 611@
+then
+    611@ += 1
+    if
+        Car.DoesExist(35@)
+    then
+        610@ = Coop.GetVehicleNetworkId(35@)
+        if
+            610@ <> -1
+        then
+            542@ = 0
+        end
+    end
+end
+if and
+    612@ == -1
+    10 > 613@
+then
+    613@ += 1
+    if
+        Char.DoesExist(57@)
+    then
+        612@ = Coop.GetPedNetworkId(57@)
+        if
+            612@ <> -1
+        then
+            542@ = 0
+        end
+    end
+end
+if and
+    614@ == -1
+    10 > 615@
+then
+    615@ += 1
+    if
+        Car.DoesExist(34@)
+    then
+        614@ = Coop.GetVehicleNetworkId(34@)
+        if
+            614@ <> -1
+        then
+            542@ = 0
+        end
+    end
+end
+for $temp_int = 0 to 4
+    if and
+        580@($temp_int,5i) == -1
+        10 > 585@($temp_int,5i)
+    then
+        585@($temp_int,5i) += 1
+        if
+            Car.DoesExist(46@($temp_int,5i))
+        then
+            580@($temp_int,5i) = Coop.GetVehicleNetworkId(46@($temp_int,5i))
+            if
+                580@($temp_int,5i) <> -1
+            then
+                542@ = 0
+            end
+        end
+    end
+    if and
+        590@($temp_int,5i) == -1
+        10 > 595@($temp_int,5i)
+    then
+        595@($temp_int,5i) += 1
+        if
+            Char.DoesExist(36@($temp_int,5i))
+        then
+            590@($temp_int,5i) = Coop.GetPedNetworkId(36@($temp_int,5i))
+            if
+                590@($temp_int,5i) <> -1
+            then
+                542@ = 0
+            end
+        end
+    end
+    if and
+        600@($temp_int,5i) == -1
+        10 > 605@($temp_int,5i)
+    then
+        605@($temp_int,5i) += 1
+        if
+            Char.DoesExist(51@($temp_int,5i))
+        then
+            600@($temp_int,5i) = Coop.GetPedNetworkId(51@($temp_int,5i))
+            if
+                600@($temp_int,5i) <> -1
+            then
+                542@ = 0
+            end
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        530@($temp_int,3i) == -1
+        10 > 533@($temp_int,3i)
+        527@($temp_int,3i) <> -1
+    then
+        533@($temp_int,3i) += 1
+        if
+            Car.DoesExist(527@($temp_int,3i))
+        then
+            530@($temp_int,3i) = Coop.GetVehicleNetworkId(527@($temp_int,3i))
+            if
+                530@($temp_int,3i) <> -1
+            then
+                542@ = 0
+            end
+        end
+    end
+end
+if and
+    610@ == -1
+    611@ >= 10
+then
+    616@ = 1
+end
+if and
+    612@ == -1
+    613@ >= 10
+then
+    616@ = 1
+end
+if and
+    614@ == -1
+    615@ >= 10
+then
+    616@ = 1
+end
+for $temp_int = 0 to 4
+    if and
+        580@($temp_int,5i) == -1
+        585@($temp_int,5i) >= 10
+    then
+        616@ = 1
+    end
+    if and
+        590@($temp_int,5i) == -1
+        595@($temp_int,5i) >= 10
+    then
+        616@ = 1
+    end
+    if and
+        600@($temp_int,5i) == -1
+        605@($temp_int,5i) >= 10
+    then
+        616@ = 1
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        527@($temp_int,3i) <> -1
+        530@($temp_int,3i) == -1
+        533@($temp_int,3i) >= 10
+    then
+        616@ = 1
+    end
+end
+return
+
+// Ordinarily remote bullets are authoritative through the registered courier
+// entities. If both a courier and its driver exhaust registration retries, a
+// nearby shooting peer receives one conservative host-side vehicle hit per pass.
+:ZERO2_COOP_UNSYNCED_COMBAT_FALLBACK
+if or
+    540@ <> 1
+    616@ == 0
+then
+    return
+end
+543@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 574@ > 543@
+then
+    return
+end
+574@ = Clock.GetGameTimer()
+574@ += 300
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+        Char.IsShooting(500@($temp_int,3i))
+    then
+        572@ = 0
+        for 573@ = 0 to 4
+            if and
+                572@ == 0
+                580@(573@,5i) == -1
+                590@(573@,5i) == -1
+                585@(573@,5i) >= 10
+                595@(573@,5i) >= 10
+            then
+                if and
+                    Car.DoesExist(46@(573@,5i))
+                    not Car.IsDead(46@(573@,5i))
+                    not Char.IsDead(36@(573@,5i))
+                    Char.LocateAnyMeansCar2D(500@($temp_int,3i), 46@(573@,5i), 45.0, 45.0, False)
+                then
+                    571@ = Car.GetHealth(46@(573@,5i))
+                    571@ -= 35
+                    Car.SetHealth(46@(573@,5i), 571@)
+                    572@ = 1
+                end
+            end
+        end
+    end
+end
+return
+
+:ZERO2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        503@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        543@ = Coop.GetNetworkPlayerInternalId(544@)
+        if
+            is_int_lvar_equal_to_int_lvar 543@ == 503@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(544@)
+            Coop.RemoveCheckpointForNetworkPlayer(544@)
+            Coop.ClearThisPrintForNetworkPlayer('ZER2_14', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('ZER2_41', 544@)
+        end
+    end
+    512@($temp_int,3i) = -1
+end
+return
+
+// Peers receive the canonical courier/return instructions. Registered entities
+// use live blips; a missing handshake degrades to one live coordinate checkpoint.
+:ZERO2_COOP_UPDATE_OBJECTIVES
+if or
+    536@ == 0
+    539@ == 0
+then
+    return
+end
+543@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 542@ > 543@
+then
+    return
+end
+542@ = Clock.GetGameTimer()
+542@ += 750
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(544@)
+        Coop.RemoveCheckpointForNetworkPlayer(544@)
+        if
+            not is_int_lvar_equal_to_int_lvar 512@($temp_int,3i) == 540@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('ZER2_14', 544@)
+            Coop.ClearThisPrintForNetworkPlayer('ZER2_41', 544@)
+            if
+                540@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('ZER2_14', 7000, 1, 544@)
+            end
+            if
+                540@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('ZER2_41', 7000, 1, 544@)
+            end
+            set_lvar_int_to_lvar_int 512@($temp_int,3i) = 540@
+        end
+        if
+            540@ == 1
+        then
+            if and
+                530@($temp_int,3i) <> -1
+                Car.DoesExist(527@($temp_int,3i))
+            then
+                if
+                    not Car.IsDead(527@($temp_int,3i))
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(544@, 527@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Blue, 2)
+                end
+            end
+            572@ = 0
+            for 573@ = 0 to 4
+                if
+                    not Char.IsDead(36@(573@,5i))
+                then
+                    571@ = 0
+                    if
+                        590@(573@,5i) <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(544@, 36@(573@,5i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                        571@ = 1
+                    end
+                    if and
+                        571@ == 0
+                        580@(573@,5i) <> -1
+                        Car.DoesExist(46@(573@,5i))
+                    then
+                        if
+                            not Car.IsDead(46@(573@,5i))
+                        then
+                            Coop.UpdateCarBlipForNetworkPlayer(544@, 46@(573@,5i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                            571@ = 1
+                        end
+                    end
+                    if and
+                        571@ == 0
+                        572@ == 0
+                    then
+                        if
+                            Char.DoesExist(36@(573@,5i))
+                        then
+                            557@, 558@, 559@ = Char.GetCoordinates(36@(573@,5i))
+                            Coop.UpdateCheckpointForNetworkPlayer(557@, 558@, 559@, 12.0, 12.0, 8.0, 544@)
+                            572@ = 1
+                        else
+                            if
+                                Car.DoesExist(46@(573@,5i))
+                            then
+                                557@, 558@, 559@ = Car.GetCoordinates(46@(573@,5i))
+                                Coop.UpdateCheckpointForNetworkPlayer(557@, 558@, 559@, 12.0, 12.0, 8.0, 544@)
+                                572@ = 1
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        if
+            540@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-2237.31, 140.08, 57.23, 8.0, 8.0, 6.0, 544@)
+            if and
+                614@ <> -1
+                Car.DoesExist(34@)
+            then
+                if
+                    not Car.IsDead(34@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(544@, 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+    end
+end
+return
+
+:ZERO2_COOP_UPDATE
+if or
+    536@ == 0
+    546@ <> 0
+then
+    return
+end
+gosub @ZERO2_COOP_UPDATE_ROSTER
+if
+    545@ == 1
+then
+    gosub @ZERO2_COOP_REGROUP_RECONNECTED
+end
+if
+    537@ == 1
+then
+    return
+end
+540@ = 0
+if and
+    539@ == 1
+    96@ == 1
+then
+    540@ = 1
+end
+if
+    116@ == 1
+then
+    540@ = 2
+end
+gosub @ZERO2_COOP_GRANT_LOADOUTS
+gosub @ZERO2_COOP_POLL_REGISTRATIONS
+gosub @ZERO2_COOP_UNSYNCED_COMBAT_FALLBACK
+gosub @ZERO2_COOP_UPDATE_OBJECTIVES
+return
+
+:ZERO2_COOP_NOTIFY_OUTCOME
+if or
+    536@ == 0
+    547@ == 1
+then
+    return
+end
+547@ = 1
+gosub @ZERO2_COOP_UPDATE_ROSTER
+if
+    545@ == 1
+then
+    gosub @ZERO2_COOP_REGROUP_RECONNECTED
+end
+gosub @ZERO2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            546@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+        if
+            546@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+:ZERO2_COOP_CLEANUP
+if
+    538@ == 1
+then
+    return
+end
+538@ = 1
+gosub @ZERO2_COOP_UPDATE_ROSTER
+gosub @ZERO2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 544@ = 500@($temp_int,3i)
+        Char.FreezePosition(544@, False)
+        Char.SetProofs(544@, False, False, False, False, False)
+        Char.SetCollision(544@, True)
+        Char.SetVisible(544@, True)
+        Char.SetAreaVisible(544@, 0)
+        if
+            not Char.IsDead(544@)
+        then
+            567@ = -2244.0
+            568@ = 140.0
+            569@ = 34.32
+            if
+                $temp_int == 1
+            then
+                568@ = 143.0
+            end
+            if
+                $temp_int == 2
+            then
+                568@ = 146.0
+            end
+            Char.ClearTasksImmediately(544@)
+            if
+                Char.IsInAnyCar(544@)
+            then
+                Char.WarpFromCarToCoord(544@, 567@, 568@, 569@)
+            else
+                Char.SetCoordinates(544@, 567@, 568@, 569@)
+            end
+            if and
+                521@($temp_int,3i) == 1
+                524@($temp_int,3i) == 1
+            then
+                Char.RemoveWeapon(28, 544@)
+                if
+                    515@($temp_int,3i) > 0
+                then
+                    Char.GiveWeapon(544@, WeaponType.MicroUzi, 515@($temp_int,3i))
+                end
+                if
+                    518@($temp_int,3i) == 0
+                then
+                    Char.SetCurrentWeapon(544@, WeaponType.Unarmed)
+                else
+                    if
+                        Char.HasGotWeapon(544@, 518@($temp_int,3i))
+                    then
+                        Char.SetCurrentWeapon(544@, 518@($temp_int,3i))
+                    end
+                end
+            end
+            Task.StandStill(544@, 0)
+        end
+    end
+    if
+        Car.DoesExist(527@($temp_int,3i))
+    then
+        Car.Delete(527@($temp_int,3i))
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = 0
+    512@($temp_int,3i) = -1
+    524@($temp_int,3i) = 0
+    527@($temp_int,3i) = -1
+    530@($temp_int,3i) = -1
+end
+539@ = 0
+return
