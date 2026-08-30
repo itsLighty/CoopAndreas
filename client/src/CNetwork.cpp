@@ -11,6 +11,7 @@
 #include "CServerTime.h"
 #include "enet/enet.h"
 #include "stdafx.h"
+#include "CPlayerGameplayStateSync.h"
 #include "../shared/semver.h"
 #include <cassert>
 #include <windows.h>
@@ -238,6 +239,8 @@ void CNetwork::ResetConnectionState()
     GetPacketBuffer().Clear();
     CNetworkAnimQueue::Clear();
     CMissionSessionClient::Reset();
+    CStatsSync::ResetNetworkState();
+    CPlayerGameplayStateSync::ResetNetworkState();
 
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();

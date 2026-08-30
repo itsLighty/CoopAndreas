@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "StatsHooks.h"
 #include "../CStatsSync.h"
+#include "../CPlayerGameplayStateSync.h"
 
 void CHud__SetHelpMessageStatUpdate_Hook(char bIncrease, short statId, float statUpdate, float statMax)
 {
@@ -77,6 +78,12 @@ void __fastcall CPed__Dress_Hook(CPed* This, SKIP_EDX)
 
 void StatsHooks::InjectHooks()
 {
+	Events::gameProcessEvent += []
+	{
+		CStatsSync::Process();
+		CPlayerGameplayStateSync::Process();
+	};
+
 	patch::RedirectCall(0x55BA93, CHud__SetHelpMessageStatUpdate_Hook); // inside CStats::DisplayScriptStatUpdateMessage_Hook
 	patch::RedirectJump(0x5E3B60, CPed__GetWeaponSkill_Hook);
 	patch::RedirectCall(0x5A8357, CPed__Dress_Hook);

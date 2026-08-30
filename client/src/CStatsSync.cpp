@@ -1,10 +1,19 @@
 #include "stdafx.h"
+#include "CMissionSessionClient.h"
+
+#include <algorithm>
+#include <cmath>
 
 int m_anStoredIntStats[224];
 float m_afStoredFloatStats[83];
 
 constexpr int MAX_INT_STATS = sizeof(m_anStoredIntStats) / sizeof(int);
 constexpr int MAX_FLOAT_STATS = sizeof(m_afStoredFloatStats) / sizeof(float);
+constexpr uint32_t MIN_STATS_SYNC_INTERVAL_MS = 100;
+
+bool CStatsSync::m_bStatsDirty = true;
+bool CStatsSync::m_bSentInitialStats = false;
+uint32_t CStatsSync::m_nLastStatsSentAt = 0;
 
 std::array<eStats, CStatsSync::SYNCED_STATS_COUNT> CStatsSync::m_aeSyncedStats =
 {
@@ -48,22 +57,58 @@ void CStatsSync::ApplyLocalContext()
 
 void CStatsSync::NotifyChanged()
 {
-    Packets::Players::PlayerStats packet{};
-    
-    for (uint8_t i = 0; i < CStatsSync::SYNCED_STATS_COUNT; i++)
+    m_bStatsDirty = true;
+}
+
+void CStatsSync::Process()
+{
+    if (!CNetwork::m_bAuthenticated || CMissionSessionClient::IsSpectator())
     {
-        packet.stats[i] = CStats::GetStatValue(m_aeSyncedStats[i]);
+        ResetNetworkState();
+        return;
+    }
+
+    if (m_bSentInitialStats && !m_bStatsDirty)
+    {
+        return;
+    }
+
+    const uint32_t now = GetTickCount();
+    if (m_bSentInitialStats && now - m_nLastStatsSentAt < MIN_STATS_SYNC_INTERVAL_MS)
+    {
+        return;
+    }
+
+    Packets::Players::PlayerStats packet{};
+
+    for (size_t i = 0; i < CStatsSync::SYNCED_STATS_COUNT; i++)
+    {
+        const float statValue = CStats::GetStatValue(m_aeSyncedStats[i]);
+        packet.stats[i] = std::isfinite(statValue)
+            ? std::clamp(statValue, Packets::Players::PlayerStats::MIN_STAT_VALUE,
+                  Packets::Players::PlayerStats::MAX_STAT_VALUE)
+            : Packets::Players::PlayerStats::MIN_STAT_VALUE;
     }
 
     GetPacketFactory().Send(packet);
+    m_bStatsDirty = false;
+    m_bSentInitialStats = true;
+    m_nLastStatsSentAt = now;
+}
+
+void CStatsSync::ResetNetworkState()
+{
+    m_bStatsDirty = true;
+    m_bSentInitialStats = false;
+    m_nLastStatsSentAt = 0;
 }
 
 int CStatsSync::GetSyncIdByInternal(eStats stat)
 {
-    for (int i = 0; i < CStatsSync::SYNCED_STATS_COUNT; i++)
+    for (size_t i = 0; i < CStatsSync::SYNCED_STATS_COUNT; i++)
     {
         if (m_aeSyncedStats[i] == stat)
-            return i;
+            return static_cast<int>(i);
     }
 
     return -1;

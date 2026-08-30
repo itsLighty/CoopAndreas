@@ -24,6 +24,8 @@ public:
 	CControllerState m_newControllerState{};
 
 	CNetworkPlayerStats m_stats{};
+	Packets::Players::PlayerGameplayState m_gameplayState{};
+	bool m_bHasGameplayState = false;
 	CPedClothesDesc m_pPedClothesDesc{};
 	bool m_bHasBeenConnectedBeforeMe = false;
 
@@ -48,5 +50,6 @@ public:
 	void EnterVehiclePassenger(CVehicle* vehicle, int seatid);
 	void HandleTask(Packets::Players::SetPlayerTask& packet);
 	void ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot);
+	void ApplyGameplayState(const Packets::Players::PlayerGameplayState& gameplayState);
 };
 

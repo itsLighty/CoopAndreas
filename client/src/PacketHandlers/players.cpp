@@ -4,6 +4,27 @@
 #include <CAimSync.h>
 #include <CEntryExitTransitionSync.h>
 #include <CProjectileInfo.h>
+#include <CMissionSessionClient.h>
+
+namespace
+{
+bool ShouldIgnoreRemoteGameplayState(SenderPlayerId playerId)
+{
+    if (playerId.value == CNetworkPlayerManager::m_nMyId)
+    {
+        logger::warn("Ignored server player state targeting the local player ID");
+        return true;
+    }
+
+    const auto& missionState = CMissionSessionClient::GetState();
+    if (missionState.IsActive() &&
+        (CMissionSessionClient::IsSpectator() || !missionState.ContainsGameplayParticipant(playerId.value)))
+    {
+        return true;
+    }
+    return false;
+}
+}  // namespace
 
 PACKET_HANDLER(ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate* pOnFootUpdate)
 {
@@ -236,14 +257,23 @@ PACKET_HANDLER(ePacketType::ADD_PROJECTILE, Packets::Players::AddProjectile* pAd
 
 PACKET_HANDLER(ePacketType::PLAYER_STATS, Packets::Players::PlayerStats* pPlayerStats)
 {
-    if (auto pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pPlayerStats->playerid))
+    if (ShouldIgnoreRemoteGameplayState(pPlayerStats->playerid))
     {
-        for (size_t i = 0; i < CStatsSync::SYNCED_STATS_COUNT; i++)
-        {
-            eStats statId = CStatsSync::m_aeSyncedStats[i];
-            pNetworkPlayer->m_stats[statId] = pPlayerStats->stats[i];
-        }
+        return;
     }
+
+    CNetworkPlayerManager::ApplyOrQueueStats(*pPlayerStats);
+}
+
+PACKET_HANDLER(ePacketType::PLAYER_GAMEPLAY_STATE,
+    Packets::Players::PlayerGameplayState* pGameplayState)
+{
+    if (ShouldIgnoreRemoteGameplayState(pGameplayState->playerid))
+    {
+        return;
+    }
+
+    CNetworkPlayerManager::ApplyOrQueueGameplayState(*pGameplayState);
 }
 
 PACKET_HANDLER(ePacketType::REBUILD_PLAYER, Packets::Players::RebuildPlayer* pRebuildPlayer)

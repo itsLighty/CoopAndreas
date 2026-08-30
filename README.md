@@ -170,16 +170,16 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] Player map pin
     - [X] fix proportion
   - [X] Player mark (waypoint)
-- [ ] wanted level
-- [ ] stats sync
+- [X] wanted level
+- [X] stats sync
   - [X] fat
   - [X] muscle
   - [X] weapon skills
   - [X] fight styles
-  - [ ] sync money
-  - [ ] breath level bar
+  - [X] sync money
+  - [X] breath level bar
   - [X] stamina sync
-  - [ ] max hp sync
+  - [X] max hp sync
 - [ ] fire sync
 - [ ] cheat code sync
 - [ ] anim sync

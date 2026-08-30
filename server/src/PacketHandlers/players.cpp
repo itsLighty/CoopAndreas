@@ -2,6 +2,31 @@
 #include "network/packet_types.h"
 #include "stdafx.h"
 #include "network/packet_handler.h"
+#include "CMissionSessionServer.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+template <typename PacketT>
+void RelayPlayerGameplayState(PacketT& packet, CNetworkPlayer* pSourcePlayer)
+{
+    if (!CMissionSessionServer::GetState().IsActive())
+    {
+        GetPacketFactory().SendToAll(packet, pSourcePlayer);
+        return;
+    }
+
+    for (CNetworkPlayer* pRecipient : CNetworkPlayerManager::m_pPlayers)
+    {
+        if (pRecipient != pSourcePlayer && CMissionSessionServer::IsGameplayParticipant(pRecipient))
+        {
+            GetPacketFactory().Send(packet, pRecipient);
+        }
+    }
+}
+}  // namespace
 
 PACKET_HANDLER(
     ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate* pOnFootUpdate, CNetworkPlayer* pNetworkPlayer)
@@ -62,6 +87,26 @@ PACKET_HANDLER(ePacketType::ADD_PROJECTILE, Packets::Players::AddProjectile* pAd
 
 PACKET_HANDLER(ePacketType::PLAYER_STATS, Packets::Players::PlayerStats* pPlayerStats, CNetworkPlayer* pNetworkPlayer)
 {
+    if (CMissionSessionServer::GetState().IsActive() &&
+        !CMissionSessionServer::IsGameplayParticipant(pNetworkPlayer))
+    {
+        logger::warn("%s tried to publish player stats as a mission spectator",
+            pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    for (size_t i = 0; i < ARRAY_SIZE(pPlayerStats->stats); i++)
+    {
+        if (!std::isfinite(pPlayerStats->stats[i]))
+        {
+            logger::warn("%s sent a non-finite player stat", pNetworkPlayer->GetName().c_str());
+            return;
+        }
+        pPlayerStats->stats[i] = std::clamp(pPlayerStats->stats[i],
+            Packets::Players::PlayerStats::MIN_STAT_VALUE,
+            Packets::Players::PlayerStats::MAX_STAT_VALUE);
+    }
+
     for (size_t i = 0; i < ARRAY_SIZE(pNetworkPlayer->m_afStats); i++)
     {
         pNetworkPlayer->m_afStats[i] = pPlayerStats->stats[i];
@@ -69,7 +114,44 @@ PACKET_HANDLER(ePacketType::PLAYER_STATS, Packets::Players::PlayerStats* pPlayer
 
     pNetworkPlayer->m_ucSyncFlags.bStatsModified = true;
     pPlayerStats->playerid = pNetworkPlayer->m_iPlayerId;
-    GetPacketFactory().SendToAll(*pPlayerStats, pNetworkPlayer);
+    RelayPlayerGameplayState(*pPlayerStats, pNetworkPlayer);
+}
+
+PACKET_HANDLER(ePacketType::PLAYER_GAMEPLAY_STATE,
+    Packets::Players::PlayerGameplayState* pGameplayState, CNetworkPlayer* pNetworkPlayer)
+{
+    if (CMissionSessionServer::GetState().IsActive() &&
+        !CMissionSessionServer::IsGameplayParticipant(pNetworkPlayer))
+    {
+        logger::warn("%s tried to publish gameplay state as a mission spectator",
+            pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    if (!std::isfinite(pGameplayState->breath) || !std::isfinite(pGameplayState->maximumHealth))
+    {
+        logger::warn("%s sent non-finite gameplay state", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    pGameplayState->wantedLevel = std::clamp(pGameplayState->wantedLevel,
+        Packets::Players::PlayerGameplayState::MIN_WANTED_LEVEL,
+        Packets::Players::PlayerGameplayState::MAX_WANTED_LEVEL);
+    pGameplayState->money = std::clamp(pGameplayState->money,
+        Packets::Players::PlayerGameplayState::MIN_MONEY,
+        Packets::Players::PlayerGameplayState::MAX_MONEY);
+    pGameplayState->breath = std::clamp(pGameplayState->breath,
+        Packets::Players::PlayerGameplayState::MIN_BREATH,
+        Packets::Players::PlayerGameplayState::MAX_BREATH);
+    pGameplayState->maximumHealth = std::clamp(pGameplayState->maximumHealth,
+        Packets::Players::PlayerGameplayState::MIN_MAX_HEALTH,
+        Packets::Players::PlayerGameplayState::MAX_MAX_HEALTH);
+
+    // SenderPlayerId omits the client-provided ID on C2S; the authenticated peer is always canonical.
+    pGameplayState->playerid.value = pNetworkPlayer->m_iPlayerId;
+    pNetworkPlayer->m_gameplayState = *pGameplayState;
+    pNetworkPlayer->m_ucSyncFlags.bGameplayStateModified = true;
+    RelayPlayerGameplayState(*pGameplayState, pNetworkPlayer);
 }
 
 PACKET_HANDLER(ePacketType::REBUILD_PLAYER, Packets::Players::RebuildPlayer* pRebuildPlayer, CNetworkPlayer* pNetworkPlayer)

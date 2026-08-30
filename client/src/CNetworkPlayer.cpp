@@ -45,6 +45,11 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
 
     // THIS IS AN EXPERIMENTAL SOLUTION FOR THE 0x4D68BA CRASH
     m_pPed->m_bStreamingDontDelete = true;
+
+    if (m_bHasGameplayState)
+    {
+        ApplyGameplayState(m_gameplayState);
+    }
 }
 
 void CNetworkPlayer::DestroyPed()
@@ -105,6 +110,35 @@ std::string CNetworkPlayer::GetName()
     }
 
     return m_Name;
+}
+
+void CNetworkPlayer::ApplyGameplayState(const Packets::Players::PlayerGameplayState& gameplayState)
+{
+    if (gameplayState.playerid.value != m_iPlayerId)
+    {
+        return;
+    }
+
+    m_gameplayState = gameplayState;
+    m_bHasGameplayState = true;
+
+    if (m_pPed == nullptr || m_pPed->m_pPlayerData == nullptr)
+    {
+        return;
+    }
+
+    m_pPed->m_fMaxHealth = gameplayState.maximumHealth;
+    m_pPed->m_pPlayerData->m_fBreath = gameplayState.breath;
+    if (m_pPed->m_pPlayerData->m_pWanted != nullptr)
+    {
+        m_pPed->m_pPlayerData->m_pWanted->m_nWantedLevel = gameplayState.wantedLevel;
+    }
+
+    if (CPlayerInfo* pPlayerInfo = m_pPed->GetPlayerInfoForThisPlayerPed())
+    {
+        pPlayerInfo->m_nMoney = gameplayState.money;
+        pPlayerInfo->m_nDisplayMoney = gameplayState.money;
+    }
 }
 
 char CNetworkPlayer::GetWeaponSkill(eWeaponType weaponType)

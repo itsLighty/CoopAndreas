@@ -22,6 +22,9 @@
 
 namespace Packets::Players
 {
+inline constexpr size_t PLAYER_SKILL_STATS_COUNT = 11;
+inline constexpr size_t PLAYER_STATS_WIRE_COUNT = 14;
+
 struct SKeySnapshot
 {
 public:
@@ -451,8 +454,13 @@ class PlayerStats : public Packet
     DEFINE_PACKET_TYPE(PlayerStats, ePacketType::PLAYER_STATS, ePacketChannel::EVENT);
 
 public:
+    static constexpr float MIN_STAT_VALUE = 0.0f;
+    static constexpr float MAX_STAT_VALUE = 1000.0f;
+
     SenderPlayerId playerid{};
-    float stats[14]{};
+    // Keep the legacy 14-float wire shape. Only the first PLAYER_SKILL_STATS_COUNT entries are canonical;
+    // retaining the tail avoids changing the existing PLAYER_STATS packet layout.
+    float stats[PLAYER_STATS_WIRE_COUNT]{};
 
 private:
     template <typename Stream>
@@ -464,6 +472,43 @@ private:
             serialize_float(stream, stats[i]);
         }
 
+        return true;
+    }
+};
+
+class PlayerGameplayState : public Packet
+{
+    DEFINE_PACKET_TYPE(PlayerGameplayState, ePacketType::PLAYER_GAMEPLAY_STATE, ePacketChannel::EVENT);
+
+public:
+    static constexpr uint8_t MIN_WANTED_LEVEL = 0;
+    static constexpr uint8_t MAX_WANTED_LEVEL = 6;
+    static constexpr int32_t MIN_MONEY = -999999999;
+    static constexpr int32_t MAX_MONEY = 999999999;
+    static constexpr float MIN_BREATH = 0.0f;
+    static constexpr float MAX_BREATH = 100.0f;
+    static constexpr float MIN_MAX_HEALTH = 1.0f;
+    static constexpr float MAX_MAX_HEALTH = 1000.0f;
+
+    SenderPlayerId playerid{};
+    uint8_t wantedLevel = MIN_WANTED_LEVEL;
+    int32_t money = 0;
+    float breath = MAX_BREATH;
+    float maximumHealth = 100.0f;
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_object(stream, playerid);
+        serialize_uint8(stream, wantedLevel);
+        if (wantedLevel < MIN_WANTED_LEVEL || wantedLevel > MAX_WANTED_LEVEL)
+        {
+            return false;
+        }
+        serialize_int(stream, money, MIN_MONEY, MAX_MONEY);
+        serialize_compressed_float(stream, breath, MIN_BREATH, MAX_BREATH, 0.1f);
+        serialize_compressed_float(stream, maximumHealth, MIN_MAX_HEALTH, MAX_MAX_HEALTH, 0.1f);
         return true;
     }
 };

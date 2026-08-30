@@ -421,20 +421,35 @@ void CNetwork::CompletePlayerConnection(
         GetPacketFactory().Send(oldPlayerConnected, pNewNetworkPlayer);
     }
 
+    const auto& missionState = CMissionSessionServer::GetState();
+    const bool mayReceiveGameplayState =
+        !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
+
     for (auto i : CNetworkPlayerManager::m_pPlayers)
     {
         if (i->m_iPlayerId == freeId)
             continue;
 
-        if (i->m_ucSyncFlags.bStatsModified)
+        const bool sourceMayPublishGameplayState =
+            !missionState.IsActive() || missionState.ContainsGameplayParticipant(i->m_iPlayerId);
+
+        if (i->m_ucSyncFlags.bStatsModified && mayReceiveGameplayState && sourceMayPublishGameplayState)
         {
             Packets::Players::PlayerStats statsPacket{};
             statsPacket.playerid = i->m_iPlayerId;
-            for (size_t j = 0; j < ARRAY_SIZE(statsPacket.stats); j++)
+            for (size_t j = 0; j < ARRAY_SIZE(i->m_afStats); j++)
             {
                 statsPacket.stats[j] = i->m_afStats[j];
             }
             GetPacketFactory().Send(statsPacket, pNewNetworkPlayer);
+        }
+
+        if (i->m_ucSyncFlags.bGameplayStateModified && mayReceiveGameplayState &&
+            sourceMayPublishGameplayState)
+        {
+            Packets::Players::PlayerGameplayState gameplayState = i->m_gameplayState;
+            gameplayState.playerid.value = i->m_iPlayerId;
+            GetPacketFactory().Send(gameplayState, pNewNetworkPlayer);
         }
 
         if (i->m_ucSyncFlags.bClothesModified)
@@ -494,7 +509,6 @@ void CNetwork::CompletePlayerConnection(
     // spectators never receive the cached EnEx packet, so cross-channel delivery cannot expose it to them first.
     CMissionSessionServer::SendSnapshot(pNewNetworkPlayer);
 
-    const auto& missionState = CMissionSessionServer::GetState();
     const bool mayReceiveCachedEnEx = !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
     if (mayReceiveCachedEnEx && Packets::Scripts::g_pLastEnExPlayerOwner)
     {
