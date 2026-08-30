@@ -9,6 +9,9 @@ goto_if_false @BIKES_125
 if 
   Player.IsPlaying($player1)
 goto_if_false @BIKES_125
+if
+  Coop.IsHost()
+goto_if_false @BIKES_125
 if 
   Char.LocateOnFoot3D($scplayer, 1, $bikesX, $bikesY, $bikesZ, 1.0, 1.0, 1.5)
 goto_if_false @BIKES_125

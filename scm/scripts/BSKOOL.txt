@@ -3,6 +3,17 @@
 
 :BSKOOL
 script_name 'BSKOOL'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @BSKOOL_COOP_REJECT_NON_HOST
+goto @BSKOOL_COOP_HOST_START
+
+:BSKOOL_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:BSKOOL_COOP_HOST_START
+gosub @BSKOOL_COOP_INIT
 gosub @BSKOOL_47
 if 
   has_deatharrest_been_executed 
@@ -11,6 +22,7 @@ gosub @BSKOOL_11889
 
 :BSKOOL_38
 gosub @BSKOOL_11994
+gosub @BSKOOL_COOP_CLEANUP
 terminate_this_script 
 
 :BSKOOL_47
@@ -550,6 +562,7 @@ $overall_score = 0
 :BSKOOL_2950
 gosub @BSKOOL_17937
 gosub @BSKOOL_18315
+gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $bs_the360_best_score
 goto_if_false @BSKOOL_3170
@@ -806,6 +819,7 @@ $overall_score = 0
 :BSKOOL_4375
 gosub @BSKOOL_17937
 gosub @BSKOOL_18315
+gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $bs_the180_best_score
 goto_if_false @BSKOOL_4595
@@ -1125,6 +1139,7 @@ $overall_score = 0
 :BSKOOL_6143
 gosub @BSKOOL_17937
 gosub @BSKOOL_18315
+gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $bs_wheelie_best_score
 goto_if_false @BSKOOL_6363
@@ -1445,6 +1460,7 @@ $overall_score = 0
 :BSKOOL_7919
 gosub @BSKOOL_17937
 gosub @BSKOOL_18315
+gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $bs_stoppie_best_score
 goto_if_false @BSKOOL_8139
@@ -1733,6 +1749,7 @@ $overall_score = 0
 :BSKOOL_9512
 gosub @BSKOOL_17937
 gosub @BSKOOL_18315
+gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $bs_jumpstop_best_score
 goto_if_false @BSKOOL_9732
@@ -2047,6 +2064,7 @@ $overall_score = 0
 :BSKOOL_11237
 gosub @BSKOOL_17937
 gosub @BSKOOL_18315
+gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $bs_jumpstoppie_best_score
 goto_if_false @BSKOOL_11457
@@ -2182,6 +2200,7 @@ goto @BSKOOL_10032
 goto @BSKOOL_10305
 
 :BSKOOL_11889
+gosub @BSKOOL_COOP_NOTIFY_FAILURE
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 Audio.ReportMissionAudioEventAtPosition(-1000.0, -1000.0, -1000.0, 1186)
 Text.ClearPrints
@@ -3042,6 +3061,7 @@ Player.SetControl($player1, True)
 return 
 
 :BSKOOL_17412
+gosub @BSKOOL_COOP_UPDATE
 if 
   not Car.IsDead(38@)
 goto_if_false @BSKOOL_17479
@@ -3063,6 +3083,7 @@ goto @BSKOOL_17486
 return 
 
 :BSKOOL_17488
+gosub @BSKOOL_COOP_UPDATE
 if 
   not Car.IsDead(38@)
 goto_if_false @BSKOOL_17531
@@ -3097,6 +3118,7 @@ $car_started = 1
 return 
 
 :BSKOOL_17646
+gosub @BSKOOL_COOP_UPDATE
 if 
   $car_timer == 0
 goto_if_false @BSKOOL_17678
@@ -3258,6 +3280,7 @@ Text.ClearPrints
 return 
 
 :BSKOOL_18344
+gosub @BSKOOL_COOP_UPDATE
 if 
   not Car.IsDead(38@)
 goto_if_false @BSKOOL_18777
@@ -3926,4 +3949,405 @@ Object.PlaceRelativeToCar($trafficcones[13], 38@, 0.0, 118.0, -0.2)
 
 :BSKOOL_24084
 return 
+
+// Co-op policy for all six Bike School lessons:
+// - the host is the only lesson selector, scorer, vehicle creator and owner of
+//   progress, medals, rewards and save flags;
+// - the three remote slots are frozen by internal identity and can only be
+//   reclaimed by the same reconnecting participant;
+// - disconnect is a nonblocking DNF, while death of a connected frozen
+//   participant deterministically enters the stock bike-failure path.
+:BSKOOL_COOP_INIT
+500@, 501@, 502@ = Coop.CollectNetworkPlayersForTheMission()
+515@ = 0
+for 520@ = 0 to 2
+    503@(520@,3i) = -1
+    506@(520@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(500@(520@,3i))
+    then
+        503@(520@,3i) = Coop.GetNetworkPlayerInternalId(500@(520@,3i))
+        if
+            503@(520@,3i) >= 0
+        then
+            515@ += 1
+        end
+    end
+end
+516@ = 0 // connected-participant death latch
+517@ = 0 // lesson result: 0 pending, 1 failed, 2 passed
+518@ = 0 // idempotent cleanup latch
+519@ = 0 // active host-owned lesson
+523@ = -1 // vehicle handle associated with registration state
+524@ = -1 // synchronized vehicle id
+525@ = 0 // bounded registration start
+527@ = 0 // registration timeout latch
+528@ = 0 // objective refresh timestamp
+535@ = 0 // separated-participant regroup timer
+if
+    515@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(500@, 501@, 502@)
+end
+return
+
+:BSKOOL_COOP_REFRESH_ROSTER
+509@, 510@, 511@ = Coop.CollectNetworkPlayersForTheMission()
+529@ = 0
+for 520@ = 0 to 2
+    set_lvar_int_to_lvar_int 534@ = 500@(520@,3i)
+    500@(520@,3i) = 0
+    if
+        503@(520@,3i) >= 0
+    then
+        for 521@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(509@(521@,3i))
+            then
+                522@ = Coop.GetNetworkPlayerInternalId(509@(521@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 522@ == 503@(520@,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@(520@,3i) = 509@(521@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 534@ == 500@(520@,3i)
+    then
+        506@(520@,3i) = -1
+        if
+            Coop.IsNetworkPlayerActorValid(500@(520@,3i))
+        then
+            529@ = 1
+        end
+    end
+end
+return
+
+:BSKOOL_COOP_VALIDATE_SLOT
+526@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(500@(520@,3i))
+then
+    522@ = Coop.GetNetworkPlayerInternalId(500@(520@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 522@ == 503@(520@,3i)
+    then
+        526@ = 1
+    end
+end
+return
+
+:BSKOOL_COOP_UPDATE
+if
+    518@ == 1
+then
+    return
+end
+gosub @BSKOOL_COOP_REFRESH_ROSTER
+if
+    Car.DoesExist(38@)
+then
+    if
+        not is_int_lvar_equal_to_int_lvar 523@ == 38@
+    then
+        set_lvar_int_to_lvar_int 523@ = 38@
+        524@ = -1
+        525@ = Clock.GetGameTimer()
+        527@ = 0
+        517@ = 0
+        519@ = 1
+        528@ = 0
+        gosub @BSKOOL_COOP_STAGE_PARTICIPANTS
+    end
+else
+    523@ = -1
+    524@ = -1
+    525@ = 0
+    527@ = 0
+    519@ = 0
+end
+if
+    529@ == 1
+then
+    gosub @BSKOOL_COOP_STAGE_PARTICIPANTS
+end
+for 520@ = 0 to 2
+    gosub @BSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        if
+            Char.IsDead(500@(520@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH shares the stock bike-failure path.
+            516@ = 1
+        end
+    end
+end
+if and
+    516@ == 1
+    519@ == 1
+then
+    48@ = 1
+    if
+        Car.DoesExist(38@)
+    then
+        Car.SetHealth(38@, 0)
+    end
+    return
+end
+gosub @BSKOOL_COOP_POLL_VEHICLE_REGISTRATION
+gosub @BSKOOL_COOP_UPDATE_REGROUP
+gosub @BSKOOL_COOP_UPDATE_OBJECTIVES
+return
+
+// A new lesson vehicle or identity-matched reconnect is staged once. Bikes
+// have no passenger seat; larger lesson vehicles remain supported without a
+// special case, and otherwise the participant is safely placed beside CJ.
+:BSKOOL_COOP_STAGE_PARTICIPANTS
+if
+    515@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(500@, 501@, 502@)
+end
+if
+    Car.DoesExist(38@)
+then
+    530@ = Car.GetMaximumNumberOfPassengers(38@)
+    for 520@ = 0 to 2
+        gosub @BSKOOL_COOP_VALIDATE_SLOT
+        if and
+            526@ == 1
+            is_int_lvar_greater_than_int_lvar 530@ > 520@
+        then
+            if and
+                not Char.IsInAnyCar(500@(520@,3i))
+                Car.IsPassengerSeatFree(38@, 520@)
+            then
+                Char.WarpIntoCarAsPassenger(500@(520@,3i), 38@, 520@)
+            end
+        end
+    end
+end
+return
+
+// Registration is opportunistic and bounded; it never waits or loops on a
+// network id, so a missing registration cannot stall any stock lesson.
+:BSKOOL_COOP_POLL_VEHICLE_REGISTRATION
+if and
+    519@ == 1
+    524@ == -1
+    527@ == 0
+then
+    524@ = Coop.GetVehicleNetworkId(38@)
+    if
+        524@ == -1
+    then
+        531@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 531@ -= 525@
+        if
+            531@ > 5000
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:BSKOOL_COOP_UPDATE_REGROUP
+if
+    519@ == 0
+then
+    535@ = 0
+    return
+end
+536@ = 0
+for 520@ = 0 to 2
+    gosub @BSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(500@(520@,3i), $scplayer, 160.0, 160.0, 45.0, False)
+        then
+            536@ = 1
+        end
+    end
+end
+if
+    536@ == 0
+then
+    535@ = 0
+    return
+end
+if
+    535@ == 0
+then
+    535@ = Clock.GetGameTimer()
+end
+531@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 531@ -= 535@
+if
+    531@ > 20000
+then
+    gosub @BSKOOL_COOP_STAGE_PARTICIPANTS
+    535@ = 0
+end
+return
+
+// Every connected frozen participant receives the host's current lesson bike
+// as a synchronized blip plus a moving checkpoint and the stock lesson prompt.
+:BSKOOL_COOP_UPDATE_OBJECTIVES
+if or
+    519@ == 0
+    not Car.DoesExist(38@)
+then
+    return
+end
+531@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 528@ > 531@
+then
+    return
+end
+set_lvar_int_to_lvar_int 528@ = 531@
+528@ += 1000
+531@, 532@, 533@ = Car.GetCoordinates(38@)
+for 520@ = 0 to 2
+    gosub @BSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.UpdateCheckpointForNetworkPlayer(531@, 532@, 533@, 10.0, 10.0, 6.0, 500@(520@,3i))
+        if
+            524@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(500@(520@,3i), 38@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+        end
+        if
+            $mission_selection == 1
+        then
+            Coop.PrintNowForNetworkPlayer('BS_A_1', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 2
+        then
+            Coop.PrintNowForNetworkPlayer('BS_B_1', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 3
+        then
+            Coop.PrintNowForNetworkPlayer('BS_C_1', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 4
+        then
+            Coop.PrintNowForNetworkPlayer('BS_D_1', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 5
+        then
+            Coop.PrintNowForNetworkPlayer('BS_E_1', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 6
+        then
+            Coop.PrintNowForNetworkPlayer('BS_F_1', 5000, 4, 500@(520@,3i))
+        end
+    end
+end
+return
+
+:BSKOOL_COOP_NOTIFY_LESSON_RESULT
+if
+    517@ <> 0
+then
+    return
+end
+gosub @BSKOOL_COOP_REFRESH_ROSTER
+for 520@ = 0 to 2
+    gosub @BSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@(520@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@(520@,3i))
+        if
+            $overall_score > 69
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@(520@,3i))
+        else
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@(520@,3i))
+        end
+    end
+end
+if
+    $overall_score > 69
+then
+    517@ = 2
+else
+    517@ = 1
+end
+519@ = 0
+return
+
+:BSKOOL_COOP_NOTIFY_FAILURE
+if
+    517@ <> 0
+then
+    return
+end
+517@ = 1
+gosub @BSKOOL_COOP_REFRESH_ROSTER
+for 520@ = 0 to 2
+    gosub @BSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@(520@,3i))
+    end
+end
+return
+
+:BSKOOL_COOP_CLEANUP
+if
+    518@ == 1
+then
+    return
+end
+518@ = 1
+if and
+    516@ == 1
+    517@ == 0
+then
+    gosub @BSKOOL_COOP_NOTIFY_FAILURE
+end
+gosub @BSKOOL_COOP_REFRESH_ROSTER
+for 520@ = 0 to 2
+    gosub @BSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@(520@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BS_A_1', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BS_B_1', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BS_C_1', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BS_D_1', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BS_E_1', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BS_F_1', 500@(520@,3i))
+        Char.FreezePosition(500@(520@,3i), False)
+        Char.SetProofs(500@(520@,3i), False, False, False, False, False)
+    end
+    500@(520@,3i) = 0
+    503@(520@,3i) = -1
+    506@(520@,3i) = -1
+end
+Player.SetControl($player1, True)
+523@ = -1
+524@ = -1
+return
 
