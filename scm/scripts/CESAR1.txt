@@ -1607,7 +1607,7 @@ then
     goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 end
 if
-    $game_timer > $races_timer
+  is_int_var_greater_than_int_var $game_timer > $races_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_GO
 end

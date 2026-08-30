@@ -1095,7 +1095,7 @@ if
 then
     Game.SetGangWarsActive(True)
 end
-$flag_gang_war_active = 308@
+set_var_int_to_lvar_int $flag_gang_war_active = 308@
 Game.CanTriggerGangWarWhenOnAMission(False)
 Game.SetGangWarsTrainingMission(False)
 Game.SetOnlyCreateGangMembers(False)
