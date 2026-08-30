@@ -4586,7 +4586,7 @@ then
             Car.IsPassengerSeatFree(73@, SeatIndex.RearLeft)
         then
             Char.ClearTasksImmediately(102@)
-            Char.WarpIntoCarAsPassenger(102@, 73@, SeatIndex.RearLeft)
+            Char.WarpIntoCarAsPassenger(102@, 73@, 1)
         end
     end
     if
@@ -4598,7 +4598,7 @@ then
             Car.IsPassengerSeatFree(73@, SeatIndex.RearRight)
         then
             Char.ClearTasksImmediately(103@)
-            Char.WarpIntoCarAsPassenger(103@, 73@, SeatIndex.RearRight)
+            Char.WarpIntoCarAsPassenger(103@, 73@, 2)
         end
     end
 end
