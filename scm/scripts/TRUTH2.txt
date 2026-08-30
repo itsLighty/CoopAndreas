@@ -3,6 +3,7 @@
 
 :TRUTH2
 script_name 'TRUTH2'
+Coop.EnableSyncingThisScript()
 gosub @TRUTH2_47
 if 
   has_deatharrest_been_executed 
@@ -15,8 +16,78 @@ terminate_this_script
 
 :TRUTH2_47
 $onmission = 1
+// Freeze the mission roster exactly once. Actor handles are paired with stable
+// internal identities so a disconnect can never let a late joiner inherit a slot.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+340@ = 0 // cooperative cleanup guard
+341@ = 0 // connected frozen-roster participant died
+342@ = 0 // remote actors are staged for a host cinematic
+343@ = 0 // next per-player objective refresh
+344@ = 0 // next entity network-id retry
+345@ = 0 // final regroup fallback deadline
+346@ = 0 // time/internal-id scratch
+347@ = -1 // network-id scratch
+348@ = -1 // actor/entity scratch
+349@ = -1 // cooperative objective phase scratch
+350@ = 0 // currently connected frozen-roster participants
+351@ = 1 // final regroup result
+352@ = 0 // entity registration pass needs another retry
+353@ = 0 // an entity missed its bounded registration deadline
+354@ = 0 // cooperative result: 0 active, 1 passed, 2 failed
+355@ = 0 // rocket-launcher phase prepared for remotes
+356@ = 0 // flamethrower phase prepared for remotes
+357@ = 0 // host-authoritative weed fallback consumed an objective
+358@ = 0 // number of weed objectives credited by the fallback
+359@ = 0 // current remote ammo scratch
+360@ = 0 // previous remote ammo scratch
+361@ = 0 // remote flamethrower-use signal
+362@ = 0 // remote area scratch
+363@ = 0 // host area scratch
+364@ = 0 // bad regroup state scratch
+365@ = 0 // elapsed-time scratch
+366@ = 0.0 // coordinate scratch X
+367@ = 0.0 // coordinate scratch Y
+368@ = 0.0 // coordinate scratch Z
+370@ = -1 // Truth network id
+371@ = -1 // Mothership network id
+372@ = -1 // farm pickup network id
+373@ = -1 // helicopter network id
+374@ = -1 // helicopter pilot network id
+375@ = -1 // arresting cop network id
+376@ = -1 // generic registration entity
+377@ = -1 // generic registration result
+378@ = 0 // bounded registration deadline
+379@ = 0 // bounded registration clock scratch
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 300@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // frozen actor handle
+    303@($temp_int,3i) = -1 // frozen internal network identity
+    306@($temp_int,3i) = 0 // currently connected frozen participant
+    309@($temp_int,3i) = -1 // last per-player objective phase
+    312@($temp_int,3i) = 0 // original flamethrower ammo
+    315@($temp_int,3i) = 0 // original rocket-launcher ammo
+    318@($temp_int,3i) = 0 // original selected weapon
+    321@($temp_int,3i) = 0 // last synchronized flamethrower ammo
+    324@($temp_int,3i) = 0 // temporary flamethrower granted
+    327@($temp_int,3i) = 0 // temporary rocket launcher granted
+    330@($temp_int,3i) = 0 // next accepted weed fallback interaction
+    333@($temp_int,3i) = 0 // remote regroup fallback start
+    336@($temp_int,3i) = 0 // last synchronized rocket-launcher ammo
+    if
+        Coop.IsNetworkPlayerActorValid(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        303@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(348@)
+        306@($temp_int,3i) = 1
+        318@($temp_int,3i) = Char.GetCurrentWeapon(348@)
+        312@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 37)
+        315@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 35)
+        set_lvar_int_to_lvar_int 336@($temp_int,3i) = 315@($temp_int,3i)
+        350@ += 1
+    end
+end
 Stat.RegisterMissionGiven
 Text.LoadMissionText('TRU2')
+gosub @TRUTH2_COOP_FREEZE_REMOTES
 if 
   $onmission == 0
 goto_if_false @TRUTH2_159
@@ -204,6 +275,7 @@ Heli.FollowEntity(35@, $truth, -1, 20.0)
 Car.LockDoors(35@, CarLock.Locked)
 Char.SetCanBeShotInVehicle(36@, False)
 Char.SetDecisionMaker(36@, 216@)
+gosub @TRUTH2_COOP_SYNC_CORE_ENTITIES
 43@ = Blip.AddForCoord(-1062.1, -1631.7, 75.3)
 Blip.ChangeScale(43@, 1)
 Blip.SetCoordAppearance(43@, 2)
@@ -339,6 +411,7 @@ Blip.SetCoordAppearance(86@, 2)
 Hud.DisplayTimerWithString($t2_cop_timer, TimerDirection.Down, 'TRU2_06')
 Char.SetCoordinates($scplayer, -1089.9, -1644.1, 75.4)
 Char.SetHeading($scplayer, 283.3)
+gosub @TRUTH2_COOP_PREPARE_WEED_PHASE
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
@@ -350,6 +423,12 @@ TIMERB = 0
 
 :TRUTH2_3224
 wait 0
+gosub @TRUTH2_COOP_UPDATE
+if
+  341@ == 1
+then
+    goto @TRUTH2_11910
+end
 gosub @TRUTH2_14570
 Player.ClearWantedLevel($player1)
 if 
@@ -961,6 +1040,7 @@ goto_if_false @TRUTH2_8231
 if 
   Char.LocateStoppedOnFoot3D($scplayer, -1075.5, -1648.0, 75.1, 1.2, 1.2, 2.0, True)
 goto_if_false @TRUTH2_8224
+gosub @TRUTH2_COOP_FREEZE_REMOTES
 Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
@@ -992,6 +1072,7 @@ gosub @TRUTH2_14975
 goto @TRUTH2_8279
 
 :TRUTH2_8231
+gosub @TRUTH2_COOP_PREPARE_HELI_PHASE
 Car.FreezePosition(34@, False)
 Task.CarDriveToCoord($truth, 34@, -939.5, -1718.8, 76.7, 10.0, DriveMode.Normal, 0, DrivingMode.AvoidCars)
 88@ = 5
@@ -1086,6 +1167,7 @@ Car.FreezePosition(34@, False)
 Pad.SetDrunkInputDelay($player1, 145@)
 Player.SetDrunkenness($player1, 146@)
 Player.SetControl($player1, True)
+gosub @TRUTH2_COOP_PREPARE_HELI_PHASE
 Hud.SwitchWidescreen(False)
 Player.MakeGangReappear
 Camera.SetBehindPlayer
@@ -1350,6 +1432,13 @@ Car.SetHeading(34@, 359.8)
 if 
   Char.LocateInCar3D($scplayer, -2031.3, 178.5, 27.9, 4.0, 4.0, 4.0, True)
 goto_if_false @TRUTH2_10292
+gosub @TRUTH2_COOP_CHECK_FINAL_REGROUP
+if
+  351@ == 0
+then
+    goto @TRUTH2_10292
+end
+gosub @TRUTH2_COOP_FREEZE_REMOTES
 Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
@@ -1397,6 +1486,7 @@ Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 151@ = 0
+gosub @TRUTH2_COOP_FREEZE_REMOTES
 Player.SetDrunkenness($player1, 0)
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
@@ -1418,6 +1508,7 @@ Task.CarTempAction($truth, 34@, TempAction.HandbrakeStraight, 2000000)
 :TRUTH2_10613
 141@, 142@, 143@ = Path.GetNthClosestCarNode(138@, 139@, 140@, 1)
 37@ = Char.Create(24, 283, 141@, 142@, 143@)
+gosub @TRUTH2_COOP_SYNC_ARREST_COP
 if 
   Char.IsInAnyCar($truth)
 goto_if_false @TRUTH2_10679
@@ -1656,10 +1747,12 @@ goto @TRUTH2_3224
 :TRUTH2_11910
 Char.RemoveWeapon(37, $scplayer)
 Char.RemoveWeapon(35, $scplayer)
+gosub @TRUTH2_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :TRUTH2_11942
+gosub @TRUTH2_COOP_NOTIFY_PASS
 Stat.SetInt(StatId.PassedTruth2, 1)
 Text.PrintWithNumberBig('M_PASSR', 15, 5000, TextStyle.Middle)
 Stat.AwardPlayerMissionRespect(15)
@@ -1686,6 +1779,7 @@ $2589 = Blip.AddShortRangeSpriteForCoord(27, -1941.0, 251.7, 33.4)
 return 
 
 :TRUTH2_12153
+gosub @TRUTH2_COOP_CLEANUP
 if 
   Player.IsPlaying($player1)
 goto_if_false @TRUTH2_12183
@@ -2726,4 +2820,1377 @@ Text.ClearThisPrint(154@(152@,16s))
 
 :TRUTH2_18630
 return 
+
+// Cooperative mission layer. The host alone advances canonical story globals,
+// rewards, and mission state. Frozen-roster peers only feed guarded mission
+// interactions into that host-owned state machine.
+:TRUTH2_COOP_UPDATE_ROSTER
+350@ = 0
+for $temp_int = 0 to 2
+    306@($temp_int,3i) = 0
+    if and
+        303@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        346@ = Coop.GetNetworkPlayerInternalId(348@)
+        if
+            is_int_lvar_equal_to_int_lvar 346@ == 303@($temp_int,3i)
+        then
+            306@($temp_int,3i) = 1
+            350@ += 1
+            if
+                Char.IsDead(300@($temp_int,3i))
+            then
+                341@ = 1
+            else
+                if
+                    342@ == 1
+                then
+                    Char.ClearTasksImmediately(300@($temp_int,3i))
+                    Char.SetProofs(300@($temp_int,3i), True, True, True, True, True)
+                    Char.SetCollision(300@($temp_int,3i), True)
+                    Char.SetVisible(300@($temp_int,3i), True)
+                    Task.StandStill(300@($temp_int,3i), -1)
+                    Char.FreezePosition(300@($temp_int,3i), True)
+                end
+            end
+        end
+    end
+end
+return
+
+:TRUTH2_COOP_BUILD_ACTIVE_ARGS
+380@ = -1
+381@ = -1
+382@ = -1
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 380@($temp_int,3i) = 300@($temp_int,3i)
+    end
+end
+return
+
+:TRUTH2_COOP_TELEPORT_ACTIVE
+if
+    350@ == 0
+then
+    return
+end
+gosub @TRUTH2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(380@, 381@, 382@)
+for $temp_int = 0 to 2
+    333@($temp_int,3i) = 0
+    309@($temp_int,3i) = -1
+end
+return
+
+:TRUTH2_COOP_TELEPORT_CURRENT
+if or
+    306@($temp_int,3i) == 0
+    Char.IsDead(300@($temp_int,3i))
+then
+    return
+end
+366@, 367@, 368@ = Char.GetCoordinates($scplayer)
+Char.ClearTasksImmediately(300@($temp_int,3i))
+if
+    Char.IsInAnyCar(300@($temp_int,3i))
+then
+    Char.WarpFromCarToCoord(300@($temp_int,3i), 366@, 367@, 368@)
+end
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(300@, -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 301@, -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 302@)
+end
+333@($temp_int,3i) = 0
+309@($temp_int,3i) = -1
+return
+
+// Camera and Player.SetControl are local to the host. Remote actors are staged
+// explicitly with task locks, proofs, and a freeze for every host cinematic.
+:TRUTH2_COOP_FREEZE_REMOTES
+if
+    342@ == 1
+then
+    return
+end
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+if
+    350@ == 0
+then
+    342@ = 1
+    return
+end
+gosub @TRUTH2_COOP_CLEAR_OBJECTIVES
+366@, 367@, 368@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(300@($temp_int,3i))
+        if
+            Char.IsInAnyCar(300@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(300@($temp_int,3i), 366@, 367@, 368@)
+        end
+        Char.SetProofs(300@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(300@($temp_int,3i), True)
+        Char.SetVisible(300@($temp_int,3i), True)
+        Task.StandStill(300@($temp_int,3i), -1)
+        Char.FreezePosition(300@($temp_int,3i), True)
+    end
+end
+gosub @TRUTH2_COOP_TELEPORT_ACTIVE
+342@ = 1
+return
+
+:TRUTH2_COOP_RELEASE_REMOTES
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+if
+    350@ == 0
+then
+    342@ = 0
+    return
+end
+gosub @TRUTH2_COOP_TELEPORT_ACTIVE
+363@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(300@($temp_int,3i))
+        Char.SetAreaVisible(300@($temp_int,3i), 363@)
+        Char.FreezePosition(300@($temp_int,3i), False)
+        Char.SetProofs(300@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(300@($temp_int,3i), True)
+        Char.SetVisible(300@($temp_int,3i), True)
+        Task.StandStill(300@($temp_int,3i), 0)
+    end
+end
+342@ = 0
+345@ = 0
+return
+
+:TRUTH2_COOP_PREPARE_WEED_PHASE
+356@ = 1
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+        324@($temp_int,3i) == 0
+    then
+        Char.GiveWeapon(300@($temp_int,3i), WeaponType.Flamethrower, 3000)
+        Char.SetCurrentWeapon(300@($temp_int,3i), WeaponType.Flamethrower)
+        324@($temp_int,3i) = 1
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        321@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 37)
+    end
+end
+gosub @TRUTH2_COOP_RELEASE_REMOTES
+return
+
+:TRUTH2_COOP_PREPARE_HELI_PHASE
+355@ = 1
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+        327@($temp_int,3i) == 0
+    then
+        Char.GiveWeapon(300@($temp_int,3i), WeaponType.RocketLauncher, 10)
+        Char.SetCurrentWeapon(300@($temp_int,3i), WeaponType.RocketLauncher)
+        327@($temp_int,3i) = 1
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        336@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 35)
+    end
+end
+gosub @TRUTH2_COOP_RELEASE_REMOTES
+return
+
+// Every entity handshake shares a three-second deadline. Missing, destroyed, or
+// late-streamed entities safely degrade to coordinate objectives and later retries.
+:TRUTH2_COOP_SYNC_CORE_ENTITIES
+if
+    350@ == 0
+then
+    return
+end
+378@ = Clock.GetGameTimer()
+378@ += 3000
+
+:TRUTH2_COOP_SYNC_CORE_PASS
+352@ = 0
+if and
+    370@ == -1
+    Char.DoesExist($truth)
+    not Char.IsDead($truth)
+then
+    370@ = Coop.GetPedNetworkId($truth)
+    if
+        370@ == -1
+    then
+        352@ = 1
+    end
+end
+if and
+    371@ == -1
+    Car.DoesExist(34@)
+    not Car.IsDead(34@)
+then
+    371@ = Coop.GetVehicleNetworkId(34@)
+    if
+        371@ == -1
+    then
+        352@ = 1
+    end
+end
+if and
+    372@ == -1
+    Car.DoesExist(39@)
+    not Car.IsDead(39@)
+then
+    372@ = Coop.GetVehicleNetworkId(39@)
+    if
+        372@ == -1
+    then
+        352@ = 1
+    end
+end
+if and
+    373@ == -1
+    Car.DoesExist(35@)
+    not Car.IsDead(35@)
+then
+    373@ = Coop.GetVehicleNetworkId(35@)
+    if
+        373@ == -1
+    then
+        352@ = 1
+    end
+end
+if and
+    374@ == -1
+    Char.DoesExist(36@)
+    not Char.IsDead(36@)
+then
+    374@ = Coop.GetPedNetworkId(36@)
+    if
+        374@ == -1
+    then
+        352@ = 1
+    end
+end
+if
+    352@ == 0
+then
+    return
+end
+379@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 379@ >= 378@
+then
+    353@ = 1
+    return
+end
+wait 0
+goto @TRUTH2_COOP_SYNC_CORE_PASS
+
+:TRUTH2_COOP_SYNC_ARREST_COP
+375@ = -1
+if or
+    350@ == 0
+    not Char.DoesExist(37@)
+    Char.IsDead(37@)
+then
+    return
+end
+378@ = Clock.GetGameTimer()
+378@ += 3000
+
+:TRUTH2_COOP_SYNC_ARREST_COP_WAIT
+if or
+    not Char.DoesExist(37@)
+    Char.IsDead(37@)
+then
+    return
+end
+375@ = Coop.GetPedNetworkId(37@)
+if
+    375@ <> -1
+then
+    return
+end
+379@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 379@ >= 378@
+then
+    353@ = 1
+    return
+end
+wait 0
+goto @TRUTH2_COOP_SYNC_ARREST_COP_WAIT
+
+:TRUTH2_COOP_RETRY_ENTITY_IDS
+if and
+    370@ == -1
+    Char.DoesExist($truth)
+    not Char.IsDead($truth)
+then
+    370@ = Coop.GetPedNetworkId($truth)
+end
+if and
+    371@ == -1
+    Car.DoesExist(34@)
+    not Car.IsDead(34@)
+then
+    371@ = Coop.GetVehicleNetworkId(34@)
+end
+if and
+    372@ == -1
+    Car.DoesExist(39@)
+    not Car.IsDead(39@)
+then
+    372@ = Coop.GetVehicleNetworkId(39@)
+end
+if and
+    373@ == -1
+    Car.DoesExist(35@)
+    not Car.IsDead(35@)
+then
+    373@ = Coop.GetVehicleNetworkId(35@)
+end
+if and
+    374@ == -1
+    Char.DoesExist(36@)
+    not Char.IsDead(36@)
+then
+    374@ = Coop.GetPedNetworkId(36@)
+end
+if and
+    375@ == -1
+    Char.DoesExist(37@)
+    not Char.IsDead(37@)
+then
+    375@ = Coop.GetPedNetworkId(37@)
+end
+return
+
+:TRUTH2_COOP_ENSURE_LOADOUTS
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        if and
+            356@ == 1
+            324@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(300@($temp_int,3i), WeaponType.Flamethrower, 3000)
+            324@($temp_int,3i) = 1
+            set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+            321@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 37)
+        end
+        if and
+            355@ == 1
+            327@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(300@($temp_int,3i), WeaponType.RocketLauncher, 10)
+            327@($temp_int,3i) = 1
+            set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+            336@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 35)
+        end
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        if and
+            87@ == 0
+            324@($temp_int,3i) == 1
+        then
+            359@ = Char.GetAmmoInWeapon(348@, 37)
+            if and
+                359@ == 0
+                Char.LocateAnyMeans3D(300@($temp_int,3i), False, -1100.3, -1640.4, 76.4, 3.0, 3.0, 3.0)
+            then
+                Char.GiveWeapon(300@($temp_int,3i), WeaponType.Flamethrower, 500)
+                Char.SetCurrentWeapon(300@($temp_int,3i), WeaponType.Flamethrower)
+                321@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 37)
+            end
+        end
+        if and
+            87@ == 1
+            355@ == 1
+            327@($temp_int,3i) == 1
+        then
+            359@ = Char.GetAmmoInWeapon(348@, 35)
+            if and
+                359@ == 0
+                Char.LocateAnyMeans3D(300@($temp_int,3i), False, -1100.3, -1640.4, 76.4, 3.0, 3.0, 3.0)
+            then
+                Char.GiveWeapon(300@($temp_int,3i), WeaponType.RocketLauncher, 10)
+                Char.SetCurrentWeapon(300@($temp_int,3i), WeaponType.RocketLauncher)
+                336@($temp_int,3i) = Char.GetAmmoInWeapon(348@, 35)
+            end
+        end
+    end
+end
+return
+
+:TRUTH2_COOP_UPDATE
+if
+    354@ <> 0
+then
+    return
+end
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+if
+    341@ == 1
+then
+    return
+end
+gosub @TRUTH2_COOP_ENSURE_LOADOUTS
+346@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 346@ >= 344@
+then
+    set_lvar_int_to_lvar_int 344@ = 346@
+    344@ += 5000
+    gosub @TRUTH2_COOP_RETRY_ENTITY_IDS
+end
+if
+    342@ == 1
+then
+    return
+end
+if
+    87@ == 0
+then
+    gosub @TRUTH2_COOP_UPDATE_REMOTE_WEED
+end
+if and
+    87@ == 1
+    355@ == 1
+then
+    gosub @TRUTH2_COOP_UPDATE_REMOTE_HELI_DAMAGE
+end
+if and
+    87@ >= 2
+    3 >= 87@
+    Car.DoesExist(39@)
+    not Car.IsDead(39@)
+then
+    Car.LockDoors(39@, CarLock.Unlocked)
+end
+gosub @TRUTH2_COOP_UPDATE_REGROUP
+gosub @TRUTH2_COOP_UPDATE_OBJECTIVES
+return
+
+// A missing helicopter network instance must not make the combat assignment fake.
+// In degraded mode, a nearby remote rocket ammo delta applies one bounded host hit.
+:TRUTH2_COOP_UPDATE_REMOTE_HELI_DAMAGE
+if or
+    373@ <> -1
+    not Car.DoesExist(35@)
+    Car.IsDead(35@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        327@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        359@ = Char.GetAmmoInWeapon(348@, 35)
+        if
+            is_int_lvar_greater_than_int_lvar 336@($temp_int,3i) > 359@
+        then
+            if
+                Char.LocateAnyMeansCar3D(300@($temp_int,3i), 35@, 180.0, 180.0, 120.0, False)
+            then
+                346@ = Car.GetHealth(35@)
+                346@ -= 275
+                if
+                    346@ > 249
+                then
+                    Car.SetHealth(35@, 346@)
+                else
+                    Car.Explode(35@)
+                end
+            end
+        end
+        set_lvar_int_to_lvar_int 336@($temp_int,3i) = 359@
+    end
+end
+return
+
+// Script fires, weed objects, and pickups do not have dependable network ids.
+// The host therefore accepts only a live frozen-roster actor, a flamethrower ammo
+// decrease (or throttled synchronized shooting state), and proximity to one exact
+// untouched plant. The canonical per-plant flag is the one-shot anti-duplication
+// ledger, so native object damage and fallback credit can never decrement twice.
+:TRUTH2_COOP_UPDATE_REMOTE_WEED
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        324@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        359@ = Char.GetAmmoInWeapon(348@, 37)
+        361@ = 0
+        if
+            is_int_lvar_greater_than_int_lvar 321@($temp_int,3i) > 359@
+        then
+            361@ = 1
+        end
+        if and
+            361@ == 0
+            Char.IsCurrentWeapon(300@($temp_int,3i), WeaponType.Flamethrower)
+            Char.IsShooting(300@($temp_int,3i))
+        then
+            361@ = 1
+        end
+        set_lvar_int_to_lvar_int 321@($temp_int,3i) = 359@
+        if
+            361@ == 1
+        then
+            346@ = Clock.GetGameTimer()
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 346@ >= 330@($temp_int,3i)
+            then
+                gosub @TRUTH2_COOP_TRY_BURN_NEAR_REMOTE
+                if
+                    357@ == 1
+                then
+                    set_lvar_int_to_lvar_int 330@($temp_int,3i) = 346@
+                    330@($temp_int,3i) += 650
+                end
+            end
+        end
+    end
+end
+return
+
+:TRUTH2_COOP_TRY_BURN_NEAR_REMOTE
+357@ = 0
+384@ = -1
+if and
+    357@ == 0
+    91@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1062.1, -1631.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 0
+    357@ = 1
+end
+if and
+    357@ == 0
+    92@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1052.3, -1631.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 1
+    357@ = 1
+end
+if and
+    357@ == 0
+    93@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1042.4, -1631.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 2
+    357@ = 1
+end
+if and
+    357@ == 0
+    94@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1032.6, -1631.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 3
+    357@ = 1
+end
+if and
+    357@ == 0
+    95@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1023.1, -1631.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 4
+    357@ = 1
+end
+if and
+    357@ == 0
+    96@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1062.1, -1622.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 5
+    357@ = 1
+end
+if and
+    357@ == 0
+    97@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1052.3, -1622.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 6
+    357@ = 1
+end
+if and
+    357@ == 0
+    98@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1042.4, -1622.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 7
+    357@ = 1
+end
+if and
+    357@ == 0
+    99@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1032.6, -1622.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 8
+    357@ = 1
+end
+if and
+    357@ == 0
+    100@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1023.1, -1622.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 9
+    357@ = 1
+end
+if and
+    357@ == 0
+    101@ == 0
+    Char.LocateAnyMeans3D(348@, False, -991.92, -1703.1, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 10
+    357@ = 1
+end
+if and
+    357@ == 0
+    102@ == 0
+    Char.LocateAnyMeans3D(348@, False, -982.38, -1703.1, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 11
+    357@ = 1
+end
+if and
+    357@ == 0
+    103@ == 0
+    Char.LocateAnyMeans3D(348@, False, -991.92, -1693.6, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 12
+    357@ = 1
+end
+if and
+    357@ == 0
+    104@ == 0
+    Char.LocateAnyMeans3D(348@, False, -982.38, -1693.6, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 13
+    357@ = 1
+end
+if and
+    357@ == 0
+    105@ == 0
+    Char.LocateAnyMeans3D(348@, False, -991.92, -1684.1, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 14
+    357@ = 1
+end
+if and
+    357@ == 0
+    106@ == 0
+    Char.LocateAnyMeans3D(348@, False, -982.38, -1684.1, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 15
+    357@ = 1
+end
+if and
+    357@ == 0
+    107@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1011.8, -1667.6, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 16
+    357@ = 1
+end
+if and
+    357@ == 0
+    108@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1011.8, -1658.1, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 17
+    357@ = 1
+end
+if and
+    357@ == 0
+    109@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1011.8, -1648.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 18
+    357@ = 1
+end
+if and
+    357@ == 0
+    110@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1000.7, -1667.6, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 19
+    357@ = 1
+end
+if and
+    357@ == 0
+    111@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1000.7, -1658.1, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 20
+    357@ = 1
+end
+if and
+    357@ == 0
+    112@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1000.7, -1648.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 21
+    357@ = 1
+end
+if and
+    357@ == 0
+    113@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1011.8, -1672.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 22
+    357@ = 1
+end
+if and
+    357@ == 0
+    114@ == 0
+    Char.LocateAnyMeans3D(348@, False, -991.92, -1688.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 23
+    357@ = 1
+end
+if and
+    357@ == 0
+    115@ == 0
+    Char.LocateAnyMeans3D(348@, False, -982.38, -1688.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 24
+    357@ = 1
+end
+if and
+    357@ == 0
+    116@ == 0
+    Char.LocateAnyMeans3D(348@, False, -982.38, -1698.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 25
+    357@ = 1
+end
+if and
+    357@ == 0
+    117@ == 0
+    Char.LocateAnyMeans3D(348@, False, -991.92, -1698.2, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 26
+    357@ = 1
+end
+if and
+    357@ == 0
+    118@ == 0
+    Char.LocateAnyMeans3D(348@, False, -982.38, -1707.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 27
+    357@ = 1
+end
+if and
+    357@ == 0
+    119@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1011.8, -1662.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 28
+    357@ = 1
+end
+if and
+    357@ == 0
+    120@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1000.7, -1672.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 29
+    357@ = 1
+end
+if and
+    357@ == 0
+    121@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1011.8, -1653.4, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 30
+    357@ = 1
+end
+if and
+    357@ == 0
+    122@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1032.6, -1636.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 31
+    357@ = 1
+end
+if and
+    357@ == 0
+    123@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1052.3, -1636.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 32
+    357@ = 1
+end
+if and
+    357@ == 0
+    124@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1042.4, -1636.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 33
+    357@ = 1
+end
+if and
+    357@ == 0
+    125@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1062.1, -1626.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 34
+    357@ = 1
+end
+if and
+    357@ == 0
+    126@ == 0
+    Char.LocateAnyMeans3D(348@, False, -991.92, -1707.7, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 35
+    357@ = 1
+end
+if and
+    357@ == 0
+    127@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1023.1, -1626.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 36
+    357@ = 1
+end
+if and
+    357@ == 0
+    128@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1000.7, -1662.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 37
+    357@ = 1
+end
+if and
+    357@ == 0
+    129@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1000.7, -1653.4, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 38
+    357@ = 1
+end
+if and
+    357@ == 0
+    130@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1032.6, -1626.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 39
+    357@ = 1
+end
+if and
+    357@ == 0
+    131@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1042.4, -1626.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 40
+    357@ = 1
+end
+if and
+    357@ == 0
+    132@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1052.3, -1626.8, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 41
+    357@ = 1
+end
+if and
+    357@ == 0
+    133@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1062.1, -1636.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 42
+    357@ = 1
+end
+if and
+    357@ == 0
+    134@ == 0
+    Char.LocateAnyMeans3D(348@, False, -1023.1, -1636.3, 75.3, 5.5, 5.5, 4.0)
+then
+    384@ = 43
+    357@ = 1
+end
+if
+    357@ == 1
+then
+    91@(384@,44i) = 1
+    Blip.Remove(43@(384@,44i))
+    if
+        $t2_total_weed_burnt > 0
+    then
+        $t2_total_weed_burnt -= 1
+    end
+    Sound.AddOneOffSound(1058, 0.0, 0.0, 0.0)
+    358@ += 1
+end
+return
+
+:TRUTH2_COOP_UPDATE_REGROUP
+if or
+    342@ == 1
+    0 > 87@
+    87@ > 3
+then
+    for $temp_int = 0 to 2
+        333@($temp_int,3i) = 0
+    end
+    return
+end
+363@ = Char.GetAreaVisible($scplayer)
+346@ = Clock.GetGameTimer()
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        364@ = 0
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        362@ = Char.GetAreaVisible(348@)
+        if
+            not is_int_lvar_equal_to_int_lvar 362@ == 363@
+        then
+            364@ = 1
+        end
+        if
+            not Char.LocateAnyMeansChar3D(300@($temp_int,3i), $scplayer, 300.0, 300.0, 100.0, False)
+        then
+            364@ = 1
+        end
+        if
+            Char.IsInWater(300@($temp_int,3i))
+        then
+            364@ = 1
+        end
+        if
+            364@ == 0
+        then
+            333@($temp_int,3i) = 0
+        else
+            if
+                333@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 333@($temp_int,3i) = 346@
+            else
+                set_lvar_int_to_lvar_int 365@ = 346@
+                sub_int_lvar_from_int_lvar 365@ -= 333@($temp_int,3i)
+                if
+                    365@ > 15000
+                then
+                    gosub @TRUTH2_COOP_TELEPORT_CURRENT
+                end
+            end
+        end
+    else
+        333@($temp_int,3i) = 0
+    end
+end
+return
+
+// The destination only commits once every connected frozen-roster participant
+// regroups. A bounded teleport fallback prevents a disconnected or stranded peer
+// from deadlocking the canonical ending.
+:TRUTH2_COOP_CHECK_FINAL_REGROUP
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+351@ = 1
+if
+    341@ == 1
+then
+    351@ = 0
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        if
+            not Char.LocateAnyMeans3D(300@($temp_int,3i), False, -2031.3, 178.5, 27.9, 24.0, 24.0, 12.0)
+        then
+            351@ = 0
+        end
+    end
+end
+if
+    351@ == 1
+then
+    345@ = 0
+    return
+end
+346@ = Clock.GetGameTimer()
+if
+    345@ == 0
+then
+    set_lvar_int_to_lvar_int 345@ = 346@
+    345@ += 15000
+    return
+end
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 346@ >= 345@
+then
+    gosub @TRUTH2_COOP_TELEPORT_ACTIVE
+    351@ = 1
+    345@ = 0
+end
+return
+
+:TRUTH2_COOP_UPDATE_OBJECTIVES
+383@ = 0
+346@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 346@ >= 343@
+then
+    383@ = 1
+    set_lvar_int_to_lvar_int 343@ = 346@
+    343@ += 7000
+end
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        349@ = -1
+        if
+            87@ == 0
+        then
+            349@ = 10
+            add_int_var_to_int_lvar 349@ += $temp_int
+        end
+        if
+            87@ == 1
+        then
+            349@ = 15
+            if
+                355@ == 1
+            then
+                349@ = 20
+            end
+        end
+        if
+            87@ == 2
+        then
+            349@ = 30
+            if and
+                $temp_int == 1
+                372@ <> -1
+                Car.DoesExist(39@)
+                not Car.IsDead(39@)
+            then
+                349@ = 31
+            end
+            if
+                $temp_int == 2
+            then
+                349@ = 32
+            end
+        end
+        if
+            87@ == 3
+        then
+            349@ = 40
+            if and
+                $temp_int == 1
+                372@ <> -1
+                Car.DoesExist(39@)
+                not Car.IsDead(39@)
+            then
+                349@ = 41
+            end
+        end
+        if
+            87@ == 4
+        then
+            349@ = 45
+        end
+        if or
+            not is_int_lvar_equal_to_int_lvar 309@($temp_int,3i) == 349@
+            383@ == 1
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(300@($temp_int,3i))
+            Coop.RemoveCheckpointForNetworkPlayer(300@($temp_int,3i))
+            if
+                349@ == 10
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-1042.4, -1627.0, 75.3, 25.0, 18.0, 6.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_01', 7000, 1, 300@($temp_int,3i))
+            end
+            if
+                349@ == 11
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-1006.0, -1660.0, 75.3, 18.0, 24.0, 6.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_01', 7000, 1, 300@($temp_int,3i))
+            end
+            if
+                349@ == 12
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-987.0, -1696.0, 75.3, 18.0, 25.0, 6.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_01', 7000, 1, 300@($temp_int,3i))
+            end
+            if and
+                349@ >= 10
+                12 >= 349@
+                370@ <> -1
+                Char.DoesExist($truth)
+                not Char.IsDead($truth)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(300@($temp_int,3i), $truth, True, BlipDisplay.Both, BlipColor.Blue, 2)
+            end
+            if
+                349@ == 15
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-1075.5, -1648.0, 75.1, 4.0, 4.0, 4.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_14', 7000, 1, 300@($temp_int,3i))
+                if and
+                    370@ <> -1
+                    Char.DoesExist($truth)
+                    not Char.IsDead($truth)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(300@($temp_int,3i), $truth, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                349@ == 20
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-939.5, -1718.8, 76.7, 85.0, 85.0, 55.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_15', 7000, 1, 300@($temp_int,3i))
+                if and
+                    373@ <> -1
+                    Car.DoesExist(35@)
+                    not Car.IsDead(35@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(300@($temp_int,3i), 35@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+            if or
+                349@ == 30
+                349@ == 32
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-1077.6, -1650.2, 75.3, 6.0, 6.0, 5.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_17', 7000, 1, 300@($temp_int,3i))
+                if and
+                    371@ <> -1
+                    Car.DoesExist(34@)
+                    not Car.IsDead(34@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(300@($temp_int,3i), 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                349@ == 31
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-946.6, -1735.0, 76.9, 6.0, 6.0, 5.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_17', 7000, 1, 300@($temp_int,3i))
+                Coop.UpdateCarBlipForNetworkPlayer(300@($temp_int,3i), 39@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+            if or
+                349@ == 40
+                349@ == 41
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-2031.3, 178.5, 27.9, 18.0, 18.0, 10.0, 300@($temp_int,3i))
+                Coop.PrintNowForNetworkPlayer('TRU2_12', 7000, 1, 300@($temp_int,3i))
+                if and
+                    349@ == 41
+                    372@ <> -1
+                    Car.DoesExist(39@)
+                    not Car.IsDead(39@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(300@($temp_int,3i), 39@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+                else
+                    if and
+                        371@ <> -1
+                        Car.DoesExist(34@)
+                        not Car.IsDead(34@)
+                    then
+                        Coop.UpdateCarBlipForNetworkPlayer(300@($temp_int,3i), 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                end
+            end
+            if
+                349@ == 45
+            then
+                Coop.PrintNowForNetworkPlayer('TRU2_17', 7000, 1, 300@($temp_int,3i))
+                if and
+                    371@ <> -1
+                    Car.DoesExist(34@)
+                    not Car.IsDead(34@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(300@($temp_int,3i), 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            set_lvar_int_to_lvar_int 309@($temp_int,3i) = 349@
+        end
+    end
+end
+return
+
+:TRUTH2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        303@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        346@ = Coop.GetNetworkPlayerInternalId(348@)
+        if
+            is_int_lvar_equal_to_int_lvar 346@ == 303@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(300@($temp_int,3i))
+            Coop.RemoveCheckpointForNetworkPlayer(300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_01', 300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_02', 300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_12', 300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_13', 300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_14', 300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_15', 300@($temp_int,3i))
+            Coop.ClearThisPrintForNetworkPlayer('TRU2_17', 300@($temp_int,3i))
+        end
+    end
+    309@($temp_int,3i) = -1
+end
+return
+
+:TRUTH2_COOP_NOTIFY_FAILURE
+if
+    354@ <> 0
+then
+    return
+end
+354@ = 2
+gosub @TRUTH2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        303@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        346@ = Coop.GetNetworkPlayerInternalId(348@)
+        if
+            is_int_lvar_equal_to_int_lvar 346@ == 303@($temp_int,3i)
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 300@($temp_int,3i))
+        end
+    end
+end
+return
+
+:TRUTH2_COOP_NOTIFY_PASS
+if
+    354@ <> 0
+then
+    return
+end
+354@ = 1
+gosub @TRUTH2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        303@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(300@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 348@ = 300@($temp_int,3i)
+        346@ = Coop.GetNetworkPlayerInternalId(348@)
+        if
+            is_int_lvar_equal_to_int_lvar 346@ == 303@($temp_int,3i)
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 300@($temp_int,3i))
+        end
+    end
+end
+return
+
+:TRUTH2_COOP_CLEANUP
+if
+    340@ == 1
+then
+    return
+end
+340@ = 1
+gosub @TRUTH2_COOP_UPDATE_ROSTER
+gosub @TRUTH2_COOP_CLEAR_OBJECTIVES
+gosub @TRUTH2_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    if and
+        306@($temp_int,3i) == 1
+        not Char.IsDead(300@($temp_int,3i))
+    then
+        if
+            324@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(37, 300@($temp_int,3i))
+            if
+                312@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(300@($temp_int,3i), WeaponType.Flamethrower, 312@($temp_int,3i))
+            end
+        end
+        if
+            327@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(35, 300@($temp_int,3i))
+            if
+                315@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(300@($temp_int,3i), WeaponType.RocketLauncher, 315@($temp_int,3i))
+            end
+        end
+        if
+            318@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(300@($temp_int,3i), WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(300@($temp_int,3i), 318@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(300@($temp_int,3i), 318@($temp_int,3i))
+            end
+        end
+        Char.ClearTasksImmediately(300@($temp_int,3i))
+        Char.FreezePosition(300@($temp_int,3i), False)
+        Char.SetProofs(300@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(300@($temp_int,3i), True)
+        Char.SetVisible(300@($temp_int,3i), True)
+        Task.StandStill(300@($temp_int,3i), 0)
+    end
+    300@($temp_int,3i) = 0
+    303@($temp_int,3i) = -1
+    306@($temp_int,3i) = 0
+    309@($temp_int,3i) = -1
+    324@($temp_int,3i) = 0
+    327@($temp_int,3i) = 0
+    333@($temp_int,3i) = 0
+end
+342@ = 0
+return
 
