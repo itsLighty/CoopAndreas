@@ -3,6 +3,121 @@
 
 :HEIST2
 script_name 'HEIST2'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Dam and Blast remains host-authoritative for its aircraft, pickups, guards,
+// five charges, story flags, wanted level, rewards, and result. Only immutable
+// identities captured here can participate; late joiners remain spectators.
+300@ = 0 // immutable frozen participant count
+301@ = 0 // idempotent cooperative cleanup guard
+302@ = 0 // deterministic participant-death failure requested
+303@ = 0 // cooperative result: 0 active, 1 passed, 2 failed
+304@ = 0 // cooperative free-play has begun
+305@ = 1 // remotes are frozen for a host cinematic
+306@ = 0 // current cooperative objective phase
+307@ = -1 // previous cooperative objective phase
+308@ = 0 // next HUD/objective fan-out
+309@ = 0 // next bounded entity registration pass
+310@ = 0 // next combat/protection/regroup pass
+311@ = 0 // currently connected frozen participants
+312@ = 0 // prior connection state scratch
+313@ = 0 // reconnect candidate iterator
+314@ = -1 // immutable identity scratch
+315@ = -1 // actor scratch
+316@ = 0 // at least one participant reconnected this frame
+317@ = 0 // game timer scratch
+318@ = 0 // shared landing trigger
+319@ = 0 // shared exterior knife trigger
+320@ = 0 // shared exterior door trigger
+321@ = 0 // shared interior infiltration trigger
+322@ = 0 // cooperative role briefing sent
+323@ = 0 // entity handle scratch
+324@ = 0 // entity registration index
+325@ = -1 // entity network-id scratch
+326@ = 0 // registration degraded to positional fallbacks
+327@ = 0 // nested participant/entity iterator
+328@ = 0 // friendly-fire attribution scratch
+329@ = 0 // prior host health ledger
+330@ = 0 // prior host armor ledger
+331@ = 0 // current health scratch
+332@ = 0 // current armor scratch
+333@ = 0 // cooperative result fan-out guard
+334@ = 0 // objective token scratch
+335@ = 0 // charge/label iterator
+336@ = 0 // shared interior exit trigger
+337@ = 0 // role/action scratch
+338@ = 0 // visible-area scratch
+339@ = 0.0 // staging coordinate X
+340@ = 0.0 // staging coordinate Y
+341@ = 0.0 // staging coordinate Z
+342@ = 0.0 // heading/coordinate scratch
+343@ = 0 // next peer charge-assistance pass
+344@ = 0 // unsynchronized combat cooldown
+345@ = 0 // protected aircraft health ledger
+346@ = 0 // protected aircraft handle snapshot
+347@ = 0 // connected actor arguments scratch
+348@ = -1 // connected actor arguments scratch
+349@ = -1 // connected actor arguments scratch
+350@ = -1 // connected actor arguments scratch
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 400@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // mutable participant actor
+    403@($temp_int,3i) = -1 // immutable entry-time internal identity
+    406@($temp_int,3i) = 0 // currently connected immutable participant
+    409@($temp_int,3i) = 0 // reconnect requires phase-aware restaging
+    set_lvar_int_to_var_int 412@($temp_int,3i) = $temp_int // deterministic role
+    412@($temp_int,3i) += 1
+    415@($temp_int,3i) = 0 // pre-mission selected weapon
+    418@($temp_int,3i) = 0 // pre-mission parachute ammunition
+    421@($temp_int,3i) = 0 // participant originally owned a parachute
+    424@($temp_int,3i) = 0 // pre-mission knife ammunition
+    427@($temp_int,3i) = 0 // participant originally owned a knife
+    430@($temp_int,3i) = 0 // prior participant health ledger
+    433@($temp_int,3i) = 0 // prior participant armor ledger
+    436@($temp_int,3i) = -1 // last cooperative objective token sent
+    439@($temp_int,3i) = 0 // out-of-range recovery deadline
+    442@($temp_int,3i) = 0 // assigned charge hold deadline
+    445@($temp_int,3i) = -1 // assigned charge site being held
+    448@($temp_int,3i) = 0 // last dynamic subtitle sent
+    if
+        Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+    then
+        403@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(400@($temp_int,3i))
+        if
+            403@($temp_int,3i) <> -1
+        then
+            406@($temp_int,3i) = 1
+            300@ += 1
+            415@($temp_int,3i) = Char.GetCurrentWeapon(400@($temp_int,3i))
+            418@($temp_int,3i) = Char.GetAmmoInWeapon(400@($temp_int,3i), 46)
+            if
+                Char.HasGotWeapon(400@($temp_int,3i), WeaponType.Parachute)
+            then
+                421@($temp_int,3i) = 1
+            end
+            424@($temp_int,3i) = Char.GetAmmoInWeapon(400@($temp_int,3i), 4)
+            if
+                Char.HasGotWeapon(400@($temp_int,3i), WeaponType.Knife)
+            then
+                427@($temp_int,3i) = 1
+            end
+            430@($temp_int,3i) = Char.GetHealth(400@($temp_int,3i))
+            433@($temp_int,3i) = Char.GetArmor(400@($temp_int,3i))
+        end
+    end
+end
+for 324@ = 0 to 7
+    460@(324@,8i) = 0 // ped handle registered in this slot
+    468@(324@,8i) = -1 // synchronized ped network id
+    476@(324@,8i) = 0 // bounded ped registration attempts
+    484@(324@,8i) = 0 // next ped registration retry
+end
+for 324@ = 0 to 1
+    492@(324@,2i) = 0 // vehicle handle registered in this slot
+    494@(324@,2i) = -1 // synchronized vehicle network id
+    496@(324@,2i) = 0 // bounded vehicle registration attempts
+    498@(324@,2i) = 0 // next vehicle registration retry
+end
+gosub @HEIST2_COOP_FREEZE_REMOTES
 gosub @HEIST2_47
 if 
   has_deatharrest_been_executed 
@@ -48,6 +163,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @HEIST2_182
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 goto @HEIST2_158
 
 :HEIST2_182
@@ -251,9 +367,16 @@ Game.SetRelationship(RelationshipType.Respect, PedType.Mission2, PedType.Mission
 World.SwitchEntryExit('DAMIN', False)
 World.SwitchEntryExit('DAMOUT', False)
 wait 1000
+gosub @HEIST2_COOP_BEGIN_PLAY
 
 :HEIST2_1813
 wait 0
+gosub @HEIST2_COOP_UPDATE
+if
+    302@ == 1
+then
+    goto @HEIST2_18795
+end
 if 
 is_ps2_keyboard_key_pressed 49
 goto_if_false @HEIST2_1852
@@ -461,6 +584,7 @@ Text.Print('HEI2_15', 10000, 1)
 if 
   138@ == 1
 goto_if_false @HEIST2_4451
+gosub @HEIST2_COOP_BEGIN_CINEMATIC
 Text.ClearHelp
 Text.ClearPrints
 Hud.SwitchWidescreen(True)
@@ -518,6 +642,7 @@ $para_freefall_Vz = 0.0
 if 
   106@ == 0
 goto_if_false @HEIST2_3900
+gosub @HEIST2_COOP_CINEMATIC_TICK
 $para_freefall_Vz = 0.0
 if 
   not Car.IsDead(168@)
@@ -689,6 +814,7 @@ Car.SetCoordinates(168@, -761.2061, 1174.616, 39.5387)
 :HEIST2_4439
 Car.MarkAsNoLongerNeeded(168@)
 123@ = 4
+gosub @HEIST2_COOP_STAGE_DROP
 
 :HEIST2_4451
 goto @HEIST2_4632
@@ -1104,6 +1230,7 @@ Text.ClearHelp
 if or
   $player_landed == 2
   Char.LocateAnyMeans3D($scplayer, 0, -811.07, 1816.08, 7.0, 6.0, 6.0, 3.0)
+  318@ == 1
 goto_if_false @HEIST2_8399
 Pad.SetPlayerCycleWeaponButton($player1, False)
 Char.GiveWeapon($scplayer, WeaponType.Unarmed, 1)
@@ -1112,6 +1239,7 @@ Checkpoint.Delete(153@)
 Blip.Remove(152@)
 Text.ClearPrints
 Text.ClearHelp
+gosub @HEIST2_COOP_BEGIN_CINEMATIC
 Player.SetControl($player1, False)
 Camera.DoFade(0, 1500)
 
@@ -1195,6 +1323,13 @@ goto @HEIST2_7847
 
 :HEIST2_7871
 Text.Print('HEI2_52', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('HEI2_52', 6000, 1, 400@($temp_int,3i))
+    end
+end
 skip_cutscene_start_internal @HEIST2_8191
 
 :HEIST2_7894
@@ -1202,34 +1337,58 @@ if
   Text.IsMessageBeingDisplayed
 goto_if_false @HEIST2_7918
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 goto @HEIST2_7894
 
 :HEIST2_7918
 Camera.SetFixedPosition(-821.12, 1953.34, 7.52, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(-842.66, 1973.89, 3.84, SwitchType.JumpCut)
 Text.Print('HEI2_52', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('HEI2_52', 6000, 1, 400@($temp_int,3i))
+    end
+end
 
 :HEIST2_7985
 if 
   Text.IsMessageBeingDisplayed
 goto_if_false @HEIST2_8009
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 goto @HEIST2_7985
 
 :HEIST2_8009
 Camera.SetFixedPosition(-828.18, 1949.82, 6.79, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(-807.1, 1918.51, 8.91, SwitchType.JumpCut)
 Text.Print('HEI2_53', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('HEI2_53', 6000, 1, 400@($temp_int,3i))
+    end
+end
 
 :HEIST2_8076
 if 
   Text.IsMessageBeingDisplayed
 goto_if_false @HEIST2_8100
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 goto @HEIST2_8076
 
 :HEIST2_8100
 Text.Print('HEI2_46', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('HEI2_46', 6000, 1, 400@($temp_int,3i))
+    end
+end
 Camera.SetFixedPosition(-823.48, 1924.82, 6.71, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(-808.71, 1959.51, 9.43, SwitchType.JumpCut)
 
@@ -1238,6 +1397,7 @@ if
   Text.IsMessageBeingDisplayed
 goto_if_false @HEIST2_8191
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 goto @HEIST2_8167
 
 :HEIST2_8191
@@ -1279,6 +1439,7 @@ Char.SetInformRespectedFriends(164@, 30.0, 10)
 :HEIST2_8374
 Text.PrintHelp('HEI2_89')
 123@ = 7
+gosub @HEIST2_COOP_STAGE_EXTERIOR
 goto @HEIST2_8465
 
 :HEIST2_8399
@@ -1324,9 +1485,15 @@ Hud.SetRadarZoom(90)
 Text.Print('HEI2_60', 5000, 1)
 
 :HEIST2_8630
-if 
+if or
   Pickup.HasBeenCollected(104@)
+  319@ == 1
 goto_if_false @HEIST2_8696
+if
+    319@ == 1
+then
+    Char.GiveWeapon($scplayer, WeaponType.Knife, 1)
+end
 Text.ClearPrints
 Text.Print('HEI2_34', 7000, 1)
 Blip.Remove(152@)
@@ -1377,10 +1544,12 @@ Hud.SetRadarZoom(90)
 Text.Print('HEI2_34', 7000, 1)
 
 :HEIST2_8923
-if 
+if or
   Char.LocateOnFoot3D($scplayer, 1, -830.2665, 1982.124, 8.25, 1.2, 1.2, 3.0)
+  320@ == 1
 goto_if_false @HEIST2_9195
 Text.ClearPrints
+gosub @HEIST2_COOP_BEGIN_CINEMATIC
 Player.SetControl($player1, False)
 Camera.DoFade(0, 1000)
 
@@ -1538,6 +1707,7 @@ goto_if_false @HEIST2_11565
 if or
   Char.LocateOnFoot3D($scplayer, 0, -942.0, 1847.0, 5.0, 2.0, 2.0, 2.0)
   Char.LocateOnFoot3D($scplayer, 0, -960.0, 1952.0, 9.0, 2.0, 2.0, 2.0)
+  321@ == 1
 goto_if_false @HEIST2_11565
 Camera.SetFixedPosition(-940.3428, 1845.949, 5.4312, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(-940.8073, 1846.819, 5.5962, SwitchType.JumpCut)
@@ -1555,6 +1725,13 @@ goto @HEIST2_10294
 
 :HEIST2_10318
 Text.Print('HEI2_20', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('HEI2_20', 6000, 1, 400@($temp_int,3i))
+    end
+end
 skip_cutscene_start_internal @HEIST2_11281
 
 :HEIST2_10341
@@ -1574,6 +1751,13 @@ Char.FreezePosition(162@, True)
 
 :HEIST2_10439
 Text.Print('HEI2_2', 6000, 1)
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer('HEI2_2', 6000, 1, 400@($temp_int,3i))
+    end
+end
 
 :HEIST2_10455
 if 
@@ -1598,6 +1782,7 @@ Camera.PointAtPoint(-938.79, 1959.11, 15.19, SwitchType.JumpCut)
 
 :HEIST2_10600
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 if 
   213@ == 0
 goto_if_false @HEIST2_11281
@@ -1760,6 +1945,7 @@ Hud.SetRadarZoom(90)
 Text.ClearPrints
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
+gosub @HEIST2_COOP_STAGE_INTERIOR
 37@ = 0
 
 :HEIST2_11417
@@ -2247,9 +2433,11 @@ Text.Print('HEI2_5', 10000, 1)
 if 
   107@ == 5
 goto_if_false @HEIST2_14806
-if 
+if or
   Char.LocateOnFoot3D($scplayer, 35@, -959.5947, 1953.122, 8.0078, 2.0, 2.0, 2.0)
+  336@ == 1
 goto_if_false @HEIST2_14799
+gosub @HEIST2_COOP_BEGIN_CINEMATIC
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Camera.DoFade(0, 1500)
@@ -2318,6 +2506,7 @@ goto @HEIST2_1813
 if 
   119@ == 0
 goto_if_false @HEIST2_18793
+gosub @HEIST2_COOP_BEGIN_CINEMATIC
 Text.ClearPrints
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
@@ -2405,6 +2594,7 @@ skip_cutscene_start_internal @HEIST2_18583
 
 :HEIST2_15507
 wait 0
+gosub @HEIST2_COOP_CINEMATIC_TICK
 if 
   209@ <> 0
 goto_if_false @HEIST2_15782
@@ -2595,6 +2785,7 @@ TIMERA = 0
 if 
   106@ == 0
 goto_if_false @HEIST2_16664
+gosub @HEIST2_COOP_CINEMATIC_TICK
 39@ = Char.GetScriptTaskStatus($scplayer, 1560)
 if 
   is_int_lvar_equal_to_constant 39@ == 7
@@ -2632,6 +2823,7 @@ TIMERA = 0
 if 
   106@ == 0
 goto_if_false @HEIST2_17404
+gosub @HEIST2_COOP_CINEMATIC_TICK
 if 
   209@ <> 0
 goto_if_false @HEIST2_17143
@@ -2745,6 +2937,7 @@ TIMERA = 0
 if 
   106@ == 0
 goto_if_false @HEIST2_17823
+gosub @HEIST2_COOP_CINEMATIC_TICK
 39@ = Char.GetScriptTaskStatus($scplayer, 1560)
 if 
   is_int_lvar_equal_to_constant 39@ == 7
@@ -2793,6 +2986,7 @@ Task.PlayAnimNonInterruptable($scplayer, "DAM_LAUNCH", "DAM_JUMP", 4.0, False, F
 if 
   106@ == 0
 goto_if_false @HEIST2_18053
+gosub @HEIST2_COOP_CINEMATIC_TICK
 39@ = Char.GetScriptTaskStatus($scplayer, 2066)
 if 
   is_int_lvar_equal_to_constant 39@ == 7
@@ -2819,6 +3013,7 @@ Task.PlayAnimNonInterruptable($scplayer, "DAM_DIVE_LOOP", "DAM_JUMP", 1000.0, Tr
 if 
   106@ == 0
 goto_if_false @HEIST2_18250
+gosub @HEIST2_COOP_CINEMATIC_TICK
 if 
   Char.LocateAnyMeans3D($scplayer, 0, -613.74, 1980.77, 10.824, 50.0, 50.0, 1.0)
 goto_if_false @HEIST2_18239
@@ -2839,6 +3034,7 @@ Task.PlayAnimNonInterruptable($scplayer, "DAM_LAND", "DAM_JUMP", 4.0, False, Tru
 if 
   106@ == 0
 goto_if_false @HEIST2_18583
+gosub @HEIST2_COOP_CINEMATIC_TICK
 39@ = Char.GetScriptTaskStatus($scplayer, 2066)
 if 
   is_int_lvar_equal_to_constant 39@ == 7
@@ -2919,10 +3115,14 @@ Player.SetControl($player1, True)
 return 
 
 :HEIST2_18795
+303@ = 2
+gosub @HEIST2_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :HEIST2_18813
+303@ = 1
+gosub @HEIST2_COOP_NOTIFY_RESULT
 $flag_heist_mission_counter += 1
 Stat.RegisterMissionPassed('HEIST_2')
 Stat.PlayerMadeProgress(1)
@@ -2932,6 +3132,7 @@ Stat.AwardPlayerMissionRespect(5)
 return 
 
 :HEIST2_18863
+gosub @HEIST2_COOP_CLEANUP
 $para_pickup_flag = 1
 $timer_mobile_start = Clock.GetGameTimer()
 Hud.DisplayRadar(True)
@@ -3029,4 +3230,1418 @@ $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// Cooperative Dam and Blast controller. Mutable actor handles are rebuilt only
+// by matching the immutable IDs frozen at mission launch. A reused actor slot or
+// a new late joiner can never inherit mission authority, objectives, or cleanup.
+:HEIST2_COOP_UPDATE_ROSTER
+351@, 352@, 353@ = Coop.CollectNetworkPlayersForTheMission()
+311@ = 0
+316@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 312@ = 406@($temp_int,3i)
+    406@($temp_int,3i) = 0
+    409@($temp_int,3i) = 0
+    if
+        403@($temp_int,3i) <> -1
+    then
+        for 313@ = 0 to 2
+            set_lvar_int_to_lvar_int 315@ = 351@(313@,3i)
+            if
+                Coop.IsNetworkPlayerActorValid(315@)
+            then
+                314@ = Coop.GetNetworkPlayerInternalId(315@)
+                if
+                    is_int_lvar_equal_to_int_lvar 314@ == 403@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 400@($temp_int,3i) = 315@
+                    406@($temp_int,3i) = 1
+                end
+            end
+        end
+        if
+            406@($temp_int,3i) == 1
+        then
+            311@ += 1
+            if
+                312@ == 0
+            then
+                409@($temp_int,3i) = 1
+                316@ = 1
+                436@($temp_int,3i) = -1
+                439@($temp_int,3i) = 0
+                442@($temp_int,3i) = 0
+                445@($temp_int,3i) = -1
+                448@($temp_int,3i) = 0
+            end
+        end
+    end
+end
+return
+
+:HEIST2_COOP_BUILD_ACTIVE_ARGS
+348@ = -1
+349@ = -1
+350@ = -1
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 348@($temp_int,3i) = 400@($temp_int,3i)
+    end
+end
+return
+
+:HEIST2_COOP_TELEPORT_CURRENT
+348@ = -1
+349@ = -1
+350@ = -1
+if
+    $temp_int == 0
+then
+    set_lvar_int_to_lvar_int 348@ = 400@($temp_int,3i)
+end
+if
+    $temp_int == 1
+then
+    set_lvar_int_to_lvar_int 349@ = 400@($temp_int,3i)
+end
+if
+    $temp_int == 2
+then
+    set_lvar_int_to_lvar_int 350@ = 400@($temp_int,3i)
+end
+Coop.TeleportPlayersToHostSafely(348@, 349@, 350@)
+return
+
+:HEIST2_COOP_TELEPORT_ACTIVE
+if
+    300@ == 0
+then
+    return
+end
+gosub @HEIST2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(348@, 349@, 350@)
+return
+
+:HEIST2_COOP_FREEZE_CURRENT
+if or
+    406@($temp_int,3i) <> 1
+    not Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+    Char.IsDead(400@($temp_int,3i))
+then
+    return
+end
+gosub @HEIST2_COOP_TELEPORT_CURRENT
+339@, 340@, 341@ = Char.GetCoordinates($scplayer)
+338@ = Char.GetAreaVisible($scplayer)
+Char.ClearTasksImmediately(400@($temp_int,3i))
+if
+    Char.IsInAnyCar(400@($temp_int,3i))
+then
+    Char.WarpFromCarToCoord(400@($temp_int,3i), 339@, 340@, 341@)
+else
+    Char.SetCoordinates(400@($temp_int,3i), 339@, 340@, 341@)
+end
+Char.SetAreaVisible(400@($temp_int,3i), 338@)
+Char.SetProofs(400@($temp_int,3i), True, True, True, True, True)
+Char.SetCollision(400@($temp_int,3i), False)
+Char.SetVisible(400@($temp_int,3i), False)
+Char.FreezePosition(400@($temp_int,3i), True)
+Task.StandStill(400@($temp_int,3i), -1)
+409@($temp_int,3i) = 0
+439@($temp_int,3i) = 0
+return
+
+// Scripted cameras, playback, interior swaps, and the finale are host-only.
+// Every connected participant is hidden, proofed, and frozen at the host until
+// a phase-specific regroup releases them; reconnects receive the same treatment.
+:HEIST2_COOP_FREEZE_REMOTES
+305@ = 1
+if
+    300@ == 0
+then
+    return
+end
+gosub @HEIST2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        gosub @HEIST2_COOP_FREEZE_CURRENT
+    end
+end
+return
+
+:HEIST2_COOP_BEGIN_CINEMATIC
+305@ = 1
+if
+    300@ == 0
+then
+    return
+end
+gosub @HEIST2_COOP_CLEAR_OBJECTIVES
+gosub @HEIST2_COOP_FREEZE_REMOTES
+return
+
+:HEIST2_COOP_COMPUTE_PHASE
+306@ = 0
+if
+    304@ == 1
+then
+    306@ = 1
+    if
+        123@ == 3
+    then
+        306@ = 2
+    end
+    if or
+        123@ == 4
+        123@ == 5
+    then
+        306@ = 3
+    end
+    if or
+        123@ == 7
+        123@ == 8
+    then
+        306@ = 4
+    end
+    if
+        123@ > 11
+    then
+        306@ = 5
+    end
+    if
+        107@ == 5
+    then
+        306@ = 6
+    end
+end
+if
+    303@ > 0
+then
+    306@ = 7
+end
+return
+
+// The stock Nevada stays host-driven. Peers occupy deterministic passenger
+// seats; if that vehicle build exposes no usable seat, the affected peer is
+// safely hidden and recovered at the airdrop instead of blocking progression.
+:HEIST2_COOP_STAGE_CURRENT
+if or
+    406@($temp_int,3i) <> 1
+    not Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+    Char.IsDead(400@($temp_int,3i))
+then
+    return
+end
+if and
+    306@ == 2
+    Car.DoesExist(168@)
+    not Car.IsDead(168@)
+then
+    Char.ClearTasksImmediately(400@($temp_int,3i))
+    Char.FreezePosition(400@($temp_int,3i), False)
+    Char.SetProofs(400@($temp_int,3i), False, False, False, False, False)
+    Char.SetCollision(400@($temp_int,3i), True)
+    Char.SetVisible(400@($temp_int,3i), True)
+    Char.SetAreaVisible(400@($temp_int,3i), 0)
+    Char.WarpIntoCarAsPassenger(400@($temp_int,3i), 168@, $temp_int)
+    if
+        not Char.IsInCar(400@($temp_int,3i), 168@)
+    then
+        gosub @HEIST2_COOP_FREEZE_CURRENT
+    end
+    409@($temp_int,3i) = 0
+    439@($temp_int,3i) = 0
+    return
+end
+gosub @HEIST2_COOP_TELEPORT_CURRENT
+339@, 340@, 341@ = Char.GetCoordinates($scplayer)
+338@ = Char.GetAreaVisible($scplayer)
+if
+    $temp_int == 0
+then
+    339@ += 1.5
+end
+if
+    $temp_int == 1
+then
+    340@ += 1.5
+end
+if
+    $temp_int == 2
+then
+    339@ -= 1.5
+end
+Char.ClearTasksImmediately(400@($temp_int,3i))
+if
+    Char.IsInAnyCar(400@($temp_int,3i))
+then
+    Char.WarpFromCarToCoord(400@($temp_int,3i), 339@, 340@, 341@)
+else
+    Char.SetCoordinates(400@($temp_int,3i), 339@, 340@, 341@)
+end
+Char.SetAreaVisible(400@($temp_int,3i), 338@)
+Char.SetVisible(400@($temp_int,3i), True)
+Char.SetCollision(400@($temp_int,3i), True)
+Char.SetProofs(400@($temp_int,3i), False, False, False, False, False)
+Char.FreezePosition(400@($temp_int,3i), False)
+Task.StandStill(400@($temp_int,3i), 0)
+if
+    306@ == 3
+then
+    Char.GiveWeapon(400@($temp_int,3i), WeaponType.Parachute, 1)
+    Char.SetCurrentWeapon(400@($temp_int,3i), WeaponType.Parachute)
+end
+if and
+    306@ >= 4
+    7 > 306@
+then
+    Char.GiveWeapon(400@($temp_int,3i), WeaponType.Knife, 1)
+end
+430@($temp_int,3i) = Char.GetHealth(400@($temp_int,3i))
+433@($temp_int,3i) = Char.GetArmor(400@($temp_int,3i))
+409@($temp_int,3i) = 0
+439@($temp_int,3i) = 0
+return
+
+:HEIST2_COOP_STAGE_ACTIVE
+if
+    300@ == 0
+then
+    return
+end
+gosub @HEIST2_COOP_UPDATE_ROSTER
+gosub @HEIST2_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        gosub @HEIST2_COOP_STAGE_CURRENT
+    end
+end
+305@ = 0
+return
+
+:HEIST2_COOP_STAGE_DROP
+if
+    300@ == 0
+then
+    return
+end
+305@ = 0
+gosub @HEIST2_COOP_COMPUTE_PHASE
+set_lvar_int_to_lvar_int 307@ = 306@
+gosub @HEIST2_COOP_STAGE_ACTIVE
+gosub @HEIST2_COOP_REFRESH_OBJECTIVES
+return
+
+:HEIST2_COOP_STAGE_EXTERIOR
+if
+    300@ == 0
+then
+    return
+end
+305@ = 0
+gosub @HEIST2_COOP_COMPUTE_PHASE
+set_lvar_int_to_lvar_int 307@ = 306@
+gosub @HEIST2_COOP_STAGE_ACTIVE
+gosub @HEIST2_COOP_REFRESH_OBJECTIVES
+return
+
+:HEIST2_COOP_STAGE_INTERIOR
+if
+    300@ == 0
+then
+    return
+end
+305@ = 0
+gosub @HEIST2_COOP_COMPUTE_PHASE
+set_lvar_int_to_lvar_int 307@ = 306@
+gosub @HEIST2_COOP_STAGE_ACTIVE
+gosub @HEIST2_COOP_REFRESH_OBJECTIVES
+return
+
+:HEIST2_COOP_STAGE_RECONNECTS
+if
+    316@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        409@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead(400@($temp_int,3i))
+        then
+            if and
+                304@ == 1
+                303@ == 0
+            then
+                302@ = 1
+            end
+        else
+            if
+                305@ == 1
+            then
+                gosub @HEIST2_COOP_FREEZE_CURRENT
+            else
+                gosub @HEIST2_COOP_STAGE_CURRENT
+            end
+        end
+    end
+end
+return
+
+:HEIST2_COOP_BEGIN_PLAY
+if
+    304@ == 1
+then
+    return
+end
+304@ = 1
+305@ = 0
+if
+    not Char.IsDead($scplayer)
+then
+    329@ = Char.GetHealth($scplayer)
+    330@ = Char.GetArmor($scplayer)
+end
+gosub @HEIST2_COOP_COMPUTE_PHASE
+set_lvar_int_to_lvar_int 307@ = 306@
+gosub @HEIST2_COOP_STAGE_ACTIVE
+if and
+    300@ > 0
+    322@ == 0
+then
+    Coop.AddChatMessage("{00ff00}[Dam and Blast]{ffffff} Peers ride as jump crew, infiltrate with CJ, and hold assigned generator markers to plant charges. CJ owns mission progress and rewards.")
+    322@ = 1
+end
+gosub @HEIST2_COOP_REFRESH_OBJECTIVES
+return
+
+// Safe inside long stock cutscene/message loops: reconnect matching and death
+// observation never wait for entity registration or mutate canonical progress.
+:HEIST2_COOP_CINEMATIC_TICK
+if or
+    300@ == 0
+    301@ == 1
+then
+    return
+end
+gosub @HEIST2_COOP_UPDATE_ROSTER
+gosub @HEIST2_COOP_STAGE_RECONNECTS
+gosub @HEIST2_COOP_FAN_SUBTITLE
+gosub @HEIST2_COOP_CHECK_PARTICIPANT_DEATHS
+return
+
+// A concrete handle gets an eight-attempt registration burst. Exhaustion
+// schedules another burst five seconds later; objectives fall back to world
+// checkpoints and combat assistance, so registration can never stall the host.
+:HEIST2_COOP_REGISTER_PED
+if
+    not is_int_lvar_equal_to_int_lvar 460@(324@,8i) == 323@
+then
+    set_lvar_int_to_lvar_int 460@(324@,8i) = 323@
+    468@(324@,8i) = -1
+    476@(324@,8i) = 0
+    484@(324@,8i) = 0
+end
+if or
+    323@ == 0
+    not Char.DoesExist(323@)
+then
+    468@(324@,8i) = -1
+    476@(324@,8i) = 0
+    return
+end
+if
+    Char.IsDead(323@)
+then
+    return
+end
+if and
+    468@(324@,8i) == -1
+    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 484@(324@,8i)
+then
+    468@(324@,8i) = Coop.GetPedNetworkId(323@)
+    476@(324@,8i) += 1
+    if
+        468@(324@,8i) == -1
+    then
+        326@ = 1
+        if
+            476@(324@,8i) >= 8
+        then
+            476@(324@,8i) = 0
+            set_lvar_int_to_lvar_int 484@(324@,8i) = 317@
+            484@(324@,8i) += 5000
+        end
+    else
+        476@(324@,8i) = 0
+    end
+end
+return
+
+:HEIST2_COOP_REGISTER_VEHICLE
+if
+    not is_int_lvar_equal_to_int_lvar 492@(324@,2i) == 323@
+then
+    set_lvar_int_to_lvar_int 492@(324@,2i) = 323@
+    494@(324@,2i) = -1
+    496@(324@,2i) = 0
+    498@(324@,2i) = 0
+end
+if or
+    323@ == 0
+    not Car.DoesExist(323@)
+then
+    494@(324@,2i) = -1
+    496@(324@,2i) = 0
+    return
+end
+if
+    Car.IsDead(323@)
+then
+    return
+end
+if and
+    494@(324@,2i) == -1
+    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 498@(324@,2i)
+then
+    494@(324@,2i) = Coop.GetVehicleNetworkId(323@)
+    496@(324@,2i) += 1
+    if
+        494@(324@,2i) == -1
+    then
+        326@ = 1
+        if
+            496@(324@,2i) >= 8
+        then
+            496@(324@,2i) = 0
+            set_lvar_int_to_lvar_int 498@(324@,2i) = 317@
+            498@(324@,2i) += 5000
+        end
+    else
+        496@(324@,2i) = 0
+    end
+end
+return
+
+:HEIST2_COOP_SYNC_WORLD_PASS
+326@ = 0
+324@ = 0
+set_lvar_int_to_lvar_int 323@ = 163@
+gosub @HEIST2_COOP_REGISTER_PED
+324@ = 1
+set_lvar_int_to_lvar_int 323@ = 164@
+gosub @HEIST2_COOP_REGISTER_PED
+for 327@ = 0 to 5
+    set_lvar_int_to_lvar_int 323@ = 157@(327@,6i)
+    set_lvar_int_to_lvar_int 324@ = 327@
+    324@ += 2
+    gosub @HEIST2_COOP_REGISTER_PED
+end
+324@ = 0
+set_lvar_int_to_lvar_int 323@ = 168@
+gosub @HEIST2_COOP_REGISTER_VEHICLE
+324@ = 1
+set_lvar_int_to_lvar_int 323@ = 167@
+gosub @HEIST2_COOP_REGISTER_VEHICLE
+return
+
+:HEIST2_COOP_OBJECTIVE_ENEMY
+if and
+    Char.DoesExist(323@)
+    not Char.IsDead(323@)
+    is_int_lvar_equal_to_int_lvar 460@(324@,8i) == 323@
+    468@(324@,8i) <> -1
+then
+    Coop.UpdateCharBlipForNetworkPlayer(400@($temp_int,3i), 323@, False, BlipDisplay.Both, BlipColor.Red, 3)
+end
+return
+
+:HEIST2_COOP_OBJECTIVE_VEHICLE
+if and
+    Car.DoesExist(323@)
+    not Car.IsDead(323@)
+    is_int_lvar_equal_to_int_lvar 492@(324@,2i) == 323@
+    494@(324@,2i) <> -1
+then
+    Coop.UpdateCarBlipForNetworkPlayer(400@($temp_int,3i), 323@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+end
+return
+
+:HEIST2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(400@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_90', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_57', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_26', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_28', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_60', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_34', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_6', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_5', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_58', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_52', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_53', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_46', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_20', 400@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('HEI2_2', 400@($temp_int,3i))
+        for 335@ = 1 to 17
+            Coop.ClearThisPrintForNetworkPlayer($hei2_text(335@,18s), 400@($temp_int,3i))
+        end
+    end
+    436@($temp_int,3i) = -1
+end
+return
+
+// Each role receives a stable generator subset: slot one handles generators
+// zero/three, slot two one/four, and slot three generator two. The host can
+// still plant every stock charge, so disconnects never gate completion.
+:HEIST2_COOP_FIND_ROLE_CHARGE
+337@ = -1
+for 335@ = 0 to 4
+    360@ = 0
+    if and
+        412@($temp_int,3i) == 1
+        335@ == 0
+    then
+        360@ = 1
+    end
+    if and
+        412@($temp_int,3i) == 1
+        335@ == 3
+    then
+        360@ = 1
+    end
+    if and
+        412@($temp_int,3i) == 2
+        335@ == 1
+    then
+        360@ = 1
+    end
+    if and
+        412@($temp_int,3i) == 2
+        335@ == 4
+    then
+        360@ = 1
+    end
+    if and
+        412@($temp_int,3i) == 3
+        335@ == 2
+    then
+        360@ = 1
+    end
+    if and
+        360@ == 1
+        108@(335@,5i) == 0
+        337@ == -1
+    then
+        set_lvar_int_to_lvar_int 337@ = 335@
+    end
+end
+return
+
+:HEIST2_COOP_REFRESH_OBJECTIVES
+if or
+    300@ == 0
+    305@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(400@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(400@($temp_int,3i))
+        set_lvar_int_to_lvar_int 334@ = 306@
+        334@ *= 100
+        if
+            306@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1717.017, 1602.497, 9.3368, 10.0, 10.0, 5.0, 400@($temp_int,3i))
+            if
+                not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+            then
+                Coop.PrintNowForNetworkPlayer('HEI2_90', 7000, 1, 400@($temp_int,3i))
+            end
+        end
+        if
+            306@ == 2
+        then
+            324@ = 0
+            set_lvar_int_to_lvar_int 323@ = 168@
+            gosub @HEIST2_COOP_OBJECTIVE_VEHICLE
+            if and
+                Car.DoesExist(168@)
+                494@ == -1
+            then
+                339@, 340@, 341@ = Car.GetCoordinates(168@)
+                Coop.UpdateCheckpointForNetworkPlayer(339@, 340@, 341@, 14.0, 14.0, 8.0, 400@($temp_int,3i))
+            end
+            if
+                not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+            then
+                Coop.PrintNowForNetworkPlayer('HEI2_26', 8000, 1, 400@($temp_int,3i))
+            end
+        end
+        if
+            306@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-811.07, 1816.08, 7.0, 9.0, 9.0, 6.0, 400@($temp_int,3i))
+            if
+                not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+            then
+                Coop.PrintNowForNetworkPlayer('HEI2_28', 7000, 1, 400@($temp_int,3i))
+            end
+        end
+        if
+            306@ == 4
+        then
+            324@ = 0
+            set_lvar_int_to_lvar_int 323@ = 163@
+            gosub @HEIST2_COOP_OBJECTIVE_ENEMY
+            324@ = 1
+            set_lvar_int_to_lvar_int 323@ = 164@
+            gosub @HEIST2_COOP_OBJECTIVE_ENEMY
+            if
+                123@ == 7
+            then
+                334@ += 7
+                Coop.UpdateCheckpointForNetworkPlayer(-819.0, 1929.0, 7.0, 6.0, 6.0, 4.0, 400@($temp_int,3i))
+                if
+                    not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+                then
+                    Coop.PrintNowForNetworkPlayer('HEI2_60', 6000, 1, 400@($temp_int,3i))
+                end
+            else
+                334@ += 8
+                Coop.UpdateCheckpointForNetworkPlayer(-830.2665, 1982.124, 8.25, 4.0, 4.0, 4.0, 400@($temp_int,3i))
+                if
+                    not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+                then
+                    Coop.PrintNowForNetworkPlayer('HEI2_34', 7000, 1, 400@($temp_int,3i))
+                end
+            end
+        end
+        if
+            306@ == 5
+        then
+            for 327@ = 0 to 5
+                set_lvar_int_to_lvar_int 323@ = 157@(327@,6i)
+                set_lvar_int_to_lvar_int 324@ = 327@
+                324@ += 2
+                gosub @HEIST2_COOP_OBJECTIVE_ENEMY
+            end
+            gosub @HEIST2_COOP_FIND_ROLE_CHARGE
+            if
+                337@ >= 0
+            then
+                add_int_lvar_to_int_lvar 334@ += 337@
+                Coop.UpdateCheckpointForNetworkPlayer(89@(337@,5f), 94@(337@,5f), 99@(337@,5f), 4.0, 4.0, 3.0, 400@($temp_int,3i))
+            else
+                334@ += 50
+                Coop.UpdateCheckpointForNetworkPlayer(-959.5947, 1953.122, 8.0078, 5.0, 5.0, 4.0, 400@($temp_int,3i))
+            end
+            if
+                not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+            then
+                Coop.PrintNowForNetworkPlayer('HEI2_6', 6000, 1, 400@($temp_int,3i))
+            end
+        end
+        if
+            306@ == 6
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-959.5947, 1953.122, 8.0078, 5.0, 5.0, 4.0, 400@($temp_int,3i))
+            if
+                not is_int_lvar_equal_to_int_lvar 436@($temp_int,3i) == 334@
+            then
+                Coop.PrintNowForNetworkPlayer('HEI2_5', 7000, 1, 400@($temp_int,3i))
+            end
+        end
+        set_lvar_int_to_lvar_int 436@($temp_int,3i) = 334@
+    end
+end
+return
+
+// Any connected frozen-roster peer may advance the travel/infiltration gates.
+// Generator progress is narrower: a peer must remain alive, on foot, not firing,
+// and inside their assigned marker for 2.5 seconds before the host creates the
+// canonical charge object and updates the original 34@/108@[] state.
+:HEIST2_COOP_APPLY_SHARED_TRIGGERS
+if or
+    300@ == 0
+    305@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+        not Char.IsDead(400@($temp_int,3i))
+    then
+        if and
+            123@ == 5
+            Char.LocateAnyMeans3D(400@($temp_int,3i), False, -811.07, 1816.08, 7.0, 8.0, 8.0, 5.0)
+        then
+            318@ = 1
+        end
+        if and
+            123@ == 7
+            Char.LocateOnFoot3D(400@($temp_int,3i), False, -819.0, 1929.0, 7.0, 5.0, 5.0, 4.0)
+        then
+            319@ = 1
+        end
+        if and
+            123@ == 8
+            Char.LocateOnFoot3D(400@($temp_int,3i), False, -830.2665, 1982.124, 8.25, 3.0, 3.0, 4.0)
+        then
+            320@ = 1
+        end
+        if and
+            107@ == 3
+            Char.LocateOnFoot3D(400@($temp_int,3i), False, -942.0, 1847.0, 5.0, 3.0, 3.0, 3.0)
+        then
+            321@ = 1
+        end
+        if and
+            107@ == 3
+            Char.LocateOnFoot3D(400@($temp_int,3i), False, -960.0, 1952.0, 9.0, 3.0, 3.0, 3.0)
+        then
+            321@ = 1
+        end
+        if and
+            107@ == 5
+            Char.LocateOnFoot3D(400@($temp_int,3i), False, -959.5947, 1953.122, 8.0078, 4.0, 4.0, 4.0)
+        then
+            336@ = 1
+        end
+    end
+end
+if or
+    107@ <> 4
+    34@ >= 5
+then
+    return
+end
+if
+    is_int_lvar_greater_than_int_lvar 343@ > 317@
+then
+    return
+end
+set_lvar_int_to_lvar_int 343@ = 317@
+343@ += 100
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        not Char.IsDead(400@($temp_int,3i))
+    then
+        for 335@ = 0 to 4
+            360@ = 0
+            if and
+                412@($temp_int,3i) == 1
+                335@ == 0
+            then
+                360@ = 1
+            end
+            if and
+                412@($temp_int,3i) == 1
+                335@ == 3
+            then
+                360@ = 1
+            end
+            if and
+                412@($temp_int,3i) == 2
+                335@ == 1
+            then
+                360@ = 1
+            end
+            if and
+                412@($temp_int,3i) == 2
+                335@ == 4
+            then
+                360@ = 1
+            end
+            if and
+                412@($temp_int,3i) == 3
+                335@ == 2
+            then
+                360@ = 1
+            end
+            if and
+                360@ == 1
+                108@(335@,5i) == 0
+                not Char.IsShooting(400@($temp_int,3i))
+                Char.LocateOnFoot3D(400@($temp_int,3i), False, 89@(335@,5f), 94@(335@,5f), 99@(335@,5f), 3.0, 3.0, 3.0)
+            then
+                if
+                    not is_int_lvar_equal_to_int_lvar 445@($temp_int,3i) == 335@
+                then
+                    set_lvar_int_to_lvar_int 445@($temp_int,3i) = 335@
+                    set_lvar_int_to_lvar_int 442@($temp_int,3i) = 317@
+                    442@($temp_int,3i) += 2500
+                else
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 442@($temp_int,3i)
+                    then
+                        169@(335@,5i) = Object.Create(363, 89@(335@,5f), 94@(335@,5f), 99@(335@,5f))
+                        Object.SetHeading(169@(335@,5i), 100.0)
+                        108@(335@,5i) = 1
+                        34@ += 1
+                        442@($temp_int,3i) = 0
+                        445@($temp_int,3i) = -1
+                        Text.PrintNow('HEI2_58', 4000, 1)
+                        for 327@ = 0 to 2
+                            if
+                                406@(327@,3i) == 1
+                            then
+                                Coop.PrintNowForNetworkPlayer('HEI2_58', 4000, 1, 400@(327@,3i))
+                                436@(327@,3i) = -1
+                            end
+                        end
+                    end
+                end
+            else
+                if
+                    is_int_lvar_equal_to_int_lvar 445@($temp_int,3i) == 335@
+                then
+                    442@($temp_int,3i) = 0
+                    445@($temp_int,3i) = -1
+                end
+            end
+        end
+    else
+        442@($temp_int,3i) = 0
+        445@($temp_int,3i) = -1
+    end
+end
+return
+
+// Registered guards accept native peer damage. Until a network ID arrives, a
+// nearby firing participant applies one conservative host-side hit per 500 ms;
+// guard AI is retargeted only after proximity or actual participant aggression.
+:HEIST2_COOP_UPDATE_COMBAT
+if or
+    306@ < 4
+    306@ > 6
+then
+    return
+end
+for 324@ = 0 to 7
+    set_lvar_int_to_lvar_int 323@ = 460@(324@,8i)
+    if and
+        Char.DoesExist(323@)
+        not Char.IsDead(323@)
+    then
+        for $temp_int = 0 to 2
+            if and
+                406@($temp_int,3i) == 1
+                not Char.IsDead(400@($temp_int,3i))
+            then
+                359@ = 0
+                if
+                    Char.HasBeenDamagedByChar(323@, 400@($temp_int,3i))
+                then
+                    359@ = 1
+                end
+                if
+                    Char.LocateAnyMeansChar3D(400@($temp_int,3i), 323@, 18.0, 18.0, 8.0, False)
+                then
+                    359@ = 1
+                end
+                if
+                    359@ == 1
+                then
+                    Task.KillCharOnFoot(323@, 400@($temp_int,3i))
+                end
+                if and
+                    468@(324@,8i) == -1
+                    359@ == 1
+                    Char.IsShooting(400@($temp_int,3i))
+                    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 344@
+                then
+                    331@ = Char.GetHealth(323@)
+                    331@ -= 20
+                    if
+                        20 > 331@
+                    then
+                        Char.SetHealth(323@, 0)
+                    else
+                        Char.SetHealth(323@, 331@)
+                    end
+                    set_lvar_int_to_lvar_int 344@ = 317@
+                    344@ += 500
+                end
+            end
+        end
+    end
+end
+return
+
+// Friendly-fire restoration is attribution-specific: ordinary guard, fall, and
+// aircraft damage remains canonical. A peer cannot kill CJ, another participant,
+// or the mission Nevada, but unexpected non-peer participant death still fails.
+:HEIST2_COOP_PROTECT_FRIENDLY_FIRE
+if
+    not Char.IsDead($scplayer)
+then
+    331@ = Char.GetHealth($scplayer)
+    332@ = Char.GetArmor($scplayer)
+    328@ = 0
+    for $temp_int = 0 to 2
+        if and
+            406@($temp_int,3i) == 1
+            Char.HasBeenDamagedByChar($scplayer, 400@($temp_int,3i))
+        then
+            328@ = 1
+        end
+    end
+    if
+        328@ == 1
+    then
+        if
+            is_int_lvar_greater_than_int_lvar 329@ > 331@
+        then
+            Char.SetHealth($scplayer, 329@)
+        else
+            set_lvar_int_to_lvar_int 329@ = 331@
+        end
+        if
+            is_int_lvar_greater_than_int_lvar 330@ > 332@
+        then
+            set_lvar_int_to_lvar_int 337@ = 330@
+            sub_int_lvar_from_int_lvar 337@ -= 332@
+            Char.AddArmor($scplayer, 337@)
+        else
+            set_lvar_int_to_lvar_int 330@ = 332@
+        end
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    else
+        set_lvar_int_to_lvar_int 329@ = 331@
+        set_lvar_int_to_lvar_int 330@ = 332@
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        not Char.IsDead(400@($temp_int,3i))
+    then
+        331@ = Char.GetHealth(400@($temp_int,3i))
+        332@ = Char.GetArmor(400@($temp_int,3i))
+        328@ = 0
+        if
+            Char.HasBeenDamagedByChar(400@($temp_int,3i), $scplayer)
+        then
+            328@ = 1
+        end
+        for 327@ = 0 to 2
+            if and
+                not is_int_lvar_equal_to_int_var 327@ == $temp_int
+                406@(327@,3i) == 1
+                Char.HasBeenDamagedByChar(400@($temp_int,3i), 400@(327@,3i))
+            then
+                328@ = 1
+            end
+        end
+        if
+            328@ == 1
+        then
+            if
+                is_int_lvar_greater_than_int_lvar 430@($temp_int,3i) > 331@
+            then
+                Char.SetHealth(400@($temp_int,3i), 430@($temp_int,3i))
+            else
+                set_lvar_int_to_lvar_int 430@($temp_int,3i) = 331@
+            end
+            if
+                is_int_lvar_greater_than_int_lvar 433@($temp_int,3i) > 332@
+            then
+                set_lvar_int_to_lvar_int 337@ = 433@($temp_int,3i)
+                sub_int_lvar_from_int_lvar 337@ -= 332@
+                Char.AddArmor(400@($temp_int,3i), 337@)
+            else
+                set_lvar_int_to_lvar_int 433@($temp_int,3i) = 332@
+            end
+            Char.ClearLastDamageEntity(400@($temp_int,3i))
+            Char.ClearLastWeaponDamage(400@($temp_int,3i))
+        else
+            set_lvar_int_to_lvar_int 430@($temp_int,3i) = 331@
+            set_lvar_int_to_lvar_int 433@($temp_int,3i) = 332@
+        end
+    end
+end
+if
+    not is_int_lvar_equal_to_int_lvar 346@ == 168@
+then
+    set_lvar_int_to_lvar_int 346@ = 168@
+    345@ = 0
+    if and
+        Car.DoesExist(168@)
+        not Car.IsDead(168@)
+    then
+        345@ = Car.GetHealth(168@)
+    end
+end
+if and
+    Car.DoesExist(168@)
+    not Car.IsDead(168@)
+then
+    328@ = 0
+    for $temp_int = 0 to 2
+        if and
+            406@($temp_int,3i) == 1
+            Car.HasBeenDamagedByChar(168@, 400@($temp_int,3i))
+        then
+            328@ = 1
+        end
+    end
+    if and
+        328@ == 1
+        345@ > 0
+    then
+        Car.SetHealth(168@, 345@)
+        Car.ClearLastDamageEntity(168@)
+    else
+        345@ = Car.GetHealth(168@)
+    end
+end
+return
+
+:HEIST2_COOP_CHECK_PARTICIPANT_DEATHS
+if or
+    304@ == 0
+    303@ <> 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+        Char.IsDead(400@($temp_int,3i))
+    then
+        302@ = 1
+    end
+end
+return
+
+:HEIST2_COOP_MAINTAIN_TRANSPORT
+if
+    306@ <> 2
+then
+    return
+end
+if and
+    Car.DoesExist(168@)
+    not Car.IsDead(168@)
+then
+    for $temp_int = 0 to 2
+        if and
+            406@($temp_int,3i) == 1
+            not Char.IsDead(400@($temp_int,3i))
+            not Char.IsInCar(400@($temp_int,3i), 168@)
+        then
+            gosub @HEIST2_COOP_STAGE_CURRENT
+        end
+    end
+end
+return
+
+// Area mismatches recover quickly; ordinary stragglers receive ten seconds.
+// Disconnected frozen slots are never waited on, and a matching reconnect is
+// staged from the current host-owned phase before it receives objectives.
+:HEIST2_COOP_UPDATE_REGROUP
+if or
+    306@ < 1
+    306@ > 6
+then
+    return
+end
+338@ = Char.GetAreaVisible($scplayer)
+339@ = 250.0
+340@ = 250.0
+341@ = 80.0
+if
+    306@ == 1
+then
+    339@ = 600.0
+    340@ = 600.0
+    341@ = 150.0
+end
+if
+    306@ == 3
+then
+    339@ = 500.0
+    340@ = 500.0
+    341@ = 350.0
+end
+if
+    306@ >= 4
+then
+    339@ = 180.0
+    340@ = 180.0
+    341@ = 50.0
+end
+if
+    306@ >= 5
+then
+    339@ = 120.0
+    340@ = 120.0
+    341@ = 35.0
+end
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        362@ = 0
+        361@ = Char.GetAreaVisible(400@($temp_int,3i))
+        if
+            not is_int_lvar_equal_to_int_lvar 361@ == 338@
+        then
+            362@ = 2
+        else
+            if
+                not Char.LocateAnyMeansChar3D(400@($temp_int,3i), $scplayer, 339@, 340@, 341@, False)
+            then
+                362@ = 1
+            end
+        end
+        if and
+            306@ == 2
+            not Char.IsInCar(400@($temp_int,3i), 168@)
+        then
+            362@ = 2
+        end
+        if
+            362@ > 0
+        then
+            if
+                439@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 439@($temp_int,3i) = 317@
+                if
+                    362@ == 2
+                then
+                    439@($temp_int,3i) += 1500
+                else
+                    439@($temp_int,3i) += 10000
+                end
+            else
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 439@($temp_int,3i)
+                then
+                    gosub @HEIST2_COOP_STAGE_CURRENT
+                end
+            end
+        else
+            439@($temp_int,3i) = 0
+        end
+    else
+        439@($temp_int,3i) = 0
+    end
+end
+return
+
+:HEIST2_COOP_FAN_SUBTITLE
+if
+    209@ == 0
+then
+    for $temp_int = 0 to 2
+        448@($temp_int,3i) = 0
+    end
+    return
+end
+if
+    212@ <> 3
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        not is_int_lvar_equal_to_int_lvar 448@($temp_int,3i) == 209@
+    then
+        Coop.PrintNowForNetworkPlayer($hei2_text(209@,18s), 10000, 1, 400@($temp_int,3i))
+        set_lvar_int_to_lvar_int 448@($temp_int,3i) = 209@
+    end
+end
+return
+
+:HEIST2_COOP_PHASE_CHANGED
+gosub @HEIST2_COOP_CLEAR_OBJECTIVES
+set_lvar_int_to_lvar_int 307@ = 306@
+if
+    305@ == 0
+then
+    gosub @HEIST2_COOP_STAGE_ACTIVE
+    gosub @HEIST2_COOP_REFRESH_OBJECTIVES
+end
+return
+
+:HEIST2_COOP_UPDATE
+if or
+    300@ == 0
+    301@ == 1
+    303@ <> 0
+then
+    return
+end
+gosub @HEIST2_COOP_UPDATE_ROSTER
+gosub @HEIST2_COOP_COMPUTE_PHASE
+if
+    not is_int_lvar_equal_to_int_lvar 307@ == 306@
+then
+    gosub @HEIST2_COOP_PHASE_CHANGED
+end
+gosub @HEIST2_COOP_STAGE_RECONNECTS
+gosub @HEIST2_COOP_PROTECT_FRIENDLY_FIRE
+gosub @HEIST2_COOP_CHECK_PARTICIPANT_DEATHS
+if or
+    302@ == 1
+    305@ == 1
+then
+    return
+end
+317@ = Clock.GetGameTimer()
+gosub @HEIST2_COOP_APPLY_SHARED_TRIGGERS
+gosub @HEIST2_COOP_FAN_SUBTITLE
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 309@
+then
+    gosub @HEIST2_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 309@ = 317@
+    309@ += 250
+end
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 310@
+then
+    gosub @HEIST2_COOP_MAINTAIN_TRANSPORT
+    gosub @HEIST2_COOP_UPDATE_COMBAT
+    gosub @HEIST2_COOP_UPDATE_REGROUP
+    set_lvar_int_to_lvar_int 310@ = 317@
+    310@ += 500
+end
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 317@ >= 308@
+then
+    gosub @HEIST2_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 308@ = 317@
+    308@ += 2000
+end
+return
+
+:HEIST2_COOP_NOTIFY_RESULT
+if or
+    300@ == 0
+    303@ == 0
+    is_int_lvar_equal_to_int_lvar 333@ == 303@
+then
+    return
+end
+gosub @HEIST2_COOP_BEGIN_CINEMATIC
+gosub @HEIST2_COOP_UPDATE_ROSTER
+gosub @HEIST2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        406@($temp_int,3i) == 1
+    then
+        if
+            303@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASS', 5000, TextStyle.Middle, 400@($temp_int,3i))
+        end
+        if
+            303@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 400@($temp_int,3i))
+        end
+    end
+end
+set_lvar_int_to_lvar_int 333@ = 303@
+return
+
+// Cleanup is intentionally idempotent. It restores only mission-granted peer
+// parachutes/knives and the pre-mission selected weapon; host inventory, wanted
+// level, mission respect, story flags, and all stock cleanup remain untouched.
+:HEIST2_COOP_CLEANUP
+if
+    301@ == 1
+then
+    return
+end
+301@ = 1
+if
+    300@ == 0
+then
+    return
+end
+gosub @HEIST2_COOP_UPDATE_ROSTER
+gosub @HEIST2_COOP_CLEAR_OBJECTIVES
+gosub @HEIST2_COOP_TELEPORT_ACTIVE
+339@, 340@, 341@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        406@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(400@($temp_int,3i))
+        not Char.IsDead(400@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(400@($temp_int,3i))
+        if
+            Char.IsInAnyCar(400@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(400@($temp_int,3i), 339@, 340@, 341@)
+        end
+        Char.FreezePosition(400@($temp_int,3i), False)
+        Char.SetProofs(400@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(400@($temp_int,3i), True)
+        Char.SetVisible(400@($temp_int,3i), True)
+        Char.SetAreaVisible(400@($temp_int,3i), 0)
+        Char.RemoveWeapon(46, 400@($temp_int,3i))
+        if and
+            421@($temp_int,3i) == 1
+            418@($temp_int,3i) > 0
+        then
+            Char.GiveWeapon(400@($temp_int,3i), WeaponType.Parachute, 418@($temp_int,3i))
+        end
+        Char.RemoveWeapon(4, 400@($temp_int,3i))
+        if and
+            427@($temp_int,3i) == 1
+            424@($temp_int,3i) > 0
+        then
+            Char.GiveWeapon(400@($temp_int,3i), WeaponType.Knife, 424@($temp_int,3i))
+        end
+        if
+            415@($temp_int,3i) >= 0
+        then
+            Char.SetCurrentWeapon(400@($temp_int,3i), 415@($temp_int,3i))
+        end
+        Task.StandStill(400@($temp_int,3i), 0)
+    end
+    400@($temp_int,3i) = 0
+    403@($temp_int,3i) = -1
+    406@($temp_int,3i) = 0
+    409@($temp_int,3i) = 0
+    436@($temp_int,3i) = -1
+    439@($temp_int,3i) = 0
+    442@($temp_int,3i) = 0
+    445@($temp_int,3i) = -1
+    448@($temp_int,3i) = 0
+end
+305@ = 0
+return
 
