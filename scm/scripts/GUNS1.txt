@@ -23,6 +23,14 @@ for $temp_int = 0 to 2
     286@($temp_int,3i) = -1 // optional follow/getaway vehicle
     289@($temp_int,3i) = -1 // follow vehicle network id
     292@($temp_int,3i) = 0 // last interior transition time
+    318@($temp_int,3i) = -1 // immutable participant internal ID
+    321@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        318@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        321@($temp_int,3i) = 1
+    end
 end
 295@ = 0 // cooperative group-arrival result
 296@ = 0 // active cooperative regroup stage
@@ -703,7 +711,7 @@ goto_if_false @GUNS1_4925
 
 :GUNS1_4925
 wait 0
-gosub @GUNS1_coop_update
+gosub @GUNS1_COOP_ROSTER_UPDATE
 if
   299@ == 1
 then
@@ -7387,7 +7395,65 @@ return
 
 // Cooperative mission layer. The host remains authoritative for story state while
 // every connected participant receives safe transitions and an actionable role.
-:GUNS1_coop_update
+:GUNS1_COOP_ROSTER_UPDATE
+324@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 327@($temp_int,3i) = 321@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 326@ = 327@($temp_int,3i)
+    321@($temp_int,3i) = 0
+    if and
+        318@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        325@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 325@ == 318@($temp_int,3i)
+        then
+            321@($temp_int,3i) = 1
+            if
+                326@ == 0
+            then
+                324@ = 1
+                280@($temp_int,3i) = -1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    324@ == 1
+then
+    330@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        327@($temp_int,3i) = -1
+        if
+            321@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 327@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 330@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(327@, 328@, 329@)
+end
 for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])

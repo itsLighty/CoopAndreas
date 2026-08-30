@@ -34,6 +34,7 @@ if or
   not Streaming.HasSpecialCharacterLoaded(3)
 goto_if_false @SWEET4_152
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_103
 
 :SWEET4_152
@@ -127,6 +128,7 @@ if or
   not Streaming.HasModelLoaded(365)
 goto_if_false @SWEET4_667
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_622
 
 :SWEET4_667
@@ -141,6 +143,7 @@ if or
   not Streaming.HasAnimationLoaded("GHETTO_DB")
 goto_if_false @SWEET4_753
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_699
 
 :SWEET4_753
@@ -761,12 +764,24 @@ return
 :SWEET4_4512
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+568@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    562@($temp_int,3i) = -1 // immutable participant internal ID
+    565@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        562@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        565@($temp_int,3i) = 1
+    end
+end
 for $temp_int = 0 to 2
     $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
     550@($temp_int,3i) = -1
 end
 $onmission = 1
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 $sw4_stage = 0
 43@ = 0
 $sw4_hood_acc = 30
@@ -1022,6 +1037,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_7111
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_7087
 
 :SWEET4_7111
@@ -1033,6 +1049,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SWEET4_7152
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_7128
 
 :SWEET4_7152
@@ -1046,6 +1063,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SWEET4_7197
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_7173
 
 :SWEET4_7197
@@ -1056,6 +1074,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_7227
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_7203
 
 :SWEET4_7227
@@ -1191,6 +1210,7 @@ Camera.DoFade(1, 500)
 
 :SWEET4_7599
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
@@ -1748,6 +1768,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_10077
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_10053
 
 :SWEET4_10077
@@ -1755,6 +1776,7 @@ if
   not Streaming.HasModelLoaded(#LAEROAD30)
 goto_if_false @SWEET4_10103
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_10077
 
 :SWEET4_10103
@@ -1836,6 +1858,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_10589
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_10565
 
 :SWEET4_10589
@@ -1863,6 +1886,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_10718
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_10694
 
 :SWEET4_10718
@@ -1889,6 +1913,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_10880
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_10856
 
 :SWEET4_10880
@@ -3409,6 +3434,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_18986
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_18962
 
 :SWEET4_18986
@@ -3530,6 +3556,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_19652
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_19628
 
 :SWEET4_19652
@@ -3577,6 +3604,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET4_19966
 wait 0
+gosub @SWEET4_COOP_ROSTER_UPDATE
 goto @SWEET4_19942
 
 :SWEET4_19966
@@ -4354,6 +4382,7 @@ Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWOR
 return 
 
 :SWEET4_23887
+568@ = 0
 gosub @SWEET4_clear_network_objectives
 for $temp_int = 0 to 2
     if
@@ -4564,6 +4593,7 @@ if
     10000 > 559@
 then
     wait 0
+    gosub @SWEET4_COOP_ROSTER_UPDATE
     goto @SWEET4_COOP_WAIT_FOR_VEHICLE_LOOP
 end
 return
@@ -4618,6 +4648,7 @@ if
     10000 > 559@
 then
     wait 0
+    gosub @SWEET4_COOP_ROSTER_UPDATE
     goto @SWEET4_COOP_WAIT_FOR_PED_LOOP
 end
 return
@@ -4626,4 +4657,92 @@ return
 gosub @SWEET4_23767
 gosub @SWEET4_23887
 terminate_this_script
+return
+
+:SWEET4_COOP_ROSTER_UPDATE
+// Deterministic co-op participant death failure routes through the stock failure lifecycle.
+if
+    568@ == 0
+then
+    return
+end
+571@ = 0
+576@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 572@($temp_int,3i) = 565@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 570@ = 572@($temp_int,3i)
+    565@($temp_int,3i) = 0
+    if and
+        562@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        569@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 569@ == 562@($temp_int,3i)
+        then
+            565@($temp_int,3i) = 1
+            if
+                570@ == 0
+            then
+                571@ = 1
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                576@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    576@ == 1
+then
+    568@ = 0
+    for $temp_int = 0 to 2
+        if and
+            565@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+    gosub @SWEET4_23767
+    gosub @SWEET4_23887
+    terminate_this_script
+end
+if
+    571@ == 1
+then
+    575@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        572@($temp_int,3i) = -1
+        if
+            565@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 572@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 575@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(572@, 573@, 574@)
+end
 return

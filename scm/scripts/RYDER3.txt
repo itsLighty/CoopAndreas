@@ -17,6 +17,17 @@ terminate_this_script
 :RYDER3_47
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+225@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    219@($temp_int,3i) = -1 // immutable participant internal ID
+    222@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        219@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        222@($temp_int,3i) = 1
+    end
+end
 189@ = 0
 for $temp_int = 0 to 2
     208@($temp_int,3i) = -1
@@ -48,6 +59,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @RYDER3_159
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_135
 
 :RYDER3_159
@@ -59,6 +71,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @RYDER3_198
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_174
 
 :RYDER3_198
@@ -71,6 +84,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @RYDER3_239
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_215
 
 :RYDER3_239
@@ -82,6 +96,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @RYDER3_277
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_253
 
 :RYDER3_277
@@ -119,6 +134,7 @@ if or
   not Streaming.HasModelLoaded(#CR_AMMOBOX)
 goto_if_false @RYDER3_446
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_399
 
 :RYDER3_446
@@ -129,6 +145,7 @@ if or
   not Streaming.HasAnimationLoaded("RYDER")
 goto_if_false @RYDER3_492
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_446
 
 :RYDER3_492
@@ -140,6 +157,7 @@ if or
   not Streaming.HasModelLoaded(569)
 goto_if_false @RYDER3_536
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_492
 
 :RYDER3_536
@@ -150,6 +168,7 @@ if or
   not Streaming.HasAnimationLoaded("SWAT")
 goto_if_false @RYDER3_579
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_536
 
 :RYDER3_579
@@ -311,6 +330,7 @@ if
   4000 > TIMERB
 goto_if_false @RYDER3_2247
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @RYDER3_2240
@@ -326,6 +346,7 @@ if
   not Char.IsDead($scplayer)
 goto_if_false @RYDER3_18050
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 gosub @RYDER3_19056
 gosub @RYDER3_20126
 gosub @RYDER3_COOP_MAINTAIN_PARTICIPANTS
@@ -1139,6 +1160,7 @@ if or
   not Streaming.HasModelLoaded(346)
 goto_if_false @RYDER3_7295
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_7250
 
 :RYDER3_7295
@@ -1281,6 +1303,7 @@ if
   3000 > TIMERB
 goto_if_false @RYDER3_8191
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 if 
   Pad.IsButtonPressed(PadId.Pad1, Button.Cross)
 goto_if_false @RYDER3_8184
@@ -1485,6 +1508,7 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(490)
 goto_if_false @RYDER3_9544
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_9512
 
 :RYDER3_9544
@@ -1616,6 +1640,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_10292
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_10266
 
 :RYDER3_10292
@@ -1633,6 +1658,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_10356
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_10330
 
 :RYDER3_10356
@@ -2240,6 +2266,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_14505
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_14479
 
 :RYDER3_14505
@@ -2259,6 +2286,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_14571
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_14545
 
 :RYDER3_14571
@@ -2610,6 +2638,7 @@ if or
   not Streaming.HasAnimationLoaded("GANGS")
 goto_if_false @RYDER3_16595
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_16560
 
 :RYDER3_16595
@@ -2646,6 +2675,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_16798
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_16772
 
 :RYDER3_16798
@@ -2661,6 +2691,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_16851
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_16825
 
 :RYDER3_16851
@@ -2673,6 +2704,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_16892
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_16866
 
 :RYDER3_16892
@@ -2688,6 +2720,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_16945
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_16919
 
 :RYDER3_16945
@@ -2700,6 +2733,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_16986
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_16960
 
 :RYDER3_16986
@@ -2715,6 +2749,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_17039
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_17013
 
 :RYDER3_17039
@@ -2750,6 +2785,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_17263
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_17237
 
 :RYDER3_17263
@@ -2765,6 +2801,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_17316
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_17290
 
 :RYDER3_17316
@@ -2833,6 +2870,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_17870
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_17844
 
 :RYDER3_17870
@@ -2848,6 +2886,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @RYDER3_17923
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_17897
 
 :RYDER3_17923
@@ -2936,6 +2975,7 @@ Stat.RegisterMissionPassed('RYDER_3')
 return 
 
 :RYDER3_18237
+225@ = 0
 gosub @RYDER3_COOP_CLEAR_OBJECTIVES
 if 
   not Char.IsDead($scplayer)
@@ -3150,6 +3190,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @RYDER3_19021
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_18997
 
 :RYDER3_19021
@@ -3163,6 +3204,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @RYDER3_19054
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19030
 
 :RYDER3_19054
@@ -3179,6 +3221,7 @@ if
   not Streaming.HasModelLoaded(600)
 goto_if_false @RYDER3_19103
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19076
 
 :RYDER3_19103
@@ -3208,6 +3251,7 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(490)
 goto_if_false @RYDER3_19229
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19197
 
 :RYDER3_19229
@@ -3233,6 +3277,7 @@ if
   not Streaming.HasCarRecordingBeenLoaded(106)
 goto_if_false @RYDER3_19334
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19308
 
 :RYDER3_19334
@@ -3242,6 +3287,7 @@ if or
   not Streaming.HasModelLoaded(492)
 goto_if_false @RYDER3_19371
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19334
 
 :RYDER3_19371
@@ -3282,6 +3328,7 @@ if
   not Streaming.HasAnimationLoaded("CARRY")
 goto_if_false @RYDER3_19591
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19560
 
 :RYDER3_19591
@@ -3302,6 +3349,7 @@ if
   not Streaming.HasCarRecordingBeenLoaded(486)
 goto_if_false @RYDER3_19730
 wait 0
+gosub @RYDER3_COOP_ROSTER_UPDATE
 goto @RYDER3_19703
 
 :RYDER3_19730
@@ -3409,6 +3457,7 @@ if
     10000 > 187@
 then
     wait 0
+    gosub @RYDER3_COOP_ROSTER_UPDATE
     goto @RYDER3_COOP_WAIT_FOR_VEHICLE_LOOP
 end
 207@ = 1
@@ -3449,6 +3498,7 @@ if
     10000 > 187@
 then
     wait 0
+    gosub @RYDER3_COOP_ROSTER_UPDATE
     goto @RYDER3_COOP_WAIT_FOR_PED_LOOP
 end
 207@ = 1
@@ -3909,6 +3959,71 @@ for $temp_int = 0 to 2
         Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
         Coop.ClearThisPrintForNetworkPlayer('RYD3_D', $NETWORK_PLAYER[$temp_int])
     end
+end
+return
+
+:RYDER3_COOP_ROSTER_UPDATE
+if
+    225@ == 0
+then
+    return
+end
+228@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 229@($temp_int,3i) = 222@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 227@ = 229@($temp_int,3i)
+    222@($temp_int,3i) = 0
+    if and
+        219@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        226@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 226@ == 219@($temp_int,3i)
+        then
+            222@($temp_int,3i) = 1
+            if
+                227@ == 0
+            then
+                228@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    228@ == 1
+then
+    232@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        229@($temp_int,3i) = -1
+        if
+            222@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 229@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 232@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(229@, 230@, 231@)
 end
 return
 

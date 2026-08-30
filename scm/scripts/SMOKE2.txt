@@ -16,9 +16,21 @@ terminate_this_script
 :SMOKE2_47
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+219@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    213@($temp_int,3i) = -1 // immutable participant internal ID
+    216@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        213@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        216@($temp_int,3i) = 1
+    end
+end
 Text.LoadMissionText('SMOKE2')
 $onmission = 1
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 204@ = -1
 205@ = 0
 206@ = 0
@@ -138,6 +150,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_1045
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_1021
 
 :SMOKE2_1045
@@ -149,6 +162,7 @@ if
   not Streaming.HasModelLoaded(#LAE_SMOKECUTSCENE)
 goto_if_false @SMOKE2_1101
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_1074
 
 :SMOKE2_1101
@@ -160,6 +174,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SMOKE2_1159
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_1135
 
 :SMOKE2_1159
@@ -171,6 +186,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SMOKE2_1192
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_1168
 
 :SMOKE2_1192
@@ -181,6 +197,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_1222
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_1198
 
 :SMOKE2_1222
@@ -200,6 +217,7 @@ if or
   not Streaming.HasModelLoaded(346)
 goto_if_false @SMOKE2_1302
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_1266
 
 :SMOKE2_1302
@@ -300,6 +318,7 @@ Text.PrintNow('SMK2_1', 10000, 0)
 
 :SMOKE2_2258
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @SMOKE2_2284
@@ -933,6 +952,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_5613
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_5589
 
 :SMOKE2_5613
@@ -1022,6 +1042,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SMOKE2_5984
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_5960
 
 :SMOKE2_5984
@@ -1033,6 +1054,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SMOKE2_6017
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_5993
 
 :SMOKE2_6017
@@ -1043,6 +1065,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_6047
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_6023
 
 :SMOKE2_6047
@@ -1066,6 +1089,7 @@ if or
   not Streaming.HasModelLoaded(352)
 goto_if_false @SMOKE2_6135
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_6091
 
 :SMOKE2_6135
@@ -1102,6 +1126,7 @@ if or
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SMOKE2_6338
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_6308
 
 :SMOKE2_6338
@@ -1153,6 +1178,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_6642
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_6618
 
 :SMOKE2_6642
@@ -1205,6 +1231,7 @@ if
   0 >= 119@
 goto_if_false @SMOKE2_7070
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead(35@)
 goto_if_false @SMOKE2_7063
@@ -1226,6 +1253,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SMOKE2_7110
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_7084
 
 :SMOKE2_7110
@@ -1259,6 +1287,7 @@ if and
   3 >= 120@
 goto_if_false @SMOKE2_7391
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead(41@)
 goto_if_false @SMOKE2_7384
@@ -1466,6 +1495,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_8414
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_8390
 
 :SMOKE2_8414
@@ -1555,6 +1585,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_9200
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead(41@)
 goto_if_false @SMOKE2_9193
@@ -1577,6 +1608,7 @@ if
   203@ <> 1
 goto_if_false @SMOKE2_9518
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead(41@)
 goto_if_false @SMOKE2_9511
@@ -1620,6 +1652,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_9622
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead(41@)
 goto_if_false @SMOKE2_9615
@@ -1665,6 +1698,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SMOKE2_9891
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 goto @SMOKE2_9867
 
 :SMOKE2_9891
@@ -1844,6 +1878,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SMOKE2_11009
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if or
   Char.IsDead(35@)
   Car.IsDead(34@)
@@ -1895,6 +1930,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SMOKE2_11293
 wait 0
+gosub @SMOKE2_COOP_ROSTER_UPDATE
 if or
   Char.IsDead(35@)
   Car.IsDead(34@)
@@ -2018,6 +2054,7 @@ Audio.PlayMissionPassedTune(1)
 return 
 
 :SMOKE2_11407
+219@ = 0
 gosub @SMOKE2_COOP_CLEAR_OBJECTIVES
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
@@ -2184,6 +2221,7 @@ if
     10000 > 210@
 then
     wait 0
+    gosub @SMOKE2_COOP_ROSTER_UPDATE
     goto @SMOKE2_COOP_WAIT_FOR_VEHICLE_LOOP
 end
 return
@@ -2238,6 +2276,7 @@ if
     10000 > 210@
 then
     wait 0
+    gosub @SMOKE2_COOP_ROSTER_UPDATE
     goto @SMOKE2_COOP_WAIT_FOR_PED_LOOP
 end
 return
@@ -2246,4 +2285,69 @@ return
 gosub @SMOKE2_11327
 gosub @SMOKE2_11407
 terminate_this_script
+return
+
+:SMOKE2_COOP_ROSTER_UPDATE
+if
+    219@ == 0
+then
+    return
+end
+222@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 223@($temp_int,3i) = 216@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 221@ = 223@($temp_int,3i)
+    216@($temp_int,3i) = 0
+    if and
+        213@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        220@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 220@ == 213@($temp_int,3i)
+        then
+            216@($temp_int,3i) = 1
+            if
+                221@ == 0
+            then
+                222@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    222@ == 1
+then
+    226@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        223@($temp_int,3i) = -1
+        if
+            216@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 223@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 226@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(223@, 224@, 225@)
+end
 return

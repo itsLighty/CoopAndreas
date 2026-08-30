@@ -1196,6 +1196,11 @@ return
 // Frozen-roster cooperative layer. Internal network identities prevent a late
 // joiner from inheriting a disconnected participant's mission slot.
 :CRASH4_COOP_UPDATE_ROSTER
+313@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 310@($temp_int,3i) = 277@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 211@ = 0
 230@ = 1
 if
@@ -1205,7 +1210,8 @@ then
 end
 for $temp_int = 0 to 2
     277@($temp_int,3i) = 0
-    if
+    if and
+        274@($temp_int,3i) <> -1
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
         232@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
@@ -1215,14 +1221,50 @@ for $temp_int = 0 to 2
             277@($temp_int,3i) = 1
             211@ = 1
             230@ += 1
+            if
+                310@($temp_int,3i) == 0
+            then
+                313@ = 1
+                280@($temp_int,3i) = -1
+            end
             Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
             if
                 Char.IsDead($NETWORK_PLAYER[$temp_int])
             then
                 202@ = 1
             end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    313@ == 1
+then
+    gosub @CRASH4_COOP_BUILD_ACTIVE_ARGS
+    for $temp_int = 0 to 2
+        if
+            277@($temp_int,3i) == 1
+        then
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                291@ == 1
+            then
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            else
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            end
         end
     end
+    Coop.TeleportPlayersToHostSafely(288@, 289@, 290@)
 end
 return
 

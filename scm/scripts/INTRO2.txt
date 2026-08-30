@@ -110,6 +110,17 @@ return
 :INTRO2_908
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+236@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    230@($temp_int,3i) = -1 // immutable participant internal ID
+    233@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        230@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        233@($temp_int,3i) = 1
+    end
+end
 
 // store hair style for all players
 for $temp_int = 0 to 2
@@ -158,6 +169,7 @@ Zone.SetGangStrength('IWD3B', GangType.Ballas, 5)
 Zone.SetGangStrength('IWD4', GangType.Ballas, 5)
 Zone.SetGangStrength('IWD5', GangType.Ballas, 5)
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 Text.LoadMissionText('INTRO2')
 goto @INTRO2_1204
 $shop_keep_junkfud = Char.Create(24, $shopkeeper_model_shops, $junkfudX, $junkfudY, $junkfudZ)
@@ -171,6 +183,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @INTRO2_1243
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_1219
 
 :INTRO2_1243
@@ -182,6 +195,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @INTRO2_1276
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_1252
 
 :INTRO2_1276
@@ -192,6 +206,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @INTRO2_1306
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_1282
 
 :INTRO2_1306
@@ -215,6 +230,7 @@ if or
   not Streaming.HasSpecialCharacterLoaded(1)
 goto_if_false @INTRO2_1391
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_1352
 
 :INTRO2_1391
@@ -244,6 +260,7 @@ $ryder = Char.Create(24, 290, 2475.29, -1687.85, 12.51)
 // waiting for the server to create the vehicles
 while true
     wait 0
+    gosub @INTRO2_COOP_ROSTER_UPDATE
     $temp_int = Coop.GetVehicleNetworkId(200@)
     67@ = Coop.GetVehicleNetworkId($ryder_car)
     37@ = Coop.GetPedNetworkId($ryder)
@@ -335,6 +352,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_1978
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($ryder)
 goto_if_false @INTRO2_1932
@@ -368,6 +386,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_2102
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($ryder)
 goto_if_false @INTRO2_2056
@@ -432,6 +451,7 @@ if or
   150@ == 0
 goto_if_false @INTRO2_2886
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @INTRO2_2352
@@ -590,6 +610,7 @@ if
   3000 > TIMERB
 goto_if_false @INTRO2_3058
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead($ryder)
 goto_if_false @INTRO2_3051
@@ -617,6 +638,7 @@ if
   3000 > TIMERB
 goto_if_false @INTRO2_3229
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead($ryder)
 goto_if_false @INTRO2_3222
@@ -687,6 +709,7 @@ if or
   229@ == True
 goto_if_false @INTRO2_3809
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($ryder_car)
 goto_if_false @INTRO2_3396
@@ -812,6 +835,7 @@ if
   not Streaming.HasAnimationLoaded("SHOP")
 goto_if_false @INTRO2_3934
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 Camera.DoFade(0, Fade.Out)
 goto @INTRO2_3898
 
@@ -828,6 +852,7 @@ if
   Car.IsWaitingForWorldCollision($ryder_car)
 goto_if_false @INTRO2_4038
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($ryder_car)
 goto_if_false @INTRO2_4025
@@ -874,6 +899,7 @@ then
     
     while true
         wait 0
+        gosub @INTRO2_COOP_ROSTER_UPDATE
         $temp_int = Coop.GetVehicleNetworkId(200@)
         
         if and
@@ -921,6 +947,7 @@ if
   TIMERA <= 400
 goto_if_false @INTRO2_4469
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 Camera.DoFade(0, Fade.Out)
 goto @INTRO2_4433
 
@@ -955,6 +982,7 @@ if
   TIMERA <= 1700
 goto_if_false @INTRO2_4694
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 goto @INTRO2_4657
 
@@ -1002,6 +1030,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_5021
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 if 
   64@ == 0
@@ -1029,6 +1058,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_5141
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 if 
   64@ == 0
@@ -1057,6 +1087,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @INTRO2_5294
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 if 
   64@ == 0
@@ -1084,6 +1115,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @INTRO2_5414
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 if 
   64@ == 0
@@ -1114,6 +1146,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_5534
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 if 
   64@ == 0
@@ -1141,6 +1174,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_5654
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 if 
   64@ == 0
@@ -1177,6 +1211,7 @@ if
   TIMERA <= 1000
 goto_if_false @INTRO2_5796
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_15726
 goto @INTRO2_5759
 
@@ -1201,6 +1236,7 @@ if
   49@ <> 1
 goto_if_false @INTRO2_5954
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1229,6 +1265,7 @@ if
   49@ <> 2
 goto_if_false @INTRO2_6175
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1256,6 +1293,7 @@ if
   49@ <> 3
 goto_if_false @INTRO2_6291
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1282,6 +1320,7 @@ if
   49@ <> 4
 goto_if_false @INTRO2_6400
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1305,6 +1344,7 @@ if
   TIMERB <= 18000
 goto_if_false @INTRO2_6548
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   44@ == 0
 goto_if_false @INTRO2_6482
@@ -1380,6 +1420,7 @@ if or
   $flag_menace_buyfood <> 3
 goto_if_false @INTRO2_7480
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   87@ == 0
 goto_if_false @INTRO2_6829
@@ -1551,6 +1592,7 @@ if or
   not Streaming.HasModelLoaded(349)
 goto_if_false @INTRO2_7697
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($ryder_car)
 goto_if_false @INTRO2_7610
@@ -1674,6 +1716,7 @@ if
   not Char.LocateAnyMeans3D($ryder, 0, 375.2, -119.8, 1000.5, 0.4, 0.6, 2.0)
 goto_if_false @INTRO2_9124
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Char.IsPlayingAnim($scplayer, "EAT_VOMIT_P")
 goto_if_false @INTRO2_8899
@@ -1766,6 +1809,7 @@ if
   49@ <> 1
 goto_if_false @INTRO2_9378
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1793,6 +1837,7 @@ if
   49@ <> 2
 goto_if_false @INTRO2_9548
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1826,6 +1871,7 @@ if
   49@ <> 3
 goto_if_false @INTRO2_9778
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1862,6 +1908,7 @@ if
   49@ <> 4
 goto_if_false @INTRO2_9948
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1900,6 +1947,7 @@ if
   49@ <> 5
 goto_if_false @INTRO2_10289
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1935,6 +1983,7 @@ if
   49@ <> 6
 goto_if_false @INTRO2_10455
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -1995,6 +2044,7 @@ if
   49@ <> 7
 goto_if_false @INTRO2_10947
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -2060,6 +2110,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @INTRO2_11006
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_10982
 
 :INTRO2_11006
@@ -2074,6 +2125,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @INTRO2_11046
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_11022
 
 :INTRO2_11046
@@ -2128,6 +2180,7 @@ for $temp_int = 0 to 2
 end
 
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   not Char.IsDead($ryder)
 goto_if_false @INTRO2_11322
@@ -2204,6 +2257,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @INTRO2_11633
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_11607
 
 :INTRO2_11633
@@ -2262,6 +2316,7 @@ if or
   150@ == 0
 goto_if_false @INTRO2_12919
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 
 
 for $temp_int = 0 to 2
@@ -2510,6 +2565,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @INTRO2_13061
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 goto @INTRO2_13037
 
 :INTRO2_13061
@@ -2549,6 +2605,7 @@ if
   49@ <> 1
 goto_if_false @INTRO2_13371
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -2569,6 +2626,7 @@ if
   49@ <> 2
 goto_if_false @INTRO2_13457
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -2589,6 +2647,7 @@ if
   49@ <> 3
 goto_if_false @INTRO2_13584
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 gosub @INTRO2_16035
 if 
   64@ == 0
@@ -2723,6 +2782,7 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :INTRO2_14817
+236@ = 0
 $onmission = 0
 if 
   Player.IsPlaying($player1)
@@ -2831,6 +2891,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @INTRO2_15388
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($ryder_car)
 goto_if_false @INTRO2_15363
@@ -2893,6 +2954,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @INTRO2_15692
 wait 0
+gosub @INTRO2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($ryder_car)
 goto_if_false @INTRO2_15667
@@ -3113,4 +3175,92 @@ Char.StopFacialTalk($ryder)
 
 :INTRO2_16758
 return 
+
+:INTRO2_COOP_ROSTER_UPDATE
+// Deterministic co-op participant death failure routes through the stock failure lifecycle.
+if
+    236@ == 0
+then
+    return
+end
+239@ = 0
+244@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 240@($temp_int,3i) = 233@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 238@ = 240@($temp_int,3i)
+    233@($temp_int,3i) = 0
+    if and
+        230@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        237@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 237@ == 230@($temp_int,3i)
+        then
+            233@($temp_int,3i) = 1
+            if
+                238@ == 0
+            then
+                239@ = 1
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                244@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    244@ == 1
+then
+    236@ = 0
+    for $temp_int = 0 to 2
+        if and
+            233@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+    gosub @INTRO2_13667
+    gosub @INTRO2_14817
+    terminate_this_script
+end
+if
+    239@ == 1
+then
+    243@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        240@($temp_int,3i) = -1
+        if
+            233@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 240@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 243@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(240@, 241@, 242@)
+end
+return
 

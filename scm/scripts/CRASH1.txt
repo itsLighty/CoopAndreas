@@ -20,6 +20,8 @@ $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetwork
 430@ = 0 // number of participants captured in the frozen mission roster
 for 429@ = 0 to 2
     set_lvar_int_to_var_int 362@(429@,3i) = $NETWORK_PLAYER[429@] // frozen participant actor
+    434@(429@,3i) = -1 // immutable participant internal ID
+    437@(429@,3i) = 0 // exact participant is currently connected
     365@(429@,3i) = -1 // last per-player objective
     368@(429@,3i) = 0 // original Molotov ammo
     371@(429@,3i) = 0 // original extinguisher ammo
@@ -35,6 +37,8 @@ for 429@ = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid(362@(429@,3i))
     then
+        434@(429@,3i) = Coop.GetNetworkPlayerInternalId(362@(429@,3i))
+        437@(429@,3i) = 1
         set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
         374@(429@,3i) = Char.GetCurrentWeapon(406@)
         368@(429@,3i) = Char.GetAmmoInWeapon(406@, 18)
@@ -193,7 +197,7 @@ gosub @CRASH1_coop_unfreeze_players
 
 :CRASH1_1199
 wait 0
-gosub @CRASH1_coop_update
+gosub @CRASH1_COOP_ROSTER_UPDATE
 if
   405@ == 1
 then
@@ -6574,7 +6578,67 @@ return
 // Cooperative Burning Desire layer. Story state remains host-authoritative, but
 // the frozen participant roster can collect mission equipment, fight, suppress
 // host-owned fires, escort Denise, and drive her home without blocking the host.
-:CRASH1_coop_update
+:CRASH1_COOP_ROSTER_UPDATE
+443@ = 0
+for 429@ = 0 to 2
+    set_lvar_int_to_lvar_int 440@(429@,3i) = 437@(429@,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for 429@ = 0 to 2
+    437@(429@,3i) = 0
+    if and
+        434@(429@,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[429@])
+    then
+        444@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[429@])
+        if
+            is_int_lvar_equal_to_int_lvar 444@ == 434@(429@,3i)
+        then
+            set_lvar_int_to_var_int 362@(429@,3i) = $NETWORK_PLAYER[429@]
+            437@(429@,3i) = 1
+            if
+                440@(429@,3i) == 0
+            then
+                443@ = 1
+                365@(429@,3i) = -1
+            end
+        else
+            362@(429@,3i) = 0
+            $NETWORK_PLAYER[429@] = 0
+        end
+    else
+        362@(429@,3i) = 0
+        $NETWORK_PLAYER[429@] = 0
+    end
+end
+if
+    443@ == 1
+then
+    448@ = Streaming.GetAreaVisible()
+    for 429@ = 0 to 2
+        445@(429@,3i) = -1
+        if
+            437@(429@,3i) == 1
+        then
+            set_lvar_int_to_lvar_int 445@(429@,3i) = 362@(429@,3i)
+            Char.SetAreaVisible(362@(429@,3i), 448@)
+            Char.SetCollision(362@(429@,3i), True)
+            Char.SetVisible(362@(429@,3i), True)
+            if
+                413@ == 1
+            then
+                Char.ClearTasksImmediately(362@(429@,3i))
+                Char.FreezePosition(362@(429@,3i), True)
+                Char.SetProofs(362@(429@,3i), True, True, True, True, True)
+                Task.StandStill(362@(429@,3i), -1)
+            else
+                Char.FreezePosition(362@(429@,3i), False)
+                Char.SetProofs(362@(429@,3i), False, False, False, False, False)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(445@, 446@, 447@)
+end
 for 429@ = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid(362@(429@,3i))

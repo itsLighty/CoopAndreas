@@ -31,6 +31,17 @@ goto_if_false @HOODS5_251
 :HOODS5_251
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+421@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    415@($temp_int,3i) = -1 // immutable participant internal ID
+    418@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        415@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        418@($temp_int,3i) = 1
+    end
+end
 $onmission = 1
 Player.SetGroupToFollowAlways($player1, True)
 154@ = 14
@@ -44,6 +55,7 @@ Char.SetRelationship($scplayer, RelationshipType.Hate, PedType.Mission1)
 
 :HOODS5_325
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @HOODS5_351
@@ -196,6 +208,7 @@ if or
   not Streaming.HasModelLoaded(405)
 goto_if_false @HOODS5_1041
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_995
 
 :HOODS5_1041
@@ -206,6 +219,7 @@ if or
   not Streaming.HasModelLoaded(492)
 goto_if_false @HOODS5_1080
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_1041
 
 :HOODS5_1080
@@ -218,6 +232,7 @@ if or
   not Streaming.HasAnimationLoaded("GANGS")
 goto_if_false @HOODS5_1138
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_1098
 
 :HOODS5_1138
@@ -230,6 +245,7 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(154)
 goto_if_false @HOODS5_1180
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_1148
 
 :HOODS5_1180
@@ -281,6 +297,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @HOODS5_1461
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_1437
 
 :HOODS5_1461
@@ -292,6 +309,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @HOODS5_1494
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_1470
 
 :HOODS5_1494
@@ -302,6 +320,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @HOODS5_1524
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_1500
 
 :HOODS5_1524
@@ -997,6 +1016,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @HOODS5_5439
 wait 0
+gosub @HOODS5_COOP_ROSTER_UPDATE
 goto @HOODS5_5415
 
 :HOODS5_5439
@@ -2716,6 +2736,7 @@ Stat.AwardPlayerMissionRespect(7)
 return 
 
 :HOODS5_15329
+421@ = 0
 $onmission = 0
 CarGenerator.Switch($gen_car7, 101)
 Game.SetScriptLimitToGangSize(99)
@@ -2866,6 +2887,7 @@ if
     10000 > 412@
 then
     wait 0
+    gosub @HOODS5_COOP_ROSTER_UPDATE
     goto @HOODS5_COOP_WAIT_FOR_VEHICLE_LOOP
 end
 return
@@ -2920,6 +2942,7 @@ if
     10000 > 412@
 then
     wait 0
+    gosub @HOODS5_COOP_ROSTER_UPDATE
     goto @HOODS5_COOP_WAIT_FOR_PED_LOOP
 end
 return
@@ -2928,4 +2951,92 @@ return
 gosub @HOODS5_15256
 gosub @HOODS5_15329
 terminate_this_script
+return
+
+:HOODS5_COOP_ROSTER_UPDATE
+// Deterministic co-op participant death failure routes through the stock failure lifecycle.
+if
+    421@ == 0
+then
+    return
+end
+424@ = 0
+429@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 425@($temp_int,3i) = 418@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 423@ = 425@($temp_int,3i)
+    418@($temp_int,3i) = 0
+    if and
+        415@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        422@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 422@ == 415@($temp_int,3i)
+        then
+            418@($temp_int,3i) = 1
+            if
+                423@ == 0
+            then
+                424@ = 1
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                429@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    429@ == 1
+then
+    421@ = 0
+    for $temp_int = 0 to 2
+        if and
+            418@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+    gosub @HOODS5_15256
+    gosub @HOODS5_15329
+    terminate_this_script
+end
+if
+    424@ == 1
+then
+    428@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        425@($temp_int,3i) = -1
+        if
+            418@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 425@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 428@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(425@, 426@, 427@)
+end
 return

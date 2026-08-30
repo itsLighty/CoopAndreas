@@ -20,9 +20,13 @@ $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetwork
 314@ = 0
 for $temp_int = 0 to 2
     $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+    320@($temp_int,3i) = -1 // immutable participant internal ID
+    323@($temp_int,3i) = 0 // exact participant is currently connected
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
+        320@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        323@($temp_int,3i) = 1
         314@ += 1
     end
 end
@@ -315,7 +319,7 @@ Char.ShutUpForScriptedSpeech($scplayer, True)
 
 :DRUGS1_1348
 wait 0
-gosub @DRUGS1_COOP_UPDATE
+gosub @DRUGS1_COOP_ROSTER_UPDATE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @DRUGS1_1374
@@ -9005,11 +9009,69 @@ for $temp_int = 0 to 2
 end
 return
 
-:DRUGS1_COOP_UPDATE
+:DRUGS1_COOP_ROSTER_UPDATE
 if
     314@ == 0
 then
     return
+end
+326@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 329@($temp_int,3i) = 323@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 328@ = 329@($temp_int,3i)
+    323@($temp_int,3i) = 0
+    if and
+        320@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        327@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 327@ == 320@($temp_int,3i)
+        then
+            323@($temp_int,3i) = 1
+            if
+                328@ == 0
+            then
+                326@ = 1
+                297@ = 0
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    326@ == 1
+then
+    332@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        329@($temp_int,3i) = -1
+        if
+            323@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 329@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 332@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(329@, 330@, 331@)
 end
 gosub @DRUGS1_COOP_COMBAT_CONTRIBUTION
 301@ = Clock.GetGameTimer()

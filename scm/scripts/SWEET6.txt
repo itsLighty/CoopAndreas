@@ -18,6 +18,17 @@ terminate_this_script
 :SWEET6_47
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+309@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    303@($temp_int,3i) = -1 // immutable participant internal ID
+    306@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        303@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        306@($temp_int,3i) = 1
+    end
+end
 $onmission = 1
 34@ = 0
 35@ = 0
@@ -35,6 +46,7 @@ TIMERB = 0
 
 :SWEET6_147
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 if 
 is_ps2_keyboard_key_just_pressed 83
 goto_if_false @SWEET6_173
@@ -313,6 +325,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SWEET6_1782
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_1758
 
 :SWEET6_1782
@@ -324,6 +337,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SWEET6_1815
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_1791
 
 :SWEET6_1815
@@ -335,6 +349,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_1847
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_1823
 
 :SWEET6_1847
@@ -360,6 +375,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_1991
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_1967
 
 :SWEET6_1991
@@ -494,6 +510,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_2489
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_2465
 
 :SWEET6_2489
@@ -524,6 +541,7 @@ if or
   not Streaming.HasModelLoaded(567)
 goto_if_false @SWEET6_2730
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_2699
 
 :SWEET6_2730
@@ -536,6 +554,7 @@ if or
   not Streaming.HasAnimationLoaded("GANGS")
 goto_if_false @SWEET6_2784
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_2746
 
 :SWEET6_2784
@@ -546,6 +565,7 @@ if
   not Streaming.HasCarRecordingBeenLoaded(552)
 goto_if_false @SWEET6_2816
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_2789
 
 :SWEET6_2816
@@ -578,6 +598,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_2934
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_2910
 
 :SWEET6_2934
@@ -1482,6 +1503,7 @@ if or
   not Streaming.HasModelLoaded(41)
 goto_if_false @SWEET6_8615
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_8573
 
 :SWEET6_8615
@@ -1490,6 +1512,7 @@ if or
   not Streaming.HasModelLoaded(534)
 goto_if_false @SWEET6_8647
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_8615
 
 :SWEET6_8647
@@ -1497,6 +1520,7 @@ if
   not Streaming.HasAnimationLoaded("LOWRIDER")
 goto_if_false @SWEET6_8681
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_8647
 
 :SWEET6_8681
@@ -1622,6 +1646,7 @@ Car.SetHydraulics(75@, True)
 Car.SetOnlyDamagedByPlayer(72@, True)
 Car.SetOnlyDamagedByPlayer(75@, True)
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 76@ = Car.Create(534, 0.0, 0.0, 0.0)
 77@ = Car.Create(567, 0.0, 0.0, 0.0)
 78@ = Car.Create(534, 0.0, 0.0, 0.0)
@@ -1632,6 +1657,7 @@ Car.SetStatus(76@, EntityStatus.Physics)
 Car.SetHydraulics(76@, True)
 Car.SetOnlyDamagedByPlayer(76@, True)
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 43@ = 0
 
 :SWEET6_9555
@@ -1651,6 +1677,7 @@ goto @SWEET6_9555
 
 :SWEET6_9664
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 80@ = Char.Create(24, 114, 0.0, 0.0, 0.0)
 82@ = Char.Create(24, 115, 0.0, 0.0, 0.0)
 83@ = Char.Create(24, 116, 0.0, 0.0, 0.0)
@@ -1661,15 +1688,18 @@ wait 0
 91@ = Char.Create(24, 115, 0.0, 0.0, 0.0)
 92@ = Char.Create(24, 116, 0.0, 0.0, 0.0)
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 81@ = Char.Create(24, 41, 0.0, 0.0, 0.0)
 84@ = Char.Create(24, 63, 0.0, 0.0, 0.0)
 87@ = Char.Create(24, 41, 0.0, 0.0, 0.0)
 90@ = Char.Create(24, 63, 0.0, 0.0, 0.0)
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 93@ = Char.Create(24, 114, 0.0, 0.0, 0.0)
 94@ = Char.Create(24, 115, 0.0, 0.0, 0.0)
 95@ = Char.Create(24, 41, 0.0, 0.0, 0.0)
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 96@ = Char.Create(24, 114, 0.0, 0.0, 0.0)
 97@ = Char.Create(24, 115, 0.0, 0.0, 0.0)
 98@ = Char.Create(24, 116, 0.0, 0.0, 0.0)
@@ -1677,6 +1707,7 @@ wait 0
 100@ = Char.Create(24, 116, 0.0, 0.0, 0.0)
 101@ = Char.Create(24, 63, 0.0, 0.0, 0.0)
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 43@ = 0
 
 :SWEET6_10219
@@ -2731,6 +2762,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_16748
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_16724
 
 :SWEET6_16748
@@ -2834,6 +2866,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_17316
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_17292
 
 :SWEET6_17316
@@ -3224,6 +3257,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_19499
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_19475
 
 :SWEET6_19499
@@ -3274,6 +3308,7 @@ if or
   not Streaming.HasModelLoaded(41)
 goto_if_false @SWEET6_19750
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_19708
 
 :SWEET6_19750
@@ -3282,6 +3317,7 @@ if or
   not Streaming.HasModelLoaded(534)
 goto_if_false @SWEET6_19782
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_19750
 
 :SWEET6_19782
@@ -3289,6 +3325,7 @@ if
   not Streaming.HasAnimationLoaded("LOWRIDER")
 goto_if_false @SWEET6_19816
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_19782
 
 :SWEET6_19816
@@ -3562,6 +3599,7 @@ if
   not is_int_lvar_equal_to_constant 43@ == 2
 goto_if_false @SWEET6_22359
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 43@ = Audio.GetBeatTrackStatus()
 goto @SWEET6_22325
 
@@ -3579,6 +3617,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_22415
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_22391
 
 :SWEET6_22415
@@ -3639,6 +3678,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_22689
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_22665
 
 :SWEET6_22689
@@ -3722,6 +3762,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_23225
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_23201
 
 :SWEET6_23225
@@ -3907,6 +3948,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_24620
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_24596
 
 :SWEET6_24620
@@ -4114,6 +4156,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_26256
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_26232
 
 :SWEET6_26256
@@ -4294,6 +4337,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_27360
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_27336
 
 :SWEET6_27360
@@ -4317,6 +4361,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_27448
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_27424
 
 :SWEET6_27448
@@ -4386,6 +4431,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SWEET6_27778
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_27754
 
 :SWEET6_27778
@@ -4397,6 +4443,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SWEET6_27811
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_27787
 
 :SWEET6_27811
@@ -4408,6 +4455,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_27843
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_27819
 
 :SWEET6_27843
@@ -4470,6 +4518,7 @@ if or
   not Streaming.HasModelLoaded(116)
 goto_if_false @SWEET6_28091
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_28047
 
 :SWEET6_28091
@@ -4515,6 +4564,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET6_28426
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 goto @SWEET6_28402
 
 :SWEET6_28426
@@ -4538,6 +4588,7 @@ end
 :SWEET6_28482
 Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
 wait 0
+gosub @SWEET6_COOP_ROSTER_UPDATE
 gosub @SWEET6_35860
 
 :SWEET6_28493
@@ -5643,6 +5694,7 @@ CarGenerator.Switch($sw6_car_gen1, 101)
 return 
 
 :SWEET6_36144
+309@ = 0
 start_new_script @CLEANAU 
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
@@ -5831,6 +5883,7 @@ if
     10000 > 300@
 then
     wait 0
+    gosub @SWEET6_COOP_ROSTER_UPDATE
     goto @SWEET6_COOP_WAIT_FOR_VEHICLE_LOOP
 end
 return
@@ -5885,6 +5938,7 @@ if
     10000 > 300@
 then
     wait 0
+    gosub @SWEET6_COOP_ROSTER_UPDATE
     goto @SWEET6_COOP_WAIT_FOR_PED_LOOP
 end
 return
@@ -5893,4 +5947,92 @@ return
 gosub @SWEET6_35918
 gosub @SWEET6_36144
 terminate_this_script
+return
+
+:SWEET6_COOP_ROSTER_UPDATE
+// Deterministic co-op participant death failure routes through the stock failure lifecycle.
+if
+    309@ == 0
+then
+    return
+end
+312@ = 0
+317@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 313@($temp_int,3i) = 306@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 311@ = 313@($temp_int,3i)
+    306@($temp_int,3i) = 0
+    if and
+        303@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        310@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 310@ == 303@($temp_int,3i)
+        then
+            306@($temp_int,3i) = 1
+            if
+                311@ == 0
+            then
+                312@ = 1
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                317@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    317@ == 1
+then
+    309@ = 0
+    for $temp_int = 0 to 2
+        if and
+            306@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+    gosub @SWEET6_35918
+    gosub @SWEET6_36144
+    terminate_this_script
+end
+if
+    312@ == 1
+then
+    316@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        313@($temp_int,3i) = -1
+        if
+            306@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 313@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 316@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(313@, 314@, 315@)
+end
 return

@@ -611,7 +611,7 @@ set_lvar_int_to_constant 530@ = 38471
 
 :SWEET7_5066
 wait 0
-gosub @SWEET7_coop_update
+gosub @SWEET7_COOP_ROSTER_UPDATE
 if
     585@ == 1
 then
@@ -5358,7 +5358,65 @@ end
 Coop.TeleportPlayersToHostSafely(633@, 634@, 635@)
 return
 
-:SWEET7_coop_update
+:SWEET7_COOP_ROSTER_UPDATE
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    set_lvar_int_to_lvar_int 636@(579@,3i) = 627@
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+639@ = 0
+for 579@ = 0 to 2
+    if and
+        629@(579@,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[579@])
+    then
+        632@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[579@])
+        if
+            is_int_lvar_equal_to_int_lvar 632@ == 629@(579@,3i)
+        then
+            set_lvar_int_to_var_int 551@(579@,3i) = $NETWORK_PLAYER[579@]
+            if
+                636@(579@,3i) == 0
+            then
+                639@ = 1
+                554@(579@,3i) = -1
+            end
+        else
+            551@(579@,3i) = 0
+            $NETWORK_PLAYER[579@] = 0
+        end
+    else
+        551@(579@,3i) = 0
+        $NETWORK_PLAYER[579@] = 0
+    end
+end
+if
+    639@ == 1
+then
+    640@ = Streaming.GetAreaVisible()
+    for 579@ = 0 to 2
+        gosub @SWEET7_coop_validate_current_roster_slot
+        if
+            627@ == 1
+        then
+            Char.SetAreaVisible(551@(579@,3i), 640@)
+            Char.SetCollision(551@(579@,3i), True)
+            Char.SetVisible(551@(579@,3i), True)
+            if
+                588@ == 1
+            then
+                Char.ClearTasksImmediately(551@(579@,3i))
+                Char.FreezePosition(551@(579@,3i), True)
+                Char.SetProofs(551@(579@,3i), True, True, True, True, True)
+                Task.StandStill(551@(579@,3i), -1)
+            else
+                Char.FreezePosition(551@(579@,3i), False)
+                Char.SetProofs(551@(579@,3i), False, False, False, False, False)
+            end
+        end
+    end
+    gosub @SWEET7_coop_teleport_active_players_to_host
+end
 for 579@ = 0 to 2
     gosub @SWEET7_coop_validate_current_roster_slot
     if

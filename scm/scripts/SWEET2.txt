@@ -120,6 +120,17 @@ return
 :SWEET2_1108
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+222@ = 1 // stable frozen roster is active
+for $temp_int = 0 to 2
+    216@($temp_int,3i) = -1 // immutable participant internal ID
+    219@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        216@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        219@($temp_int,3i) = 1
+    end
+end
 $onmission = 1
 36@ = 0
 42@ = 0
@@ -148,6 +159,7 @@ $onmission = 1
 98@ = -1970.61
 103@ = 13.8
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 Text.LoadMissionText('SWEET2')
 Streaming.SetAreaVisible(1)
 Cutscene.Load('SWEET3A')
@@ -157,6 +169,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SWEET2_1391
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_1367
 
 :SWEET2_1391
@@ -168,6 +181,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SWEET2_1424
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_1400
 
 :SWEET2_1424
@@ -179,6 +193,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET2_1461
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_1437
 
 :SWEET2_1461
@@ -195,6 +210,7 @@ if or
   not Streaming.HasModelLoaded(466)
 goto_if_false @SWEET2_1522
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_1491
 
 :SWEET2_1522
@@ -293,6 +309,7 @@ if or
   not Car.IsOnAllWheels($big_smoke_car)
 goto_if_false @SWEET2_2420
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @SWEET2_2037
@@ -454,6 +471,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET2_2685
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_2661
 
 :SWEET2_2685
@@ -467,6 +485,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @SWEET2_2753
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_2729
 
 :SWEET2_2753
@@ -478,6 +497,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @SWEET2_2786
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_2762
 
 :SWEET2_2786
@@ -488,6 +508,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET2_2816
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_2792
 
 :SWEET2_2816
@@ -512,6 +533,7 @@ if or
   not Streaming.HasAnimationLoaded("COLT45")
 goto_if_false @SWEET2_2945
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_2882
 
 :SWEET2_2945
@@ -520,6 +542,7 @@ if or
   not Streaming.HasAnimationLoaded("FAT")
 goto_if_false @SWEET2_2979
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_2945
 
 :SWEET2_2979
@@ -636,6 +659,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_3794
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_3787
@@ -659,6 +683,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_3910
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_3903
@@ -685,6 +710,7 @@ if
   36@ <> 1
 goto_if_false @SWEET2_4810
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Object.DoesExist($tag_target[0])
 goto_if_false @SWEET2_4066
@@ -840,6 +866,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_4923
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_4877
@@ -871,6 +898,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_5121
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_5075
@@ -973,6 +1001,7 @@ if
   36@ <> 3
 goto_if_false @SWEET2_7177
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Object.DoesExist($tag_target(42@,10i))
 goto_if_false @SWEET2_6022
@@ -1082,6 +1111,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_6548
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_6541
@@ -1112,6 +1142,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_6692
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_6685
@@ -1225,6 +1256,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_7290
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_7244
@@ -1256,6 +1288,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_7488
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_7442
@@ -1397,6 +1430,7 @@ if
   36@ <> 5
 goto_if_false @SWEET2_11793
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Object.DoesExist($tag_target(42@,10i))
 goto_if_false @SWEET2_8918
@@ -1486,6 +1520,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_9402
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_9395
@@ -1516,6 +1551,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_9546
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_9539
@@ -1551,6 +1587,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_9737
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_9730
@@ -1581,6 +1618,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_9881
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_9874
@@ -1628,6 +1666,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_10143
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_10136
@@ -1658,6 +1697,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_10287
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_10280
@@ -1693,6 +1733,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_10478
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_10471
@@ -1723,6 +1764,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_10622
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_10615
@@ -1770,6 +1812,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_10876
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_10869
@@ -1800,6 +1843,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_11020
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_11013
@@ -1824,6 +1868,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_11115
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_11108
@@ -1842,6 +1887,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_11200
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_11193
@@ -1967,6 +2013,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_11906
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_11860
@@ -1998,6 +2045,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_12104
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_12058
@@ -2096,6 +2144,7 @@ if
   not Car.IsDead(83@)
 goto_if_false @SWEET2_13089
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   not Char.LocateOnFoot3D($scplayer, 0, 2451.95, -1978.93, 12.55, 13.0, 13.0, 10.0)
 goto_if_false @SWEET2_12739
@@ -2203,6 +2252,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET2_13142
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_13118
 
 :SWEET2_13142
@@ -2219,6 +2269,7 @@ if
   not Streaming.HasAnimationLoaded("GANGS")
 goto_if_false @SWEET2_13244
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_13213
 
 :SWEET2_13244
@@ -2275,6 +2326,7 @@ if
   80@ <> 1
 goto_if_false @SWEET2_13878
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2325,6 +2377,7 @@ if
   80@ <> 2
 goto_if_false @SWEET2_14149
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2375,6 +2428,7 @@ if
   80@ <> 3
 goto_if_false @SWEET2_14389
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2419,6 +2473,7 @@ if
   80@ <> 4
 goto_if_false @SWEET2_14608
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2463,6 +2518,7 @@ if
   80@ <> 5
 goto_if_false @SWEET2_14827
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2514,6 +2570,7 @@ if
   80@ <> 6
 goto_if_false @SWEET2_15112
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2569,6 +2626,7 @@ if
   80@ <> 7
 goto_if_false @SWEET2_15444
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2615,6 +2673,7 @@ if
   80@ <> 8
 goto_if_false @SWEET2_15714
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2659,6 +2718,7 @@ if
   80@ <> 9
 goto_if_false @SWEET2_15933
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2703,6 +2763,7 @@ if
   80@ <> 10
 goto_if_false @SWEET2_16195
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   82@ == 0
@@ -2745,6 +2806,7 @@ if
   80@ <> 11
 goto_if_false @SWEET2_16348
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   Char.IsDead(63@)
@@ -2811,6 +2873,7 @@ if
   80@ <> 12
 goto_if_false @SWEET2_16665
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 gosub @SWEET2_21000
 if 
   Char.IsDead(63@)
@@ -2849,6 +2912,7 @@ if or
   not Char.IsSittingInCar($big_smoke, $big_smoke_car)
 goto_if_false @SWEET2_16813
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_16767
@@ -2874,6 +2938,7 @@ if
   80@ <> 13
 goto_if_false @SWEET2_16978
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_16925
@@ -2896,6 +2961,7 @@ if
   80@ <> 14
 goto_if_false @SWEET2_17092
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_17039
@@ -2932,6 +2998,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET2_17174
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_17150
 
 :SWEET2_17174
@@ -3047,6 +3114,7 @@ if or
   not Car.IsOnAllWheels($big_smoke_car)
 goto_if_false @SWEET2_18388
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   not Char.IsInAnyCar($scplayer)
 goto_if_false @SWEET2_17893
@@ -3202,6 +3270,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @SWEET2_18498
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_18474
 
 :SWEET2_18498
@@ -3209,6 +3278,7 @@ if
   not Streaming.HasModelLoaded(330)
 goto_if_false @SWEET2_18525
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_18498
 
 :SWEET2_18525
@@ -3257,6 +3327,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_18866
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_18859
@@ -3283,6 +3354,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot1)
 goto_if_false @SWEET2_18958
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_18951
@@ -3306,6 +3378,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_19051
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Char.IsDead($big_smoke)
 goto_if_false @SWEET2_19044
@@ -3353,6 +3426,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
 goto_if_false @SWEET2_19274
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 goto @SWEET2_19248
 
 :SWEET2_19274
@@ -3364,6 +3438,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot3)
 goto_if_false @SWEET2_19337
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   TIMERA > 1500
 goto_if_false @SWEET2_19330
@@ -3398,6 +3473,7 @@ if
   not Char.LocateAnyMeans3D($scplayer, 1, 2246.972, -1660.779, 14.2856, 3.5, 4.0, 4.0)
 goto_if_false @SWEET2_19706
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   85@ == 0
 goto_if_false @SWEET2_19618
@@ -3469,6 +3545,7 @@ if
   87@ <> 2
 goto_if_false @SWEET2_20195
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 86@ = Streaming.GetAreaVisible()
 if 
   86@ == 15
@@ -3612,6 +3689,7 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :SWEET2_20732
+222@ = 0
 $onmission = 0
 $timer_mobile_start = Clock.GetGameTimer()
 for $temp_int = 0 to 2
@@ -3805,6 +3883,7 @@ if
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_21462
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($big_smoke_car)
 goto_if_false @SWEET2_21437
@@ -3855,6 +3934,7 @@ if
   not Audio.HasMissionAudioFinished(MissionAudioSlot.Slot2)
 goto_if_false @SWEET2_21698
 wait 0
+gosub @SWEET2_COOP_ROSTER_UPDATE
 if 
   Car.IsDead($big_smoke_car)
 goto_if_false @SWEET2_21673
@@ -4078,6 +4158,7 @@ if
     10000 > 213@
 then
     wait 0
+    gosub @SWEET2_COOP_ROSTER_UPDATE
     goto @SWEET2_COOP_WAIT_FOR_VEHICLE_LOOP
 end
 return
@@ -4132,6 +4213,7 @@ if
     10000 > 213@
 then
     wait 0
+    gosub @SWEET2_COOP_ROSTER_UPDATE
     goto @SWEET2_COOP_WAIT_FOR_PED_LOOP
 end
 return
@@ -4140,4 +4222,92 @@ return
 gosub @SWEET2_20215
 gosub @SWEET2_20732
 terminate_this_script
+return
+
+:SWEET2_COOP_ROSTER_UPDATE
+// Deterministic co-op participant death failure routes through the stock failure lifecycle.
+if
+    222@ == 0
+then
+    return
+end
+225@ = 0
+230@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 226@($temp_int,3i) = 219@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 224@ = 226@($temp_int,3i)
+    219@($temp_int,3i) = 0
+    if and
+        216@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        223@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 223@ == 216@($temp_int,3i)
+        then
+            219@($temp_int,3i) = 1
+            if
+                224@ == 0
+            then
+                225@ = 1
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                230@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if
+    230@ == 1
+then
+    222@ = 0
+    for $temp_int = 0 to 2
+        if and
+            219@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+    gosub @SWEET2_20215
+    gosub @SWEET2_20732
+    terminate_this_script
+end
+if
+    225@ == 1
+then
+    229@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        226@($temp_int,3i) = -1
+        if
+            219@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 226@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 229@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(226@, 227@, 228@)
+end
 return

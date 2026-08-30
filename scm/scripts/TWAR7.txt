@@ -21,6 +21,14 @@ $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetwork
 for $temp_int = 0 to 2
     520@($temp_int,3i) = -1 // companion vehicle
     523@($temp_int,3i) = -1 // currently displayed network objective
+    540@($temp_int,3i) = -1 // immutable participant internal ID
+    543@($temp_int,3i) = 0 // exact participant is currently connected
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        540@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        543@($temp_int,3i) = 1
+    end
 end
 Text.LoadMissionText('SMOKE1')
 if 
@@ -3693,7 +3701,7 @@ gosub @TWAR7_24891
 
 :TWAR7_23151
 gosub @TWAR7_27399
-gosub @TWAR7_coop_update
+gosub @TWAR7_COOP_ROSTER_UPDATE
 goto @TWAR7_1306
 
 :TWAR7_23165
@@ -5369,7 +5377,72 @@ for $temp_int = 0 to 2
 end
 return
 
-:TWAR7_coop_update
+:TWAR7_COOP_ROSTER_UPDATE
+// Deterministic co-op participant death failure routes through the stock failure lifecycle.
+546@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 549@($temp_int,3i) = 543@($temp_int,3i)
+end
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 548@ = 549@($temp_int,3i)
+    543@($temp_int,3i) = 0
+    if and
+        540@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        547@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 547@ == 540@($temp_int,3i)
+        then
+            543@($temp_int,3i) = 1
+            if
+                548@ == 0
+            then
+                546@ = 1
+                523@($temp_int,3i) = -1
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                70@ = 1
+            end
+        else
+            $NETWORK_PLAYER[$temp_int] = 0
+        end
+    else
+        $NETWORK_PLAYER[$temp_int] = 0
+    end
+end
+if and
+    546@ == 1
+    70@ == 0
+then
+    552@ = Streaming.GetAreaVisible()
+    for $temp_int = 0 to 2
+        549@($temp_int,3i) = -1
+        if
+            543@($temp_int,3i) == 1
+        then
+            set_lvar_int_to_var_int 549@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 552@)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            if
+                Player.IsControlOn($player1)
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            else
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+    Coop.TeleportPlayersToHostSafely(549@, 550@, 551@)
+end
 530@ = 0
 if
     67@ == 1
@@ -5527,6 +5600,8 @@ for $temp_int = 0 to 2
         end
     end
     520@($temp_int,3i) = -1
+    540@($temp_int,3i) = -1
+    543@($temp_int,3i) = 0
     $NETWORK_PLAYER[$temp_int] = 0
 end
 return
