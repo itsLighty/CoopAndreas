@@ -1,4 +1,15 @@
 :AMBULAN
+script_name 'AMBULAN'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @AMBULAN_COOP_REJECT_NON_HOST
+goto @AMBULAN_COOP_HOST_START
+
+:AMBULAN_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:AMBULAN_COOP_HOST_START
 gosub @AMBULAN_16
 gosub @AMBULAN_13159
 terminate_this_script 
@@ -6,7 +17,6 @@ terminate_this_script
 :AMBULAN_16
 $onmission = 1
 $flag_player_on_ambulance_mission = 1
-script_name 'AMBULAN'
 if 
   $done_ambulance_progress == 0
 goto_if_false @AMBULAN_61
@@ -114,6 +124,7 @@ goto @AMBULAN_522
 234@ = 0
 $amb_free_seats = 0
 238@ = 0.0
+gosub @AMBULAN_COOP_INIT
 
 :AMBULAN_703
 if 
@@ -1783,6 +1794,16 @@ set_var_int_to_lvar_int $amb_free_seats = 42@
 sub_int_lvar_from_int_var $amb_free_seats -= 43@
 
 :AMBULAN_11334
+gosub @AMBULAN_COOP_UPDATE
+if
+  12@ == 1
+then
+  // COOP_PARTICIPANT_DEATH: a connected frozen participant death fails the
+  // shared submission through the stock Paramedic cleanup path.
+  Text.PrintNow('A_FAIL3', 3000, 1)
+  79@ = 1
+  goto @AMBULAN_13159
+end
 if and
   37@ > 6
   45@ == 2
@@ -2123,6 +2144,14 @@ goto @AMBULAN_3149
 goto @AMBULAN_11090
 
 :AMBULAN_13159
+if
+  $db_ambulance_level == 13
+then
+  gosub @AMBULAN_COOP_NOTIFY_PASS
+else
+  gosub @AMBULAN_COOP_NOTIFY_FAILURE
+end
+gosub @AMBULAN_COOP_CLEANUP
 Hud.ClearTimer($ped_time_limit)
 Hud.ClearCounter($db_ambulance_level)
 Hud.ClearCounter($amb_free_seats)
@@ -2481,6 +2510,461 @@ Char.MarkAsNoLongerNeeded(77@)
 
 :AMBULAN_15078
 return 
+
+// Co-op locals intentionally stay in 0@..33@; the stock body owns 34@ and up.
+// Co-op policy for Paramedic:
+// - the host alone owns patient spawning, pickup/delivery state, the timer,
+//   ambulance damage penalties, level rewards, and persistent completion;
+// - disconnecting a frozen participant is a DNF until that immutable identity
+//   reconnects, and never lets a newly joined player substitute into the slot;
+// - death of a connected, identity-matched participant deterministically fails
+//   the shared run through the same stock cleanup used by host failure.
+:AMBULAN_COOP_INIT
+0@, 1@, 2@ = Coop.CollectNetworkPlayersForTheMission()
+9@ = 0 // number of frozen remote gameplay participants
+for 13@ = 0 to 2
+    3@(13@,3i) = -1 // immutable internal network identity
+    6@(13@,3i) = -1 // last objective delivered to this identity
+    if
+        Coop.IsNetworkPlayerActorValid(0@(13@,3i))
+    then
+        3@(13@,3i) = Coop.GetNetworkPlayerInternalId(0@(13@,3i))
+        if
+            3@(13@,3i) >= 0
+        then
+            9@ += 1
+        end
+    end
+end
+10@ = 0 // exactly-once result: 0 pending, 1 failed, 2 passed
+11@ = 0 // idempotent cooperative cleanup latch
+12@ = 0 // connected participant death latch
+18@ = 0 // coarse support objective: 0 wait, 1 patient, 2 hospital
+19@ = 0 // selected patient handle
+20@ = -1 // selected patient network id
+21@ = 0 // selected patient registration start
+22@ = 0 // selected patient registration timed out
+23@ = -1 // host ambulance network id
+24@ = 0 // ambulance registration start
+25@ = 0 // ambulance registration timed out
+32@ = 0 // previous selected patient handle
+33@ = 0 // participant regroup timer
+if
+    9@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(0@, 1@, 2@)
+end
+return
+
+// Recollect every tick, but only accept a handle whose immutable network id
+// matches the mission-start slot. A disconnect leaves handle 0 and is a DNF;
+// reconnecting the same identity invalidates its objective cache for replay.
+:AMBULAN_COOP_REFRESH_ROSTER
+14@, 15@, 16@ = Coop.CollectNetworkPlayersForTheMission()
+for 13@ = 0 to 2
+    set_lvar_int_to_lvar_int 17@ = 0@(13@,3i)
+    0@(13@,3i) = 0
+    if
+        3@(13@,3i) >= 0
+    then
+        for 26@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(14@(26@,3i))
+            then
+                29@ = Coop.GetNetworkPlayerInternalId(14@(26@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 29@ == 3@(13@,3i)
+                then
+                    set_lvar_int_to_lvar_int 0@(13@,3i) = 14@(26@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 17@ == 0@(13@,3i)
+    then
+        6@(13@,3i) = -1
+    end
+end
+return
+
+:AMBULAN_COOP_VALIDATE_SLOT
+16@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(0@(13@,3i))
+then
+    29@ = Coop.GetNetworkPlayerInternalId(0@(13@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 29@ == 3@(13@,3i)
+    then
+        16@ = 1
+    end
+end
+return
+
+:AMBULAN_COOP_UPDATE
+if
+    11@ == 1
+then
+    return
+end
+gosub @AMBULAN_COOP_REFRESH_ROSTER
+for 13@ = 0 to 2
+    gosub @AMBULAN_COOP_VALIDATE_SLOT
+    if
+        16@ == 1
+    then
+        if
+            Char.IsDead(0@(13@,3i))
+        then
+            12@ = 1
+        end
+    end
+end
+if
+    12@ == 1
+then
+    return
+end
+gosub @AMBULAN_COOP_SELECT_OBJECTIVE
+gosub @AMBULAN_COOP_POLL_ENTITY_REGISTRATION
+gosub @AMBULAN_COOP_UPDATE_REGROUP
+gosub @AMBULAN_COOP_UPDATE_OBJECTIVES
+return
+
+// Select one stable, meaningful support objective. Patients already inside the
+// ambulance take priority so supporters escort the vehicle to the hospital;
+// otherwise they converge on the next patient awaiting pickup.
+:AMBULAN_COOP_SELECT_OBJECTIVE
+18@ = 0
+19@ = 0
+for 27@ = 0 to 11
+    gosub @AMBULAN_COOP_LOAD_PATIENT_SLOT
+    if and
+        28@ >= 3
+        5 > 28@
+    then
+        18@ = 2
+        19@ = 0
+        break
+    end
+end
+if
+    18@ == 0
+then
+    for 27@ = 0 to 11
+        gosub @AMBULAN_COOP_LOAD_PATIENT_SLOT
+        if and
+            28@ >= 1
+            3 > 28@
+        then
+            18@ = 1
+            break
+        end
+    end
+end
+if
+    not is_int_lvar_equal_to_int_lvar 32@ == 19@
+then
+    set_lvar_int_to_lvar_int 32@ = 19@
+    20@ = -1
+    21@ = 0
+    22@ = 0
+    for 13@ = 0 to 2
+        6@(13@,3i) = -1
+    end
+end
+return
+
+:AMBULAN_COOP_LOAD_PATIENT_SLOT
+19@ = 0
+28@ = 0
+switch_start 27@ total_jumps 12 default_jump 1 @AMBULAN_COOP_LOAD_PATIENT_DONE jumps 0 @AMBULAN_COOP_PATIENT_0 1 @AMBULAN_COOP_PATIENT_1 2 @AMBULAN_COOP_PATIENT_2 3 @AMBULAN_COOP_PATIENT_3 4 @AMBULAN_COOP_PATIENT_4 5 @AMBULAN_COOP_PATIENT_5 6 @AMBULAN_COOP_PATIENT_6
+switch_continued 7 @AMBULAN_COOP_PATIENT_7 8 @AMBULAN_COOP_PATIENT_8 9 @AMBULAN_COOP_PATIENT_9 10 @AMBULAN_COOP_PATIENT_10 11 @AMBULAN_COOP_PATIENT_11 -1 @AMBULAN_COOP_LOAD_PATIENT_DONE -1 @AMBULAN_COOP_LOAD_PATIENT_DONE -1 @AMBULAN_COOP_LOAD_PATIENT_DONE -1 @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_0
+set_lvar_int_to_lvar_int 19@ = 81@
+set_lvar_int_to_lvar_int 28@ = 83@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_1
+set_lvar_int_to_lvar_int 19@ = 84@
+set_lvar_int_to_lvar_int 28@ = 86@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_2
+set_lvar_int_to_lvar_int 19@ = 87@
+set_lvar_int_to_lvar_int 28@ = 89@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_3
+set_lvar_int_to_lvar_int 19@ = 90@
+set_lvar_int_to_lvar_int 28@ = 92@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_4
+set_lvar_int_to_lvar_int 19@ = 93@
+set_lvar_int_to_lvar_int 28@ = 95@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_5
+set_lvar_int_to_lvar_int 19@ = 56@
+set_lvar_int_to_lvar_int 28@ = 58@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_6
+set_lvar_int_to_lvar_int 19@ = 59@
+set_lvar_int_to_lvar_int 28@ = 61@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_7
+set_lvar_int_to_lvar_int 19@ = 62@
+set_lvar_int_to_lvar_int 28@ = 64@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_8
+set_lvar_int_to_lvar_int 19@ = 65@
+set_lvar_int_to_lvar_int 28@ = 67@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_9
+set_lvar_int_to_lvar_int 19@ = 68@
+set_lvar_int_to_lvar_int 28@ = 70@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_10
+set_lvar_int_to_lvar_int 19@ = 71@
+set_lvar_int_to_lvar_int 28@ = 73@
+goto @AMBULAN_COOP_LOAD_PATIENT_DONE
+
+:AMBULAN_COOP_PATIENT_11
+set_lvar_int_to_lvar_int 19@ = 74@
+set_lvar_int_to_lvar_int 28@ = 76@
+
+:AMBULAN_COOP_LOAD_PATIENT_DONE
+return
+
+// Entity discovery is incremental and never blocks stock progression. The
+// ambulance and each newly selected patient receive at most five seconds of
+// registration retries before coordinate checkpoints remain as the fallback.
+:AMBULAN_COOP_POLL_ENTITY_REGISTRATION
+if and
+    23@ == -1
+    25@ == 0
+then
+    if
+        Car.DoesExist(34@)
+    then
+        if
+            24@ == 0
+        then
+            24@ = Clock.GetGameTimer()
+        end
+        23@ = Coop.GetVehicleNetworkId(34@)
+        if
+            23@ <> -1
+        then
+            for 13@ = 0 to 2
+                6@(13@,3i) = -1
+            end
+        end
+        if
+            23@ == -1
+        then
+            26@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 26@ -= 24@
+            if
+                26@ > 5000
+            then
+                25@ = 1
+            end
+        end
+    end
+end
+if and
+    18@ == 1
+    20@ == -1
+    22@ == 0
+then
+    if
+        Char.DoesExist(19@)
+    then
+        if
+            21@ == 0
+        then
+            21@ = Clock.GetGameTimer()
+        end
+        20@ = Coop.GetPedNetworkId(19@)
+        if
+            20@ <> -1
+        then
+            for 13@ = 0 to 2
+                6@(13@,3i) = -1
+            end
+        end
+        if
+            20@ == -1
+        then
+            26@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 26@ -= 21@
+            if
+                26@ > 5000
+            then
+                22@ = 1
+            end
+        end
+    end
+end
+return
+
+// Only connected frozen identities are regrouped. A disconnected participant
+// cannot block the run; the same identity is returned safely after reconnect.
+:AMBULAN_COOP_UPDATE_REGROUP
+29@ = 0
+for 13@ = 0 to 2
+    gosub @AMBULAN_COOP_VALIDATE_SLOT
+    if
+        16@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(0@(13@,3i), $scplayer, 150.0, 150.0, 40.0, False)
+        then
+            29@ = 1
+        end
+    end
+end
+if
+    29@ == 0
+then
+    33@ = 0
+    return
+end
+if
+    33@ == 0
+then
+    33@ = Clock.GetGameTimer()
+end
+26@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 26@ -= 33@
+if
+    26@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(0@, 1@, 2@)
+    33@ = 0
+end
+return
+
+// Frozen participants receive one targeted snapshot per objective/reconnect:
+// patient/checkpoint guidance while loading, then ambulance/hospital guidance
+// while transporting. The stock host state machine remains the sole authority.
+:AMBULAN_COOP_UPDATE_OBJECTIVES
+for 13@ = 0 to 2
+    gosub @AMBULAN_COOP_VALIDATE_SLOT
+    if and
+        16@ == 1
+        not is_int_lvar_equal_to_int_lvar 6@(13@,3i) == 18@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(0@(13@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(0@(13@,3i))
+        if
+            18@ == 1
+        then
+            if
+                Char.DoesExist(19@)
+            then
+                29@, 30@, 31@ = Char.GetCoordinates(19@)
+                Coop.UpdateCheckpointForNetworkPlayer(29@, 30@, 31@, 10.0, 10.0, 6.0, 0@(13@,3i))
+                if
+                    20@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(0@(13@,3i), 19@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+            end
+            Coop.PrintNowForNetworkPlayer('ATUTOR2', 5000, 1, 0@(13@,3i))
+        end
+        if
+            18@ == 2
+        then
+            if
+                23@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(0@(13@,3i), 34@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+            Coop.UpdateCheckpointForNetworkPlayer(167@, 168@, 169@, 8.0, 8.0, 5.0, 0@(13@,3i))
+            Coop.PrintNowForNetworkPlayer('ATUTOR2', 5000, 1, 0@(13@,3i))
+        end
+        set_lvar_int_to_lvar_int 6@(13@,3i) = 18@
+    end
+end
+return
+
+:AMBULAN_COOP_NOTIFY_FAILURE
+if
+    10@ <> 0
+then
+    return
+end
+10@ = 1
+gosub @AMBULAN_COOP_REFRESH_ROSTER
+for 13@ = 0 to 2
+    gosub @AMBULAN_COOP_VALIDATE_SLOT
+    if
+        16@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 0@(13@,3i))
+    end
+end
+return
+
+:AMBULAN_COOP_NOTIFY_PASS
+if
+    10@ <> 0
+then
+    return
+end
+10@ = 2
+gosub @AMBULAN_COOP_REFRESH_ROSTER
+for 13@ = 0 to 2
+    gosub @AMBULAN_COOP_VALIDATE_SLOT
+    if
+        16@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 0@(13@,3i))
+    end
+end
+return
+
+:AMBULAN_COOP_CLEANUP
+if
+    11@ == 1
+then
+    return
+end
+11@ = 1
+gosub @AMBULAN_COOP_REFRESH_ROSTER
+for 13@ = 0 to 2
+    gosub @AMBULAN_COOP_VALIDATE_SLOT
+    if
+        16@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(0@(13@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(0@(13@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('ATUTOR2', 0@(13@,3i))
+        Char.FreezePosition(0@(13@,3i), False)
+        Char.SetProofs(0@(13@,3i), False, False, False, False, False)
+    end
+end
+// Paramedic never grants or removes participant weapons, so preserving each
+// loadout is the deterministic restoration policy. Restore synchronized control.
+Player.SetControl($player1, True)
+20@ = -1
+23@ = -1
+for 13@ = 0 to 2
+    0@(13@,3i) = 0
+    3@(13@,3i) = -1
+    6@(13@,3i) = -1
+end
+return
 
 //-------------Mission 123---------------
 // Originally: Firefighter Sub-Mission
