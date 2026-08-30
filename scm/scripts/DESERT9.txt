@@ -3,6 +3,7 @@
 
 :DESERT9
 script_name 'DESERT9'
+Coop.EnableSyncingThisScript()
 gosub @DESERT9_49
 
 :DESERT9_18
@@ -18,6 +19,13 @@ gosub @DESERT9_21954
 Mission.Finish
 terminate_this_script 
 
+:DESERT9_COOP_SHARED_FAILURE
+755@ = 2
+Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @DESERT9_COOP_NOTIFY_RESULT
+gosub @DESERT9_21954
+goto @DESERT9_45
+
 :DESERT9_49
 Stat.RegisterMissionGiven
 Text.LoadMissionText('DSERT9')
@@ -25,6 +33,120 @@ Game.SetWantedMultiplier(0.0)
 Game.SetScriptLimitToGangSize(0)
 Char.SetAreaVisible($scplayer, 0)
 $onmission = 1
+// Cooperative Stowaway is a host-authored synchronized mission. Capture the
+// launch roster once by actor handle and immutable network identity: matching
+// reconnects reclaim only their own slot, while late joiners remain mission-
+// session spectators and can never inherit a recycled script handle.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+740@ = 0 // frozen cooperative participant count
+741@ = 0 // currently connected matching participants
+742@ = 0 // shared failure: 1 connected participant died
+743@ = 0 // idempotent cooperative cleanup guard
+744@ = 0 // remotes are frozen for a host cinematic
+745@ = 0 // cooperative phase: 0 intro, 1 chase, 2 boarding, 3 interior, 4 escape
+746@ = 0 // next remote objective refresh
+747@ = 0 // next nonblocking network-id retry
+748@ = 0 // current network-id retry window deadline
+749@ = -1 // registration entity scratch
+750@ = -1 // registration result scratch
+751@ = 0 // bounded registration degradation count
+752@ = 0 // clock/internal-id scratch
+753@ = 0 // previous slot activity scratch
+754@ = 0 // reconnect observed this update
+755@ = 0 // result: 0 active, 1 passed, 2 failed
+756@ = 0 // result notification guard
+757@ = -1 // selected hostile target
+758@ = -1 // cooperative objective phase scratch
+759@ = 0.0 // position scratch X
+760@ = 0.0 // position scratch Y
+761@ = 0.0 // position scratch Z
+762@ = 0.0 // candidate position X
+763@ = 0.0 // candidate position Y
+764@ = 0.0 // candidate position Z
+765@ = 0.0 // candidate distance
+766@ = 99999.0 // best target distance
+767@ = 0 // next combat/regroup update
+768@ = -1 // first safe-teleport argument
+769@ = -1 // second safe-teleport argument
+770@ = -1 // third safe-teleport argument
+771@ = 0 // dedicated pursuit motorcycles prepared
+772@ = -1 // cooperative staging reference vehicle
+773@ = 0.0 // cooperative heading scratch
+774@ = 0 // host-jump fallback deadline for remote escape
+775@ = 0 // prior host health for friendly-fire repair
+776@ = 0 // current health / boolean scratch
+780@ = -1 // validated participant actor scratch
+781@ = 0 // nested iterator scratch
+782@ = 0 // visible-area/phase scratch
+783@ = 0 // force objective refresh
+787@ = 0 // next hostile retarget
+788@ = 0 // cooperative gameplay staging completed
+789@ = 0 // host-authoritative detonation observed
+790@ = 0 // friendly-fire attribution scratch
+795@ = -1 // live mission-player snapshot slot 0
+796@ = -1 // live mission-player snapshot slot 1
+797@ = -1 // live mission-player snapshot slot 2
+837@ = 0 // current armor / armor delta scratch
+838@ = 0 // prior host armor for friendly-fire repair
+800@s = 'DES9_A4' // cooperative subtitle/objective label scratch
+802@ = 0 // cooperative subtitle duration
+803@ = 1 // cooperative subtitle style flag
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 685@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // current actor for frozen identity
+    688@($temp_int,3i) = -1 // immutable internal network identity
+    691@($temp_int,3i) = 0 // currently connected matching participant
+    694@($temp_int,3i) = 0 // reconnect needs phase recovery
+    697@($temp_int,3i) = -1 // last objective phase sent
+    700@($temp_int,3i) = -1 // dedicated pursuit Sanchez
+    703@($temp_int,3i) = -1 // pursuit Sanchez network id
+    706@($temp_int,3i) = 0 // pre-mission selected weapon
+    709@($temp_int,3i) = 0 // pre-mission parachute ammo
+    712@($temp_int,3i) = 0 // pre-mission satchel ammo
+    715@($temp_int,3i) = 0 // pre-mission detonator ammo
+    718@($temp_int,3i) = 0 // reversible mission parachute granted
+    721@($temp_int,3i) = 0 // participant completed aircraft-to-sky escape
+    777@($temp_int,3i) = 0 // prior participant health for friendly-fire repair
+    834@($temp_int,3i) = 0 // prior participant armor for friendly-fire repair
+    784@($temp_int,3i) = 0 // participant physically reached the boarding envelope
+    791@($temp_int,3i) = 0 // conservative regroup grace timer
+    if
+        Coop.IsNetworkPlayerActorValid(685@($temp_int,3i))
+    then
+        688@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(685@($temp_int,3i))
+        if
+          688@($temp_int,3i) <> -1
+        then
+            691@($temp_int,3i) = 1
+            706@($temp_int,3i) = Char.GetCurrentWeapon(685@($temp_int,3i))
+            709@($temp_int,3i) = Char.GetAmmoInWeapon(685@($temp_int,3i), 46)
+            712@($temp_int,3i) = Char.GetAmmoInWeapon(685@($temp_int,3i), 39)
+            715@($temp_int,3i) = Char.GetAmmoInWeapon(685@($temp_int,3i), 40)
+            777@($temp_int,3i) = Char.GetHealth(685@($temp_int,3i))
+            834@($temp_int,3i) = Char.GetArmor(685@($temp_int,3i))
+            Char.ClearLastDamageEntity(685@($temp_int,3i))
+            Char.ClearLastWeaponDamage(685@($temp_int,3i))
+            740@ += 1
+        end
+    end
+end
+for 781@ = 0 to 7
+    724@(781@,8i) = -1 // network ids for mission peds 40@ through 47@
+end
+for 781@ = 0 to 4
+    732@(781@,5i) = -1 // network ids for mission vehicles 34@ through 38@
+end
+for 781@ = 0 to 14
+    804@(781@,15i) = -1 // dynamic Andromada support-vehicle handles
+    819@(781@,15i) = -1 // dynamic support-vehicle network ids
+end
+737@ = -1 // cinematic/escape Andromada 186@ network id
+738@ = -1 // fatal-vignette Admiral 181@ network id
+739@ = -1 // fatal-vignette passenger 182@ network id
+775@ = Char.GetHealth($scplayer)
+838@ = Char.GetArmor($scplayer)
+Char.ClearLastDamageEntity($scplayer)
+Char.ClearLastWeaponDamage($scplayer)
+gosub @DESERT9_COOP_BEGIN_CINEMATIC
 World.SwitchEntryExit('DESHOUS', False)
 150@ = 100.0
 if 
@@ -35,6 +157,10 @@ goto_if_false @DESERT9_372
 56@ = Object.Create(#KB_BARREL, 0.0, 0.0, 0.0)
 35@ = Car.Create(461, 426.6481, 2535.713, 15.5538)
 Car.SetHeading(35@, 107.0)
+733@ = -1
+set_lvar_int_to_lvar_int 749@ = 35@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 733@ = 750@
 152@ = Blip.AddForCoord(74@, 75@, 76@)
 $para_pickup = Pickup.Create(371, 3, 1797.602, -1308.881, 133.8128)
 153@ = Blip.AddForCar(35@)
@@ -45,6 +171,13 @@ $para_pickup = Pickup.Create(371, 3, 1797.602, -1308.881, 133.8128)
 
 :DESERT9_372
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+goto_if_false @DESERT9_COOP_MAIN_CONTINUE
+goto @DESERT9_COOP_SHARED_FAILURE
+
+:DESERT9_COOP_MAIN_CONTINUE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @DESERT9_398
@@ -61,6 +194,12 @@ if
 goto_if_false @DESERT9_445
 Streaming.RequestModel(371)
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_413
 
 :DESERT9_445
@@ -208,6 +347,17 @@ Car.SetHeading(38@, 270.0)
 45@ = Char.Create(24, 165, -28.1475, 2492.807, 15.2513)
 46@ = Char.Create(24, 166, -28.1475, 2493.807, 15.2513)
 47@ = Char.Create(24, 166, -28.1475, 2494.807, 15.2513)
+for 781@ = 0 to 7
+    set_lvar_int_to_lvar_int 749@ = 40@(781@,8i)
+    gosub @DESERT9_COOP_REGISTER_PED
+    set_lvar_int_to_lvar_int 724@(781@,8i) = 750@
+end
+for 781@ = 0 to 4
+    set_lvar_int_to_lvar_int 749@ = 34@(781@,5i)
+    gosub @DESERT9_COOP_REGISTER_VEHICLE
+    set_lvar_int_to_lvar_int 732@(781@,5i) = 750@
+end
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Char.AttachToCar(45@, 36@, 0.5, -1.0, 0.4, 0, 10.0, WeaponType.MicroUzi)
 Char.AttachToCar(46@, 37@, -0.5, -1.0, 0.4, 0, 10.0, WeaponType.MicroUzi)
 Char.AttachToCar(47@, 37@, 0.5, -1.0, 0.4, 0, 10.0, WeaponType.MicroUzi)
@@ -583,6 +733,12 @@ if
   not Cutscene.HasLoaded
 goto_if_false @DESERT9_4385
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_4361
 
 :DESERT9_4385
@@ -594,6 +750,12 @@ if
   not Cutscene.HasFinished
 goto_if_false @DESERT9_4418
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_4394
 
 :DESERT9_4418
@@ -615,6 +777,12 @@ if
   Camera.GetFadingStatus
 goto_if_false @DESERT9_4497
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_4473
 
 :DESERT9_4497
@@ -682,6 +850,12 @@ Car.ChangeColor(38@, 0, 0)
 43@ = Char.CreateAsPassenger(PedType.Mission1, 165, 36@, 0)
 44@ = Char.CreateAsPassenger(PedType.Mission1, 166, 37@, 0)
 45@ = Char.Create(24, 165, 363.6662, 2500.094, 15.4921)
+for 781@ = 0 to 5
+    724@(781@,8i) = -1
+    set_lvar_int_to_lvar_int 749@ = 40@(781@,8i)
+    gosub @DESERT9_COOP_REGISTER_PED
+    set_lvar_int_to_lvar_int 724@(781@,8i) = 750@
+end
 if 
   not Car.IsDead(34@)
 goto_if_false @DESERT9_5013
@@ -703,6 +877,14 @@ World.ClearArea(0, 435.2751, 2527.523, 15.871, 10.0)
 35@ = Car.Create(461, 435.2751, 2527.523, 15.871)
 Car.SetHeading(35@, 90.0)
 Car.SetCanBurstTires(35@, False)
+for 781@ = 1 to 4
+    732@(781@,5i) = -1
+    set_lvar_int_to_lvar_int 749@ = 34@(781@,5i)
+    gosub @DESERT9_COOP_REGISTER_VEHICLE
+    set_lvar_int_to_lvar_int 732@(781@,5i) = 750@
+end
+gosub @DESERT9_COOP_PREPARE_SUPPORTS
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Char.SetHeading(40@, 340.9066)
 Char.SetHeading(41@, 309.4871)
 Char.SetHeading(42@, 175.4073)
@@ -764,6 +946,9 @@ goto @DESERT9_5720
 71@ = 4
 Text.ClearPrints
 Text.Print('DES9_3', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_3'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 
 :DESERT9_5745
 if 
@@ -783,6 +968,9 @@ Task.EnterCarAsDriver($scplayer, 35@, -2)
 
 :DESERT9_5883
 Text.Print('DES9_4', 3000, 1)
+set_lvar_text_label 800@s = 'DES9_4'
+802@ = 3000
+gosub @DESERT9_COOP_PRINT_NOW
 if 
   157@ == 0
 goto_if_false @DESERT9_5940
@@ -805,6 +993,9 @@ if
 goto_if_false @DESERT9_6209
 Text.ClearPrints
 Text.Print('DES9_44', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_44'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 if 
   not Car.IsDead(35@)
 goto_if_false @DESERT9_6054
@@ -848,6 +1039,11 @@ Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
 Text.ClearPrints
 Text.Print('DES9_A4', 4000, 1)
+745@ = 1
+gosub @DESERT9_COOP_STAGE_CHASE
+set_lvar_text_label 800@s = 'DES9_A4'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 68@ = 2
 
 :DESERT9_6282
@@ -1035,6 +1231,8 @@ if
 goto_if_false @DESERT9_7442
 Char.SetCanBeKnockedOffBike($scplayer, True)
 Blip.Remove(152@)
+745@ = 2
+gosub @DESERT9_COOP_BEGIN_CINEMATIC
 Player.SetControl($player1, False)
 71@ = 20
 68@ = 3
@@ -1163,6 +1361,11 @@ Char.SetAreaVisible($scplayer, 9)
 :DESERT9_8057
 Char.Delete(44@)
 44@ = Char.Create(26, 165, 316.0887, 983.9927, 1958.138)
+728@ = -1
+set_lvar_int_to_lvar_int 749@ = 44@
+gosub @DESERT9_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 728@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Char.SetHeading(44@, 90.0)
 if 
   not Char.IsDead(44@)
@@ -1194,6 +1397,12 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(152)
 goto_if_false @DESERT9_8258
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_8226
 
 :DESERT9_8258
@@ -1235,11 +1444,20 @@ if
   not Streaming.HasModelLoaded(371)
 goto_if_false @DESERT9_8512
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_8485
 
 :DESERT9_8512
 Camera.DoFade(1, 600)
 Text.Print('DES9_A5', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_A5'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 if 
   65@ == 1
 goto_if_false @DESERT9_8574
@@ -1411,6 +1629,9 @@ if
 goto_if_false @DESERT9_9879
 Text.ClearPrints
 Text.Print('DES9_45', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_45'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 Camera.SetFixedPosition(317.5727, 1024.791, 1949.854, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(317.4102, 1023.809, 1949.95, SwitchType.JumpCut)
 Char.ClearTasksImmediately($scplayer)
@@ -1454,6 +1675,12 @@ if
 goto_if_false @DESERT9_10069
 Streaming.RequestAnimation("AIRPORT")
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_10025
 
 :DESERT9_10069
@@ -1461,6 +1688,9 @@ Task.PlayAnim(44@, "THRW_BARL_THRW", "AIRPORT", 4.0, False, False, False, False,
 
 :DESERT9_10114
 Text.Print('DES9_46', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_46'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 71@ = 10
 set_lvar_int_to_lvar_int 86@ = TIMERA
 86@ += 1100
@@ -1491,6 +1721,12 @@ if
   not Streaming.HasModelLoaded(371)
 goto_if_false @DESERT9_10289
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_10262
 
 :DESERT9_10289
@@ -1563,6 +1799,13 @@ Char.Delete(43@)
 41@ = Char.Create(26, 166, 312.5008, 1004.962, 1953.297)
 42@ = Char.Create(26, 165, 318.7976, 988.7245, 1957.044)
 43@ = Char.Create(26, 166, 313.1324, 991.6313, 1956.374)
+for 781@ = 0 to 3
+    724@(781@,8i) = -1
+    set_lvar_int_to_lvar_int 749@ = 40@(781@,8i)
+    gosub @DESERT9_COOP_REGISTER_PED
+    set_lvar_int_to_lvar_int 724@(781@,8i) = 750@
+end
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 if 
   not Car.IsDead(35@)
 goto_if_false @DESERT9_10751
@@ -1620,6 +1863,8 @@ Char.SetDeathWeaponsPersist(44@, True)
 Char.SetShootRate(44@, 100)
 
 :DESERT9_11030
+745@ = 3
+gosub @DESERT9_COOP_STAGE_INTERIOR
 68@ = 4
 178@ = 0
 439@ = 0
@@ -1678,6 +1923,7 @@ if
   not Char.IsDead($scplayer)
 goto_if_false @DESERT9_11363
 Char.SetProofs($scplayer, True, True, True, True, True)
+gosub @DESERT9_COOP_PROTECT_REMOTE_BLAST
 
 :DESERT9_11363
 159@ = 972.5745
@@ -1713,6 +1959,9 @@ if
   Char.IsDead(44@)
 goto_if_false @DESERT9_11577
 Text.Print('DES9_27', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_27'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 173@ = 1
 
 :DESERT9_11577
@@ -1729,10 +1978,18 @@ if
 goto_if_false @DESERT9_11679
 Text.Print('DES9_A1', 4000, 1)
 Text.Print('DES9_A2', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_A1'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
+set_lvar_text_label 800@s = 'DES9_A2'
+gosub @DESERT9_COOP_PRINT_NOW
 goto @DESERT9_11695
 
 :DESERT9_11679
 Text.Print('DES9_26', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_26'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 
 :DESERT9_11695
 173@ = 2
@@ -1771,6 +2028,10 @@ Particle.Kill(174@)
 68@ = 9
 71@ = 0
 $player_fall_safe = 1
+745@ = 4
+774@ = Clock.GetGameTimer()
+774@ += 2000
+783@ = 1
 
 :DESERT9_11887
 goto @DESERT9_11946
@@ -1778,7 +2039,12 @@ goto @DESERT9_11946
 :DESERT9_11894
 Text.ClearPrints
 Text.Print('DES9_39', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_39'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+755@ = 2
+gosub @DESERT9_COOP_NOTIFY_RESULT
 gosub @DESERT9_21954
 Streaming.SetAreaVisible(0)
 goto @DESERT9_45
@@ -1794,7 +2060,13 @@ if and
 goto_if_false @DESERT9_12166
 Text.ClearPrints
 Text.Print('DES9_29', 5000, 1)
+set_lvar_text_label 800@s = 'DES9_29'
+802@ = 5000
+gosub @DESERT9_COOP_PRINT_NOW
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+755@ = 2
+gosub @DESERT9_COOP_NOTIFY_RESULT
+gosub @DESERT9_COOP_CLEANUP
 Pickup.Remove($para_pickup)
 wait 1000
 Camera.DoFade(0, 1000)
@@ -1834,6 +2106,9 @@ Text.ClearPrints
 if 
   2 > 173@
 goto_if_false @DESERT9_12896
+755@ = 2
+gosub @DESERT9_COOP_NOTIFY_RESULT
+gosub @DESERT9_COOP_CLEANUP
 Camera.DoFade(0, 1000)
 
 :DESERT9_12219
@@ -1869,6 +2144,15 @@ Char.ClearTasksImmediately($scplayer)
 Char.SetCoordinates($scplayer, 122.3556, 1069.892, 99.6832)
 181@ = Car.Create(445, 119.3556, 1069.892, 13.665)
 182@ = Char.CreateAsPassenger(PedType.CivMale, 91, 181@, 0)
+738@ = -1
+set_lvar_int_to_lvar_int 749@ = 181@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 738@ = 750@
+739@ = -1
+set_lvar_int_to_lvar_int 749@ = 182@
+gosub @DESERT9_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 739@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Streaming.MarkModelAsNoLongerNeeded(91)
 Streaming.MarkModelAsNoLongerNeeded(445)
 Streaming.MarkModelAsNoLongerNeeded(363)
@@ -1957,6 +2241,11 @@ Car.Delete(34@)
 
 :DESERT9_12995
 34@ = Car.Create(592, 316.212, 1003.495, 1957.529)
+732@ = -1
+set_lvar_int_to_lvar_int 749@ = 34@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 732@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Car.StartPlayback(34@, 134)
 Car.SetHeading(34@, 180.0)
 Camera.AttachToChar($scplayer, 0.0, 2.0, -2.0, 0.0, 0.0, 0.0, 0.0, SwitchType.JumpCut)
@@ -1979,6 +2268,12 @@ return
 
 :DESERT9_13155
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 goto @DESERT9_12952
 return 
 
@@ -1987,6 +2282,12 @@ Streaming.SetAreaVisible(0)
 
 :DESERT9_13172
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @DESERT9_13198
@@ -2006,6 +2307,11 @@ if
   71@ == 0
 goto_if_false @DESERT9_13304
 186@ = Car.Create(592, 339.9034, 2499.805, 15.4884)
+737@ = -1
+set_lvar_int_to_lvar_int 749@ = 186@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 737@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Car.StartPlayback(186@, 134)
 Car.SetPlaybackSpeed(186@, 1.0)
 set_lvar_int_to_lvar_int 86@ = TIMERA
@@ -2021,9 +2327,17 @@ if
 goto_if_false @DESERT9_13528
 Text.ClearPrints
 Text.Print('DES9_42', 5000, 1)
+set_lvar_text_label 800@s = 'DES9_42'
+802@ = 5000
+gosub @DESERT9_COOP_PRINT_NOW
 Char.SetVisible($scplayer, False)
 Streaming.SetAreaVisible(0)
 34@ = Car.Create(592, 339.9034, 2499.805, 15.4884)
+732@ = -1
+set_lvar_int_to_lvar_int 749@ = 34@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 732@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Car.SetProofs(34@, True, True, True, True, True)
 Car.StartPlayback(34@, 134)
 Car.SetHealth(34@, 350)
@@ -2184,6 +2498,9 @@ if
   is_int_lvar_greater_than_int_lvar TIMERA > 86@
 goto_if_false @DESERT9_14289
 Text.Print('DES9_32', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_32'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Player.SetControl($player1, True)
 Camera.SetBehindPlayer
@@ -2211,6 +2528,11 @@ set_var_int_to_lvar_int $cut_timerr = TIMERA
 sub_int_var_from_int_var $cut_timerr -= $start_timerr
 $x, $y, $z = Char.GetVelocity($scplayer)
 186@ = Car.Create(592, 339.9034, 2499.805, 15.4884)
+737@ = -1
+set_lvar_int_to_lvar_int 749@ = 186@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 737@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Car.StartPlayback(186@, 134)
 Car.SetPlaybackSpeed(186@, 0.5)
 Char.SetCoordinates($scplayer, 177.9967, 1099.621, 1977.491)
@@ -2355,9 +2677,17 @@ if
 goto_if_false @DESERT9_15571
 Text.ClearPrints
 Text.Print('DES9_42', 5000, 1)
+set_lvar_text_label 800@s = 'DES9_42'
+802@ = 5000
+gosub @DESERT9_COOP_PRINT_NOW
 Char.SetVisible($scplayer, False)
 Streaming.SetAreaVisible(0)
 34@ = Car.Create(592, 339.9034, 2499.805, 15.4884)
+732@ = -1
+set_lvar_int_to_lvar_int 749@ = 34@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 732@ = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Car.SetProofs(34@, True, True, True, True, True)
 Car.StartPlayback(34@, 134)
 Car.SetHealth(34@, 350)
@@ -2445,6 +2775,12 @@ set_lvar_int_to_lvar_int 57@ = TIMERA
 
 :DESERT9_15969
 wait 0
+gosub @DESERT9_COOP_UPDATE
+if
+  742@ <> 0
+then
+    goto @DESERT9_COOP_SHARED_FAILURE
+end
 if 
   58@ == 0
 goto_if_false @DESERT9_16040
@@ -2469,6 +2805,9 @@ Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Camera.DoFade(1, Fade.Out)
 Text.Print('DES9_32', 5000, 1)
+set_lvar_text_label 800@s = 'DES9_32'
+802@ = 5000
+gosub @DESERT9_COOP_PRINT_NOW
 gosub @DESERT9_21846
 goto @DESERT9_18
 
@@ -2595,6 +2934,12 @@ if
   240@(224@,15i) == 2
 goto_if_false @DESERT9_17042
 256@ = Car.Create(422, 257@, 75@, 258@)
+set_lvar_int_to_lvar_int 804@(224@,15i) = 256@
+819@(224@,15i) = -1
+set_lvar_int_to_lvar_int 749@ = 256@
+gosub @DESERT9_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 819@(224@,15i) = 750@
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
 Car.SetHeading(256@, 270.0)
 Car.SetForwardSpeed(256@, 260@)
 Car.SetRotationVelocity(256@, 0.0, 23.0, 0.0)
@@ -3085,6 +3430,9 @@ Task.FallAndGetUp($scplayer, False, 0)
 71@ = 0
 Text.ClearPrints
 Text.Print('DES9_42', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_42'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 
 :DESERT9_20460
 return 
@@ -3207,6 +3555,14 @@ goto_if_false @DESERT9_21336
 Audio.PlayMissionAudio(625@)
 Text.ClearPrints
 Text.Print(502@(626@,40s), 10000, 1)
+for $temp_int = 0 to 2
+    gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+    if
+      780@ <> -1
+    then
+        Coop.PrintNowForNetworkPlayer(502@(626@,40s), 10000, 1, 780@)
+    end
+end
 629@ += 1
 678@ = 0
 626@ += 1
@@ -3328,6 +3684,9 @@ goto_if_false @DESERT9_21768
 set_lvar_int_to_lvar_int 683@ = TIMERA
 683@ += 5000
 Text.Print('DES9_A9', 4000, 1)
+set_lvar_text_label 800@s = 'DES9_A9'
+802@ = 4000
+gosub @DESERT9_COOP_PRINT_NOW
 684@ = 1
 
 :DESERT9_21768
@@ -3340,17 +3699,24 @@ goto_if_false @DESERT9_21844
 set_lvar_int_to_lvar_int 683@ = TIMERA
 683@ += 4500
 Text.Print('DES9_A6', 4500, 1)
+set_lvar_text_label 800@s = 'DES9_A6'
+802@ = 4500
+gosub @DESERT9_COOP_PRINT_NOW
 684@ = 2
 
 :DESERT9_21844
 return 
 
 :DESERT9_21846
+755@ = 2
+gosub @DESERT9_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Pickup.Remove($para_pickup)
 return 
 
 :DESERT9_21869
+755@ = 1
+gosub @DESERT9_COOP_NOTIFY_RESULT
 if 
   Char.HasGotWeapon($scplayer, WeaponType.Detonator)
 goto_if_false @DESERT9_21894
@@ -3367,6 +3733,13 @@ Player.ClearWantedLevel($player1)
 return 
 
 :DESERT9_21954
+if
+  755@ == 0
+then
+    755@ = 2
+end
+gosub @DESERT9_COOP_NOTIFY_RESULT
+gosub @DESERT9_COOP_CLEANUP
 $player_fall_safe = 0
 if 
   not Char.IsDead($scplayer)
@@ -3528,4 +3901,1503 @@ $timer_mobile_start = Clock.GetGameTimer()
 $para_control_off = 0
 return 
 return 
+
+// Cooperative Stowaway layer. The host remains the sole owner of 68@/71@,
+// Andromada playback, canonical motorcycle boarding, interior section state,
+// detonation 178@, cinematics, failure, reward, stats, and story progression.
+// Peers receive separate physical chase vehicles, shared combat, conservative
+// aircraft staging, and individual parachute escapes without writing those
+// canonical triggers.
+:DESERT9_COOP_UPDATE_ROSTER
+795@, 796@, 797@ = Coop.CollectNetworkPlayersForTheMission()
+741@ = 0
+754@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 753@ = 691@($temp_int,3i)
+    691@($temp_int,3i) = 0
+    780@ = -1
+    if
+      688@($temp_int,3i) <> -1
+    then
+        for 781@ = 0 to 2
+            set_lvar_int_to_lvar_int 757@ = 795@(781@,3i)
+            if
+                Coop.IsNetworkPlayerActorValid(757@)
+            then
+                752@ = Coop.GetNetworkPlayerInternalId(757@)
+                if
+                    is_int_lvar_equal_to_int_lvar 752@ == 688@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 780@ = 757@
+                end
+            end
+        end
+    end
+    if
+      780@ <> -1
+    then
+        set_lvar_int_to_lvar_int 685@($temp_int,3i) = 780@
+        691@($temp_int,3i) = 1
+        741@ += 1
+        if
+          753@ == 0
+        then
+            694@($temp_int,3i) = 1
+            697@($temp_int,3i) = -1
+            754@ = 1
+        end
+        if
+            Char.IsDead(780@)
+        then
+            742@ = 1
+        end
+    end
+    if
+      691@($temp_int,3i) == 0
+    then
+        697@($temp_int,3i) = -1
+        791@($temp_int,3i) = 0
+    end
+end
+return
+
+:DESERT9_COOP_VALIDATE_CURRENT_SLOT
+780@ = -1
+if and
+  688@($temp_int,3i) <> -1
+  Coop.IsNetworkPlayerActorValid(685@($temp_int,3i))
+then
+    752@ = Coop.GetNetworkPlayerInternalId(685@($temp_int,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 752@ == 688@($temp_int,3i)
+    then
+        set_lvar_int_to_lvar_int 780@ = 685@($temp_int,3i)
+    end
+end
+return
+
+:DESERT9_COOP_BUILD_ACTIVE_ARGS
+768@ = -1
+769@ = -1
+770@ = -1
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 768@($temp_int,3i) = 685@($temp_int,3i)
+    end
+end
+return
+
+:DESERT9_COOP_TELEPORT_ACTIVE
+if
+  740@ == 0
+then
+    return
+end
+gosub @DESERT9_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(768@, 769@, 770@)
+return
+
+:DESERT9_COOP_TELEPORT_CURRENT
+if
+  $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(685@, -1, -1)
+end
+if
+  $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 686@, -1)
+end
+if
+  $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 687@)
+end
+return
+
+// Remotes and their support motorcycles are hidden, collision-safe, proofed,
+// and frozen during host camera sequences. Repeated entry is harmless.
+:DESERT9_COOP_BEGIN_CINEMATIC
+if or
+  740@ == 0
+  744@ == 1
+then
+    return
+end
+744@ = 1
+gosub @DESERT9_COOP_UPDATE_ROSTER
+gosub @DESERT9_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+      700@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(700@($temp_int,3i))
+        then
+            Car.FreezePosition(700@($temp_int,3i), True)
+            Car.SetCollision(700@($temp_int,3i), False)
+            Car.SetVisible(700@($temp_int,3i), False)
+        end
+    end
+    gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+    if
+      780@ <> -1
+    then
+        if
+            not Char.IsDead(780@)
+        then
+            Char.ClearTasksImmediately(780@)
+            Char.FreezePosition(780@, True)
+            Char.SetProofs(780@, True, True, True, True, True)
+            Char.SetCollision(780@, False)
+            Char.SetVisible(780@, False)
+            Task.StandStill(780@, -1)
+        end
+    end
+end
+return
+
+// Each frozen identity receives a separate invulnerable Sanchez. They can chase
+// the aircraft and reach its ramp physically, but only host bike 35@ can trip the
+// original boarding condition.
+:DESERT9_COOP_PREPARE_SUPPORTS
+if or
+  740@ == 0
+  771@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+      688@($temp_int,3i) <> -1
+    then
+        759@ = 429.0
+        760@ = 2524.0
+        if
+          $temp_int == 1
+        then
+            759@ = 425.0
+            760@ = 2533.0
+        end
+        if
+          $temp_int == 2
+        then
+            759@ = 421.0
+            760@ = 2526.0
+        end
+        700@($temp_int,3i) = Car.Create(461, 759@, 760@, 15.7)
+        if
+            Car.DoesExist(700@($temp_int,3i))
+        then
+            Car.SetHeading(700@($temp_int,3i), 90.0)
+            Car.SetHealth(700@($temp_int,3i), 2000)
+            Car.SetCanBurstTires(700@($temp_int,3i), False)
+            Car.SetProofs(700@($temp_int,3i), True, True, True, True, True)
+            Car.LockDoors(700@($temp_int,3i), CarLock.Unlocked)
+            Car.FreezePosition(700@($temp_int,3i), True)
+            Car.SetCollision(700@($temp_int,3i), False)
+            Car.SetVisible(700@($temp_int,3i), False)
+            set_lvar_int_to_lvar_int 749@ = 700@($temp_int,3i)
+            gosub @DESERT9_COOP_REGISTER_VEHICLE
+            set_lvar_int_to_lvar_int 703@($temp_int,3i) = 750@
+        end
+    end
+end
+771@ = 1
+gosub @DESERT9_COOP_ARM_REGISTRATION_WINDOW
+return
+
+:DESERT9_COOP_STAGE_CHASE
+if
+  740@ == 0
+then
+    744@ = 0
+    return
+end
+gosub @DESERT9_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        gosub @DESERT9_COOP_STAGE_CURRENT_CHASE
+    end
+end
+if
+    Car.DoesExist(34@)
+then
+    Car.SetProofs(34@, True, True, True, True, True)
+    Car.ClearLastDamageEntity(34@)
+end
+744@ = 0
+788@ = 1
+783@ = 1
+return
+
+:DESERT9_COOP_STAGE_CURRENT_CHASE
+gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+if
+  780@ == -1
+then
+    return
+end
+if
+    Car.DoesExist(35@)
+then
+    759@, 760@, 761@ = Car.GetCoordinates(35@)
+    773@ = Car.GetHeading(35@)
+else
+    759@, 760@, 761@ = Char.GetCoordinates($scplayer)
+    773@ = Char.GetHeading($scplayer)
+end
+759@ -= 4.0
+if
+  $temp_int == 0
+then
+    760@ -= 4.0
+end
+if
+  $temp_int == 1
+then
+    759@ -= 3.0
+end
+if
+  $temp_int == 2
+then
+    760@ += 4.0
+end
+if and
+  700@($temp_int,3i) <> -1
+  Car.DoesExist(700@($temp_int,3i))
+then
+    Car.SetCoordinates(700@($temp_int,3i), 759@, 760@, 761@)
+    Car.SetHeading(700@($temp_int,3i), 773@)
+    Car.SetAreaVisible(700@($temp_int,3i), 0)
+    Car.FreezePosition(700@($temp_int,3i), False)
+    Car.SetCollision(700@($temp_int,3i), True)
+    Car.SetVisible(700@($temp_int,3i), True)
+    Char.ClearTasksImmediately(780@)
+    if
+        not Char.IsInCar(780@, 700@($temp_int,3i))
+    then
+        if
+            Char.IsInAnyCar(780@)
+        then
+            761@ += 1.0
+            Char.WarpFromCarToCoord(780@, 759@, 760@, 761@)
+        end
+        Char.WarpIntoCar(780@, 700@($temp_int,3i))
+    end
+else
+    gosub @DESERT9_COOP_TELEPORT_CURRENT
+end
+Char.SetAreaVisible(780@, 0)
+Char.FreezePosition(780@, False)
+Char.SetProofs(780@, False, False, False, False, False)
+Char.SetCollision(780@, True)
+Char.SetVisible(780@, True)
+Task.StandStill(780@, 0)
+Char.ClearLastDamageEntity(780@)
+Char.ClearLastWeaponDamage(780@)
+777@($temp_int,3i) = Char.GetHealth(780@)
+834@($temp_int,3i) = Char.GetArmor(780@)
+694@($temp_int,3i) = 0
+697@($temp_int,3i) = -1
+791@($temp_int,3i) = 0
+return
+
+:DESERT9_COOP_PROTECT_REMOTE_BLAST
+gosub @DESERT9_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+        if
+          780@ <> -1
+        then
+            if
+                not Char.IsDead(780@)
+            then
+                Char.SetProofs(780@, False, True, True, False, False)
+            end
+        end
+    end
+end
+return
+
+:DESERT9_COOP_STAGE_INTERIOR
+if
+  740@ == 0
+then
+    744@ = 0
+    return
+end
+gosub @DESERT9_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        gosub @DESERT9_COOP_STAGE_CURRENT_INTERIOR
+    end
+    if and
+      700@($temp_int,3i) <> -1
+      Car.DoesExist(700@($temp_int,3i))
+    then
+        Car.FreezePosition(700@($temp_int,3i), True)
+        Car.SetCollision(700@($temp_int,3i), False)
+        Car.SetVisible(700@($temp_int,3i), False)
+    end
+end
+744@ = 0
+788@ = 1
+783@ = 1
+return
+
+:DESERT9_COOP_STAGE_CURRENT_INTERIOR
+gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+if
+  780@ == -1
+then
+    return
+end
+759@ = 316.2
+760@ = 1026.0
+if
+  $temp_int == 1
+then
+    759@ = 318.2
+    760@ = 1027.0
+end
+if
+  $temp_int == 2
+then
+    759@ = 319.5
+    760@ = 1024.5
+end
+Char.ClearTasksImmediately(780@)
+if
+    Char.IsInAnyCar(780@)
+then
+    Char.WarpFromCarToCoord(780@, 759@, 760@, 1949.1)
+else
+    Char.SetCoordinates(780@, 759@, 760@, 1949.1)
+end
+Char.SetAreaVisible(780@, 9)
+Char.SetHeading(780@, 180.0)
+Char.GiveWeapon(780@, WeaponType.Parachute, 1)
+718@($temp_int,3i) = 1
+721@($temp_int,3i) = 0
+Char.FreezePosition(780@, False)
+Char.SetProofs(780@, False, False, False, False, False)
+if
+  178@ == 1
+then
+    Char.SetProofs(780@, False, True, True, False, False)
+end
+Char.SetCollision(780@, True)
+Char.SetVisible(780@, True)
+Task.StandStill(780@, 0)
+Char.ClearLastDamageEntity(780@)
+Char.ClearLastWeaponDamage(780@)
+777@($temp_int,3i) = Char.GetHealth(780@)
+834@($temp_int,3i) = Char.GetArmor(780@)
+694@($temp_int,3i) = 0
+697@($temp_int,3i) = -1
+791@($temp_int,3i) = 0
+return
+
+// A peer must physically leave the aircraft shell after the host-owned blast.
+// The area transition itself is host-authored here so each remote lands in the
+// same exterior sky section. Once the host jumps, a short deterministic fallback
+// catches up a lagging connected peer without delaying canonical progression.
+:DESERT9_COOP_STAGE_CURRENT_SKY
+gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+if
+  780@ == -1
+then
+    return
+end
+759@ = 175.8
+760@ = 1097.0
+if
+  $temp_int == 1
+then
+    759@ = 178.2
+    760@ = 1096.0
+end
+if
+  $temp_int == 2
+then
+    759@ = 180.6
+    760@ = 1095.0
+end
+Char.ClearTasksImmediately(780@)
+Char.SetAreaVisible(780@, 0)
+if
+    Char.IsInAnyCar(780@)
+then
+    Char.WarpFromCarToCoord(780@, 759@, 760@, 1976.0)
+else
+    Char.SetCoordinates(780@, 759@, 760@, 1976.0)
+end
+if
+  718@($temp_int,3i) == 0
+then
+    Char.GiveWeapon(780@, WeaponType.Parachute, 1)
+    718@($temp_int,3i) = 1
+end
+Char.SetCurrentWeapon(780@, WeaponType.Parachute)
+Char.SetHeading(780@, 180.0)
+Char.SetVelocity(780@, 0.0, -30.0, -3.0)
+Char.FreezePosition(780@, False)
+Char.SetProofs(780@, False, False, False, False, False)
+Char.SetCollision(780@, True)
+Char.SetVisible(780@, True)
+Task.StandStill(780@, 0)
+Char.ClearLastDamageEntity(780@)
+Char.ClearLastWeaponDamage(780@)
+777@($temp_int,3i) = Char.GetHealth(780@)
+834@($temp_int,3i) = Char.GetArmor(780@)
+721@($temp_int,3i) = 1
+694@($temp_int,3i) = 0
+697@($temp_int,3i) = -1
+791@($temp_int,3i) = 0
+783@ = 1
+return
+
+:DESERT9_COOP_HANDLE_RECONNECTS
+if
+  754@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+      691@($temp_int,3i) == 1
+      694@($temp_int,3i) == 1
+    then
+        if
+          744@ == 1
+        then
+            gosub @DESERT9_COOP_FREEZE_CURRENT
+        else
+            if
+              745@ == 1
+            then
+                gosub @DESERT9_COOP_STAGE_CURRENT_CHASE
+            end
+            if
+              745@ == 3
+            then
+                gosub @DESERT9_COOP_STAGE_CURRENT_INTERIOR
+            end
+            if
+              745@ == 4
+            then
+                gosub @DESERT9_COOP_STAGE_CURRENT_SKY
+            end
+        end
+        694@($temp_int,3i) = 0
+    end
+end
+783@ = 1
+return
+
+:DESERT9_COOP_FREEZE_CURRENT
+gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+if
+  780@ == -1
+then
+    return
+end
+if
+    not Char.IsDead(780@)
+then
+    Char.ClearTasksImmediately(780@)
+    Char.FreezePosition(780@, True)
+    Char.SetProofs(780@, True, True, True, True, True)
+    Char.SetCollision(780@, False)
+    Char.SetVisible(780@, False)
+    Task.StandStill(780@, -1)
+end
+return
+
+:DESERT9_COOP_UPDATE_ESCAPE
+if
+  745@ < 3
+then
+    return
+end
+if and
+  745@ == 3
+  178@ == 1
+then
+    if
+      789@ == 0
+    then
+        789@ = 1
+        783@ = 1
+    end
+end
+752@ = Clock.GetGameTimer()
+for $temp_int = 0 to 2
+    if and
+      691@($temp_int,3i) == 1
+      721@($temp_int,3i) == 0
+    then
+        gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+        if
+          780@ <> -1
+        then
+            776@ = 0
+            if and
+              178@ == 1
+              745@ == 3
+            then
+                759@, 760@, 761@ = Char.GetCoordinates(780@)
+                782@ = Char.GetAreaVisible(780@)
+                if and
+                  782@ == 9
+                  1940.5 > 761@
+                then
+                    776@ = 1
+                end
+            end
+            if
+              745@ == 4
+            then
+                759@, 760@, 761@ = Char.GetCoordinates(780@)
+                782@ = Char.GetAreaVisible(780@)
+                if and
+                  782@ == 9
+                  1940.5 > 761@
+                then
+                    776@ = 1
+                end
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 752@ >= 774@
+                then
+                    776@ = 1
+                end
+            end
+            if
+              776@ == 1
+            then
+                gosub @DESERT9_COOP_STAGE_CURRENT_SKY
+            end
+        end
+    end
+end
+return
+
+:DESERT9_COOP_UPDATE_BOARDING
+if or
+  745@ <> 1
+  not Object.DoesExist(56@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+      691@($temp_int,3i) == 1
+      784@($temp_int,3i) == 0
+    then
+        gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+        if
+          780@ <> -1
+        then
+            if and
+              Char.IsSittingInAnyCar(780@)
+              Char.LocateAnyMeansObject3D(780@, 56@, 8.0, 5.0, 4.0, False)
+            then
+                784@($temp_int,3i) = 1
+                Coop.PrintNowForNetworkPlayer('DES9_A5', 3000, 1, 780@)
+            end
+        end
+    end
+end
+return
+
+// Stragglers remain playable for a grace period. Only invalid area transitions
+// or large separation trigger recovery; disconnects retire their slot and never
+// hold the host's boarding/interior progression.
+:DESERT9_COOP_UPDATE_REGROUP
+if or
+  745@ < 1
+  744@ == 1
+then
+    return
+end
+752@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 767@ > 752@
+then
+    return
+end
+set_lvar_int_to_lvar_int 767@ = 752@
+767@ += 1000
+for $temp_int = 0 to 2
+    if and
+      691@($temp_int,3i) == 1
+      721@($temp_int,3i) == 0
+    then
+        gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+        if
+          780@ <> -1
+        then
+            776@ = 0
+            782@ = Char.GetAreaVisible(780@)
+            if
+              745@ == 1
+            then
+                if or
+                  782@ <> 0
+                  not Char.LocateAnyMeansChar3D(780@, $scplayer, 450.0, 450.0, 160.0, False)
+                then
+                    776@ = 1
+                end
+            end
+            if
+              745@ == 3
+            then
+                if or
+                  782@ <> 9
+                  not Char.LocateAnyMeans3D(780@, False, 316.0, 1005.0, 1955.0, 85.0, 85.0, 35.0)
+                then
+                    776@ = 1
+                end
+            end
+            if
+              776@ == 1
+            then
+                if
+                  791@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 791@($temp_int,3i) = 752@
+                end
+                set_lvar_int_to_lvar_int 782@ = 752@
+                sub_int_lvar_from_int_lvar 782@ -= 791@($temp_int,3i)
+                if and
+                  745@ == 1
+                  782@ > 15000
+                then
+                    gosub @DESERT9_COOP_STAGE_CURRENT_CHASE
+                end
+                if and
+                  745@ == 3
+                  782@ > 10000
+                then
+                    gosub @DESERT9_COOP_STAGE_CURRENT_INTERIOR
+                end
+            else
+                791@($temp_int,3i) = 0
+            end
+        end
+    end
+end
+return
+
+// Host-created gunmen periodically engage the nearest live participant. Drivers,
+// the barrel-throwing pilot, and all canonical playback tasks are untouched.
+:DESERT9_COOP_UPDATE_COMBAT
+if or
+  744@ == 1
+  745@ < 1
+then
+    return
+end
+752@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 787@ > 752@
+then
+    return
+end
+set_lvar_int_to_lvar_int 787@ = 752@
+787@ += 750
+if
+  745@ == 1
+then
+    for 781@ = 0 to 2
+        set_lvar_int_to_lvar_int 749@ = 40@(781@,8i)
+        gosub @DESERT9_COOP_RETARGET_CURRENT_ENEMY
+    end
+end
+if
+  745@ == 3
+then
+    for 781@ = 0 to 3
+        set_lvar_int_to_lvar_int 749@ = 40@(781@,8i)
+        gosub @DESERT9_COOP_RETARGET_CURRENT_ENEMY
+    end
+end
+return
+
+:DESERT9_COOP_RETARGET_CURRENT_ENEMY
+if
+    not Char.DoesExist(749@)
+then
+    return
+end
+if
+    Char.IsDead(749@)
+then
+    return
+end
+759@, 760@, 761@ = Char.GetCoordinates(749@)
+757@ = -1
+766@ = 99999.0
+if
+    not Char.IsDead($scplayer)
+then
+    762@, 763@, 764@ = Char.GetCoordinates($scplayer)
+    766@ = Math.GetDistanceBetweenCoords2D(759@, 760@, 762@, 763@)
+    set_lvar_int_to_var_int 757@ = $scplayer
+end
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        if
+            not Char.IsDead(685@($temp_int,3i))
+        then
+            762@, 763@, 764@ = Char.GetCoordinates(685@($temp_int,3i))
+            765@ = Math.GetDistanceBetweenCoords2D(759@, 760@, 762@, 763@)
+            if
+                is_float_lvar_greater_than_float_lvar 766@ > 765@
+            then
+                set_lvar_int_to_lvar_int 757@ = 685@($temp_int,3i)
+                set_lvar_float_to_lvar_float 766@ = 765@
+            end
+        end
+    end
+end
+if
+  757@ <> -1
+then
+    Task.KillCharOnFoot(749@, 757@)
+end
+return
+
+// The engine exposes no team-specific proof flag. Friendly damage is therefore
+// repaired on the authoritative tick from each participant's last safe health;
+// hostile damage still sticks, and a connected death remains a deterministic
+// shared failure. The canonical Andromada is fully proofed during the chase.
+:DESERT9_COOP_PROTECT_PARTICIPANTS
+if or
+  744@ == 1
+  745@ < 1
+then
+    return
+end
+if and
+  745@ == 1
+  Car.DoesExist(34@)
+then
+    Car.SetProofs(34@, True, True, True, True, True)
+    Car.ClearLastDamageEntity(34@)
+end
+if
+    not Char.IsDead($scplayer)
+then
+    790@ = 0
+    for $temp_int = 0 to 2
+        if
+          691@($temp_int,3i) == 1
+        then
+            if
+                Char.HasBeenDamagedByChar($scplayer, 685@($temp_int,3i))
+            then
+                790@ = 1
+            end
+        end
+    end
+    776@ = Char.GetHealth($scplayer)
+    837@ = Char.GetArmor($scplayer)
+    if
+      790@ == 1
+    then
+        if and
+          775@ > 0
+          is_int_lvar_greater_than_int_lvar 775@ > 776@
+        then
+            Char.SetHealth($scplayer, 775@)
+        end
+        if
+            is_int_lvar_greater_than_int_lvar 838@ > 837@
+        then
+            set_lvar_int_to_lvar_int 790@ = 838@
+            sub_int_lvar_from_int_lvar 790@ -= 837@
+            Char.AddArmor($scplayer, 790@)
+        end
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    end
+    775@ = Char.GetHealth($scplayer)
+    838@ = Char.GetArmor($scplayer)
+end
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+        if
+          780@ <> -1
+        then
+            if
+                not Char.IsDead(780@)
+            then
+                790@ = 0
+                if
+                    Char.HasBeenDamagedByChar(780@, $scplayer)
+                then
+                    790@ = 1
+                end
+                if and
+                  $temp_int <> 0
+                  691@ == 1
+                then
+                    if
+                        Char.HasBeenDamagedByChar(780@, 685@)
+                    then
+                        790@ = 1
+                    end
+                end
+                if and
+                  $temp_int <> 1
+                  692@ == 1
+                then
+                    if
+                        Char.HasBeenDamagedByChar(780@, 686@)
+                    then
+                        790@ = 1
+                    end
+                end
+                if and
+                  $temp_int <> 2
+                  693@ == 1
+                then
+                    if
+                        Char.HasBeenDamagedByChar(780@, 687@)
+                    then
+                        790@ = 1
+                    end
+                end
+                776@ = Char.GetHealth(780@)
+                837@ = Char.GetArmor(780@)
+                if
+                  790@ == 1
+                then
+                    if and
+                      777@($temp_int,3i) > 0
+                      is_int_lvar_greater_than_int_lvar 777@($temp_int,3i) > 776@
+                    then
+                        Char.SetHealth(780@, 777@($temp_int,3i))
+                    end
+                    if
+                        is_int_lvar_greater_than_int_lvar 834@($temp_int,3i) > 837@
+                    then
+                        set_lvar_int_to_lvar_int 790@ = 834@($temp_int,3i)
+                        sub_int_lvar_from_int_lvar 790@ -= 837@
+                        Char.AddArmor(780@, 790@)
+                    end
+                    Char.ClearLastDamageEntity(780@)
+                    Char.ClearLastWeaponDamage(780@)
+                end
+                777@($temp_int,3i) = Char.GetHealth(780@)
+                834@($temp_int,3i) = Char.GetArmor(780@)
+            end
+        end
+    end
+end
+return
+
+:DESERT9_COOP_UPDATE_OBJECTIVES
+if
+  740@ == 0
+then
+    return
+end
+752@ = Clock.GetGameTimer()
+if
+  783@ == 0
+then
+    if
+        is_int_lvar_greater_than_int_lvar 746@ > 752@
+    then
+        return
+    end
+end
+set_lvar_int_to_lvar_int 746@ = 752@
+746@ += 1500
+783@ = 0
+758@ = -1
+if
+  744@ == 0
+then
+    if
+      745@ == 1
+    then
+        758@ = 10
+    end
+    if
+      745@ == 3
+    then
+        758@ = 20
+        if and
+          173@ >= 1
+          178@ == 0
+        then
+            758@ = 30
+        end
+        if
+          178@ == 1
+        then
+            758@ = 40
+        end
+    end
+    if
+      745@ == 4
+    then
+        758@ = 40
+    end
+end
+for $temp_int = 0 to 2
+    if
+      691@($temp_int,3i) == 1
+    then
+        gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+        if
+          780@ <> -1
+        then
+            set_lvar_int_to_lvar_int 782@ = 758@
+            if and
+              745@ == 4
+              721@($temp_int,3i) == 1
+            then
+                782@ = 50
+            end
+            Coop.ClearAllEntityBlipsForNetworkPlayer(780@)
+            Coop.RemoveCheckpointForNetworkPlayer(780@)
+            if
+                not is_int_lvar_equal_to_int_lvar 697@($temp_int,3i) == 782@
+            then
+                gosub @DESERT9_COOP_CLEAR_CURRENT_TEXT
+                if
+                  782@ == 10
+                then
+                    Coop.PrintNowForNetworkPlayer('DES9_A4', 6000, 1, 780@)
+                end
+                if
+                  782@ == 20
+                then
+                    Coop.PrintNowForNetworkPlayer('DES9_46', 6000, 1, 780@)
+                end
+                if
+                  782@ == 30
+                then
+                    Coop.PrintNowForNetworkPlayer('DES9_A1', 6000, 1, 780@)
+                end
+                if or
+                  782@ == 40
+                  782@ == 50
+                then
+                    Coop.PrintNowForNetworkPlayer('DES9_26', 6000, 1, 780@)
+                end
+                set_lvar_int_to_lvar_int 697@($temp_int,3i) = 782@
+            end
+            if
+              782@ == 10
+            then
+                if and
+                  732@ <> -1
+                  Car.DoesExist(34@)
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(780@, 34@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                else
+                    if
+                        Car.DoesExist(34@)
+                    then
+                        759@, 760@, 761@ = Car.GetCoordinates(34@)
+                        Coop.UpdateCheckpointForNetworkPlayer(759@, 760@, 761@, 18.0, 18.0, 10.0, 780@)
+                    end
+                end
+                if and
+                  703@($temp_int,3i) <> -1
+                  700@($temp_int,3i) <> -1
+                  Car.DoesExist(700@($temp_int,3i))
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(780@, 700@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+            end
+            if
+              782@ == 20
+            then
+                if and
+                  728@ <> -1
+                  Char.DoesExist(44@)
+                then
+                    if
+                        not Char.IsDead(44@)
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(780@, 44@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                else
+                    Coop.UpdateCheckpointForNetworkPlayer(317.8, 980.0, 1960.1, 8.0, 8.0, 6.0, 780@)
+                end
+                for 781@ = 0 to 3
+                    if and
+                      724@(781@,8i) <> -1
+                      Char.DoesExist(40@(781@,8i))
+                    then
+                        if
+                            not Char.IsDead(40@(781@,8i))
+                        then
+                            Coop.UpdateCharBlipForNetworkPlayer(780@, 40@(781@,8i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                        end
+                    end
+                end
+            end
+            if
+              782@ == 30
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(316.0, 1000.0, 1954.6, 12.0, 18.0, 8.0, 780@)
+            end
+            if
+              782@ == 40
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(317.5, 1028.0, 1949.0, 10.0, 10.0, 8.0, 780@)
+            end
+        end
+    end
+end
+return
+
+:DESERT9_COOP_CLEAR_CURRENT_TEXT
+Coop.ClearThisPrintForNetworkPlayer('DES9_A4', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_46', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_A1', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_26', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_39', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_29', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_42', 780@)
+Coop.ClearThisPrintForNetworkPlayer('DES9_32', 780@)
+return
+
+:DESERT9_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+    if
+      780@ <> -1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(780@)
+        Coop.RemoveCheckpointForNetworkPlayer(780@)
+        gosub @DESERT9_COOP_CLEAR_CURRENT_TEXT
+        Coop.ClearThisPrintForNetworkPlayer('DES9_3', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_4', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_44', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_A5', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_45', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_27', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_A2', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_A9', 780@)
+        Coop.ClearThisPrintForNetworkPlayer('DES9_A6', 780@)
+    end
+    697@($temp_int,3i) = -1
+end
+return
+
+:DESERT9_COOP_PRINT_NOW
+for $temp_int = 0 to 2
+    gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+    if
+      780@ <> -1
+    then
+        Coop.PrintNowForNetworkPlayer(800@s, 802@, 803@, 780@)
+    end
+end
+return
+
+:DESERT9_COOP_NOTIFY_RESULT
+if or
+  756@ == 1
+  755@ == 0
+then
+    return
+end
+756@ = 1
+gosub @DESERT9_COOP_UPDATE_ROSTER
+gosub @DESERT9_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+    if
+      780@ <> -1
+    then
+        if
+          755@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 780@)
+        end
+        if
+          755@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 780@)
+        end
+    end
+end
+return
+
+// Every blocking handshake has a one-second hard deadline and validates entity
+// lifetime every frame. A later eight-second cadence-limited polling window is
+// fully nonblocking; exhausted IDs degrade only entity blips, never mission flow.
+:DESERT9_COOP_REGISTER_PED
+750@ = -1
+if or
+  740@ == 0
+  749@ == -1
+then
+    return
+end
+if
+    not Char.DoesExist(749@)
+then
+    return
+end
+752@ = Clock.GetGameTimer()
+752@ += 1000
+750@ = Coop.GetPedNetworkId(749@)
+while 750@ == -1
+    if
+        not Char.DoesExist(749@)
+    then
+        751@ += 1
+        break
+    end
+    if
+        Char.IsDead(749@)
+    then
+        751@ += 1
+        break
+    end
+    776@ = Clock.GetGameTimer()
+    if
+        is_int_lvar_greater_or_equal_to_int_lvar 776@ >= 752@
+    then
+        751@ += 1
+        break
+    end
+    wait 0
+    750@ = Coop.GetPedNetworkId(749@)
+end
+return
+
+:DESERT9_COOP_REGISTER_VEHICLE
+750@ = -1
+if or
+  740@ == 0
+  749@ == -1
+then
+    return
+end
+if
+    not Car.DoesExist(749@)
+then
+    return
+end
+752@ = Clock.GetGameTimer()
+752@ += 1000
+750@ = Coop.GetVehicleNetworkId(749@)
+while 750@ == -1
+    if
+        not Car.DoesExist(749@)
+    then
+        751@ += 1
+        break
+    end
+    if
+        Car.IsDead(749@)
+    then
+        751@ += 1
+        break
+    end
+    776@ = Clock.GetGameTimer()
+    if
+        is_int_lvar_greater_or_equal_to_int_lvar 776@ >= 752@
+    then
+        751@ += 1
+        break
+    end
+    wait 0
+    750@ = Coop.GetVehicleNetworkId(749@)
+end
+return
+
+:DESERT9_COOP_ARM_REGISTRATION_WINDOW
+747@ = 0
+748@ = Clock.GetGameTimer()
+748@ += 8000
+return
+
+:DESERT9_COOP_POLL_REGISTRATIONS
+if or
+  740@ == 0
+  748@ == 0
+then
+    return
+end
+752@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 752@ >= 748@
+then
+    748@ = 0
+    751@ += 1
+    return
+end
+if
+    is_int_lvar_greater_than_int_lvar 747@ > 752@
+then
+    return
+end
+set_lvar_int_to_lvar_int 747@ = 752@
+747@ += 500
+for 781@ = 0 to 7
+    if and
+      724@(781@,8i) == -1
+      Char.DoesExist(40@(781@,8i))
+    then
+        724@(781@,8i) = Coop.GetPedNetworkId(40@(781@,8i))
+    end
+end
+for 781@ = 0 to 4
+    if and
+      732@(781@,5i) == -1
+      Car.DoesExist(34@(781@,5i))
+    then
+        732@(781@,5i) = Coop.GetVehicleNetworkId(34@(781@,5i))
+    end
+end
+for 781@ = 0 to 14
+    if and
+      819@(781@,15i) == -1
+      804@(781@,15i) <> -1
+    then
+        if
+            Car.DoesExist(804@(781@,15i))
+        then
+            819@(781@,15i) = Coop.GetVehicleNetworkId(804@(781@,15i))
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+      703@($temp_int,3i) == -1
+      700@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(700@($temp_int,3i))
+        then
+            703@($temp_int,3i) = Coop.GetVehicleNetworkId(700@($temp_int,3i))
+        end
+    end
+end
+if and
+  737@ == -1
+  Car.DoesExist(186@)
+then
+    737@ = Coop.GetVehicleNetworkId(186@)
+end
+if and
+  738@ == -1
+  Car.DoesExist(181@)
+then
+    738@ = Coop.GetVehicleNetworkId(181@)
+end
+if and
+  739@ == -1
+  Char.DoesExist(182@)
+then
+    739@ = Coop.GetPedNetworkId(182@)
+end
+return
+
+:DESERT9_COOP_UPDATE
+if
+  740@ == 0
+then
+    return
+end
+gosub @DESERT9_COOP_UPDATE_ROSTER
+if
+  742@ <> 0
+then
+    return
+end
+gosub @DESERT9_COOP_HANDLE_RECONNECTS
+gosub @DESERT9_COOP_POLL_REGISTRATIONS
+if
+  755@ <> 0
+then
+    return
+end
+gosub @DESERT9_COOP_UPDATE_BOARDING
+gosub @DESERT9_COOP_UPDATE_ESCAPE
+gosub @DESERT9_COOP_PROTECT_PARTICIPANTS
+gosub @DESERT9_COOP_UPDATE_COMBAT
+gosub @DESERT9_COOP_UPDATE_REGROUP
+gosub @DESERT9_COOP_UPDATE_OBJECTIVES
+return
+
+// Repeat-safe on pass, host/participant failure, skipped cinematics, partial
+// registration, disconnect, and reconnect. Original cleanup still owns all
+// canonical vehicles, peds, objects, fires, recordings, models, and story flags.
+:DESERT9_COOP_CLEANUP
+if
+  743@ == 1
+then
+    return
+end
+743@ = 1
+gosub @DESERT9_COOP_UPDATE_ROSTER
+gosub @DESERT9_COOP_CLEAR_OBJECTIVES
+759@, 760@, 761@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    gosub @DESERT9_COOP_VALIDATE_CURRENT_SLOT
+    if
+      780@ <> -1
+    then
+        if
+            not Char.IsDead(780@)
+        then
+            if and
+              700@($temp_int,3i) <> -1
+              Car.DoesExist(700@($temp_int,3i))
+            then
+                if
+                    Char.IsInCar(780@, 700@($temp_int,3i))
+                then
+                    759@, 760@, 761@ = Char.GetCoordinates(780@)
+                    759@ += 2.0
+                    Char.WarpFromCarToCoord(780@, 759@, 760@, 761@)
+                end
+            end
+            if
+              718@($temp_int,3i) == 1
+            then
+                Char.RemoveWeapon(46, 780@)
+                Char.RemoveWeapon(39, 780@)
+                if
+                    Char.HasGotWeapon(780@, WeaponType.Detonator)
+                then
+                    Char.RemoveWeapon(40, 780@)
+                end
+                if
+                  709@($temp_int,3i) > 0
+                then
+                    Char.GiveWeapon(780@, WeaponType.Parachute, 709@($temp_int,3i))
+                end
+                if
+                  712@($temp_int,3i) > 0
+                then
+                    Char.GiveWeapon(780@, WeaponType.Satchel, 712@($temp_int,3i))
+                end
+                if
+                  715@($temp_int,3i) > 0
+                then
+                    Char.GiveWeapon(780@, WeaponType.Detonator, 715@($temp_int,3i))
+                end
+                if
+                  706@($temp_int,3i) == 0
+                then
+                    Char.SetCurrentWeapon(780@, WeaponType.Unarmed)
+                else
+                    if
+                        Char.HasGotWeapon(780@, 706@($temp_int,3i))
+                    then
+                        Char.SetCurrentWeapon(780@, 706@($temp_int,3i))
+                    end
+                end
+            end
+            782@ = Char.GetAreaVisible(780@)
+            if
+              782@ <> 0
+            then
+                759@ = 406.0
+                760@ = 2538.0
+                if
+                  $temp_int == 1
+                then
+                    759@ = 409.0
+                    760@ = 2540.0
+                end
+                if
+                  $temp_int == 2
+                then
+                    759@ = 412.0
+                    760@ = 2538.0
+                end
+                if
+                    Char.IsInAnyCar(780@)
+                then
+                    Char.WarpFromCarToCoord(780@, 759@, 760@, 15.7)
+                else
+                    Char.SetCoordinates(780@, 759@, 760@, 15.7)
+                end
+                Char.SetAreaVisible(780@, 0)
+            end
+            Char.ClearTasksImmediately(780@)
+            Char.FreezePosition(780@, False)
+            Char.SetProofs(780@, False, False, False, False, False)
+            Char.SetCollision(780@, True)
+            Char.SetVisible(780@, True)
+            Task.StandStill(780@, 0)
+            Char.ClearLastDamageEntity(780@)
+            Char.ClearLastWeaponDamage(780@)
+        end
+    end
+    if
+      700@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(700@($temp_int,3i))
+        then
+            Car.SetProofs(700@($temp_int,3i), False, False, False, False, False)
+            Car.SetCanBurstTires(700@($temp_int,3i), True)
+            Car.FreezePosition(700@($temp_int,3i), False)
+            Car.SetCollision(700@($temp_int,3i), True)
+            Car.SetVisible(700@($temp_int,3i), True)
+            Car.Delete(700@($temp_int,3i))
+        end
+    end
+    691@($temp_int,3i) = 0
+    694@($temp_int,3i) = 0
+    697@($temp_int,3i) = -1
+    700@($temp_int,3i) = -1
+    703@($temp_int,3i) = -1
+    718@($temp_int,3i) = 0
+    721@($temp_int,3i) = 0
+    784@($temp_int,3i) = 0
+    791@($temp_int,3i) = 0
+end
+for 781@ = 0 to 14
+    804@(781@,15i) = -1
+    819@(781@,15i) = -1
+end
+if
+    Car.DoesExist(34@)
+then
+    Car.SetProofs(34@, False, False, False, False, False)
+    Car.ClearLastDamageEntity(34@)
+end
+744@ = 0
+788@ = 0
+789@ = 0
+Player.SetControl($player1, True)
+Char.FreezePosition($scplayer, False)
+Hud.SwitchWidescreen(False)
+Hud.DisplayRadar(True)
+Camera.ResetNewScriptables
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+return
 
