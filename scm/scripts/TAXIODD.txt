@@ -3,6 +3,16 @@
 
 :TAXIODD
 script_name 'TAXIODD'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @TAXIODD_COOP_REJECT_NON_HOST
+goto @TAXIODD_COOP_HOST_START
+
+:TAXIODD_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:TAXIODD_COOP_HOST_START
 34@ = 0
 gosub @TAXIODD_54
 if 
@@ -85,6 +95,7 @@ TIMERB = 0
 126@ = 0
 108@ = 0
 146@ = 0
+gosub @TAXIODD_COOP_INIT
 if 
   38@ == -99
 goto_if_false @TAXIODD_721
@@ -120,6 +131,12 @@ goto @TAXIODD_17025
 
 :TAXIODD_778
 wait 0
+gosub @TAXIODD_COOP_UPDATE
+if
+  212@ == 1
+then
+    goto @TAXIODD_1465
+end
 gosub @TAXIODD_16595
 gosub @TAXIODD_16949
 if or
@@ -2822,6 +2839,7 @@ set_lvar_int_to_lvar_int 106@ = 47@
 106@ += 7000
 Game.SetAllTaxisHaveNitro(True)
 $done_taxiodd_progress = 1
+gosub @TAXIODD_COOP_NOTIFY_PASS
 goto @TAXIODD_18699
 
 :TAXIODD_18538
@@ -2902,10 +2920,12 @@ Text.PrintNow('TX_F3', 5000, 1)
 goto @TAXIODD_18987
 
 :TAXIODD_18987
+gosub @TAXIODD_COOP_NOTIFY_FAILURE
 Text.ClearHelp
 return 
 
 :TAXIODD_18991
+gosub @TAXIODD_COOP_CLEANUP
 if 
   not Char.IsDead(88@)
 goto_if_false @TAXIODD_19068
@@ -2958,6 +2978,403 @@ $onmission = 0
 $flag_taxiodd_mission_launched = 0
 Mission.Finish
 return 
+
+// Co-op policy for Taxi Driver:
+// - the host alone owns passenger spawning, fares, rewards, timers, progression,
+//   and the fifty-fare nitro unlock;
+// - disconnecting a frozen participant is a DNF until that immutable identity
+//   reconnects, and never fails the host's run;
+// - death of a connected, identity-matched participant fails the shared run.
+:TAXIODD_COOP_INIT
+200@, 201@, 202@ = Coop.CollectNetworkPlayersForTheMission()
+215@ = 0 // number of frozen remote gameplay participants
+for 216@ = 0 to 2
+    203@(216@,3i) = -1 // immutable internal network identity
+    206@(216@,3i) = -1 // last objective sent to this identity
+    237@(216@,3i) = 0 // damaged-taxi subtitle latch
+    if
+        Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+    then
+        203@(216@,3i) = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+        if
+            203@(216@,3i) >= 0
+        then
+            215@ += 1
+        end
+    end
+end
+212@ = 0 // connected participant death failure latch
+213@ = 0 // exactly-once shared result: 0 pending, 1 failed, 2 passed
+214@ = 0 // idempotent cooperative cleanup latch
+223@ = -1 // authoritative taxi network id
+224@ = -1 // current passenger network id
+225@ = 0 // taxi registration start time
+226@ = 0 // passenger registration start time
+227@ = 0 // taxi registration timed out
+228@ = 0 // passenger registration timed out
+229@ = 0 // connected-participant regroup timer
+232@ = -1 // current coarse objective
+233@ = -1 // last observed stock stage
+if
+    215@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+end
+return
+
+// Recollect every tick, but only accept a handle whose immutable network id
+// matches the mission-start slot. A disconnect produces handle 0; another
+// player can never substitute into that slot. Reconnect invalidates the old
+// objective cache so the returning participant receives a complete snapshot.
+:TAXIODD_COOP_REFRESH_ROSTER
+209@, 210@, 211@ = Coop.CollectNetworkPlayersForTheMission()
+for 216@ = 0 to 2
+    set_lvar_int_to_lvar_int 230@ = 200@(216@,3i)
+    200@(216@,3i) = 0
+    if
+        203@(216@,3i) >= 0
+    then
+        for 217@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(209@(217@,3i))
+            then
+                219@ = Coop.GetNetworkPlayerInternalId(209@(217@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@(216@,3i) = 209@(217@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 230@ == 200@(216@,3i)
+    then
+        206@(216@,3i) = -1
+        237@(216@,3i) = 0
+    end
+end
+return
+
+:TAXIODD_COOP_VALIDATE_SLOT
+218@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+then
+    219@ = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+    then
+        218@ = 1
+    end
+end
+return
+
+:TAXIODD_COOP_UPDATE
+if
+    214@ == 1
+then
+    return
+end
+gosub @TAXIODD_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TAXIODD_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            Char.IsDead(200@(216@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH: a connected frozen participant death
+            // deterministically fails through the stock Taxi end path.
+            212@ = 1
+            124@ = 1
+            108@ = 3
+        end
+    end
+end
+if
+    212@ == 1
+then
+    return
+end
+if
+    Car.DoesExist(89@)
+then
+    // Keep the host taxi available to supporting participants. The stock
+    // passenger and fare state machine remains the sole progression owner.
+    Car.LockDoors(89@, CarLock.Unlocked)
+end
+gosub @TAXIODD_COOP_POLL_ENTITY_REGISTRATION
+gosub @TAXIODD_COOP_UPDATE_REGROUP
+gosub @TAXIODD_COOP_UPDATE_OBJECTIVES
+return
+
+// Registration is incremental and nonblocking. Each concrete entity gets at
+// most five seconds of retries; Taxi progression never waits on networking.
+:TAXIODD_COOP_POLL_ENTITY_REGISTRATION
+if and
+    223@ == -1
+    227@ == 0
+then
+    if
+        Car.DoesExist(89@)
+    then
+        if
+            225@ == 0
+        then
+            225@ = Clock.GetGameTimer()
+        end
+        223@ = Coop.GetVehicleNetworkId(89@)
+        if
+            223@ <> -1
+        then
+            for 216@ = 0 to 2
+                206@(216@,3i) = -1
+            end
+        end
+        if
+            223@ == -1
+        then
+            231@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 231@ -= 225@
+            if
+                231@ > 5000
+            then
+                227@ = 1
+            end
+        end
+    end
+end
+if and
+    38@ == 1
+    224@ == -1
+    228@ == 0
+then
+    if
+        Char.DoesExist(88@)
+    then
+        if
+            226@ == 0
+        then
+            226@ = Clock.GetGameTimer()
+        end
+        224@ = Coop.GetPedNetworkId(88@)
+        if
+            224@ <> -1
+        then
+            for 216@ = 0 to 2
+                206@(216@,3i) = -1
+            end
+        end
+        if
+            224@ == -1
+        then
+            231@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 231@ -= 226@
+            if
+                231@ > 5000
+            then
+                228@ = 1
+            end
+        end
+    end
+end
+return
+
+// Only connected frozen identities participate in regrouping. A disconnected
+// player cannot block or fail the activity; after reconnect, the same identity
+// is safely returned to the host if it remains far away for twenty seconds.
+:TAXIODD_COOP_UPDATE_REGROUP
+220@ = 0
+for 216@ = 0 to 2
+    gosub @TAXIODD_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(200@(216@,3i), $scplayer, 120.0, 120.0, 35.0, False)
+        then
+            220@ = 1
+        end
+    end
+end
+if
+    220@ == 0
+then
+    229@ = 0
+    return
+end
+if
+    229@ == 0
+then
+    229@ = Clock.GetGameTimer()
+end
+231@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 231@ -= 229@
+if
+    231@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+    229@ = 0
+end
+return
+
+// Coarse objective 1 follows the passenger; objective 2 follows the host taxi
+// and destination checkpoint. Stock location subtitles are host-authored; the
+// support subtitle and all targeted UI below are sent once per state/reconnect.
+:TAXIODD_COOP_UPDATE_OBJECTIVES
+232@ = 0
+if
+    38@ == 1
+then
+    232@ = 1
+end
+if
+    38@ == 2
+then
+    232@ = 2
+end
+if
+    not is_int_lvar_equal_to_int_lvar 233@ == 38@
+then
+    set_lvar_int_to_lvar_int 233@ = 38@
+    if
+        38@ == 1
+    then
+        224@ = -1
+        226@ = 0
+        228@ = 0
+    end
+    for 216@ = 0 to 2
+        206@(216@,3i) = -1
+    end
+end
+for 216@ = 0 to 2
+    gosub @TAXIODD_COOP_VALIDATE_SLOT
+    if and
+        218@ == 1
+        not is_int_lvar_equal_to_int_lvar 206@(216@,3i) == 232@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        if
+            232@ == 1
+        then
+            if
+                Char.DoesExist(88@)
+            then
+                234@, 235@, 236@ = Char.GetCoordinates(88@)
+                Coop.UpdateCheckpointForNetworkPlayer(234@, 235@, 236@, 10.0, 10.0, 6.0, 200@(216@,3i))
+                if
+                    224@ <> -1
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(200@(216@,3i), 88@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+            end
+            Coop.PrintNowForNetworkPlayer('TX_PKUP', 5000, 1, 200@(216@,3i))
+        end
+        if
+            232@ == 2
+        then
+            if
+                223@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(200@(216@,3i), 89@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+            Coop.UpdateCheckpointForNetworkPlayer(121@, 122@, 123@, 8.0, 8.0, 5.0, 200@(216@,3i))
+            Coop.PrintNowForNetworkPlayer('TX_TIME', 5000, 1, 200@(216@,3i))
+        end
+        set_lvar_int_to_lvar_int 206@(216@,3i) = 232@
+    end
+    if and
+        218@ == 1
+        133@ == 1
+        237@(216@,3i) == 0
+    then
+        Coop.PrintNowForNetworkPlayer('TX_REP', 6000, 1, 200@(216@,3i))
+        237@(216@,3i) = 1
+    end
+    if and
+        218@ == 1
+        133@ == 0
+    then
+        237@(216@,3i) = 0
+    end
+end
+return
+
+:TAXIODD_COOP_NOTIFY_FAILURE
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 1
+gosub @TAXIODD_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TAXIODD_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:TAXIODD_COOP_NOTIFY_PASS
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 2
+gosub @TAXIODD_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TAXIODD_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:TAXIODD_COOP_CLEANUP
+if
+    214@ == 1
+then
+    return
+end
+214@ = 1
+gosub @TAXIODD_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TAXIODD_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TX_PKUP', 200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TX_REP', 200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TX_TIME', 200@(216@,3i))
+        Char.FreezePosition(200@(216@,3i), False)
+        Char.SetProofs(200@(216@,3i), False, False, False, False, False)
+    end
+end
+// The Taxi body never grants or removes participant weapons; preserving that
+// loadout is the deterministic weapon-restore policy. Control is restored for
+// the host and, through the synchronized player opcode, every participant.
+Player.SetControl($player1, True)
+223@ = -1
+224@ = -1
+for 216@ = 0 to 2
+    200@(216@,3i) = 0
+    203@(216@,3i) = -1
+    206@(216@,3i) = -1
+    237@(216@,3i) = 0
+end
+return
 
 //-------------Mission 122---------------
 // Originally: Paramedic Sub-Mission
