@@ -9,6 +9,7 @@ public:
     static CNetworkVehicle* GetVehicle(CEntity* vehicle);
     static void Add(CNetworkVehicle* vehicle);
     static void Remove(CNetworkVehicle* vehicle);
+    static void Clear();
     static void UpdateDriver(CVehicle* pVehicle);
     static void UpdateIdle();
     static void UpdatePassenger(CVehicle* pVehicle, CPlayerPed* pPlayerPed);

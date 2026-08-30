@@ -217,3 +217,14 @@ void CNetworkVehicleManager::UpdateDamageSync()
 		}
 	}
 }
+
+void CNetworkVehicleManager::Clear()
+{
+	while (!m_pVehicles.empty())
+	{
+		CNetworkVehicle* vehicle = m_pVehicles.back();
+		m_pVehicles.pop_back();
+		delete vehicle;
+	}
+	std::fill(std::begin(m_apTempVehicles), std::end(m_apTempVehicles), nullptr);
+}

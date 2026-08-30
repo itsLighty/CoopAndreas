@@ -50,3 +50,12 @@ void CEntryExitMarkerSync::Receive(const Packets::Scripts::EnExSync& packet)
         }
     }
 }
+
+void CEntryExitMarkerSync::ResetNetworkState()
+{
+    ms_lastData = {};
+    ms_bUpdateAfterProcessingScripts = false;
+    ms_bUpdateAfterProcessingThisFrame = false;
+    ms_nLastUpdate = 0;
+    ms_mapLastEnExUpdate.clear();
+}

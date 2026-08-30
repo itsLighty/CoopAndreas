@@ -38,3 +38,9 @@ void CNetworkAnimQueue::Process()
 		CTaskSequenceSync::ms_vTaskSequences.clear();
 	}
 }
+
+void CNetworkAnimQueue::Clear()
+{
+	ms_vQueue.clear();
+	CTaskSequenceSync::Reset();
+}

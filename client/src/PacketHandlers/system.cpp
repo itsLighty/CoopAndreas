@@ -69,6 +69,12 @@ PACKET_HANDLER(ePacketType::PLAYER_HANDSHAKE, Packets::System::PlayerHandshake* 
     logger::info("Authenticated, playerid %d", pPlayerHandshake->yourid);
 }
 
+PACKET_HANDLER(ePacketType::PLAYER_RECONNECT_CREDENTIAL,
+    Packets::System::PlayerReconnectCredential* pReconnectCredential)
+{
+    CNetwork::StoreReconnectCredential(*pReconnectCredential);
+}
+
 PACKET_HANDLER(ePacketType::RTT_BROADCAST, Packets::System::RTTBroadcast* pRTTBroadcast)
 {
     for (int nRTTIndex = 0; nRTTIndex < pRTTBroadcast->playerCount; nRTTIndex++)

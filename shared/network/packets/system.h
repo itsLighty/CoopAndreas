@@ -5,6 +5,7 @@
 #include "network/packet_types.h"
 #include "network/serializable_types.h"
 #include "serialize.h"
+#include <array>
 #include <cassert>
 
 // NOLINTBEGIN(readability-simplify-boolean-expr)
@@ -12,6 +13,9 @@
 
 namespace Packets::System
 {
+static constexpr size_t RECONNECT_CREDENTIAL_SIZE = 32;
+using ReconnectCredential = std::array<uint8_t, RECONNECT_CREDENTIAL_SIZE>;
+
 class PlayerConnected : public Packet
 {
 public:
@@ -63,6 +67,80 @@ private:
                 }
             }
         }
+        return true;
+    }
+};
+
+class PlayerReconnectRequest : public Packet
+{
+public:
+    DEFINE_PACKET_TYPE(PlayerReconnectRequest, ePacketType::PLAYER_RECONNECT_REQUEST, ePacketChannel::SYSTEM);
+
+    int requestedPlayerId = -1;
+    char name[Config::MAX_NICKNAME_LENGTH + 1]{};
+    uint32_t version = 0;
+    ReconnectCredential credential{};
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_int(stream, requestedPlayerId, 0, Config::MAX_SERVER_PLAYERS - 1);
+        serialize_bytes(stream, reinterpret_cast<uint8_t*>(name), Config::MAX_NICKNAME_LENGTH + 1);
+        serialize_uint32(stream, version);
+        serialize_bytes(stream, credential.data(), static_cast<int>(credential.size()));
+
+        if (Stream::IsReading)
+        {
+            name[Config::MAX_NICKNAME_LENGTH] = '\0';
+            for (int i = 0; i < Config::MAX_NICKNAME_LENGTH; ++i)
+            {
+                const char c = name[i];
+                if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' &&
+                    c != '[' && c != ']' && c != '\0')
+                {
+                    name[i] = '_';
+                }
+            }
+        }
+        return true;
+    }
+};
+
+class PlayerReconnectCredential : public Packet
+{
+public:
+    DEFINE_PACKET_TYPE(
+        PlayerReconnectCredential, ePacketType::PLAYER_RECONNECT_CREDENTIAL, ePacketChannel::SYSTEM);
+
+    int playerId = -1;
+    ReconnectCredential credential{};
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_int(stream, playerId, 0, Config::MAX_SERVER_PLAYERS - 1);
+        serialize_bytes(stream, credential.data(), static_cast<int>(credential.size()));
+        return true;
+    }
+};
+
+class PlayerReconnectCredentialAck : public Packet
+{
+public:
+    DEFINE_PACKET_TYPE(
+        PlayerReconnectCredentialAck, ePacketType::PLAYER_RECONNECT_CREDENTIAL_ACK, ePacketChannel::SYSTEM);
+
+    int playerId = -1;
+    ReconnectCredential credential{};
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_int(stream, playerId, 0, Config::MAX_SERVER_PLAYERS - 1);
+        serialize_bytes(stream, credential.data(), static_cast<int>(credential.size()));
         return true;
     }
 };

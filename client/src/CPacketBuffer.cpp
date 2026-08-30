@@ -54,3 +54,12 @@ void CPacketBuffer::Process()
         delete pPacket;
     }
 }
+
+void CPacketBuffer::Clear()
+{
+    for (Packet* packet : m_packets)
+    {
+        delete packet;
+    }
+    m_packets.clear();
+}

@@ -77,8 +77,7 @@ public:
             else if (bBeenConnected && !CNetwork::m_bConnected)
             {
                 bBeenConnected = false;
-                enet_host_destroy(CNetwork::m_pENetHost);
-                enet_deinitialize();
+                CNetwork::DestroyTransport();
                 CChat::AddMessage("{cecedb}[Network] Disconnected from the server.");
             }
         };

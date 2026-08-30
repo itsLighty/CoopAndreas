@@ -11,4 +11,5 @@ public:
 
 	static void Send();
 	static void Receive(const Packets::Scripts::EnExSync& packet);
+	static void ResetNetworkState();
 };

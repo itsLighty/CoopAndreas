@@ -47,6 +47,17 @@ void CNetworkPedManager::Remove(CNetworkPed* ped)
     }
 }
 
+void CNetworkPedManager::Clear()
+{
+    while (!m_pPeds.empty())
+    {
+        CNetworkPed* ped = m_pPeds.back();
+        m_pPeds.pop_back();
+        delete ped;
+    }
+    std::fill(std::begin(m_apTempPeds), std::end(m_apTempPeds), nullptr);
+}
+
 void CNetworkPedManager::Update()
 {
     CNetworkPedManager::RemoveHostedUnused();

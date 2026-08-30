@@ -10,6 +10,157 @@
 #include <network/packets/vehicles.h>
 #include <network/packets/peds.h>
 #include <network/packets/scripts.h>
+#include <array>
+#include <cerrno>
+#include <cstring>
+
+#ifdef _WIN32
+#include <bcrypt.h>
+#else
+#include <sys/random.h>
+#endif
+
+namespace
+{
+using Packets::System::ReconnectCredential;
+
+struct ReconnectIdentity
+{
+    bool valid = false;
+    ReconnectCredential credential{};
+    bool previousCredentialValid = false;
+    ReconnectCredential previousCredential{};
+    char playerName[Config::MAX_NICKNAME_LENGTH + 1]{};
+};
+
+std::array<ReconnectIdentity, Config::MAX_SERVER_PLAYERS> g_reconnectIdentities{};
+
+bool GenerateReconnectCredential(ReconnectCredential& credential)
+{
+#ifdef _WIN32
+    return BCryptGenRandom(nullptr, credential.data(), static_cast<ULONG>(credential.size()),
+               BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0;
+#else
+    size_t generated = 0;
+    while (generated < credential.size())
+    {
+        const ssize_t result = getrandom(credential.data() + generated, credential.size() - generated, 0);
+        if (result > 0)
+        {
+            generated += static_cast<size_t>(result);
+            continue;
+        }
+        if (result < 0 && errno == EINTR)
+        {
+            continue;
+        }
+        return false;
+    }
+    return true;
+#endif
+}
+
+bool CredentialsEqual(const ReconnectCredential& left, const ReconnectCredential& right)
+{
+    volatile uint8_t difference = 0;
+    for (size_t i = 0; i < left.size(); ++i)
+    {
+        difference = static_cast<uint8_t>(difference | (left[i] ^ right[i]));
+    }
+    return difference == 0;
+}
+
+void InvalidateReconnectIdentity(int playerId)
+{
+    if (playerId >= 0 && playerId < Config::MAX_SERVER_PLAYERS)
+    {
+        g_reconnectIdentities[playerId] = {};
+    }
+}
+
+void InvalidateUnreservedDisconnectedIdentities()
+{
+    const auto& missionState = CMissionSessionServer::GetState();
+    for (int playerId = 0; playerId < Config::MAX_SERVER_PLAYERS; ++playerId)
+    {
+        if (!g_reconnectIdentities[playerId].valid || CNetworkPlayerManager::GetPlayer(playerId) != nullptr)
+        {
+            continue;
+        }
+        if (!missionState.IsActive() || !missionState.ContainsParticipant(playerId))
+        {
+            InvalidateReconnectIdentity(playerId);
+        }
+    }
+}
+
+bool IsNameTaken(const char* name)
+{
+#ifndef _DEBUG
+    for (const auto* player : CNetworkPlayerManager::m_pPlayers)
+    {
+        if (strncmp(player->m_Name, name, sizeof(player->m_Name)) == 0)
+        {
+            return true;
+        }
+    }
+#endif
+    return false;
+}
+
+void RejectConnection(ENetPeer* peer, uint8_t reason, uint32_t version = 0)
+{
+    Packets::System::PlayerDisconnected disconnected{};
+    disconnected.payload.playerid = -1;
+    disconnected.payload.reason = reason;
+    disconnected.payload.version = version;
+    GetPacketFactory().SendPacketNoAuth_ENet(disconnected, peer);
+    enet_peer_disconnect_later(peer, version);
+}
+
+bool ValidateClientVersion(ENetPeer* peer, uint32_t clientVersion)
+{
+    const uint32_t packedVersion = semver_parse(COOPANDREAS_VERSION, nullptr);
+    if (packedVersion == clientVersion)
+    {
+        return true;
+    }
+    RejectConnection(peer, Packets::System::PlayerDisconnected::DISCONNECTION_REASON_VERSION_MISMATCH, packedVersion);
+    return false;
+}
+
+int FindOrdinaryPlayerId()
+{
+    const auto& missionState = CMissionSessionServer::GetState();
+    for (int playerId = 0; playerId < Config::MAX_SERVER_PLAYERS; ++playerId)
+    {
+        if (CNetworkPlayerManager::GetPlayer(playerId) == nullptr &&
+            (!missionState.IsActive() || !missionState.ContainsParticipant(playerId)))
+        {
+            return playerId;
+        }
+    }
+    return -1;
+}
+
+bool CanReclaimFrozenIdentity(const Packets::System::PlayerReconnectRequest& request)
+{
+    const int playerId = request.requestedPlayerId;
+    if (playerId < 0 || playerId >= Config::MAX_SERVER_PLAYERS ||
+        CNetworkPlayerManager::GetPlayer(playerId) != nullptr)
+    {
+        return false;
+    }
+
+    const auto& missionState = CMissionSessionServer::GetState();
+    const ReconnectIdentity& identity = g_reconnectIdentities[playerId];
+    const bool currentCredentialMatches = CredentialsEqual(identity.credential, request.credential);
+    const bool previousCredentialMatches = CredentialsEqual(identity.previousCredential, request.credential);
+    return missionState.IsActive() && missionState.ContainsParticipant(playerId) && identity.valid &&
+           strncmp(identity.playerName, request.name, sizeof(identity.playerName)) == 0 &&
+           (currentCredentialMatches | (identity.previousCredentialValid && previousCredentialMatches));
+}
+}  // namespace
 
 bool CNetwork::Init(unsigned short port)
 {
@@ -105,9 +256,17 @@ void CNetwork::HandlePlayerDisconnected(ENetEvent& event)
 
     CMissionSessionServer::HandlePlayerDisconnected(pNetworkPlayer);
 
+    const int disconnectedPlayerId = pNetworkPlayer->m_iPlayerId;
+    const auto& missionState = CMissionSessionServer::GetState();
+    if (!missionState.IsActive() || !missionState.ContainsParticipant(disconnectedPlayerId))
+    {
+        InvalidateReconnectIdentity(disconnectedPlayerId);
+    }
+
     CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(pNetworkPlayer->m_nVehicleId);
 
-    if (vehicle != nullptr)
+    if (vehicle != nullptr && pNetworkPlayer->m_nSeatId >= 0 &&
+        pNetworkPlayer->m_nSeatId < static_cast<int8_t>(ARRAY_SIZE(vehicle->m_pPlayers)))
     {
         vehicle->m_pPlayers[pNetworkPlayer->m_nSeatId] = nullptr;
     }
@@ -123,85 +282,129 @@ void CNetwork::HandlePlayerDisconnected(ENetEvent& event)
     CNetworkPlayerManager::Remove(pNetworkPlayer);
 
     Packets::System::PlayerDisconnected playerDisconnected{};
-    playerDisconnected.payload.playerid = pNetworkPlayer->m_iPlayerId;
+    playerDisconnected.payload.playerid = disconnectedPlayerId;
     playerDisconnected.payload.reason = Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NOTHING;
     GetPacketFactory().SendToAll(playerDisconnected);
 
-    printf("[Game] : %i Disconnected.\n", pNetworkPlayer->m_iPlayerId);
+    printf("[Game] : %i Disconnected.\n", disconnectedPlayerId);
+
+    delete pNetworkPlayer;
 
     CNetworkPlayerManager::AssignHostToFirstPlayer();
 }
 
 void CNetwork::HandlePlayerConnected(ENetPeer* pENetPeer, Packets::System::PlayerConnected& playerConnected)
 {
-#ifndef _DEBUG
-    for (auto* pNetworkPlayer : CNetworkPlayerManager::m_pPlayers)
+    InvalidateUnreservedDisconnectedIdentities();
+    if (!ValidateClientVersion(pENetPeer, playerConnected.payload.version))
     {
-        if (strncmp(pNetworkPlayer->m_Name, playerConnected.payload.name, sizeof(pNetworkPlayer->m_Name)) == 0)
-        {
-            Packets::System::PlayerDisconnected playerDisconnected{};
-            playerDisconnected.payload.playerid = -1;
-            playerDisconnected.payload.reason = Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NAME_TAKEN;
-            GetPacketFactory().SendPacketNoAuth_ENet(playerDisconnected, pENetPeer);
-            enet_peer_disconnect_later(pENetPeer, 0);
-            return;
-        }
+        return;
     }
-#endif
-
-    uint32_t packedVersion = semver_parse(COOPANDREAS_VERSION, nullptr);
-    char buffer[23];
-    semver_t playerVersion;
-    semver_unpack(playerConnected.payload.version, &playerVersion);
-    semver_to_string(&playerVersion, buffer, sizeof(buffer));
-    buffer[22] = '\0';
-
-    if (packedVersion != playerConnected.payload.version)
+    if (IsNameTaken(playerConnected.payload.name))
     {
-        Packets::System::PlayerDisconnected playerDisconnected{};
-        playerDisconnected.payload.playerid = -1;
-        playerDisconnected.payload.reason = Packets::System::PlayerDisconnected::DISCONNECTION_REASON_VERSION_MISMATCH;
-        playerDisconnected.payload.version = packedVersion;
-        GetPacketFactory().SendPacketNoAuth_ENet(playerDisconnected, pENetPeer);
-        enet_peer_disconnect_later(pENetPeer, packedVersion);
+        RejectConnection(pENetPeer, Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NAME_TAKEN);
         return;
     }
 
-    int freeId = -1;
-    const auto& missionState = CMissionSessionServer::GetState();
-    for (int playerId = 0; playerId < Config::MAX_SERVER_PLAYERS; ++playerId)
-    {
-        if (CNetworkPlayerManager::GetPlayer(playerId) == nullptr &&
-            (!missionState.IsActive() || !missionState.ContainsParticipant(playerId)))
-        {
-            freeId = playerId;
-            break;
-        }
-    }
+    const int freeId = FindOrdinaryPlayerId();
     if (freeId < 0)
     {
         logger::warn("Rejected a connection because no non-reserved player ID is available");
-        Packets::System::PlayerDisconnected playerDisconnected{};
-        playerDisconnected.payload.playerid = -1;
-        playerDisconnected.payload.reason = Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NOTHING;
-        GetPacketFactory().SendPacketNoAuth_ENet(playerDisconnected, pENetPeer);
-        enet_peer_disconnect_later(pENetPeer, 0);
+        RejectConnection(pENetPeer, Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NOTHING);
         return;
     }
+
+    CompletePlayerConnection(
+        pENetPeer, playerConnected.payload.name, playerConnected.payload.version, freeId, nullptr);
+}
+
+void CNetwork::HandlePlayerReconnect(
+    ENetPeer* pENetPeer, Packets::System::PlayerReconnectRequest& reconnectRequest)
+{
+    InvalidateUnreservedDisconnectedIdentities();
+    if (!ValidateClientVersion(pENetPeer, reconnectRequest.version))
+    {
+        return;
+    }
+
+    if (IsNameTaken(reconnectRequest.name))
+    {
+        RejectConnection(pENetPeer, Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NAME_TAKEN);
+        return;
+    }
+
+    const bool reclaimedIdentity = CanReclaimFrozenIdentity(reconnectRequest);
+    const int playerId = reclaimedIdentity ? reconnectRequest.requestedPlayerId : FindOrdinaryPlayerId();
+    if (playerId < 0)
+    {
+        logger::warn("Rejected an invalid reconnect claim because no non-reserved player ID is available");
+        RejectConnection(pENetPeer, Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NOTHING);
+        return;
+    }
+
+    if (!reclaimedIdentity)
+    {
+        logger::warn("Rejected a reconnect claim for reserved player ID %d; assigning an ordinary ID instead",
+            reconnectRequest.requestedPlayerId);
+    }
+    CompletePlayerConnection(pENetPeer, reconnectRequest.name, reconnectRequest.version, playerId,
+        reclaimedIdentity ? &reconnectRequest.credential : nullptr);
+}
+
+void CNetwork::CompletePlayerConnection(
+    ENetPeer* pENetPeer, const char* name, uint32_t version, int freeId,
+    const ReconnectCredential* acceptedReconnectCredential)
+{
+    ReconnectCredential nextCredential{};
+    if (!GenerateReconnectCredential(nextCredential))
+    {
+        logger::error("Could not obtain cryptographically secure randomness for a reconnect credential");
+        RejectConnection(pENetPeer, Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NOTHING);
+        return;
+    }
+
+    ReconnectIdentity& identity = g_reconnectIdentities[freeId];
+    identity = {};
+    identity.valid = true;
+    identity.credential = nextCredential;
+    if (acceptedReconnectCredential != nullptr)
+    {
+        identity.previousCredentialValid = true;
+        identity.previousCredential = *acceptedReconnectCredential;
+    }
+    snprintf(identity.playerName, sizeof(identity.playerName), "%s", name);
+
     CNetworkPlayer* pNewNetworkPlayer = new CNetworkPlayer(pENetPeer, freeId);
-    strcpy_s(pNewNetworkPlayer->m_Name, playerConnected.payload.name);
+    snprintf(pNewNetworkPlayer->m_Name, sizeof(pNewNetworkPlayer->m_Name), "%s", name);
     CNetworkPlayerManager::Add(pNewNetworkPlayer);
 
-    logger::info("freeId %d name %s version %s", freeId, playerConnected.payload.name, buffer);
+    char buffer[23];
+    semver_t playerVersion;
+    semver_unpack(version, &playerVersion);
+    semver_to_string(&playerVersion, buffer, sizeof(buffer));
+    buffer[22] = '\0';
+    logger::info("playerId %d name %s version %s%s", freeId, name, buffer,
+        acceptedReconnectCredential != nullptr ? " (reclaimed frozen identity)" : "");
 
     // Send the NEW player TO OLD players
+    Packets::System::PlayerConnected playerConnected{};
     playerConnected.payload.playerid = freeId;
+    playerConnected.payload.isAlreadyConnected = false;
+    playerConnected.payload.version = version;
+    snprintf(playerConnected.payload.name, sizeof(playerConnected.payload.name), "%s", name);
     GetPacketFactory().SendToAll(playerConnected, pNewNetworkPlayer);
 
     // Let the new player know his id
     Packets::System::PlayerHandshake playerHandshake{};
     playerHandshake.yourid = freeId;
     GetPacketFactory().Send(playerHandshake, pNewNetworkPlayer);
+
+    // The credential is sent separately to preserve the legacy handshake wire layout. A reclaimed connection
+    // temporarily accepts the prior credential until its first authenticated packet proves delivery of this one.
+    Packets::System::PlayerReconnectCredential reconnectCredential{};
+    reconnectCredential.playerId = freeId;
+    reconnectCredential.credential = nextCredential;
+    GetPacketFactory().Send(reconnectCredential, pNewNetworkPlayer);
 
     // Send OLD players TO the NEW one
     Packets::System::PlayerConnected oldPlayerConnected{};
@@ -287,7 +490,13 @@ void CNetwork::HandlePlayerConnected(ENetPeer* pENetPeer, Packets::System::Playe
         GetPacketFactory().Send(packet, pNewNetworkPlayer);
     }
 
-    if (Packets::Scripts::g_pLastEnExPlayerOwner)
+    // Enqueue authoritative mission classification before considering cached mission-world state. Active-session
+    // spectators never receive the cached EnEx packet, so cross-channel delivery cannot expose it to them first.
+    CMissionSessionServer::SendSnapshot(pNewNetworkPlayer);
+
+    const auto& missionState = CMissionSessionServer::GetState();
+    const bool mayReceiveCachedEnEx = !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
+    if (mayReceiveCachedEnEx && Packets::Scripts::g_pLastEnExPlayerOwner)
     {
         if (std::find(CNetworkPlayerManager::m_pPlayers.begin(), CNetworkPlayerManager::m_pPlayers.end(),
                 Packets::Scripts::g_pLastEnExPlayerOwner) != CNetworkPlayerManager::m_pPlayers.end())
@@ -296,11 +505,28 @@ void CNetwork::HandlePlayerConnected(ENetPeer* pENetPeer, Packets::System::Playe
         }
     }
 
-    // The participant roster is frozen when a mission starts. A player receiving an active snapshot here is
-    // therefore a spectator until the next mission session.
-    CMissionSessionServer::SendSnapshot(pNewNetworkPlayer);
-
     CNetworkPlayerManager::AssignHostToFirstPlayer();
+}
+
+void CNetwork::ConfirmReconnectCredential(
+    CNetworkPlayer* pNetworkPlayer, const Packets::System::PlayerReconnectCredentialAck& acknowledgement)
+{
+    if (pNetworkPlayer == nullptr || pNetworkPlayer->m_iPlayerId < 0 ||
+        pNetworkPlayer->m_iPlayerId >= Config::MAX_SERVER_PLAYERS ||
+        acknowledgement.playerId != pNetworkPlayer->m_iPlayerId)
+    {
+        return;
+    }
+
+    ReconnectIdentity& identity = g_reconnectIdentities[pNetworkPlayer->m_iPlayerId];
+    if (!identity.valid || !CredentialsEqual(identity.credential, acknowledgement.credential))
+    {
+        logger::warn("%s sent an invalid reconnect credential acknowledgement",
+            pNetworkPlayer->GetName().c_str());
+        return;
+    }
+    identity.previousCredentialValid = false;
+    identity.previousCredential.fill(0);
 }
 
 void CNetwork::SendPacketNoAuth_ENet(ENetPeer* pENetPeer, const uint8_t* data, int dataSize,

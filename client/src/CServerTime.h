@@ -9,6 +9,7 @@ public:
     static void RecalculateOffset(int32_t newOffset);
     static void RecalculateServerTime();
     static void SendRequest();
+    static void Reset();
 
     static uint32_t m_requestTick;
     static uint32_t m_lastUpdated;

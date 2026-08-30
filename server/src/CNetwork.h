@@ -18,9 +18,15 @@ public:
         ePacketReliability packetReliability, CNetworkPlayer* pNetworkPlayerToIgnore = nullptr);
 
     static void HandlePlayerConnected(ENetPeer* peer, Packets::System::PlayerConnected& playerConnected);
+    static void HandlePlayerReconnect(ENetPeer* peer, Packets::System::PlayerReconnectRequest& reconnectRequest);
+    static void ConfirmReconnectCredential(
+        CNetworkPlayer* player, const Packets::System::PlayerReconnectCredentialAck& acknowledgement);
     ~CNetwork() {}
 
 private:
+    static void CompletePlayerConnection(
+        ENetPeer* peer, const char* name, uint32_t version, int playerId,
+        const Packets::System::ReconnectCredential* acceptedReconnectCredential);
     static void HandlePeerConnected(ENetEvent& event);
     static void HandlePlayerDisconnected(ENetEvent& event);
 };

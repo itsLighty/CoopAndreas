@@ -34,6 +34,24 @@ std::vector<uint8_t> m_serializedSequences[CTaskSequences::NUM_SEQUENCES][CTaskS
 int m_sequenceTaskCount = 0;
 bool m_bSequenceOpened = false;
 
+void CTaskSequenceSync::Reset()
+{
+	ms_bFailedToProcessSequence = false;
+	ms_vTaskSequences.clear();
+	m_sequenceTaskCount = 0;
+	m_bSequenceOpened = false;
+	COpCodeSync::ms_bProcessingTaskSequence = false;
+	COpCodeSync::bProcessingNetworkOpcode = false;
+
+	for (auto& sequence : m_serializedSequences)
+	{
+		for (auto& task : sequence)
+		{
+			task.clear();
+		}
+	}
+}
+
 bool CTaskSequenceSync::IsOpCodeTaskSynced(eScriptCommands opcode)
 {
 	for (int i = 0; i < ARRAY_SIZE(m_syncedTasks); i++)

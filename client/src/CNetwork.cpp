@@ -1,5 +1,14 @@
 #include "CPacketFactory.h"
+#include "CPacketBuffer.h"
+#include "CEntryExitMarkerSync.h"
+#include "CEntryExitTransitionSync.h"
 #include "CMissionSessionClient.h"
+#include "CNetworkAnimQueue.h"
+#include "CNetworkCheckpoint.h"
+#include "CNetworkPedManager.h"
+#include "CNetworkPlayerManager.h"
+#include "CNetworkVehicleManager.h"
+#include "CServerTime.h"
 #include "enet/enet.h"
 #include "stdafx.h"
 #include "../shared/semver.h"
@@ -51,13 +60,24 @@ DWORD WINAPI CNetwork::InitAsync(LPVOID)
 
             CChat::AddMessage("{cecedb}[Network] {00ff00}Successfully {cecedb}connected to the server.");
 
-            Packets::System::PlayerConnected connectedPacket{};
-            connectedPacket.payload.isAlreadyConnected = false;
-            connectedPacket.payload.playerid = -1;
-            connectedPacket.payload.version = packedVersion;
-            strcpy_s(connectedPacket.payload.name, CLocalPlayer::m_Name);
-
-            GetPacketFactory().Send(connectedPacket);
+            if (HasReconnectCredentialForCurrentIdentity())
+            {
+                Packets::System::PlayerReconnectRequest reconnectRequest{};
+                reconnectRequest.requestedPlayerId = ms_nReconnectPlayerId;
+                reconnectRequest.version = packedVersion;
+                reconnectRequest.credential = ms_reconnectCredential;
+                strcpy_s(reconnectRequest.name, CLocalPlayer::m_Name);
+                GetPacketFactory().Send(reconnectRequest);
+            }
+            else
+            {
+                Packets::System::PlayerConnected connectedPacket{};
+                connectedPacket.payload.isAlreadyConnected = false;
+                connectedPacket.payload.playerid = -1;
+                connectedPacket.payload.version = packedVersion;
+                strcpy_s(connectedPacket.payload.name, CLocalPlayer::m_Name);
+                GetPacketFactory().Send(connectedPacket);
+            }
         }
         else
         {
@@ -73,7 +93,7 @@ void CNetwork::ProcessReceive()
 {
 #if true  // ENET LAYER
     ENetEvent eNetEvent{};
-    while (enet_host_service(m_pENetHost, &eNetEvent, 0) > 0)
+    while (m_bConnected && enet_host_service(m_pENetHost, &eNetEvent, 0) > 0)
     {
         switch (eNetEvent.type)
         {
@@ -136,14 +156,101 @@ void CNetwork::SendPacket(
 
 void CNetwork::Disconnect()
 {
-    if (!m_bConnected)
-        return;
-
-    enet_peer_disconnect_now(CNetwork::m_pPeer, 0);
-    // enet_host_flush(CNetwork::m_pENetHost);
-    // enet_peer_reset(CNetwork::m_pPeer);
-
+    const bool wasConnected = m_bConnected;
+    const bool wasAuthenticated = m_bAuthenticated;
     m_bConnected = false;
+    if (wasConnected && m_pPeer != nullptr)
+    {
+        enet_peer_disconnect_now(m_pPeer, 0);
+    }
+    ResetConnectionState();
+    if (wasAuthenticated)
+    {
+        CPatch::TemporaryPatches();
+    }
+}
+
+void CNetwork::DestroyTransport()
+{
+    if (m_pENetHost != nullptr)
+    {
+        enet_host_destroy(m_pENetHost);
+        m_pENetHost = nullptr;
+        enet_deinitialize();
+    }
+    m_pPeer = nullptr;
+}
+
+void CNetwork::StoreReconnectCredential(const Packets::System::PlayerReconnectCredential& packet)
+{
+    if (packet.playerId != CNetworkPlayerManager::m_nMyId)
+    {
+        logger::warn("Ignored a reconnect credential for unexpected player ID %d", packet.playerId);
+        return;
+    }
+
+    ms_bHasReconnectCredential = true;
+    ms_nReconnectPlayerId = packet.playerId;
+    ms_reconnectCredential = packet.credential;
+    strcpy_s(ms_reconnectIpAddress, m_IpAddress);
+    ms_nReconnectPort = m_nPort;
+    strcpy_s(ms_reconnectPlayerName, CLocalPlayer::m_Name);
+
+    Packets::System::PlayerReconnectCredentialAck acknowledgement{};
+    acknowledgement.playerId = packet.playerId;
+    acknowledgement.credential = packet.credential;
+    GetPacketFactory().Send(acknowledgement);
+}
+
+void CNetwork::ClearReconnectCredential()
+{
+    ms_bHasReconnectCredential = false;
+    ms_nReconnectPlayerId = -1;
+    ms_reconnectCredential.fill(0);
+    ms_reconnectIpAddress[0] = '\0';
+    ms_nReconnectPort = 0;
+    ms_reconnectPlayerName[0] = '\0';
+}
+
+bool CNetwork::HasReconnectCredentialForCurrentIdentity()
+{
+    if (!ms_bHasReconnectCredential || ms_nReconnectPlayerId < 0 ||
+        ms_nReconnectPlayerId >= Config::MAX_SERVER_PLAYERS)
+    {
+        return false;
+    }
+    if (strcmp(ms_reconnectIpAddress, m_IpAddress) != 0 || ms_nReconnectPort != m_nPort ||
+        strcmp(ms_reconnectPlayerName, CLocalPlayer::m_Name) != 0)
+    {
+        ClearReconnectCredential();
+        return false;
+    }
+    return true;
+}
+
+void CNetwork::ResetConnectionState()
+{
     m_bAuthenticated = false;
+    CLocalPlayer::m_bIsHost = false;
+
+    // Cancel work that points at remote entities before deleting those entities.
+    CEntryExitTransitionSync::Reset();
+    GetPacketBuffer().Clear();
+    CNetworkAnimQueue::Clear();
     CMissionSessionClient::Reset();
+
+    CNetworkPedManager::Clear();
+    CNetworkPlayerManager::Clear();
+    CNetworkVehicleManager::Clear();
+
+    CNetworkCheckpoint::Remove();
+    CEntryExitMarkerSync::ResetNetworkState();
+    GetPacketFactory().ClearRecords();
+    CServerTime::Reset();
+
+    ms_nBytesReceivedThisSecond = 0;
+    ms_nBytesReceivedThisSecondCounter = 0;
+    ms_nBytesSentThisSecond = 0;
+    ms_nBytesSentThisSecondCounter = 0;
+
 }

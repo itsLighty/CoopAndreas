@@ -150,6 +150,7 @@ target("server", function ()
     if is_os("windows") then
         add_files("server/version.rc")
         add_defines("_CRT_SECURE_NO_WARNINGS", "WIN32", "_CONSOLE")
+        add_syslinks("bcrypt")
     elseif is_os("linux") then
         -- TODO
     end

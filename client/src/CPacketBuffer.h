@@ -7,10 +7,11 @@ class CPacketBuffer
 {
 public:
     CPacketBuffer(uint32_t delay) : m_delay(delay) {}
-    ~CPacketBuffer() {}
+    ~CPacketBuffer() { Clear(); }
 
     void Receive(Packet* pPacket);
     void Process();
+    void Clear();
 
     uint32_t GetRenderTime(server_time_t serverTime) { return serverTime - m_delay; }
 

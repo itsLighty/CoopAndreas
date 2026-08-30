@@ -83,7 +83,7 @@ void CPacketFactory::ReceivePacketNoAuth_ENet(const uint8_t* data, int dataSize,
     }
 
     ePacketType packetType = static_cast<ePacketType>(tempPacketType);
-    if (packetType != ePacketType::PLAYER_CONNECTED)
+    if (packetType != ePacketType::PLAYER_CONNECTED && packetType != ePacketType::PLAYER_RECONNECT_REQUEST)
     {
         logger::warn("An unauthorized player is trying to send a packet type #%d %i.%i.%i.%i:%u", tempPacketType,
             pENetPeer->address.host & 0xFF, (pENetPeer->address.host >> 8) & 0xFF,
@@ -91,13 +91,25 @@ void CPacketFactory::ReceivePacketNoAuth_ENet(const uint8_t* data, int dataSize,
         return;
     }
 
-    Packets::System::PlayerConnected playerConnected{};
-    if (!playerConnected.SerializeRead(readStream))
+    if (packetType == ePacketType::PLAYER_CONNECTED)
     {
-        logger::warn("Packets::System::PlayerConnected::SerializeRead returned false");
+        Packets::System::PlayerConnected playerConnected{};
+        if (!playerConnected.SerializeRead(readStream))
+        {
+            logger::warn("Packets::System::PlayerConnected::SerializeRead returned false");
+            return;
+        }
+        CNetwork::HandlePlayerConnected(pENetPeer, playerConnected);
         return;
     }
-    CNetwork::HandlePlayerConnected(pENetPeer, playerConnected);
+
+    Packets::System::PlayerReconnectRequest reconnectRequest{};
+    if (!reconnectRequest.SerializeRead(readStream))
+    {
+        logger::warn("Packets::System::PlayerReconnectRequest::SerializeRead returned false");
+        return;
+    }
+    CNetwork::HandlePlayerReconnect(pENetPeer, reconnectRequest);
 }
 
 void CPacketFactory::Receive(const uint8_t* data, int dataSize, CNetworkPlayer* pNetworkPlayer)

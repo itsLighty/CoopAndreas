@@ -9,6 +9,7 @@ public:
 	static CNetworkPed* GetPed(CEntity* entity);
 	static void Add(CNetworkPed* ped);
 	static void Remove(CNetworkPed* ped);
+	static void Clear();
 	static void Update();
 	static void Process();
 	static void AssignHost();

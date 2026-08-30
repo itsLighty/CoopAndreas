@@ -73,3 +73,11 @@ PACKET_HANDLER(ePacketType::SERVER_TIME_REQUEST, Packets::System::ServerTimeRequ
 
     CServerTime::m_requestTick = 0;
 }
+
+void CServerTime::Reset()
+{
+    m_requestTick = 0;
+    m_lastUpdated = 0;
+    m_serverTimeOffset = 0;
+    g_serverTime = 0;
+}

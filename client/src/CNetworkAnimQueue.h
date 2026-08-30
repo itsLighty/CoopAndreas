@@ -7,5 +7,6 @@ private:
 public:
 	static void AddOpCode(const uint8_t* buffer, int bufferSize);
 	static void Process();
+	static void Clear();
 };
 

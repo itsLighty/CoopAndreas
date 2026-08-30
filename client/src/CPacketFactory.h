@@ -24,6 +24,13 @@ public:
     void Send(Packet& packet);
     void Receive(const uint8_t* data, int dataSize);
     void RegisterPacket(Packet* pPacket);
+    void ClearRecords()
+    {
+        for (auto& records : m_records)
+        {
+            records.clear();
+        }
+    }
 
     std::unordered_map<ePacketType, Packet*> m_map;
 

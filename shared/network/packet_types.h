@@ -75,6 +75,9 @@ enum class ePacketType : uint16_t
     UPDATE_MOON_SIZE,
     MISSION_SESSION_REQUEST,
     MISSION_SESSION_STATE,
+    PLAYER_RECONNECT_REQUEST,
+    PLAYER_RECONNECT_CREDENTIAL,
+    PLAYER_RECONNECT_CREDENTIAL_ACK,
     PACKET_ID_MAX
 };
 
@@ -97,7 +100,8 @@ extern inline const char* ePacketType_ToString(ePacketType packetType)
         "PED_CLAIM_ON_RELEASE", "PED_CANCEL_CLAIM", "PED_RESET_ALL_CLAIMS", "PED_TAKE_HOST", "PERFORM_TASK_SEQUENCE",
         "ADD_PROJECTILE", "TAG_UPDATE", "UPDATE_ALL_TAGS", "TELEPORT_PLAYER_SCRIPTED", "SERVER_TIME_REQUEST",
         "ENEX_TRANSITION", "RTT_BROADCAST", "UPDATE_MOON_SIZE", "MISSION_SESSION_REQUEST",
-        "MISSION_SESSION_STATE"};
+        "MISSION_SESSION_STATE", "PLAYER_RECONNECT_REQUEST", "PLAYER_RECONNECT_CREDENTIAL",
+        "PLAYER_RECONNECT_CREDENTIAL_ACK"};
 
     static_assert(sizeof(array) / sizeof(array[0]) == static_cast<size_t>(ePacketType::PACKET_ID_MAX),
         "Every packet type must have exactly one debug name");

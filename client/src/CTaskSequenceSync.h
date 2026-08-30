@@ -8,5 +8,6 @@ public:
 	static void HandlePacket(void* data, int size);
 	static bool IsNeededToCollectParametes(eScriptCommands opcode);
 	static bool IsOpCodeTaskSynced(eScriptCommands opcode);
+	static void Reset();
 };
 

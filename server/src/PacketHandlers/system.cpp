@@ -7,3 +7,9 @@ PACKET_HANDLER(ePacketType::PLAYER_CHAT_MESSAGE, Packets::System::ChatMessage* p
 	pChatMessage->playerid = pNetworkPlayer->m_iPlayerId;
 	GetPacketFactory().SendToAll(*pChatMessage, pNetworkPlayer);
 }
+
+PACKET_HANDLER(ePacketType::PLAYER_RECONNECT_CREDENTIAL_ACK,
+    Packets::System::PlayerReconnectCredentialAck* pAcknowledgement, CNetworkPlayer* pNetworkPlayer)
+{
+    CNetwork::ConfirmReconnectCredential(pNetworkPlayer, *pAcknowledgement);
+}

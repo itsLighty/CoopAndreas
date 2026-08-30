@@ -1,5 +1,6 @@
 #pragma once
 #include "network/packet.h"
+#include "network/packets/system.h"
 #include <cstddef>
 
 class CNetwork
@@ -15,9 +16,18 @@ public:
     inline static uint32_t ms_nBytesReceivedThisSecondCounter = 0;
     inline static uint32_t ms_nBytesSentThisSecond = 0;
     inline static uint32_t ms_nBytesSentThisSecondCounter = 0;
+    inline static bool ms_bHasReconnectCredential = false;
+    inline static int ms_nReconnectPlayerId = -1;
+    inline static Packets::System::ReconnectCredential ms_reconnectCredential{};
+    inline static char ms_reconnectIpAddress[128 + 1]{};
+    inline static unsigned short ms_nReconnectPort = 0;
+    inline static char ms_reconnectPlayerName[Config::MAX_NICKNAME_LENGTH + 1]{};
 
     static DWORD WINAPI InitAsync(LPVOID);
     static void Disconnect();
+    static void DestroyTransport();
+    static void StoreReconnectCredential(const Packets::System::PlayerReconnectCredential& packet);
+    static void ClearReconnectCredential();
     static void ProcessReceive();
     static void ProcessSend();
     static void SendPacket(
@@ -35,4 +45,8 @@ public:
     static uint32_t GetRTTVariance() { return m_pPeer ? m_pPeer->roundTripTimeVariance : 0; }
     static uint32_t GetDroppedCount() { return m_pPeer ? m_pPeer->packetsLost : 0; }
     static float GetDroppedRatio() { return m_pPeer ? m_pPeer->packetLoss * 100.0f / 65536.0f : 0.0f; }
+
+private:
+    static bool HasReconnectCredentialForCurrentIdentity();
+    static void ResetConnectionState();
 };

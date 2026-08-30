@@ -221,3 +221,11 @@ void CEntryExitTransitionSync::Process()
         }
     }
 }
+
+void CEntryExitTransitionSync::Reset()
+{
+    // The owning player peds are destroyed immediately after teardown. Do not dereference transition pointers here:
+    // an individual PLAYER_DISCONNECTED packet may already have destroyed one earlier in this receive pass.
+    g_remoteTransitions.clear();
+    ms_pLocalAnimatedTransition = nullptr;
+}
