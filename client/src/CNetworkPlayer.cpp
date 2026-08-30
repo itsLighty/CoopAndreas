@@ -3,9 +3,80 @@
 #include <CCarEnterExit.h>
 #include <CTaskSimpleCarSetPedInAsPassenger.h>
 #include <CTaskComplexEnterCarAsPassenger.h>
+#include <CAnimBlendHierarchy.h>
+#include <CPlayerAnimationSyncManager.h>
+
+namespace
+{
+struct SyncedAnimationDefinition
+{
+    int groupId;
+    int animationId;
+    float blendDelta;
+    bool isIdle;
+    bool isLooped;
+};
+
+bool GetSyncedAnimationDefinition(int state, SyncedAnimationDefinition& definition)
+{
+    switch (state)
+    {
+        case Packets::Players::PLAYER_ANIMATION_IDLE_STRETCH:
+            definition = { ANIM_GROUP_PLAYIDLES, ANIM_PLAYIDLES_STRETCH, 8.0f, true, false };
+            return true;
+        case Packets::Players::PLAYER_ANIMATION_IDLE_TIME:
+            definition = { ANIM_GROUP_PLAYIDLES, ANIM_PLAYIDLES_TIME, 8.0f, true, false };
+            return true;
+        case Packets::Players::PLAYER_ANIMATION_IDLE_SHOULDER:
+            definition = { ANIM_GROUP_PLAYIDLES, ANIM_PLAYIDLES_SHLDR, 8.0f, true, false };
+            return true;
+        case Packets::Players::PLAYER_ANIMATION_IDLE_STRETCH_LEG:
+            definition = { ANIM_GROUP_PLAYIDLES, ANIM_PLAYIDLES_STRLEG, 8.0f, true, false };
+            return true;
+        case Packets::Players::PLAYER_ANIMATION_FUNNY_TURN_LEFT:
+            definition = { ANIM_GROUP_DEFAULT, ANIM_DEFAULT_TURN_L, 16.0f, false, true };
+            return true;
+        case Packets::Players::PLAYER_ANIMATION_FUNNY_TURN_RIGHT:
+            definition = { ANIM_GROUP_DEFAULT, ANIM_DEFAULT_TURN_R, 16.0f, false, true };
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsSyncedIdleAnimation(int state)
+{
+    return state >= Packets::Players::PLAYER_ANIMATION_IDLE_STRETCH &&
+           state <= Packets::Players::PLAYER_ANIMATION_IDLE_STRETCH_LEG;
+}
+
+CAnimBlendAssociation* FindSyncedAnimationAssociation(CPlayerPed* ped, const SyncedAnimationDefinition& definition)
+{
+    if (!ped || !ped->m_pRwClump)
+    {
+        return nullptr;
+    }
+
+    for (CAnimBlendAssociation* association = RpAnimBlendClumpGetFirstAssociation(ped->m_pRwClump); association;
+         association = RpAnimBlendGetNextAssociation(association))
+    {
+        if (association->m_nAnimGroup == definition.groupId && association->m_nAnimId == definition.animationId)
+        {
+            return association;
+        }
+    }
+    return nullptr;
+}
+
+bool IsSequenceNewer(uint16_t incoming, uint16_t previous)
+{
+    return static_cast<int16_t>(incoming - previous) > 0;
+}
+}
 
 CNetworkPlayer::~CNetworkPlayer()
 {
+    ClearSyncedAnimationState();
     if (m_pPed == nullptr)
         return;
 
@@ -50,10 +121,17 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
     {
         ApplyGameplayState(m_gameplayState);
     }
+
+    ApplySyncedAnimation();
 }
 
 void CNetworkPlayer::DestroyPed()
 {
+    if (!m_pPed)
+    {
+        return;
+    }
+
     if (m_pPed->m_pVehicle)
     {
         plugin::Command<Commands::WARP_CHAR_FROM_CAR_TO_COORD>(CPools::GetPedRef(m_pPed), 0.f, 0.f, 0.f);
@@ -73,10 +151,12 @@ void CNetworkPlayer::DestroyPed()
 			call[ebx]  // call destructor
         }
     }
+    m_pPed = nullptr;
 }
 
 void CNetworkPlayer::Respawn()
 {
+    ClearSyncedAnimationState();
     if (m_pPed)
     {
         this->DestroyPed();
@@ -246,6 +326,12 @@ void CNetworkPlayer::RemoveFromVehicle(CVehicle* vehicle)
 
 void CNetworkPlayer::HandleTask(Packets::Players::SetPlayerTask& packet)
 {
+    if (packet.hasAnimationState)
+    {
+        HandleSyncedAnimation(packet);
+        return;
+    }
+
     if (!m_pPed)
     {
         return;
@@ -301,6 +387,146 @@ void CNetworkPlayer::HandleTask(Packets::Players::SetPlayerTask& packet)
             break;
         }
     }
+}
+
+void CNetworkPlayer::HandleSyncedAnimation(const Packets::Players::SetPlayerTask& packet)
+{
+    if (!packet.IsAnimationStateSemanticallyValid() ||
+        (m_bHasSyncedAnimationSequence &&
+            !IsSequenceNewer(packet.animationSequence, m_nSyncedAnimationSequence)))
+    {
+        return;
+    }
+
+    const bool replacing = m_nSyncedAnimationState != packet.animationState;
+    if (replacing)
+    {
+        FadeSyncedAnimation();
+        const bool wasIdle = IsSyncedIdleAnimation(m_nSyncedAnimationState);
+        const bool isIdle = IsSyncedIdleAnimation(packet.animationState);
+        if (!wasIdle && isIdle)
+        {
+            CPlayerAnimationSyncManager::AcquirePlayIdles();
+        }
+        else if (wasIdle && !isIdle)
+        {
+            CPlayerAnimationSyncManager::ReleasePlayIdles();
+        }
+    }
+
+    m_bHasSyncedAnimationSequence = true;
+    m_nSyncedAnimationSequence = packet.animationSequence;
+    m_nSyncedAnimationProgress = packet.animationProgress;
+    m_nSyncedAnimationReceivedAt = GetTickCount();
+    m_nSyncedAnimationState = packet.animationState;
+
+    if (m_nSyncedAnimationState != Packets::Players::PLAYER_ANIMATION_NONE)
+    {
+        ApplySyncedAnimation();
+    }
+}
+
+void CNetworkPlayer::ApplySyncedAnimation()
+{
+    if (!m_pPed || !m_pPed->m_pRwClump ||
+        m_nSyncedAnimationState == Packets::Players::PLAYER_ANIMATION_NONE)
+    {
+        return;
+    }
+
+    SyncedAnimationDefinition definition{};
+    if (!GetSyncedAnimationDefinition(m_nSyncedAnimationState, definition))
+    {
+        ClearSyncedAnimationState();
+        return;
+    }
+
+    if (definition.isIdle)
+    {
+        if (!CPlayerAnimationSyncManager::EnsurePlayIdlesLoaded())
+        {
+            return;
+        }
+    }
+
+    CAnimBlendAssociation* association = FindSyncedAnimationAssociation(m_pPed, definition);
+    if (!association || association->m_fBlendDelta < 0.0f)
+    {
+        association = CAnimManager::BlendAnimation(
+            m_pPed->m_pRwClump, definition.groupId, definition.animationId, definition.blendDelta);
+        if (!association)
+        {
+            return;
+        }
+        if (definition.isIdle)
+        {
+            association->m_nFlags |= ANIMATION_UNUSED_2;
+        }
+    }
+
+    if (!association->m_pHierarchy || association->m_pHierarchy->m_fTotalTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float totalTime = association->m_pHierarchy->m_fTotalTime;
+    float targetTime = totalTime * (static_cast<float>(m_nSyncedAnimationProgress) / 255.0f);
+    const float elapsedSeconds = static_cast<float>(GetTickCount() - m_nSyncedAnimationReceivedAt) / 1000.0f;
+    targetTime += elapsedSeconds * association->m_fSpeed;
+    if (definition.isLooped)
+    {
+        while (targetTime >= totalTime)
+        {
+            targetTime -= totalTime;
+        }
+    }
+    else if (targetTime >= totalTime)
+    {
+        association->m_fBlendDelta = -definition.blendDelta;
+        return;
+    }
+
+    float drift = association->m_fCurrentTime - targetTime;
+    if (drift < 0.0f)
+    {
+        drift = -drift;
+    }
+    if (definition.isLooped && drift > totalTime * 0.5f)
+    {
+        drift = totalTime - drift;
+    }
+    if (drift > 0.2f)
+    {
+        association->SetCurrentTime(targetTime);
+    }
+}
+
+void CNetworkPlayer::FadeSyncedAnimation()
+{
+    SyncedAnimationDefinition definition{};
+    if (!GetSyncedAnimationDefinition(m_nSyncedAnimationState, definition))
+    {
+        return;
+    }
+
+    if (CAnimBlendAssociation* association = FindSyncedAnimationAssociation(m_pPed, definition))
+    {
+        association->m_fBlendDelta = -definition.blendDelta;
+    }
+}
+
+void CNetworkPlayer::ClearSyncedAnimationState()
+{
+    FadeSyncedAnimation();
+    if (IsSyncedIdleAnimation(m_nSyncedAnimationState))
+    {
+        CPlayerAnimationSyncManager::ReleasePlayIdles();
+    }
+    m_nSyncedAnimationState = Packets::Players::PLAYER_ANIMATION_NONE;
+    m_nSyncedAnimationSequence = 0;
+    m_nSyncedAnimationProgress = 0;
+    m_nSyncedAnimationReceivedAt = 0;
+    m_bHasSyncedAnimationSequence = false;
 }
 
 void CNetworkPlayer::ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot)

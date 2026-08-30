@@ -122,6 +122,11 @@ PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSy
 
 PACKET_HANDLER(ePacketType::SET_PLAYER_TASK, Packets::Players::SetPlayerTask* pSetPlayerTask)
 {
+    if (!pSetPlayerTask->IsAnimationStateSemanticallyValid())
+    {
+        return;
+    }
+
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pSetPlayerTask->playerid);
     if (pNetworkPlayer == nullptr)
     {

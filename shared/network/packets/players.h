@@ -25,6 +25,18 @@ namespace Packets::Players
 inline constexpr size_t PLAYER_SKILL_STATS_COUNT = 11;
 inline constexpr size_t PLAYER_STATS_WIRE_COUNT = 14;
 
+enum ePlayerAnimationState : int
+{
+    PLAYER_ANIMATION_NONE = 0,
+    PLAYER_ANIMATION_IDLE_STRETCH,
+    PLAYER_ANIMATION_IDLE_TIME,
+    PLAYER_ANIMATION_IDLE_SHOULDER,
+    PLAYER_ANIMATION_IDLE_STRETCH_LEG,
+    PLAYER_ANIMATION_FUNNY_TURN_LEFT,
+    PLAYER_ANIMATION_FUNNY_TURN_RIGHT,
+    PLAYER_ANIMATION_COUNT
+};
+
 struct SKeySnapshot
 {
 public:
@@ -310,6 +322,22 @@ public:
     RadianAngleCompressed currentRotation{};
     RadianAngleCompressed aimingRotation{};
     bool toggle = false;
+    bool hasAnimationState = false;
+    int animationState = PLAYER_ANIMATION_NONE;
+    uint16_t animationSequence = 0;
+    uint8_t animationProgress = 0;
+
+    bool IsAnimationStateSemanticallyValid() const
+    {
+        if (!hasAnimationState)
+        {
+            return true;
+        }
+
+        return taskType == TASK_SIMPLE_PLAYER_ON_FOOT && !toggle && animationState >= PLAYER_ANIMATION_NONE &&
+               animationState < PLAYER_ANIMATION_COUNT &&
+               (animationState != PLAYER_ANIMATION_NONE || animationProgress == 0);
+    }
 
     template <typename Stream>
     bool Serialize(Stream& stream)
@@ -322,6 +350,22 @@ public:
         serialize_object(stream, currentRotation);
         serialize_object(stream, aimingRotation);
         serialize_bool(stream, toggle);
+        serialize_bool(stream, hasAnimationState);
+        if (hasAnimationState)
+        {
+            if (Stream::IsWriting && !IsAnimationStateSemanticallyValid())
+            {
+                return false;
+            }
+
+            serialize_int(stream, animationState, PLAYER_ANIMATION_NONE, PLAYER_ANIMATION_COUNT - 1);
+            serialize_uint16(stream, animationSequence);
+            serialize_uint8(stream, animationProgress);
+            if (Stream::IsReading && !IsAnimationStateSemanticallyValid())
+            {
+                return false;
+            }
+        }
         return true;
     }
 };

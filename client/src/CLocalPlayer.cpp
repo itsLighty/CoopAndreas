@@ -12,6 +12,32 @@ void CLocalPlayer::BuildTaskPacket(eTaskType type, bool toggle)
 	GetPacketFactory().Send(packet);
 }
 
+void CLocalPlayer::BuildAnimationTaskPacket(Packets::Players::ePlayerAnimationState state, uint16_t sequence,
+	uint8_t progress)
+{
+	if (!CNetwork::m_bAuthenticated)
+	{
+		return;
+	}
+
+	CPlayerPed* pPlayerPed = FindPlayerPed(0);
+	if (!pPlayerPed)
+	{
+		return;
+	}
+
+	Packets::Players::SetPlayerTask packet{};
+	packet.taskType = TASK_SIMPLE_PLAYER_ON_FOOT;
+	packet.vecPos = pPlayerPed->GetPosition();
+	packet.currentRotation = pPlayerPed->m_fCurrentRotation;
+	packet.aimingRotation = pPlayerPed->m_fAimingRotation;
+	packet.hasAnimationState = true;
+	packet.animationState = state;
+	packet.animationSequence = sequence;
+	packet.animationProgress = progress;
+	GetPacketFactory().Send(packet);
+}
+
 bool CLocalPlayer::GetIsHostingEntity(CEntity* pEntity)
 {
     if (pEntity->m_nType == ENTITY_TYPE_PED)

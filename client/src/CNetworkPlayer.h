@@ -32,6 +32,11 @@ public:
 	bool m_bExtrapolating = false;
 
 	bool m_bRequestedDuckTask = false;
+	int m_nSyncedAnimationState = Packets::Players::PLAYER_ANIMATION_NONE;
+	uint16_t m_nSyncedAnimationSequence = 0;
+	uint8_t m_nSyncedAnimationProgress = 0;
+	uint32_t m_nSyncedAnimationReceivedAt = 0;
+	bool m_bHasSyncedAnimationSequence = false;
 
 	bool m_bIsHost = false;
 
@@ -49,6 +54,10 @@ public:
 	void WarpIntoVehiclePassenger(CVehicle* vehicle, int seatid);
 	void EnterVehiclePassenger(CVehicle* vehicle, int seatid);
 	void HandleTask(Packets::Players::SetPlayerTask& packet);
+	void HandleSyncedAnimation(const Packets::Players::SetPlayerTask& packet);
+	void ApplySyncedAnimation();
+	void FadeSyncedAnimation();
+	void ClearSyncedAnimationState();
 	void ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot);
 	void ApplyGameplayState(const Packets::Players::PlayerGameplayState& gameplayState);
 };

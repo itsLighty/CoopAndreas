@@ -9,6 +9,48 @@
 
 namespace
 {
+constexpr uint32_t ANIMATION_RATE_WINDOW_MS = 1000;
+constexpr uint16_t MAX_ANIMATION_EVENTS_PER_WINDOW = 20;
+
+struct AnimationRateSlot
+{
+    CNetworkPlayer* owner = nullptr;
+    uint32_t connectId = 0;
+    uint32_t windowStartedAt = 0;
+    uint16_t eventCount = 0;
+};
+
+AnimationRateSlot g_animationRateSlots[Config::MAX_SERVER_PLAYERS]{};
+
+bool CanRelayAnimationEvent(CNetworkPlayer* player)
+{
+    if (!player || player->m_iPlayerId < 0 || player->m_iPlayerId >= Config::MAX_SERVER_PLAYERS ||
+        !player->m_pPeer)
+    {
+        return false;
+    }
+
+    AnimationRateSlot& slot = g_animationRateSlots[player->m_iPlayerId];
+    const uint32_t now = enet_time_get();
+    const uint32_t connectId = player->m_pPeer->connectID;
+    if (slot.owner != player || slot.connectId != connectId ||
+        now - slot.windowStartedAt >= ANIMATION_RATE_WINDOW_MS)
+    {
+        slot.owner = player;
+        slot.connectId = connectId;
+        slot.windowStartedAt = now;
+        slot.eventCount = 0;
+    }
+
+    if (slot.eventCount >= MAX_ANIMATION_EVENTS_PER_WINDOW)
+    {
+        return false;
+    }
+
+    ++slot.eventCount;
+    return true;
+}
+
 template <typename PacketT>
 void RelayPlayerGameplayState(PacketT& packet, CNetworkPlayer* pSourcePlayer)
 {
@@ -49,6 +91,15 @@ PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSy
 
 PACKET_HANDLER(ePacketType::SET_PLAYER_TASK, Packets::Players::SetPlayerTask* pSetPlayerTask, CNetworkPlayer* pNetworkPlayer)
 {
+    if (!pSetPlayerTask->IsAnimationStateSemanticallyValid())
+    {
+        return;
+    }
+    if (pSetPlayerTask->hasAnimationState && !CanRelayAnimationEvent(pNetworkPlayer))
+    {
+        return;
+    }
+
     pSetPlayerTask->playerid = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pSetPlayerTask, pNetworkPlayer);
 }

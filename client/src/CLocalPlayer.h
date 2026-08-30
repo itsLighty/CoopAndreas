@@ -8,6 +8,8 @@ public:
 	static inline bool m_bIsHost;
 
 	static void BuildTaskPacket(eTaskType type, bool toggle = true);
+	static void BuildAnimationTaskPacket(Packets::Players::ePlayerAnimationState state, uint16_t sequence,
+		uint8_t progress);
 
 	static bool GetIsHostingEntity(CEntity* pEntity);
 };
