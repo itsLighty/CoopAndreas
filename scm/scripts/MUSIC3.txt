@@ -8,7 +8,7 @@ gosub @MUSIC3_47
 if 
   has_deatharrest_been_executed 
 goto_if_false @MUSIC3_38
-gosub @MUSIC3_15492
+gosub @MUSIC3_COOP_NOTIFY_FAILURE
 
 :MUSIC3_38
 gosub @MUSIC3_15596
@@ -142,6 +142,7 @@ set_lvar_int_to_var_int 262@ = $scplayer // current hostile target
 277@ = 0 // manager-car occupant is close to the lead car
 278@ = 0 // manager-car occupant is close to the rear car
 288@ = 0 // periodic late-stream objective refresh time
+301@ = 0 // idempotent cooperative cleanup guard
 for $temp_int = 0 to 2
     235@($temp_int,3i) = -1 // last per-player cooperative objective
     238@($temp_int,3i) = -1 // participant escort vehicle
@@ -290,12 +291,12 @@ gosub @MUSIC3_COOP_UPDATE
 if
   255@ == 1
 then
-    goto @MUSIC3_15492
+    goto @MUSIC3_COOP_NOTIFY_FAILURE
 end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @MUSIC3_2294
-goto @MUSIC3_15510
+goto @MUSIC3_COOP_NOTIFY_RESULT
 
 :MUSIC3_2294
 gosub @MUSIC3_16173
@@ -2459,7 +2460,7 @@ Player.MakeGangReappear
 Hud.SwitchWidescreen(False)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
-goto @MUSIC3_15510
+goto @MUSIC3_COOP_NOTIFY_RESULT
 
 :MUSIC3_15376
 if 
@@ -2482,6 +2483,7 @@ Text.Print('STP3_28', 7000, 1)
 gosub @MUSIC3_25787
 goto @MUSIC3_2268
 
+:MUSIC3_COOP_NOTIFY_FAILURE
 :MUSIC3_15492
 gosub @MUSIC3_COOP_CLEAR_OBJECTIVES
 for $temp_int = 0 to 2
@@ -2494,6 +2496,7 @@ end
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
+:MUSIC3_COOP_NOTIFY_RESULT
 :MUSIC3_15510
 gosub @MUSIC3_COOP_CLEAR_OBJECTIVES
 for $temp_int = 0 to 2
@@ -2518,7 +2521,7 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :MUSIC3_15596
-gosub @MUSIC3_COOP_RESTORE_PLAYERS
+gosub @MUSIC3_COOP_CLEANUP
 Zone.SwitchAudio('AWARDS', False)
 Clock.SetTimeScale(1.0)
 Hud.SwitchWidescreen(False)
@@ -4367,7 +4370,7 @@ for $temp_int = 0 to 2
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
-            255@ = 1
+            gosub @MUSIC3_COOP_PARTICIPANT_DEATH
         else
             Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
         end
@@ -4420,6 +4423,11 @@ then
     gosub @MUSIC3_COOP_UPDATE_COMBAT
 end
 gosub @MUSIC3_COOP_UPDATE_OBJECTIVES
+return
+
+:MUSIC3_COOP_PARTICIPANT_DEATH
+// Deterministic connected cooperative participant death failure.
+255@ = 1
 return
 
 :MUSIC3_COOP_FIND_MANAGER_CAR_PLAYERS
@@ -5655,7 +5663,13 @@ end
 257@ = 0
 return
 
-:MUSIC3_COOP_RESTORE_PLAYERS
+:MUSIC3_COOP_CLEANUP
+if
+  301@ == 1
+then
+    return
+end
+301@ = 1
 gosub @MUSIC3_COOP_CLEAR_OBJECTIVES
 gosub @MUSIC3_COOP_UNFREEZE_PLAYERS
 for $temp_int = 0 to 2

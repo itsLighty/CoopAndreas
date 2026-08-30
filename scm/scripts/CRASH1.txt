@@ -8,7 +8,7 @@ gosub @CRASH1_47
 if 
   has_deatharrest_been_executed 
 goto_if_false @CRASH1_38
-gosub @CRASH1_41227
+gosub @CRASH1_COOP_NOTIFY_FAILURE
 
 :CRASH1_38
 gosub @CRASH1_41349
@@ -201,8 +201,8 @@ gosub @CRASH1_COOP_ROSTER_UPDATE
 if
   405@ == 1
 then
-  37@ = 1
-  goto @CRASH1_1651
+  gosub @CRASH1_COOP_NOTIFY_FAILURE
+  return
 end
 if 
 is_ps2_keyboard_key_pressed 83
@@ -313,7 +313,7 @@ goto @CRASH1_1199
 goto @CRASH1_1728
 
 :CRASH1_1719
-gosub @CRASH1_41291
+gosub @CRASH1_COOP_NOTIFY_RESULT
 return 
 
 :CRASH1_1728
@@ -6382,6 +6382,7 @@ goto_if_false @CRASH1_41186
 361@ = 1
 return 
 
+:CRASH1_COOP_NOTIFY_FAILURE
 :CRASH1_41227
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 gosub @CRASH1_coop_clear_objectives
@@ -6402,6 +6403,7 @@ Text.PrintNow('CRA1_51', 5000, 1)
 :CRASH1_41289
 return 
 
+:CRASH1_COOP_NOTIFY_RESULT
 :CRASH1_41291
 Text.PrintWithNumberBig('M_PASSD', 0, 5000, TextStyle.Middle)
 gosub @CRASH1_coop_clear_objectives
@@ -6421,7 +6423,7 @@ set_global_var_bit_const $iActiveGF bit 0
 return 
 
 :CRASH1_41349
-gosub @CRASH1_coop_restore_players
+gosub @CRASH1_COOP_CLEANUP
 if 
   355@ == 1
 goto_if_false @CRASH1_41411
@@ -6656,7 +6658,7 @@ for 429@ = 0 to 2
         if
             Char.IsDead(362@(429@,3i))
         then
-            405@ = 1
+            gosub @CRASH1_COOP_PARTICIPANT_DEATH
         end
     else
         365@(429@,3i) = -1
@@ -7511,7 +7513,7 @@ for 429@ = 0 to 2
 end
 return
 
-:CRASH1_coop_restore_players
+:CRASH1_COOP_CLEANUP
 if
     425@ == 1
 then
@@ -7617,6 +7619,11 @@ Camera.RestoreJumpcut
 Player.SetControl($player1, True)
 Game.SetEveryoneIgnorePlayer($player1, False)
 Game.SetAllCarsCanBeDamaged(True)
+return
+
+:CRASH1_COOP_PARTICIPANT_DEATH
+// Deterministic connected cooperative participant death failure.
+405@ = 1
 return
 
 // Synced scripts register mission actors asynchronously. Both handshakes are

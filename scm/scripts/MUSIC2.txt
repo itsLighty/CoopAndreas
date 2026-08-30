@@ -8,7 +8,7 @@ gosub @MUSIC2_47
 if 
   has_deatharrest_been_executed 
 goto_if_false @MUSIC2_38
-gosub @MUSIC2_10509
+gosub @MUSIC2_COOP_NOTIFY_FAILURE
 
 :MUSIC2_38
 gosub @MUSIC2_10582
@@ -45,6 +45,7 @@ set_lvar_int_to_var_int 212@ = $scplayer // participant who caused detection/pro
 262@ = Clock.GetGameTimer() // non-blocking regroup timer
 264@ = 0 // support-bike wave: 0 none, 1 approach, 2 escape
 269@ = 1 // cooperative cutscene state
+290@ = 0 // idempotent cooperative cleanup guard
 for $temp_int = 0 to 2
     set_lvar_int_to_var_int 220@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
     278@($temp_int,3i) = -1 // immutable internal network identity
@@ -214,13 +215,13 @@ gosub @MUSIC2_COOP_UPDATE
 if
   200@ == 1
 goto_if_false @MUSIC2_COOP_MAIN_CONTINUE
-goto @MUSIC2_10509
+goto @MUSIC2_COOP_NOTIFY_FAILURE
 
 :MUSIC2_COOP_MAIN_CONTINUE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @MUSIC2_771
-goto @MUSIC2_10527
+goto @MUSIC2_COOP_NOTIFY_RESULT
 
 :MUSIC2_771
 if 
@@ -1634,12 +1635,13 @@ Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
-goto @MUSIC2_10527
+goto @MUSIC2_COOP_NOTIFY_RESULT
 95@ = 9
 
 :MUSIC2_10502
 goto @MUSIC2_745
 
+:MUSIC2_COOP_NOTIFY_FAILURE
 :MUSIC2_10509
 gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
 for $temp_int = 0 to 2
@@ -1652,6 +1654,7 @@ end
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
+:MUSIC2_COOP_NOTIFY_RESULT
 :MUSIC2_10527
 gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
 for $temp_int = 0 to 2
@@ -1672,7 +1675,7 @@ $flag_strap_mission_counter += 1
 return 
 
 :MUSIC2_10582
-gosub @MUSIC2_COOP_RESTORE_PLAYERS
+gosub @MUSIC2_COOP_CLEANUP
 Game.SetScriptLimitToGangSize(99)
 if
   Char.DoesExist(37@)
@@ -1806,7 +1809,7 @@ for $temp_int = 0 to 2
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
-            200@ = 1
+            gosub @MUSIC2_COOP_PARTICIPANT_DEATH
         end
     end
 end
@@ -1845,6 +1848,11 @@ if
 then
     gosub @MUSIC2_COOP_UPDATE_REGROUP
 end
+return
+
+:MUSIC2_COOP_PARTICIPANT_DEATH
+// Deterministic connected cooperative participant death failure.
+200@ = 1
 return
 
 :MUSIC2_COOP_REFRESH_ROSTER
@@ -2968,7 +2976,13 @@ for $temp_int = 0 to 2
 end
 return
 
-:MUSIC2_COOP_RESTORE_PLAYERS
+:MUSIC2_COOP_CLEANUP
+if
+  290@ == 1
+then
+    return
+end
+290@ = 1
 gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
 gosub @MUSIC2_COOP_DELETE_SUPPORT_BIKES
 gosub @MUSIC2_COOP_RESTORE_KNIVES

@@ -8,7 +8,7 @@ gosub @DRUGS3_47
 if 
   has_deatharrest_been_executed 
 goto_if_false @DRUGS3_38
-gosub @DRUGS3_19343
+gosub @DRUGS3_COOP_NOTIFY_FAILURE
 
 :DRUGS3_38
 gosub @DRUGS3_19417
@@ -235,7 +235,7 @@ gosub @DRUGS3_COOP_UPDATE
 if
   217@ == 1
 then
-    goto @DRUGS3_19343
+    goto @DRUGS3_COOP_NOTIFY_FAILURE
 end
 if 
 is_ps2_keyboard_key_pressed 83
@@ -2214,7 +2214,7 @@ goto_if_false @DRUGS3_14250
 if 
   179@ == 2
 goto_if_false @DRUGS3_14275
-goto @DRUGS3_19361
+goto @DRUGS3_COOP_NOTIFY_RESULT
 
 :DRUGS3_14275
 if 
@@ -3069,11 +3069,10 @@ for $temp_int = 0 to 2
                 251@ = 1
                 195@($temp_int,3i) = -1
             end
-            if and
-                232@ == 0
+            if
                 Char.IsDead($NETWORK_PLAYER[$temp_int])
             then
-                217@ = 1
+                gosub @DRUGS3_COOP_PARTICIPANT_DEATH
             end
         else
             $NETWORK_PLAYER[$temp_int] = 0
@@ -3888,7 +3887,7 @@ then
 end
 return
 
-:DRUGS3_COOP_RESTORE_PLAYERS
+:DRUGS3_COOP_CLEANUP
 if
   210@ == 1
 then
@@ -3925,6 +3924,11 @@ for $temp_int = 0 to 2
 end
 232@ = 0
 gosub @DRUGS3_COOP_TELEPORT_ACTIVE
+return
+
+:DRUGS3_COOP_PARTICIPANT_DEATH
+// Deterministic connected cooperative participant death failure.
+217@ = 1
 return
 
 :DRUGS3_COOP_CLEAR_REMOTE_WANTED
@@ -4102,6 +4106,7 @@ then
 end
 return
 
+:DRUGS3_COOP_NOTIFY_FAILURE
 :DRUGS3_19343
 gosub @DRUGS3_COOP_UPDATE_ROSTER
 gosub @DRUGS3_COOP_CLEAR_OBJECTIVES
@@ -4115,6 +4120,7 @@ for $temp_int = 0 to 2
 end
 return 
 
+:DRUGS3_COOP_NOTIFY_RESULT
 :DRUGS3_19361
 gosub @DRUGS3_COOP_UPDATE_ROSTER
 gosub @DRUGS3_COOP_CLEAR_OBJECTIVES
@@ -4136,7 +4142,7 @@ Blip.Remove($crash_contact_blip)
 return 
 
 :DRUGS3_19417
-gosub @DRUGS3_COOP_RESTORE_PLAYERS
+gosub @DRUGS3_COOP_CLEANUP
 gosub @DRUGS3_COOP_DELETE_CHASE_VEHICLES
 if 
   not Car.IsDead($car)

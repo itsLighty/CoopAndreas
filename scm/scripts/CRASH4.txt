@@ -8,7 +8,7 @@ gosub @CRASH4_47
 if 
   has_deatharrest_been_executed 
 goto_if_false @CRASH4_38
-gosub @CRASH4_6181
+gosub @CRASH4_COOP_NOTIFY_FAILURE
 
 :CRASH4_38
 gosub @CRASH4_6780
@@ -1062,8 +1062,9 @@ Blip.Remove(35@)
 goto @CRASH4_6088
 
 :CRASH4_6174
-goto @CRASH4_6337
+goto @CRASH4_COOP_NOTIFY_RESULT
 
+:CRASH4_COOP_NOTIFY_FAILURE
 :CRASH4_6181
 gosub @CRASH4_COOP_CLEAR_OBJECTIVES
 gosub @CRASH4_COOP_RELEASE_WAVE
@@ -1102,6 +1103,7 @@ Game.SetOnlyCreateGangMembers(False)
 Game.SetWantedMultiplier(1.0)
 return 
 
+:CRASH4_COOP_NOTIFY_RESULT
 :CRASH4_6337
 gosub @CRASH4_COOP_CLEAR_OBJECTIVES
 Zone.SetGangStrength('GLN1', GangType.Ballas, 0)
@@ -1231,7 +1233,7 @@ for $temp_int = 0 to 2
             if
                 Char.IsDead($NETWORK_PLAYER[$temp_int])
             then
-                202@ = 1
+                gosub @CRASH4_COOP_PARTICIPANT_DEATH
             end
         else
             $NETWORK_PLAYER[$temp_int] = 0
@@ -1266,6 +1268,11 @@ then
     end
     Coop.TeleportPlayersToHostSafely(288@, 289@, 290@)
 end
+return
+
+:CRASH4_COOP_PARTICIPANT_DEATH
+// Deterministic connected cooperative participant death failure.
+202@ = 1
 return
 
 :CRASH4_COOP_BUILD_ACTIVE_ARGS
@@ -2124,7 +2131,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 return
 
 :CRASH4_COOP_ABORT
-gosub @CRASH4_6181
+gosub @CRASH4_COOP_NOTIFY_FAILURE
 gosub @CRASH4_6780
 terminate_this_script
 return

@@ -8,7 +8,7 @@ gosub @MUSIC5_47
 if 
   has_deatharrest_been_executed 
 goto_if_false @MUSIC5_38
-gosub @MUSIC5_15871
+gosub @MUSIC5_COOP_NOTIFY_FAILURE
 
 :MUSIC5_38
 gosub @MUSIC5_16040
@@ -446,7 +446,7 @@ gosub @MUSIC5_COOP_UPDATE
 if
   155@ == 1
 goto_if_false @MUSIC5_COOP_MAIN_CONTINUE
-goto @MUSIC5_15871
+goto @MUSIC5_COOP_NOTIFY_FAILURE
 
 :MUSIC5_COOP_MAIN_CONTINUE
 if 
@@ -2356,6 +2356,7 @@ goto @MUSIC5_15871
 gosub @MUSIC5_18136
 goto @MUSIC5_3034
 
+:MUSIC5_COOP_NOTIFY_FAILURE
 :MUSIC5_15871
 gosub @MUSIC5_COOP_CLEAR_OBJECTIVES
 for $temp_int = 0 to 2
@@ -2372,7 +2373,7 @@ return
 :MUSIC5_15889
 if 
   $strap4_mission_passed_once_flag == 0
-goto_if_false @MUSIC5_15973
+goto_if_false @MUSIC5_COOP_NOTIFY_RESULT
 Blip.Remove($strap_contact_blip)
 $strap_contact_blip = Blip.AddSpriteForContactPoint($strap_blip_icon, $strap2X, $strap2Y, $strap2Z)
 Camera.DoFade(1, 500)
@@ -2385,6 +2386,7 @@ $flag_strap_mission_counter += 1
 $strap4_mission_passed_once_flag = 1
 goto @MUSIC5_16038
 
+:MUSIC5_COOP_NOTIFY_RESULT
 :MUSIC5_15973
 gosub @MUSIC5_COOP_CLEAR_OBJECTIVES
 for $temp_int = 0 to 2
@@ -2409,7 +2411,7 @@ Blip.Remove($strap_contact_blip)
 return 
 
 :MUSIC5_16040
-gosub @MUSIC5_COOP_RESTORE_PLAYERS
+gosub @MUSIC5_COOP_CLEANUP
 if 
   is_var_text_label_empty s$shop_name
 goto_if_false @MUSIC5_16058
@@ -2564,11 +2566,16 @@ for $temp_int = 0 to 2
             if
                 Char.IsDead($NETWORK_PLAYER[$temp_int])
             then
-                155@ = 1
+                gosub @MUSIC5_COOP_PARTICIPANT_DEATH
             end
         end
     end
 end
+return
+
+:MUSIC5_COOP_PARTICIPANT_DEATH
+// Deterministic connected cooperative participant death failure.
+155@ = 1
 return
 
 :MUSIC5_COOP_PRINT_NOW
@@ -3206,7 +3213,7 @@ gosub @MUSIC5_COOP_REGROUP
 :MUSIC5_COOP_UPDATE_DONE
 return
 
-:MUSIC5_COOP_RESTORE_PLAYERS
+:MUSIC5_COOP_CLEANUP
 if
   153@ == 1
 then

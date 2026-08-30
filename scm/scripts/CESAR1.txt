@@ -11,7 +11,7 @@ goto_if_false @CESAR1_38
 gosub @CESAR1_4957
 
 :CESAR1_38
-gosub @CESAR1_5008
+gosub @CESAR1_COOP_CLEANUP
 terminate_this_script 
 
 :CESAR1_47
@@ -168,6 +168,7 @@ $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetwork
 158@ = 0
 159@ = 0
 223@ = 0 // deterministic connected-participant death failure
+224@ = 0 // idempotent primary cooperative cleanup guard
 for $temp_int = 0 to 2
     $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
     160@($temp_int,3i) = 0
@@ -833,7 +834,13 @@ then
 end
 return 
 
-:CESAR1_5008
+:CESAR1_COOP_CLEANUP
+if
+  224@ == 1
+then
+    return
+end
+224@ = 1
 gosub @CESAR1_COOP_CLEAR_OBJECTIVES
 if
     159@ == 0
