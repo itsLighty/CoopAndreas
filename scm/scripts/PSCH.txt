@@ -6,6 +6,9 @@ wait 0
 if 
   Player.IsPlaying($player1)
 goto_if_false @PSCH_239
+if
+  Coop.IsHost()
+goto_if_false @PSCH_239
 if 
   $onmission == 0
 goto_if_false @PSCH_239

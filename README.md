@@ -357,7 +357,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [ ] Ammu-nation challenge
 - [ ] Schools
   - [ ] Driving school
-  - [ ] Flight school
+  - [X] Flight school
   - [ ] Bike school
   - [ ] Boat school
 - [ ] Asset Missions
