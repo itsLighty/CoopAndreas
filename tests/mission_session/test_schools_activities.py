@@ -201,5 +201,121 @@ class DrivingSchoolCoopStructureTests(unittest.TestCase):
         self.assertIn("Player.SetControl($player1, True)", cleanup)
 
 
+class BoatSchoolCoopStructureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.launcher = (ROOT / "scm/scripts/BSCHOO.txt").read_text(encoding="utf-8")
+        cls.body = (ROOT / "scm/scripts/BOAT.txt").read_text(encoding="utf-8")
+        cls.coop = cls.body.split(
+            "// Co-op policy for all five Boat School lessons.", 1
+        )[1]
+
+    def test_launcher_and_body_are_host_authoritative(self):
+        self.assertEqual(self.launcher.count("Coop.IsHost()"), 1)
+        self.assertEqual(self.launcher.count("Coop.LaunchMissionForCoop(119)"), 1)
+        self.assertNotIn("Mission.LoadAndLaunchInternal(119)", self.launcher)
+        self.assertRegex(
+            self.launcher,
+            r"(?s)Player\.IsPlaying\(\$player1\).*?Coop\.IsHost\(\).*?"
+            r"goto_if_false @BSCHOO_125.*?Player\.SetControl\(\$player1, False\)",
+        )
+        self.assertIn("Coop.EnableSyncingThisScript()", self.body)
+        self.assertRegex(
+            self.body,
+            r":BOAT_COOP_REJECT_NON_HOST\s+terminate_this_script",
+        )
+
+    def test_all_five_stock_lessons_share_begin_and_result_pipelines(self):
+        for label in (2264, 3828, 6527, 10930, 12810):
+            self.assertIn(f":BOAT_{label}", self.body)
+        self.assertEqual(self.body.count("gosub @BOAT_COOP_BEGIN_LESSON"), 5)
+        self.assertEqual(
+            self.body.count("gosub @BOAT_COOP_NOTIFY_LESSON_RESULT"), 5
+        )
+        for key in ("BOAT_A4", "BOAT_B4", "BOAT_C1", "BOAT_D1"):
+            self.assertIn(f"Coop.PrintNowForNetworkPlayer('{key}'", self.coop)
+
+    def test_frozen_roster_disconnect_and_reconnect_are_identity_bound(self):
+        self.assertIn(
+            "500@, 501@, 502@ = Coop.CollectNetworkPlayersForTheMission()",
+            self.coop,
+        )
+        self.assertIn(
+            "503@(520@,3i) = Coop.GetNetworkPlayerInternalId", self.coop
+        )
+        refresh = self.coop.split(":BOAT_COOP_REFRESH_ROSTER", 1)[1].split(
+            ":BOAT_COOP_VALIDATE_SLOT", 1
+        )[0]
+        self.assertIn("522@ == 503@(520@,3i)", refresh)
+        self.assertIn("500@(520@,3i) = 0", refresh)
+        self.assertNotRegex(refresh, r"503@\(520@,3i\)\s*=\s*522@")
+        self.assertIn("disconnect is a nonblocking DNF", self.coop)
+
+    def test_death_registration_access_and_regroup_are_deterministic(self):
+        update = self.coop.split(":BOAT_COOP_UPDATE", 1)[1].split(
+            ":BOAT_COOP_STAGE_PARTICIPANTS", 1
+        )[0]
+        self.assertIn("COOP_PARTICIPANT_DEATH", update)
+        self.assertIn("164@ = 1", update)
+        self.assertIn("Car.SetHealth(37@, 0)", update)
+        self.assertIn(
+            "gosub @BOAT_COOP_UPDATE", self.body.split(":BOAT_20340", 1)[1]
+        )
+        registration = self.coop.split(
+            ":BOAT_COOP_POLL_VEHICLE_REGISTRATION", 1
+        )[1].split(":BOAT_COOP_UPDATE_REGROUP", 1)[0]
+        self.assertIn("Coop.GetVehicleNetworkId(37@)", registration)
+        self.assertIn("531@ > 5000", registration)
+        self.assertNotIn("wait ", registration.lower())
+        self.assertNotRegex(registration, r"goto\s+@BOAT_COOP_POLL")
+        for evidence in (
+            "Car.GetMaximumNumberOfPassengers(37@)",
+            "Char.WarpIntoCarAsPassenger",
+            "Coop.TeleportPlayersToHostSafely",
+            "Char.LocateAnyMeansChar3D",
+            "Coop.UpdateCheckpointForNetworkPlayer",
+            "Coop.UpdateCarBlipForNetworkPlayer",
+        ):
+            self.assertIn(evidence, self.coop)
+
+    def test_result_thresholds_and_notifications_do_not_mutate_progress(self):
+        result = self.coop.split(":BOAT_COOP_NOTIFY_LESSON_RESULT", 1)[1].split(
+            ":BOAT_COOP_NOTIFY_FAILURE", 1
+        )[0]
+        for evidence in (
+            "212@ > 168@",
+            "216@ > 168@",
+            "220@ > 168@",
+            "168@ > 224@",
+            "168@ == 224@",
+            "228@ > 168@",
+        ):
+            self.assertIn(evidence, result)
+        self.assertIn("517@ <> 0", result)
+        self.assertIn("Coop.PrintBigForNetworkPlayer('M_PASSD'", result)
+        self.assertIn("Coop.PrintBigForNetworkPlayer('M_FAIL'", result)
+
+    def test_stock_progress_awards_and_cleanup_remain_single_owner(self):
+        stock = self.body.split(
+            "// Co-op policy for all five Boat School lessons.", 1
+        )[0]
+        expected_stock_counts = {
+            "Stat.PlayerMadeProgress(1)": 1,
+            "Stat.RegisterOddjobMissionPassed": 1,
+            "$boat_passed_once = 1": 1,
+            "$boat_gold_rewardgiven = 1": 1,
+            "$boat_silver_rewardgiven = 1": 1,
+            "$boat_bronze_rewardgiven = 1": 1,
+        }
+        for evidence, expected_count in expected_stock_counts.items():
+            self.assertEqual(stock.count(evidence), expected_count)
+            self.assertNotIn(evidence, self.coop)
+        cleanup = self.coop.split(":BOAT_COOP_CLEANUP", 1)[1]
+        self.assertIn("518@ == 1", cleanup)
+        self.assertIn("Coop.ClearAllEntityBlipsForNetworkPlayer", cleanup)
+        self.assertIn("Coop.RemoveCheckpointForNetworkPlayer", cleanup)
+        self.assertIn("Player.SetControl($player1, True)", cleanup)
+
+
 if __name__ == "__main__":
     unittest.main()
