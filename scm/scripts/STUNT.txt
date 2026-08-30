@@ -1,4 +1,15 @@
 :STUNT
+script_name 'STUNT'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @STUNT_COOP_REJECT_NON_HOST
+goto @STUNT_COOP_HOST_START
+
+:STUNT_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:STUNT_COOP_HOST_START
 gosub @STUNT_36
 if 
   has_deatharrest_been_executed 
@@ -17,7 +28,6 @@ goto_if_false @STUNT_63
 Stat.RegisterMissionGiven
 
 :STUNT_63
-script_name 'STUNT'
 wait 0
 Text.LoadMissionText('STUNT')
 
@@ -32,6 +42,7 @@ goto @STUNT_89
 34@ = Char.StoreCarIsIn($scplayer)
 Car.SetHealth(34@, 3000)
 gosub @STUNT_2129
+gosub @STUNT_COOP_INIT
 35@ = 1
 56@ = 0
 
@@ -67,6 +78,12 @@ Text.PrintNow('STUNT_6', 5000, 1)
 
 :STUNT_355
 wait 0
+gosub @STUNT_COOP_UPDATE
+if
+  212@ == 1
+then
+  goto @STUNT_1602
+end
 $game_timer = Clock.GetGameTimer()
 if 
   58@ == 0
@@ -268,6 +285,7 @@ goto @STUNT_1602
 goto @STUNT_355
 
 :STUNT_1602
+gosub @STUNT_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
@@ -341,9 +359,11 @@ goto @STUNT_2026
 Text.PrintWith2NumbersBig('STUNTPT', 125@, 123@, 5000, TextStyle.Middle)
 
 :STUNT_2026
+gosub @STUNT_COOP_NOTIFY_PASS
 return 
 
 :STUNT_2028
+gosub @STUNT_COOP_CLEANUP
 Text.ClearThisPrint('STUNT_1')
 Text.ClearThisPrint('STUNT_3')
 56@ = 0
@@ -500,4 +520,308 @@ goto @STUNT_3450
 
 :STUNT_3450
 return 
+
+// Co-op policy for BMX and NRG-500:
+// - the host alone owns the stock timer, collectible/checkpoint state, bike,
+//   payouts, best times, progress counters, and persistent completion flags;
+// - a disconnected frozen participant is a nonblocking DNF until the same
+//   immutable identity reconnects, while a connected participant death fails;
+// - supporters receive the current collectible or host-bike objective without
+//   acquiring any authority over the stock stunt state machine.
+:STUNT_COOP_INIT
+200@, 201@, 202@ = Coop.CollectNetworkPlayersForTheMission()
+215@ = 0
+for 216@ = 0 to 2
+    203@(216@,3i) = -1
+    206@(216@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+    then
+        203@(216@,3i) = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+        if
+            203@(216@,3i) >= 0
+        then
+            215@ += 1
+        end
+    end
+end
+212@ = 0 // connected participant death failure latch
+213@ = 0 // exactly-once result: 0 pending, 1 failed, 2 passed
+214@ = 0 // idempotent cleanup latch
+221@ = -1 // authoritative stunt-bike network id
+222@ = 0 // registration start time
+223@ = 0 // bounded registration timeout
+225@ = 0 // delayed regroup timer
+if
+    215@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+end
+return
+
+:STUNT_COOP_REFRESH_ROSTER
+209@, 210@, 211@ = Coop.CollectNetworkPlayersForTheMission()
+for 216@ = 0 to 2
+    set_lvar_int_to_lvar_int 224@ = 200@(216@,3i)
+    200@(216@,3i) = 0
+    if
+        203@(216@,3i) >= 0
+    then
+        for 217@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(209@(217@,3i))
+            then
+                219@ = Coop.GetNetworkPlayerInternalId(209@(217@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@(216@,3i) = 209@(217@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 224@ == 200@(216@,3i)
+    then
+        206@(216@,3i) = -1
+    end
+end
+return
+
+:STUNT_COOP_VALIDATE_SLOT
+218@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+then
+    219@ = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+    then
+        218@ = 1
+    end
+end
+return
+
+:STUNT_COOP_UPDATE
+if
+    214@ == 1
+then
+    return
+end
+gosub @STUNT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @STUNT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            Char.IsDead(200@(216@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH follows the stock stunt failure path.
+            212@ = 1
+        end
+    end
+end
+if
+    212@ == 1
+then
+    return
+end
+gosub @STUNT_COOP_POLL_BIKE_REGISTRATION
+gosub @STUNT_COOP_UPDATE_REGROUP
+gosub @STUNT_COOP_UPDATE_OBJECTIVES
+return
+
+// Registration never stalls the timer or collection loop. The host bike gets
+// five seconds of incremental retries and then the shared blip is abandoned.
+:STUNT_COOP_POLL_BIKE_REGISTRATION
+if and
+    221@ == -1
+    223@ == 0
+then
+    if
+        Car.DoesExist(34@)
+    then
+        if
+            222@ == 0
+        then
+            222@ = Clock.GetGameTimer()
+        end
+        221@ = Coop.GetVehicleNetworkId(34@)
+        if
+            221@ <> -1
+        then
+            for 216@ = 0 to 2
+                206@(216@,3i) = -1
+            end
+        end
+        if
+            221@ == -1
+        then
+            224@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 224@ -= 222@
+            if
+                224@ > 5000
+            then
+                223@ = 1
+            end
+        end
+    end
+end
+return
+
+:STUNT_COOP_UPDATE_REGROUP
+220@ = 0
+for 216@ = 0 to 2
+    gosub @STUNT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(200@(216@,3i), $scplayer, 120.0, 120.0, 35.0, False)
+        then
+            220@ = 1
+        end
+    end
+end
+if
+    220@ == 0
+then
+    225@ = 0
+    return
+end
+if
+    225@ == 0
+then
+    225@ = Clock.GetGameTimer()
+end
+224@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 224@ -= 225@
+if
+    224@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+    225@ = 0
+end
+return
+
+// The first remaining collectible is deterministic because stock coordinates
+// and completion flags are host-owned. Returning riders instead follow the bike.
+:STUNT_COOP_UPDATE_OBJECTIVES
+227@ = -1
+for 216@ = 0 to 19
+    if and
+        227@ == -1
+        36@(216@,20i) == 0
+    then
+        set_lvar_int_to_lvar_int 227@ = 216@
+    end
+end
+set_lvar_int_to_lvar_int 226@ = 59@
+if
+    35@ == 1
+then
+    226@ += 100
+end
+for 216@ = 0 to 2
+    gosub @STUNT_COOP_VALIDATE_SLOT
+    if and
+        218@ == 1
+        not is_int_lvar_equal_to_int_lvar 206@(216@,3i) == 226@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        if and
+            221@ <> -1
+            Car.DoesExist(34@)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(200@(216@,3i), 34@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if and
+            35@ == 0
+            227@ >= 0
+        then
+            set_lvar_float_to_lvar_float 228@ = 127@(227@,20f)
+            set_lvar_float_to_lvar_float 229@ = 147@(227@,20f)
+            set_lvar_float_to_lvar_float 230@ = 167@(227@,20f)
+            Coop.UpdateCheckpointForNetworkPlayer(228@, 229@, 230@, 5.0, 5.0, 4.0, 200@(216@,3i))
+            Coop.PrintNowForNetworkPlayer('STUNT_6', 5000, 1, 200@(216@,3i))
+        end
+        if
+            35@ == 1
+        then
+            Coop.PrintNowForNetworkPlayer('STUNT_1', 5000, 1, 200@(216@,3i))
+        end
+        set_lvar_int_to_lvar_int 206@(216@,3i) = 226@
+    end
+end
+return
+
+:STUNT_COOP_NOTIFY_FAILURE
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 1
+gosub @STUNT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @STUNT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:STUNT_COOP_NOTIFY_PASS
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 2
+gosub @STUNT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @STUNT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:STUNT_COOP_CLEANUP
+if
+    214@ == 1
+then
+    return
+end
+214@ = 1
+gosub @STUNT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @STUNT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('STUNT_1', 200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('STUNT_6', 200@(216@,3i))
+        Char.FreezePosition(200@(216@,3i), False)
+        Char.SetProofs(200@(216@,3i), False, False, False, False, False)
+    end
+end
+// Stunt never mutates participant weapons; preserving them is the deterministic
+// weapon-restore policy. Restore control before the stock mission teardown.
+Player.SetControl($player1, True)
+221@ = -1
+for 216@ = 0 to 2
+    200@(216@,3i) = 0
+    203@(216@,3i) = -1
+    206@(216@,3i) = -1
+end
+return
 

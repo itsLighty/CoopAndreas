@@ -3,6 +3,16 @@
 
 :BCOUR
 script_name 'BCOUR'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @BCOUR_COOP_REJECT_NON_HOST
+goto @BCOUR_COOP_HOST_START
+
+:BCOUR_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:BCOUR_COOP_HOST_START
 gosub @BCOUR_47
 if 
   has_deatharrest_been_executed 
@@ -315,6 +325,7 @@ goto_if_false @BCOUR_2492
 36@ = Char.StoreCarIsIn($scplayer)
 
 :BCOUR_2492
+gosub @BCOUR_COOP_INIT
 753@ = 99
 754@ = 0
 755@ = 0
@@ -327,6 +338,12 @@ goto_if_false @BCOUR_2492
 
 :BCOUR_2555
 wait 0
+gosub @BCOUR_COOP_UPDATE
+if
+  912@ == 1
+then
+  goto @BCOUR_14327
+end
 if 
   882@ == 0
 goto_if_false @BCOUR_2591
@@ -2090,6 +2107,7 @@ Object.Delete(763@(793@,30i))
 return 
 
 :BCOUR_14327
+gosub @BCOUR_COOP_NOTIFY_FAILURE
 Player.SetCanDoDriveBy($player1, True)
 if 
   is_int_lvar_equal_to_constant 872@ == 2
@@ -2247,6 +2265,7 @@ Text.PrintBig('BCOU_47', 5000, TextStyle.Middle)
 return 
 
 :BCOUR_15206
+gosub @BCOUR_COOP_NOTIFY_PASS
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 if 
   is_int_lvar_equal_to_constant 872@ == 3
@@ -2413,6 +2432,7 @@ Camera.RestoreJumpcut
 return 
 
 :BCOUR_16283
+gosub @BCOUR_COOP_CLEANUP
 Text.ClearHelp
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 if 
@@ -2450,6 +2470,357 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+// Co-op policy for the Los Santos, San Fierro, and Las Venturas Courier jobs:
+// - the host alone owns the delivery timer, package/checkpoint state, bike,
+//   levels, payouts, revenue pickups, progression, and persistent save flags;
+// - disconnecting a frozen participant is a nonblocking DNF until that exact
+//   immutable identity reconnects, while a connected participant death fails;
+// - supporters receive the current delivery/return point and host-bike blip but
+//   never mutate stock package counts, level state, rewards, or unlocks.
+:BCOUR_COOP_INIT
+900@, 901@, 902@ = Coop.CollectNetworkPlayersForTheMission()
+915@ = 0
+for 916@ = 0 to 2
+    903@(916@,3i) = -1
+    906@(916@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(900@(916@,3i))
+    then
+        903@(916@,3i) = Coop.GetNetworkPlayerInternalId(900@(916@,3i))
+        if
+            903@(916@,3i) >= 0
+        then
+            915@ += 1
+        end
+    end
+end
+912@ = 0 // connected participant death failure latch
+913@ = 0 // exactly-once result: 0 pending, 1 failed, 2 passed
+914@ = 0 // idempotent cleanup latch
+921@ = -1 // authoritative courier-bike network id
+922@ = 0 // registration start time
+923@ = 0 // bounded registration timeout
+925@ = 0 // delayed regroup timer
+if
+    915@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(900@, 901@, 902@)
+end
+return
+
+:BCOUR_COOP_REFRESH_ROSTER
+909@, 910@, 911@ = Coop.CollectNetworkPlayersForTheMission()
+for 916@ = 0 to 2
+    set_lvar_int_to_lvar_int 924@ = 900@(916@,3i)
+    900@(916@,3i) = 0
+    if
+        903@(916@,3i) >= 0
+    then
+        for 917@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(909@(917@,3i))
+            then
+                919@ = Coop.GetNetworkPlayerInternalId(909@(917@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 919@ == 903@(916@,3i)
+                then
+                    set_lvar_int_to_lvar_int 900@(916@,3i) = 909@(917@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 924@ == 900@(916@,3i)
+    then
+        906@(916@,3i) = -1
+    end
+end
+return
+
+:BCOUR_COOP_VALIDATE_SLOT
+918@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(900@(916@,3i))
+then
+    919@ = Coop.GetNetworkPlayerInternalId(900@(916@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 919@ == 903@(916@,3i)
+    then
+        918@ = 1
+    end
+end
+return
+
+:BCOUR_COOP_UPDATE
+if
+    914@ == 1
+then
+    return
+end
+gosub @BCOUR_COOP_REFRESH_ROSTER
+for 916@ = 0 to 2
+    gosub @BCOUR_COOP_VALIDATE_SLOT
+    if
+        918@ == 1
+    then
+        if
+            Char.IsDead(900@(916@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH follows the stock Courier failure path.
+            912@ = 1
+        end
+    end
+end
+if
+    912@ == 1
+then
+    return
+end
+gosub @BCOUR_COOP_POLL_BIKE_REGISTRATION
+gosub @BCOUR_COOP_UPDATE_REGROUP
+gosub @BCOUR_COOP_UPDATE_OBJECTIVES
+return
+
+// Registration is incremental and never blocks delivery progression. If the
+// current courier vehicle cannot be registered within five seconds, only its
+// targeted blip is omitted; the stock mission continues unchanged.
+:BCOUR_COOP_POLL_BIKE_REGISTRATION
+if and
+    921@ == -1
+    923@ == 0
+then
+    if
+        Car.DoesExist(36@)
+    then
+        if
+            922@ == 0
+        then
+            922@ = Clock.GetGameTimer()
+        end
+        921@ = Coop.GetVehicleNetworkId(36@)
+        if
+            921@ <> -1
+        then
+            for 916@ = 0 to 2
+                906@(916@,3i) = -1
+            end
+        end
+        if
+            921@ == -1
+        then
+            924@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 924@ -= 922@
+            if
+                924@ > 5000
+            then
+                923@ = 1
+            end
+        end
+    end
+end
+return
+
+:BCOUR_COOP_UPDATE_REGROUP
+920@ = 0
+for 916@ = 0 to 2
+    gosub @BCOUR_COOP_VALIDATE_SLOT
+    if
+        918@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(900@(916@,3i), $scplayer, 160.0, 160.0, 40.0, False)
+        then
+            920@ = 1
+        end
+    end
+end
+if
+    920@ == 0
+then
+    925@ = 0
+    return
+end
+if
+    925@ == 0
+then
+    925@ = Clock.GetGameTimer()
+end
+924@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 924@ -= 925@
+if
+    924@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(900@, 901@, 902@)
+    925@ = 0
+end
+return
+
+// During delivery, select the first remaining stock destination in its original
+// city-specific table. During return, point every connected frozen supporter at
+// the current store. The host remains the sole package/timer progression owner.
+:BCOUR_COOP_UPDATE_OBJECTIVES
+927@ = -1
+if
+    746@ == 9
+then
+    for 916@ = 0 to 29
+        if and
+            927@ == -1
+            is_int_lvar_greater_than_int_lvar 758@ > 916@
+            653@(916@,30i) == 0
+        then
+            set_lvar_int_to_lvar_int 927@ = 916@
+        end
+    end
+end
+if and
+    746@ == 9
+    927@ >= 0
+then
+    if
+        is_int_lvar_equal_to_constant 872@ == 2
+    then
+        set_lvar_float_to_lvar_float 928@ = 103@(927@,30f)
+        set_lvar_float_to_lvar_float 929@ = 133@(927@,30f)
+        set_lvar_float_to_lvar_float 930@ = 163@(927@,30f)
+    end
+    if
+        is_int_lvar_equal_to_constant 872@ == 1
+    then
+        set_lvar_float_to_lvar_float 928@ = 193@(927@,30f)
+        set_lvar_float_to_lvar_float 929@ = 223@(927@,30f)
+        set_lvar_float_to_lvar_float 930@ = 253@(927@,30f)
+    end
+    if
+        is_int_lvar_equal_to_constant 872@ == 3
+    then
+        set_lvar_float_to_lvar_float 928@ = 283@(927@,30f)
+        set_lvar_float_to_lvar_float 929@ = 313@(927@,30f)
+        set_lvar_float_to_lvar_float 930@ = 343@(927@,30f)
+    end
+end
+if
+    746@ == 20
+then
+    927@ = 30
+    if
+        is_int_lvar_equal_to_constant 872@ == 2
+    then
+        set_lvar_float_to_lvar_float 928@ = 383@(745@,30f)
+        set_lvar_float_to_lvar_float 929@ = 413@(745@,30f)
+        set_lvar_float_to_lvar_float 930@ = 443@(745@,30f)
+    end
+    if
+        is_int_lvar_equal_to_constant 872@ == 1
+    then
+        set_lvar_float_to_lvar_float 928@ = 473@(745@,30f)
+        set_lvar_float_to_lvar_float 929@ = 503@(745@,30f)
+        set_lvar_float_to_lvar_float 930@ = 533@(745@,30f)
+    end
+    if
+        is_int_lvar_equal_to_constant 872@ == 3
+    then
+        set_lvar_float_to_lvar_float 928@ = 563@(745@,30f)
+        set_lvar_float_to_lvar_float 929@ = 593@(745@,30f)
+        set_lvar_float_to_lvar_float 930@ = 623@(745@,30f)
+    end
+end
+set_lvar_int_to_lvar_int 926@ = 746@
+926@ *= 100
+add_int_lvar_to_int_lvar 926@ += 927@
+for 916@ = 0 to 2
+    gosub @BCOUR_COOP_VALIDATE_SLOT
+    if and
+        918@ == 1
+        not is_int_lvar_equal_to_int_lvar 906@(916@,3i) == 926@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(900@(916@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(900@(916@,3i))
+        if and
+            921@ <> -1
+            Car.DoesExist(36@)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(900@(916@,3i), 36@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if and
+            927@ >= 0
+            25 > 746@
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(928@, 929@, 930@, 8.0, 8.0, 6.0, 900@(916@,3i))
+            Coop.PrintNowForNetworkPlayer('BCOU_4', 5000, 1, 900@(916@,3i))
+        end
+        set_lvar_int_to_lvar_int 906@(916@,3i) = 926@
+    end
+end
+return
+
+:BCOUR_COOP_NOTIFY_FAILURE
+if
+    913@ <> 0
+then
+    return
+end
+913@ = 1
+gosub @BCOUR_COOP_REFRESH_ROSTER
+for 916@ = 0 to 2
+    gosub @BCOUR_COOP_VALIDATE_SLOT
+    if
+        918@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 900@(916@,3i))
+    end
+end
+return
+
+:BCOUR_COOP_NOTIFY_PASS
+if
+    913@ <> 0
+then
+    return
+end
+913@ = 2
+gosub @BCOUR_COOP_REFRESH_ROSTER
+for 916@ = 0 to 2
+    gosub @BCOUR_COOP_VALIDATE_SLOT
+    if
+        918@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 900@(916@,3i))
+    end
+end
+return
+
+:BCOUR_COOP_CLEANUP
+if
+    914@ == 1
+then
+    return
+end
+914@ = 1
+gosub @BCOUR_COOP_REFRESH_ROSTER
+for 916@ = 0 to 2
+    gosub @BCOUR_COOP_VALIDATE_SLOT
+    if
+        918@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(900@(916@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(900@(916@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('BCOU_4', 900@(916@,3i))
+        Char.FreezePosition(900@(916@,3i), False)
+        Char.SetProofs(900@(916@,3i), False, False, False, False, False)
+    end
+end
+// Courier never mutates participant weapons, so preserving each loadout is the
+// deterministic restore policy. Restore controls before stock teardown.
+Player.SetControl($player1, True)
+921@ = -1
+for 916@ = 0 to 2
+    900@(916@,3i) = 0
+    903@(916@,3i) = -1
+    906@(916@,3i) = -1
+end
+return
 
 //-------------Mission 132---------------
 // Originally: The Chiliad Challenge

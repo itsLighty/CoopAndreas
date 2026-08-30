@@ -1,4 +1,15 @@
 :MTBIKER
+script_name 'MTBIKER'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @MTBIKER_COOP_REJECT_NON_HOST
+goto @MTBIKER_COOP_HOST_START
+
+:MTBIKER_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:MTBIKER_COOP_HOST_START
 gosub @MTBIKER_36
 if 
   has_deatharrest_been_executed 
@@ -18,7 +29,6 @@ goto_if_false @MTBIKER_67
 Stat.RegisterMissionGiven
 
 :MTBIKER_67
-script_name 'MTBIKER'
 Text.LoadMissionText('RACETOR')
 Text.SetMessageFormatting(True, 355, 370)
 wait 0
@@ -496,6 +506,7 @@ Checkpoint.Delete(780@)
 goto @MTBIKER_4244
 
 :MTBIKER_4244
+gosub @MTBIKER_COOP_INIT
 set_lvar_float_to_lvar_float 655@ = 654@
 
 :MTBIKER_4252
@@ -530,6 +541,12 @@ goto @MTBIKER_4359
 
 :MTBIKER_4424
 wait 0
+gosub @MTBIKER_COOP_UPDATE
+if
+  812@ == 1
+then
+  goto @MTBIKER_14393
+end
 $game_timer = Clock.GetGameTimer()
 758@ = 0
 644@ = 0
@@ -1816,10 +1833,12 @@ Text.SetDropshadow(2, 0, 0, 0, 180)
 return 
 
 :MTBIKER_14393
+gosub @MTBIKER_COOP_NOTIFY_FAILURE
 Text.PrintBig('RACES_8', 5000, TextStyle.Middle)
 return 
 
 :MTBIKER_14411
+gosub @MTBIKER_COOP_NOTIFY_PASS
 set_lvar_int_to_var_int 646@ = $mtbikerace_selection
 646@ += 1
 646@ *= 10000
@@ -1870,6 +1889,7 @@ $mtbikerace_selection = 1
 return 
 
 :MTBIKER_14694
+gosub @MTBIKER_COOP_CLEANUP
 $onmission = 0
 if 
   not Car.IsDead(732@)
@@ -1926,6 +1946,318 @@ Text.SetMessageFormatting(False, 380, 464)
 Text.UseCommands(False)
 Mission.Finish
 return 
+
+// Co-op policy for all three stages of The Chiliad Challenge:
+// - the host alone owns race clocks, checkpoints, AI riders/bikes, placement,
+//   payouts, route progression, best times, and persistent completion flags;
+// - disconnecting a frozen participant is a nonblocking DNF until that exact
+//   immutable identity reconnects, while a connected participant death fails;
+// - supporters receive the host rider's current route point and bike objective
+//   without becoming an additional stock racer or reward/progression owner.
+:MTBIKER_COOP_INIT
+800@, 801@, 802@ = Coop.CollectNetworkPlayersForTheMission()
+815@ = 0
+for 816@ = 0 to 2
+    803@(816@,3i) = -1
+    806@(816@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(800@(816@,3i))
+    then
+        803@(816@,3i) = Coop.GetNetworkPlayerInternalId(800@(816@,3i))
+        if
+            803@(816@,3i) >= 0
+        then
+            815@ += 1
+        end
+    end
+end
+812@ = 0 // connected participant death failure latch
+813@ = 0 // exactly-once result: 0 pending, 1 failed, 2 passed
+814@ = 0 // idempotent cleanup latch
+821@ = -1 // authoritative player bike network id
+822@ = 0 // registration start time
+823@ = 0 // bounded registration timeout
+825@ = 0 // delayed regroup timer
+831@ = 0 // observed stock player-bike handle
+if
+    815@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(800@, 801@, 802@)
+end
+return
+
+:MTBIKER_COOP_REFRESH_ROSTER
+809@, 810@, 811@ = Coop.CollectNetworkPlayersForTheMission()
+for 816@ = 0 to 2
+    set_lvar_int_to_lvar_int 824@ = 800@(816@,3i)
+    800@(816@,3i) = 0
+    if
+        803@(816@,3i) >= 0
+    then
+        for 817@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(809@(817@,3i))
+            then
+                819@ = Coop.GetNetworkPlayerInternalId(809@(817@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 819@ == 803@(816@,3i)
+                then
+                    set_lvar_int_to_lvar_int 800@(816@,3i) = 809@(817@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 824@ == 800@(816@,3i)
+    then
+        806@(816@,3i) = -1
+    end
+end
+return
+
+:MTBIKER_COOP_VALIDATE_SLOT
+818@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(800@(816@,3i))
+then
+    819@ = Coop.GetNetworkPlayerInternalId(800@(816@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 819@ == 803@(816@,3i)
+    then
+        818@ = 1
+    end
+end
+return
+
+:MTBIKER_COOP_UPDATE
+if
+    814@ == 1
+then
+    return
+end
+gosub @MTBIKER_COOP_REFRESH_ROSTER
+for 816@ = 0 to 2
+    gosub @MTBIKER_COOP_VALIDATE_SLOT
+    if
+        818@ == 1
+    then
+        if
+            Char.IsDead(800@(816@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH follows the stock race failure path.
+            812@ = 1
+        end
+    end
+end
+if
+    812@ == 1
+then
+    return
+end
+gosub @MTBIKER_COOP_POLL_BIKE_REGISTRATION
+if
+    756@ > 2
+then
+    gosub @MTBIKER_COOP_UPDATE_REGROUP
+    gosub @MTBIKER_COOP_UPDATE_OBJECTIVES
+end
+return
+
+// The player bike may be recreated by the stock fall recovery. Every concrete
+// handle gets an independent five-second, nonblocking registration window.
+:MTBIKER_COOP_POLL_BIKE_REGISTRATION
+if
+    not is_int_lvar_equal_to_int_lvar 831@ == 732@(757@,6i)
+then
+    set_lvar_int_to_lvar_int 831@ = 732@(757@,6i)
+    821@ = -1
+    822@ = 0
+    823@ = 0
+    for 816@ = 0 to 2
+        806@(816@,3i) = -1
+    end
+end
+if and
+    821@ == -1
+    823@ == 0
+then
+    if
+        Car.DoesExist(732@(757@,6i))
+    then
+        if
+            822@ == 0
+        then
+            822@ = Clock.GetGameTimer()
+        end
+        821@ = Coop.GetVehicleNetworkId(732@(757@,6i))
+        if
+            821@ <> -1
+        then
+            for 816@ = 0 to 2
+                806@(816@,3i) = -1
+            end
+        end
+        if
+            821@ == -1
+        then
+            824@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 824@ -= 822@
+            if
+                824@ > 5000
+            then
+                823@ = 1
+            end
+        end
+    end
+end
+return
+
+:MTBIKER_COOP_UPDATE_REGROUP
+820@ = 0
+for 816@ = 0 to 2
+    gosub @MTBIKER_COOP_VALIDATE_SLOT
+    if
+        818@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(800@(816@,3i), $scplayer, 180.0, 180.0, 60.0, False)
+        then
+            820@ = 1
+        end
+    end
+end
+if
+    820@ == 0
+then
+    825@ = 0
+    return
+end
+if
+    825@ == 0
+then
+    825@ = Clock.GetGameTimer()
+end
+824@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 824@ -= 825@
+if
+    824@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(800@, 801@, 802@)
+    825@ = 0
+end
+return
+
+:MTBIKER_COOP_UPDATE_OBJECTIVES
+set_lvar_int_to_lvar_int 827@ = 745@(757@,10i)
+set_lvar_int_to_var_int 826@ = $mtbikerace_selection
+826@ *= 1000
+add_int_lvar_to_int_lvar 826@ += 827@
+set_lvar_float_to_lvar_float 828@ = 714@(757@,6f)
+set_lvar_float_to_lvar_float 829@ = 720@(757@,6f)
+set_lvar_float_to_lvar_float 830@ = 726@(757@,6f)
+for 816@ = 0 to 2
+    gosub @MTBIKER_COOP_VALIDATE_SLOT
+    if and
+        818@ == 1
+        not is_int_lvar_equal_to_int_lvar 806@(816@,3i) == 826@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(800@(816@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(800@(816@,3i))
+        if and
+            821@ <> -1
+            Car.DoesExist(732@(757@,6i))
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(800@(816@,3i), 732@(757@,6i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        Coop.UpdateCheckpointForNetworkPlayer(828@, 829@, 830@, 10.0, 10.0, 7.0, 800@(816@,3i))
+        if
+            $mtbikerace_selection == 1
+        then
+            Coop.PrintNowForNetworkPlayer('MTROUT1', 5000, 1, 800@(816@,3i))
+        end
+        if
+            $mtbikerace_selection == 2
+        then
+            Coop.PrintNowForNetworkPlayer('MTROUT2', 5000, 1, 800@(816@,3i))
+        end
+        if
+            $mtbikerace_selection == 3
+        then
+            Coop.PrintNowForNetworkPlayer('MTROUT3', 5000, 1, 800@(816@,3i))
+        end
+        set_lvar_int_to_lvar_int 806@(816@,3i) = 826@
+    end
+end
+return
+
+:MTBIKER_COOP_NOTIFY_FAILURE
+if
+    813@ <> 0
+then
+    return
+end
+813@ = 1
+gosub @MTBIKER_COOP_REFRESH_ROSTER
+for 816@ = 0 to 2
+    gosub @MTBIKER_COOP_VALIDATE_SLOT
+    if
+        818@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 800@(816@,3i))
+    end
+end
+return
+
+:MTBIKER_COOP_NOTIFY_PASS
+if
+    813@ <> 0
+then
+    return
+end
+813@ = 2
+gosub @MTBIKER_COOP_REFRESH_ROSTER
+for 816@ = 0 to 2
+    gosub @MTBIKER_COOP_VALIDATE_SLOT
+    if
+        818@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 800@(816@,3i))
+    end
+end
+return
+
+:MTBIKER_COOP_CLEANUP
+if
+    814@ == 1
+then
+    return
+end
+814@ = 1
+gosub @MTBIKER_COOP_REFRESH_ROSTER
+for 816@ = 0 to 2
+    gosub @MTBIKER_COOP_VALIDATE_SLOT
+    if
+        818@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(800@(816@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(800@(816@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('MTROUT1', 800@(816@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('MTROUT2', 800@(816@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('MTROUT3', 800@(816@,3i))
+        Char.FreezePosition(800@(816@,3i), False)
+        Char.SetProofs(800@(816@,3i), False, False, False, False, False)
+    end
+end
+// Chiliad never mutates participant weapons; preserving each loadout is the
+// deterministic restore policy. Restore control before stock mission teardown.
+Player.SetControl($player1, True)
+821@ = -1
+for 816@ = 0 to 2
+    800@(816@,3i) = 0
+    803@(816@,3i) = -1
+    806@(816@,3i) = -1
+end
+return
 
 //-------------Mission 133---------------
 // Originally: BMX / NRG-500 STUNT Mission
