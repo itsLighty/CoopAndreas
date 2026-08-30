@@ -3,6 +3,58 @@
 
 :GROVE2
 script_name 'GROVE2'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Grove 4 Life keeps gang-war territory state, Sweet's health, completion,
+// rewards and story progression canonical on the host. Frozen peers form a
+// synchronized combat convoy and help clear the same four Idlewood territories.
+124@ = 0 // frozen remote-roster size
+125@ = 0 // deterministic participant failure
+126@ = 0 // idempotent cooperative cleanup guard
+127@ = 0 // cooperative combat has begun
+128@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+129@ = 0 // result notification guard
+130@ = 0 // next bounded entity-registration poll
+131@ = 0 // next objective refresh
+132@ = -1 // Sweet network id
+133@ = -1 // host Greenwood network id
+134@ = 0 // Sweet registration attempts
+135@ = 0 // host Greenwood registration attempts
+136@ = 0 // currently connected frozen participants
+137@ = 0 // roster/reconnect scratch
+138@ = 0 // actor/entity scratch
+139@ = 0 // internal-id/time scratch
+140@, 141@, 142@ = Coop.CollectNetworkPlayersForTheMission()
+143@ = 0 // coordinate scratch
+144@ = 0 // coordinate scratch
+145@ = 0 // coordinate scratch
+146@ = -1 // active teleport argument 1
+147@ = -1 // active teleport argument 2
+148@ = -1 // active teleport argument 3
+149@ = 0 // canonical cooperative objective phase
+150@ = 1000 // previous canonical Sweet health
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 100@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    103@($temp_int,3i) = -1 // immutable internal network identity
+    106@($temp_int,3i) = 0 // currently connected frozen participant
+    109@($temp_int,3i) = 0 // reconnect requires restaging
+    112@($temp_int,3i) = -1 // support Greenwood
+    115@($temp_int,3i) = -1 // support Greenwood network id
+    118@($temp_int,3i) = 0 // bounded support Greenwood registration attempts
+    121@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(100@($temp_int,3i))
+    then
+        103@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(100@($temp_int,3i))
+        if
+            103@($temp_int,3i) <> -1
+        then
+            106@($temp_int,3i) = 1
+            124@ += 1
+        end
+    end
+end
+gosub @GROVE2_COOP_FREEZE_REMOTES
 gosub @GROVE2_47
 if 
   has_deatharrest_been_executed 
@@ -147,12 +199,19 @@ Zone.SetNoCops('IWD3A', True)
 Zone.SetNoCops('IWD3B', True)
 Zone.SetNoCops('IWD1', True)
 Zone.SetNoCops('IWD4', True)
+gosub @GROVE2_COOP_START_COMBAT
 
 :GROVE2_942
 if 
   not Char.IsDead($scplayer)
 goto_if_false @GROVE2_2932
 wait 0
+gosub @GROVE2_COOP_UPDATE
+if
+    125@ == 1
+then
+    goto @GROVE2_3141
+end
 gosub @GROVE2_3596
 gosub @GROVE2_5403
 if 
@@ -510,10 +569,14 @@ Car.Delete(39@)
 return 
 
 :GROVE2_3141
+128@ = 1
+gosub @GROVE2_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :GROVE2_3159
+128@ = 2
+gosub @GROVE2_COOP_NOTIFY_OUTCOME
 Blip.Remove($grove_contact_blip)
 $flag_grove_mission_counter += 1
 Stat.PlayerMadeProgress(1)
@@ -526,6 +589,7 @@ Player.ClearWantedLevel($player1)
 return 
 
 :GROVE2_3228
+gosub @GROVE2_COOP_CLEANUP
 Zone.SetNoCops('IWD3A', False)
 Zone.SetNoCops('IWD3B', False)
 Zone.SetNoCops('IWD1', False)
@@ -995,4 +1059,443 @@ Text.ClearThisPrint(59@s)
 
 :GROVE2_5484
 return 
+
+:GROVE2_COOP_UPDATE_ROSTER
+136@ = 0
+140@, 141@, 142@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 137@ = 106@($temp_int,3i)
+    106@($temp_int,3i) = 0
+    if and
+        103@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(100@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        139@ = Coop.GetNetworkPlayerInternalId(138@)
+        if
+            is_int_lvar_equal_to_int_lvar 139@ == 103@($temp_int,3i)
+        then
+            106@($temp_int,3i) = 1
+        end
+    end
+    if and
+        103@($temp_int,3i) <> -1
+        106@($temp_int,3i) == 0
+    then
+        for 138@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(140@(138@,3i))
+            then
+                139@ = Coop.GetNetworkPlayerInternalId(140@(138@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 139@ == 103@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 100@($temp_int,3i) = 140@(138@,3i)
+                    106@($temp_int,3i) = 1
+                    if and
+                        127@ == 1
+                        137@ == 0
+                    then
+                        109@($temp_int,3i) = 1
+                        121@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        106@($temp_int,3i) == 1
+    then
+        136@ += 1
+        if and
+            128@ == 0
+            Char.IsDead(100@($temp_int,3i))
+        then
+            125@ = 1
+        end
+    end
+end
+return
+
+:GROVE2_COOP_BUILD_ACTIVE_ARGS
+146@ = -1
+147@ = -1
+148@ = -1
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 146@($temp_int,3i) = 100@($temp_int,3i)
+    end
+end
+return
+
+:GROVE2_COOP_FREEZE_REMOTES
+if
+    124@ == 0
+then
+    return
+end
+143@, 144@, 145@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(100@($temp_int,3i))
+        if
+            Char.IsInAnyCar(100@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(100@($temp_int,3i), 143@, 144@, 145@)
+        else
+            Char.SetCoordinates(100@($temp_int,3i), 143@, 144@, 145@)
+        end
+        Char.SetVisible(100@($temp_int,3i), False)
+        Char.SetCollision(100@($temp_int,3i), False)
+        Char.SetProofs(100@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(100@($temp_int,3i), -1)
+        Char.FreezePosition(100@($temp_int,3i), True)
+    end
+end
+return
+
+:GROVE2_COOP_START_COMBAT
+if
+    127@ == 1
+then
+    return
+end
+127@ = 1
+gosub @GROVE2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        103@($temp_int,3i) <> -1
+        112@($temp_int,3i) == -1
+    then
+        143@ = 2491.0
+        144@ = -1681.0
+        145@ = 12.44
+        if
+            $temp_int == 1
+        then
+            144@ = -1677.0
+        end
+        if
+            $temp_int == 2
+        then
+            144@ = -1673.0
+        end
+        112@($temp_int,3i) = Car.Create(492, 143@, 144@, 145@)
+        if
+            Car.DoesExist(112@($temp_int,3i))
+        then
+            Car.SetHeading(112@($temp_int,3i), 90.0)
+            Car.ChangeColor(112@($temp_int,3i), 59, 34)
+            Car.SetHealth(112@($temp_int,3i), 1000)
+            Car.SetCanBurstTires(112@($temp_int,3i), False)
+            Car.LockDoors(112@($temp_int,3i), CarLock.Unlocked)
+        end
+    end
+end
+130@ = 0
+gosub @GROVE2_COOP_POLL_REGISTRATIONS
+gosub @GROVE2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(146@, 147@, 148@)
+for $temp_int = 0 to 2
+    if and
+        106@($temp_int,3i) == 1
+        not Char.IsDead(100@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(100@($temp_int,3i))
+        if and
+            Car.DoesExist(112@($temp_int,3i))
+            not Car.IsDead(112@($temp_int,3i))
+        then
+            Char.WarpIntoCar(100@($temp_int,3i), 112@($temp_int,3i))
+        else
+            Char.SetCoordinates(100@($temp_int,3i), 2491.0, -1681.0, 12.44)
+        end
+        Char.SetAreaVisible(100@($temp_int,3i), 0)
+        Char.SetVisible(100@($temp_int,3i), True)
+        Char.SetCollision(100@($temp_int,3i), True)
+        Char.SetProofs(100@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(100@($temp_int,3i), False)
+        Task.StandStill(100@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(100@($temp_int,3i))
+        109@($temp_int,3i) = 0
+    end
+end
+if
+    Char.DoesExist($sweet)
+then
+    150@ = Char.GetHealth($sweet)
+    Char.ClearLastDamageEntity($sweet)
+end
+149@ = 1
+131@ = 0
+gosub @GROVE2_COOP_UPDATE_OBJECTIVES
+return
+
+:GROVE2_COOP_POLL_REGISTRATIONS
+if
+    127@ == 0
+then
+    return
+end
+139@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 130@ > 139@
+then
+    return
+end
+130@ = Clock.GetGameTimer()
+130@ += 500
+if and
+    132@ == -1
+    134@ < 10
+    Char.DoesExist($sweet)
+then
+    132@ = Coop.GetPedNetworkId($sweet)
+    134@ += 1
+end
+if and
+    133@ == -1
+    135@ < 10
+    Car.DoesExist(39@)
+then
+    133@ = Coop.GetVehicleNetworkId(39@)
+    135@ += 1
+end
+for $temp_int = 0 to 2
+    if and
+        115@($temp_int,3i) == -1
+        118@($temp_int,3i) < 10
+        Car.DoesExist(112@($temp_int,3i))
+    then
+        115@($temp_int,3i) = Coop.GetVehicleNetworkId(112@($temp_int,3i))
+        118@($temp_int,3i) += 1
+    end
+end
+return
+
+:GROVE2_COOP_REGROUP_RECONNECTED
+gosub @GROVE2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(146@, 147@, 148@)
+for $temp_int = 0 to 2
+    if and
+        106@($temp_int,3i) == 1
+        109@($temp_int,3i) == 1
+        not Char.IsDead(100@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(100@($temp_int,3i))
+        if and
+            Car.DoesExist(112@($temp_int,3i))
+            not Car.IsDead(112@($temp_int,3i))
+        then
+            Char.WarpIntoCar(100@($temp_int,3i), 112@($temp_int,3i))
+        end
+        Char.SetAreaVisible(100@($temp_int,3i), 0)
+        Char.SetVisible(100@($temp_int,3i), True)
+        Char.SetCollision(100@($temp_int,3i), True)
+        Char.SetProofs(100@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(100@($temp_int,3i), False)
+        Char.ClearLastDamageEntity(100@($temp_int,3i))
+        109@($temp_int,3i) = 0
+        121@($temp_int,3i) = -1
+    end
+end
+131@ = 0
+return
+
+:GROVE2_COOP_PROTECT_SWEET
+if or
+    not Char.DoesExist($sweet)
+    Char.IsDead($sweet)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        106@($temp_int,3i) == 1
+        Char.HasBeenDamagedByChar($sweet, 100@($temp_int,3i))
+    then
+        Char.SetHealth($sweet, 150@)
+        Char.ClearLastDamageEntity($sweet)
+    end
+end
+150@ = Char.GetHealth($sweet)
+return
+
+:GROVE2_COOP_UPDATE_OBJECTIVES
+if or
+    124@ == 0
+    127@ == 0
+then
+    return
+end
+139@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 131@ > 139@
+then
+    return
+end
+131@ = Clock.GetGameTimer()
+131@ += 750
+149@ = 1
+if
+    54@ == 1
+then
+    149@ = 2
+end
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(138@)
+        Coop.RemoveCheckpointForNetworkPlayer(138@)
+        if
+            not is_int_lvar_equal_to_int_lvar 121@($temp_int,3i) == 149@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('GR2_05', 138@)
+            Coop.ClearThisPrintForNetworkPlayer('GR2_11', 138@)
+            if
+                149@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('GR2_05', 7000, 1, 138@)
+            end
+            if
+                149@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('GR2_11', 7000, 1, 138@)
+            end
+            set_lvar_int_to_lvar_int 121@($temp_int,3i) = 149@
+        end
+        if
+            149@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2002.815, -1613.084, 12.3828, 30.0, 30.0, 12.0, 138@)
+        end
+        if
+            149@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2507.184, -1672.906, 12.3824, 8.0, 8.0, 6.0, 138@)
+        end
+        if and
+            132@ <> -1
+            Char.DoesExist($sweet)
+        then
+            if
+                not Char.IsDead($sweet)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(138@, $sweet, True, BlipDisplay.Both, BlipColor.Green, 2)
+            end
+        end
+    end
+end
+return
+
+:GROVE2_COOP_UPDATE
+if or
+    124@ == 0
+    128@ <> 0
+then
+    return
+end
+gosub @GROVE2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        106@($temp_int,3i) == 1
+        109@($temp_int,3i) == 1
+    then
+        gosub @GROVE2_COOP_REGROUP_RECONNECTED
+    end
+end
+if
+    125@ == 1
+then
+    return
+end
+gosub @GROVE2_COOP_POLL_REGISTRATIONS
+gosub @GROVE2_COOP_PROTECT_SWEET
+gosub @GROVE2_COOP_UPDATE_OBJECTIVES
+return
+
+:GROVE2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        103@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(100@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        139@ = Coop.GetNetworkPlayerInternalId(138@)
+        if
+            is_int_lvar_equal_to_int_lvar 139@ == 103@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(138@)
+            Coop.RemoveCheckpointForNetworkPlayer(138@)
+            Coop.ClearThisPrintForNetworkPlayer('GR2_05', 138@)
+            Coop.ClearThisPrintForNetworkPlayer('GR2_11', 138@)
+        end
+    end
+    121@($temp_int,3i) = -1
+end
+return
+
+:GROVE2_COOP_NOTIFY_OUTCOME
+if or
+    124@ == 0
+    129@ == 1
+then
+    return
+end
+129@ = 1
+gosub @GROVE2_COOP_UPDATE_ROSTER
+gosub @GROVE2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        if
+            128@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 100@($temp_int,3i))
+        end
+        if
+            128@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 100@($temp_int,3i))
+        end
+    end
+end
+return
+
+:GROVE2_COOP_CLEANUP
+if
+    126@ == 1
+then
+    return
+end
+126@ = 1
+gosub @GROVE2_COOP_UPDATE_ROSTER
+gosub @GROVE2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        Char.FreezePosition(138@, False)
+        Char.SetProofs(138@, False, False, False, False, False)
+        Char.SetCollision(138@, True)
+        Char.SetVisible(138@, True)
+        Char.SetAreaVisible(138@, 0)
+    end
+    if
+        Car.DoesExist(112@($temp_int,3i))
+    then
+        Car.Delete(112@($temp_int,3i))
+    end
+    112@($temp_int,3i) = -1
+    115@($temp_int,3i) = -1
+end
+return
 
