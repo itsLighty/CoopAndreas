@@ -3,6 +3,77 @@
 
 :GROVE1
 script_name 'GROVE1'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Beat Down on B Dup keeps Sweet, territory state, gang-war completion,
+// rewards and story flags host-owned. Frozen peers travel in support cars and
+// fight through the Glen Park and B Dup assault phases with the host.
+220@ = 0 // frozen remote-roster size
+221@ = 0 // deterministic participant failure
+222@ = 0 // idempotent cooperative cleanup guard
+223@ = 0 // cooperative play has begun
+224@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+225@ = 0 // result notification guard
+226@ = 1 // cinematic transition/freeze guard
+227@ = 0 // next bounded registration poll
+228@ = 0 // next objective refresh
+229@ = 0 // connected frozen participants
+230@ = 1 // cooperative phase: 1 travel, 2 gang war, 3 B Dup assault
+231@ = 0 // previous cooperative phase
+232@ = 0 // internal id/time scratch
+233@ = 0 // actor/entity scratch
+234@ = 0 // previous connection scratch
+235@ = 0.0 // coordinate scratch X
+236@ = 0.0 // coordinate scratch Y
+237@ = 0.0 // coordinate scratch Z
+238@, 239@, 240@ = Coop.CollectNetworkPlayersForTheMission()
+241@ = -1 // active teleport argument 1
+242@ = -1 // active teleport argument 2
+243@ = -1 // active teleport argument 3
+244@ = -1 // Sweet network id
+245@ = 0 // bounded Sweet registration attempts
+246@ = 1000 // previous Sweet health
+247@ = 0 // next hostile retarget scan
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 260@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    263@($temp_int,3i) = -1 // immutable internal network identity
+    266@($temp_int,3i) = 0 // currently connected participant
+    269@($temp_int,3i) = 0 // reconnect requires restaging
+    272@($temp_int,3i) = -1 // support Greenwood
+    275@($temp_int,3i) = -1 // support Greenwood network id
+    278@($temp_int,3i) = 0 // bounded support registration attempts
+    281@($temp_int,3i) = 0 // pre-mission AK-47 ammo
+    284@($temp_int,3i) = 0 // pre-mission selected weapon
+    287@($temp_int,3i) = 0 // participant originally owned an AK-47
+    290@($temp_int,3i) = 0 // temporary AK-47 granted
+    293@($temp_int,3i) = 100 // previous participant health
+    296@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        263@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(260@($temp_int,3i))
+        if
+            263@($temp_int,3i) <> -1
+        then
+            266@($temp_int,3i) = 1
+            220@ += 1
+            set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+            281@($temp_int,3i) = Char.GetAmmoInWeapon(233@, 30)
+            284@($temp_int,3i) = Char.GetCurrentWeapon(233@)
+            293@($temp_int,3i) = Char.GetHealth(233@)
+            if
+                Char.HasGotWeapon(233@, 30)
+            then
+                287@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+for $temp_int = 0 to 7
+    310@($temp_int,8i) = -1 // B Dup defender network id
+    318@($temp_int,8i) = 0 // bounded defender registration attempts
+end
+gosub @GROVE1_COOP_FREEZE_REMOTES
 gosub @GROVE1_608
 if 
   has_deatharrest_been_executed 
@@ -256,6 +327,7 @@ Char.SetProofs(38@, False, False, False, False, False)
 
 :GROVE1_1672
 Text.PrintNow('GM1_18', 8000, 1)
+gosub @GROVE1_COOP_START_PLAY
 89@ = Blip.AddForCoord(2293.032, -1795.767, 12.5469)
 $blob_flag = 1
 TIMERA = 0
@@ -274,6 +346,12 @@ if or
   120@ <> 1
 goto_if_false @GROVE1_3274
 wait 0
+gosub @GROVE1_COOP_UPDATE
+if
+  221@ == 1
+then
+  goto @GROVE1_18797
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @GROVE1_1861
@@ -992,6 +1070,8 @@ goto @GROVE1_18797
 $sweets_health_grove1 /= 10
 Hud.DisplayCounterWithString($sweets_health_grove1, CounterDisplay.Bar, 'GM1_7')
 119@ = 0
+230@ = 2
+gosub @GROVE1_COOP_STAGE_PHASE
 
 :GROVE1_5826
 if or
@@ -999,6 +1079,12 @@ if or
   not Char.IsGroupMember(38@, $Players_Group)
 goto_if_false @GROVE1_7131
 wait 0
+gosub @GROVE1_COOP_UPDATE
+if
+  221@ == 1
+then
+  goto @GROVE1_18797
+end
 if 
   116@ == 0
 goto_if_false @GROVE1_5911
@@ -1266,6 +1352,7 @@ ENTEXT_63()
 goto @GROVE1_7207
 
 :GROVE1_7287
+gosub @GROVE1_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 Game.SetPoliceIgnorePlayer($player1, True)
 Game.SetEveryoneIgnorePlayer($player1, True)
@@ -1695,6 +1782,8 @@ Text.PrintNow('GM1_4', 5000, 1)
 goto @GROVE1_18797
 
 :GROVE1_10116
+230@ = 3
+gosub @GROVE1_COOP_STAGE_PHASE
 Text.PrintNow('GM1_9', 8000, 1)
 119@ = 0
 
@@ -1704,6 +1793,12 @@ if or
   not Char.IsGroupMember(38@, $Players_Group)
 goto_if_false @GROVE1_14451
 wait 0
+gosub @GROVE1_COOP_UPDATE
+if
+  221@ == 1
+then
+  goto @GROVE1_18797
+end
 $player_x, $player_y, $player_z = Char.GetCoordinates($scplayer)
 if 
   Char.IsDead(38@)
@@ -2550,6 +2645,12 @@ if or
   not Char.IsGroupMember(38@, $Players_Group)
 goto_if_false @GROVE1_15390
 wait 0
+gosub @GROVE1_COOP_UPDATE
+if
+  221@ == 1
+then
+  goto @GROVE1_18797
+end
 if 
   Char.IsDead(38@)
 goto_if_false @GROVE1_14637
@@ -2696,6 +2797,7 @@ Char.ShutUpForScriptedSpeech(38@, False)
 goto @GROVE1_14507
 
 :GROVE1_15390
+gosub @GROVE1_COOP_BEGIN_TRANSITION
 Hud.ClearCounter($sweets_health_grove1)
 Blip.Remove(36@)
 Text.ClearPrints
@@ -3337,6 +3439,8 @@ Game.SetPoliceIgnorePlayer($player1, False)
 goto @GROVE1_18881
 
 :GROVE1_18797
+224@ = 1
+gosub @GROVE1_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Zone.SetGangStrength('GLN1', GangType.Ballas, 40)
 Zone.SetGangStrength('GLN1', GangType.Grove, 0)
@@ -3346,6 +3450,8 @@ Game.CanTriggerGangWarWhenOnAMission(False)
 return 
 
 :GROVE1_18881
+224@ = 2
+gosub @GROVE1_COOP_NOTIFY_RESULT
 $flag_grove_mission_counter += 1
 Stat.RegisterMissionPassed('GROVE_1')
 Stat.PlayerMadeProgress(1)
@@ -3359,6 +3465,7 @@ $grove_contact_blip = Blip.AddSpriteForContactPoint($grove_blip_icon, $sweetX, $
 return 
 
 :GROVE1_18963
+gosub @GROVE1_COOP_CLEANUP
 Char.RemoveElegantly(38@)
 $onmission = 0
 Path.SwitchPedRoadsBackToOriginal(1965.968, -1096.668, 20.0, 2081.465, -1163.309, 30.0)
@@ -3852,4 +3959,627 @@ goto_if_false @GROVE1_21473
 
 :GROVE1_21473
 return 
+
+:GROVE1_COOP_UPDATE_ROSTER
+229@ = 0
+238@, 239@, 240@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 234@ = 266@($temp_int,3i)
+    266@($temp_int,3i) = 0
+    if and
+        263@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        232@ = Coop.GetNetworkPlayerInternalId(260@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 232@ == 263@($temp_int,3i)
+        then
+            266@($temp_int,3i) = 1
+        end
+    end
+    if and
+        263@($temp_int,3i) <> -1
+        266@($temp_int,3i) == 0
+    then
+        for 233@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(238@(233@,3i))
+            then
+                232@ = Coop.GetNetworkPlayerInternalId(238@(233@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 232@ == 263@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 260@($temp_int,3i) = 238@(233@,3i)
+                    266@($temp_int,3i) = 1
+                    if and
+                        223@ == 1
+                        234@ == 0
+                    then
+                        269@($temp_int,3i) = 1
+                        296@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        266@($temp_int,3i) == 1
+    then
+        229@ += 1
+        if and
+            224@ == 0
+            Char.IsDead(260@($temp_int,3i))
+        then
+            221@ = 1
+        end
+    end
+end
+return
+
+:GROVE1_COOP_BUILD_ACTIVE_ARGS
+241@ = -1
+242@ = -1
+243@ = -1
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 241@($temp_int,3i) = 260@($temp_int,3i)
+    end
+end
+return
+
+:GROVE1_COOP_FREEZE_REMOTES
+if
+    220@ == 0
+then
+    return
+end
+235@, 236@, 237@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(260@($temp_int,3i))
+        if
+            Char.IsInAnyCar(260@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(260@($temp_int,3i), 235@, 236@, 237@)
+        else
+            Char.SetCoordinates(260@($temp_int,3i), 235@, 236@, 237@)
+        end
+        Char.SetVisible(260@($temp_int,3i), False)
+        Char.SetCollision(260@($temp_int,3i), False)
+        Char.SetProofs(260@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(260@($temp_int,3i), -1)
+        Char.FreezePosition(260@($temp_int,3i), True)
+    end
+end
+return
+
+:GROVE1_COOP_DELETE_SUPPORT
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(272@($temp_int,3i))
+    then
+        Car.Delete(272@($temp_int,3i))
+    end
+    272@($temp_int,3i) = -1
+    275@($temp_int,3i) = -1
+    278@($temp_int,3i) = 0
+end
+return
+
+:GROVE1_COOP_RELEASE_REMOTES
+226@ = 0
+gosub @GROVE1_COOP_UPDATE_ROSTER
+gosub @GROVE1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(241@, 242@, 243@)
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        not Char.IsDead(260@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        Char.SetAreaVisible(233@, 0)
+        Char.SetVisible(233@, True)
+        Char.SetCollision(233@, True)
+        Char.SetProofs(233@, False, False, False, False, False)
+        Char.FreezePosition(233@, False)
+        Task.StandStill(233@, 0)
+        Char.ClearLastDamageEntity(233@)
+        if
+            290@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(233@, WeaponType.Ak47, 600)
+            Char.SetCurrentWeapon(233@, WeaponType.Ak47)
+            290@($temp_int,3i) = 1
+        end
+        293@($temp_int,3i) = Char.GetHealth(233@)
+        269@($temp_int,3i) = 0
+        296@($temp_int,3i) = -1
+    end
+end
+228@ = 0
+return
+
+:GROVE1_COOP_ENSURE_SUPPORT
+if or
+    226@ == 1
+    230@ == 3
+then
+    return
+end
+Streaming.RequestModel(492)
+if
+    not Streaming.HasModelLoaded(492)
+then
+    return
+end
+235@, 236@, 237@ = Char.GetCoordinates($scplayer)
+326@ = Char.GetHeading($scplayer)
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        not Char.IsDead(260@($temp_int,3i))
+    then
+        if
+            Car.IsDead(272@($temp_int,3i))
+        then
+            if
+                Car.DoesExist(272@($temp_int,3i))
+            then
+                Car.Delete(272@($temp_int,3i))
+            end
+            272@($temp_int,3i) = -1
+            275@($temp_int,3i) = -1
+            278@($temp_int,3i) = 0
+        end
+        if
+            272@($temp_int,3i) == -1
+        then
+            327@ = 4.0
+            if
+                $temp_int == 1
+            then
+                327@ = 8.0
+            end
+            if
+                $temp_int == 2
+            then
+                327@ = 12.0
+            end
+            add_float_lvar_to_float_lvar 235@ += 327@
+            272@($temp_int,3i) = Car.Create(492, 235@, 236@, 237@)
+            sub_float_lvar_from_float_lvar 235@ -= 327@
+            if
+                Car.DoesExist(272@($temp_int,3i))
+            then
+                Car.SetHeading(272@($temp_int,3i), 326@)
+                Car.ChangeColor(272@($temp_int,3i), 86, 86)
+                Car.SetHealth(272@($temp_int,3i), 1000)
+                Car.LockDoors(272@($temp_int,3i), CarLock.Unlocked)
+                Char.ClearTasksImmediately(260@($temp_int,3i))
+                if
+                    Char.IsInAnyCar(260@($temp_int,3i))
+                then
+                    Char.WarpFromCarToCoord(260@($temp_int,3i), 235@, 236@, 237@)
+                end
+                Char.WarpIntoCar(260@($temp_int,3i), 272@($temp_int,3i))
+            end
+        end
+    end
+end
+return
+
+:GROVE1_COOP_RESET_REGISTRATIONS
+244@ = -1
+245@ = 0
+for $temp_int = 0 to 7
+    310@($temp_int,8i) = -1
+    318@($temp_int,8i) = 0
+end
+227@ = 0
+return
+
+:GROVE1_COOP_STAGE_PHASE
+gosub @GROVE1_COOP_UPDATE_ROSTER
+gosub @GROVE1_COOP_DELETE_SUPPORT
+gosub @GROVE1_COOP_RELEASE_REMOTES
+if
+    230@ <> 3
+then
+    gosub @GROVE1_COOP_ENSURE_SUPPORT
+end
+set_lvar_int_to_lvar_int 231@ = 230@
+gosub @GROVE1_COOP_RESET_REGISTRATIONS
+228@ = 0
+gosub @GROVE1_COOP_POLL_REGISTRATIONS
+gosub @GROVE1_COOP_UPDATE_OBJECTIVES
+return
+
+:GROVE1_COOP_START_PLAY
+if
+    223@ == 1
+then
+    return
+end
+223@ = 1
+gosub @GROVE1_COOP_STAGE_PHASE
+return
+
+:GROVE1_COOP_BEGIN_TRANSITION
+if
+    226@ == 1
+then
+    return
+end
+226@ = 1
+gosub @GROVE1_COOP_UPDATE_ROSTER
+gosub @GROVE1_COOP_CLEAR_OBJECTIVES
+gosub @GROVE1_COOP_FREEZE_REMOTES
+gosub @GROVE1_COOP_DELETE_SUPPORT
+return
+
+:GROVE1_COOP_MAP_DEFENDERS
+set_lvar_int_to_lvar_int 300@ = 42@
+set_lvar_int_to_lvar_int 301@ = 45@
+set_lvar_int_to_lvar_int 302@ = 48@
+set_lvar_int_to_lvar_int 303@ = 51@
+set_lvar_int_to_lvar_int 304@ = 54@
+set_lvar_int_to_lvar_int 305@ = 58@
+set_lvar_int_to_lvar_int 306@ = 62@
+set_lvar_int_to_lvar_int 307@ = 66@
+return
+
+:GROVE1_COOP_POLL_REGISTRATIONS
+if
+    223@ == 0
+then
+    return
+end
+232@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 227@ > 232@
+then
+    return
+end
+227@ = Clock.GetGameTimer()
+227@ += 500
+if and
+    244@ == -1
+    245@ < 10
+    Char.DoesExist(38@)
+then
+    244@ = Coop.GetPedNetworkId(38@)
+    245@ += 1
+end
+for $temp_int = 0 to 2
+    if and
+        275@($temp_int,3i) == -1
+        278@($temp_int,3i) < 10
+        Car.DoesExist(272@($temp_int,3i))
+    then
+        275@($temp_int,3i) = Coop.GetVehicleNetworkId(272@($temp_int,3i))
+        278@($temp_int,3i) += 1
+    end
+end
+if
+    230@ == 3
+then
+    gosub @GROVE1_COOP_MAP_DEFENDERS
+    for $temp_int = 0 to 7
+        if and
+            310@($temp_int,8i) == -1
+            318@($temp_int,8i) < 10
+            Char.DoesExist(300@($temp_int,8i))
+        then
+            310@($temp_int,8i) = Coop.GetPedNetworkId(300@($temp_int,8i))
+            318@($temp_int,8i) += 1
+        end
+    end
+end
+return
+
+:GROVE1_COOP_PROTECT_FRIENDLIES
+if and
+    Char.DoesExist(38@)
+    not Char.IsDead(38@)
+then
+    for $temp_int = 0 to 2
+        if and
+            266@($temp_int,3i) == 1
+            Char.HasBeenDamagedByChar(38@, 260@($temp_int,3i))
+        then
+            Char.SetHealth(38@, 246@)
+            Char.ClearLastDamageEntity(38@)
+        end
+    end
+    246@ = Char.GetHealth(38@)
+end
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        not Char.IsDead(260@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        for 232@ = 0 to 2
+            if and
+                266@(232@,3i) == 1
+                Char.HasBeenDamagedByChar(233@, 260@(232@,3i))
+            then
+                Char.SetHealth(233@, 293@($temp_int,3i))
+                Char.ClearLastDamageEntity(233@)
+            end
+        end
+        293@($temp_int,3i) = Char.GetHealth(233@)
+    end
+end
+return
+
+:GROVE1_COOP_RETARGET_DEFENDERS
+if
+    230@ <> 3
+then
+    return
+end
+232@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 247@ > 232@
+then
+    return
+end
+247@ = Clock.GetGameTimer()
+247@ += 500
+gosub @GROVE1_COOP_MAP_DEFENDERS
+for 233@ = 0 to 7
+    if
+        Char.DoesExist(300@(233@,8i))
+    then
+        if
+            not Char.IsDead(300@(233@,8i))
+        then
+            for $temp_int = 0 to 2
+                if and
+                    266@($temp_int,3i) == 1
+                    Char.HasBeenDamagedByChar(300@(233@,8i), 260@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(300@(233@,8i), 260@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+:GROVE1_COOP_UPDATE_OBJECTIVES
+if or
+    220@ == 0
+    223@ == 0
+    226@ == 1
+then
+    return
+end
+232@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 228@ > 232@
+then
+    return
+end
+228@ = Clock.GetGameTimer()
+228@ += 750
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(233@)
+        Coop.RemoveCheckpointForNetworkPlayer(233@)
+        if
+            not is_int_lvar_equal_to_int_lvar 296@($temp_int,3i) == 230@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('GM1_18', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('GM1_16', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('GM1_9', 233@)
+            if
+                230@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('GM1_18', 8000, 1, 233@)
+            end
+            if
+                230@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('GM1_16', 8000, 1, 233@)
+            end
+            if
+                230@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('GM1_9', 8000, 1, 233@)
+            end
+            set_lvar_int_to_lvar_int 296@($temp_int,3i) = 230@
+        end
+        if
+            230@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2293.032, -1795.767, 12.5469, 8.0, 8.0, 6.0, 233@)
+        end
+        if
+            230@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1990.0, -1140.0, 25.0, 14.0, 14.0, 8.0, 233@)
+        end
+        if
+            230@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2000.269, -1117.084, 25.821, 8.0, 8.0, 6.0, 233@)
+            gosub @GROVE1_COOP_MAP_DEFENDERS
+            for 232@ = 0 to 7
+                if and
+                    310@(232@,8i) <> -1
+                    Char.DoesExist(300@(232@,8i))
+                then
+                    if
+                        not Char.IsDead(300@(232@,8i))
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(233@, 300@(232@,8i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+        end
+        if and
+            244@ <> -1
+            Char.DoesExist(38@)
+        then
+            if
+                not Char.IsDead(38@)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(233@, 38@, True, BlipDisplay.Both, BlipColor.Green, 2)
+            end
+        end
+    end
+end
+return
+
+:GROVE1_COOP_UPDATE
+if or
+    220@ == 0
+    224@ <> 0
+then
+    return
+end
+gosub @GROVE1_COOP_UPDATE_ROSTER
+if
+    221@ == 1
+then
+    return
+end
+if
+    226@ == 1
+then
+    return
+end
+if
+    not is_int_lvar_equal_to_int_lvar 230@ == 231@
+then
+    gosub @GROVE1_COOP_STAGE_PHASE
+end
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        269@($temp_int,3i) == 1
+    then
+        gosub @GROVE1_COOP_RELEASE_REMOTES
+        gosub @GROVE1_COOP_ENSURE_SUPPORT
+    end
+end
+gosub @GROVE1_COOP_ENSURE_SUPPORT
+gosub @GROVE1_COOP_POLL_REGISTRATIONS
+gosub @GROVE1_COOP_PROTECT_FRIENDLIES
+gosub @GROVE1_COOP_RETARGET_DEFENDERS
+gosub @GROVE1_COOP_UPDATE_OBJECTIVES
+return
+
+:GROVE1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        263@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        232@ = Coop.GetNetworkPlayerInternalId(233@)
+        if
+            is_int_lvar_equal_to_int_lvar 232@ == 263@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(233@)
+            Coop.RemoveCheckpointForNetworkPlayer(233@)
+            Coop.ClearThisPrintForNetworkPlayer('GM1_18', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('GM1_16', 233@)
+            Coop.ClearThisPrintForNetworkPlayer('GM1_9', 233@)
+        end
+    end
+    296@($temp_int,3i) = -1
+end
+return
+
+:GROVE1_COOP_NOTIFY_RESULT
+if or
+    220@ == 0
+    225@ == 1
+then
+    return
+end
+225@ = 1
+gosub @GROVE1_COOP_UPDATE_ROSTER
+gosub @GROVE1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        266@($temp_int,3i) == 1
+    then
+        if
+            224@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 260@($temp_int,3i))
+        end
+        if
+            224@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 260@($temp_int,3i))
+        end
+    end
+end
+return
+
+:GROVE1_COOP_CLEANUP
+if
+    222@ == 1
+then
+    return
+end
+222@ = 1
+gosub @GROVE1_COOP_UPDATE_ROSTER
+gosub @GROVE1_COOP_CLEAR_OBJECTIVES
+gosub @GROVE1_COOP_DELETE_SUPPORT
+235@, 236@, 237@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        266@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(260@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 233@ = 260@($temp_int,3i)
+        if
+            290@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(30, 233@)
+            if
+                287@($temp_int,3i) == 1
+            then
+                Char.GiveWeapon(233@, WeaponType.Ak47, 281@($temp_int,3i))
+            end
+        end
+        if
+            284@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(233@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(233@, 284@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(233@, 284@($temp_int,3i))
+            end
+        end
+        Char.FreezePosition(233@, False)
+        Char.SetProofs(233@, False, False, False, False, False)
+        Char.SetCollision(233@, True)
+        Char.SetVisible(233@, True)
+        Char.SetAreaVisible(233@, 0)
+        if and
+            226@ == 1
+            not Char.IsDead(233@)
+        then
+            Char.SetCoordinates(233@, 235@, 236@, 237@)
+        end
+    end
+end
+Streaming.MarkModelAsNoLongerNeeded(492)
+return
 
