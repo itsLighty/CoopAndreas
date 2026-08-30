@@ -21,6 +21,22 @@ if (-not (Test-Path -LiteralPath $sannyExecutable -PathType Leaf)) {
     throw "Sanny Builder executable not found at '$sannyExecutable'."
 }
 
+$unsupportedShorthandPatterns = @(
+    '^\s*[0-9]+@(?:\([^)]*\))?\s*=\s*[0-9]+@(?:\([^)]*\))?\s*(?://.*)?$',
+    '^\s*[0-9]+@(?:\([^)]*\))?\s*(?:>=|>|==|<>)\s*[0-9]+@(?:\([^)]*\))?\s*$',
+    '^\s*[0-9]+@(?:\([^)]*\))?\s*(?:\+=|-=|\*=|/=)\s*[0-9]+@(?:\([^)]*\))?\s*(?://.*)?$'
+)
+$unsupportedShorthand = @(
+    Get-ChildItem -LiteralPath (Join-Path $sourceScm 'scripts') -Filter '*.txt' -File |
+        Select-String -Pattern $unsupportedShorthandPatterns
+)
+if ($unsupportedShorthand.Count -gt 0) {
+    $details = $unsupportedShorthand |
+        Select-Object -First 20 |
+        ForEach-Object { "$($_.Path):$($_.LineNumber) $($_.Line.Trim())" }
+    throw "Unsupported local-to-local Sanny shorthand detected. Use explicit typed directives:`n$($details -join "`n")"
+}
+
 $compilerLockPath = Join-Path $sannyBuilderPath '.coopandreas-compile.lock'
 $compilerLock = $null
 $lockDeadline = [DateTime]::UtcNow.AddMinutes(5)
