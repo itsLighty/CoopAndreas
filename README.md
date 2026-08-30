@@ -189,13 +189,13 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] funny TAB+NUM4 (or NUM6) anim sync (did you know about this?)
 - [ ] gang groups sync
 - [ ] stream in/out players, peds, vehicles, etc.
-- [ ] vehicle sync
-  - [ ] force hydraulics sync
-  - [ ] trailer sync
-- [ ] passenger sync
+- [X] vehicle sync
+  - [X] force hydraulics sync
+  - [X] trailer sync
+- [X] passenger sync
   - [X] gamepad support
   - [X] proper seat sync
-  - [ ] radio sync
+  - [X] radio sync
   - [X] drive by shooting
 - [X] fixes
   - [X] mouse
