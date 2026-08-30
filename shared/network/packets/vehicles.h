@@ -3,6 +3,168 @@
 
 namespace Packets::Vehicles
 {
+constexpr int VEHICLE_TRAILER_NONE = -1;
+constexpr int VEHICLE_RADIO_OFF = 13;
+constexpr int VEHICLE_RADIO_TRACK_NONE = -1;
+constexpr int VEHICLE_RADIO_TRACK_MAX = 4095;
+constexpr int VEHICLE_RADIO_PLAY_TIME_MAX_MS = 1800000;
+constexpr uint16_t VEHICLE_HYDRAULIC_ANGLE_MAX = 504;
+
+inline constexpr bool IsHydraulicSyncModel(uint16_t modelId)
+{
+    switch (modelId)
+    {
+    case MODEL_VOODOO:
+    case MODEL_REMINGTN:
+    case MODEL_SLAMVAN:
+    case MODEL_BLADE:
+    case MODEL_TAHOMA:
+    case MODEL_SAVANNA:
+    case MODEL_BROADWAY:
+    case MODEL_TORNADO:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline constexpr bool IsTrailerModel(uint16_t modelId)
+{
+    switch (modelId)
+    {
+    case MODEL_ARTICT1:
+    case MODEL_ARTICT2:
+    case MODEL_PETROTR:
+    case MODEL_ARTICT3:
+    case MODEL_BAGBOXA:
+    case MODEL_BAGBOXB:
+    case MODEL_TUGSTAIR:
+    case MODEL_FARMTR1:
+    case MODEL_UTILTR1:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline constexpr bool CanTowTrailerModel(uint16_t modelId)
+{
+    switch (modelId)
+    {
+    case MODEL_LINERUN:
+    case MODEL_BAGGAGE:
+    case MODEL_PETRO:
+    case MODEL_RDTRAIN:
+    case MODEL_TRACTOR:
+    case MODEL_UTILITY:
+    case MODEL_TUG:
+    case MODEL_ARTICT3:
+    case MODEL_BAGBOXA:
+    case MODEL_BAGBOXB:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline constexpr bool CanAttachTrailerModel(uint16_t tractorModelId, uint16_t trailerModelId)
+{
+    switch (tractorModelId)
+    {
+    case MODEL_LINERUN:
+    case MODEL_PETRO:
+    case MODEL_RDTRAIN:
+    case MODEL_ARTICT3:
+        return trailerModelId == MODEL_ARTICT1 || trailerModelId == MODEL_ARTICT2 ||
+            trailerModelId == MODEL_ARTICT3 || trailerModelId == MODEL_PETROTR;
+    case MODEL_TRACTOR:
+        return trailerModelId == MODEL_FARMTR1;
+    case MODEL_UTILITY:
+        return trailerModelId == MODEL_UTILTR1;
+    case MODEL_BAGGAGE:
+    case MODEL_TUG:
+    case MODEL_BAGBOXA:
+    case MODEL_BAGBOXB:
+        return trailerModelId == MODEL_BAGBOXA || trailerModelId == MODEL_BAGBOXB ||
+            trailerModelId == MODEL_TUGSTAIR;
+    default:
+        return false;
+    }
+}
+
+struct VehicleAuxState
+{
+    bool hydraulicsActive = false;
+    uint16_t hydraulicControlAngle = 0;
+    float hydraulicSuspension[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    int trailerId = VEHICLE_TRAILER_NONE;
+
+    bool radioActive = false;
+    int radioStation = VEHICLE_RADIO_OFF;
+    int radioTrackId = VEHICLE_RADIO_TRACK_NONE;
+    int radioPlayTimeMs = 0;
+
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_bool(stream, hydraulicsActive);
+        if (hydraulicsActive)
+        {
+            if (Stream::IsWriting)
+            {
+                hydraulicControlAngle = std::min(hydraulicControlAngle, VEHICLE_HYDRAULIC_ANGLE_MAX);
+            }
+            serialize_int(stream, hydraulicControlAngle, 0, VEHICLE_HYDRAULIC_ANGLE_MAX);
+            for (float& wheel : hydraulicSuspension)
+            {
+                if (Stream::IsWriting)
+                {
+                    wheel = std::clamp(wheel, 0.0f, 1.0f);
+                }
+                serialize_compressed_float(stream, wheel, 0.0f, 1.0f, 0.01f);
+            }
+        }
+        else if (Stream::IsReading)
+        {
+            hydraulicControlAngle = 0;
+            for (float& wheel : hydraulicSuspension)
+            {
+                wheel = 1.0f;
+            }
+        }
+
+        serialize_int(stream, trailerId, VEHICLE_TRAILER_NONE, Config::MAX_SERVER_VEHICLES - 1);
+
+        if (Stream::IsWriting && (radioStation < 0 || radioStation >= VEHICLE_RADIO_OFF))
+        {
+            radioActive = false;
+        }
+        serialize_bool(stream, radioActive);
+        if (radioActive)
+        {
+            if (Stream::IsWriting)
+            {
+                radioTrackId = std::clamp(radioTrackId, VEHICLE_RADIO_TRACK_NONE, VEHICLE_RADIO_TRACK_MAX);
+                radioPlayTimeMs = radioTrackId == VEHICLE_RADIO_TRACK_NONE
+                    ? 0
+                    : std::clamp(radioPlayTimeMs, 0, VEHICLE_RADIO_PLAY_TIME_MAX_MS);
+            }
+            serialize_int(stream, radioStation, 0, VEHICLE_RADIO_OFF - 1);
+            serialize_int(stream, radioTrackId, VEHICLE_RADIO_TRACK_NONE, VEHICLE_RADIO_TRACK_MAX);
+            serialize_int(stream, radioPlayTimeMs, 0, VEHICLE_RADIO_PLAY_TIME_MAX_MS);
+        }
+        else if (Stream::IsReading)
+        {
+            radioStation = VEHICLE_RADIO_OFF;
+            radioTrackId = VEHICLE_RADIO_TRACK_NONE;
+            radioPlayTimeMs = 0;
+        }
+
+        return true;
+    }
+};
+
 class VehicleSpawn : public Packet
 {
     DEFINE_PACKET_TYPE(VehicleSpawn, ePacketType::VEHICLE_SPAWN, ePacketChannel::EVENT);
@@ -69,6 +231,7 @@ public:
 
     float planeGearState{};
     eDoorLock locked{};
+    VehicleAuxState auxState{};
 
     template <typename Stream>
     bool Serialize(Stream& stream)
@@ -135,6 +298,7 @@ public:
         }
 
         serialize_int(stream, (int&)locked, DOORLOCK_NOT_USED, DOORLOCK_SKIP_SHUT_DOORS);
+        serialize_object(stream, auxState);
 
         return true;
     }
@@ -188,6 +352,7 @@ public:
 
     float planeGearState{};
     eDoorLock locked{};
+    VehicleAuxState auxState{};
 
 private:
     template <typename Stream>
@@ -277,6 +442,7 @@ private:
         }
 
         serialize_int(stream, (int&)locked, DOORLOCK_NOT_USED, DOORLOCK_SKIP_SHUT_DOORS);
+        serialize_object(stream, auxState);
 
         return true;
     }

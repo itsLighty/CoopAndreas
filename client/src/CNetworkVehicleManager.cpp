@@ -2,6 +2,16 @@
 #include "CNetworkVehicle.h"
 #include <CKeySync.h>
 #include "CNetworkVehicleManager.h"
+#include <CAEAudioHardware.h>
+#include <CAERadioTrackManager.h>
+
+namespace
+{
+int GetRadioTrackPlayTime()
+{
+    return plugin::CallMethodAndReturn<int, 0x4D8F60, CAEAudioHardware*>(&AEAudioHardware);
+}
+}
 
 CNetworkVehicle* CNetworkVehicleManager::GetVehicle(int vehicleid)
 {
@@ -30,10 +40,13 @@ CNetworkVehicle* CNetworkVehicleManager::GetVehicle(CEntity* vehicle)
 void CNetworkVehicleManager::Add(CNetworkVehicle* vehicle)
 {
 	CNetworkVehicleManager::m_pVehicles.push_back(vehicle);
+	ResolvePendingVehicleState();
 }
 
 void CNetworkVehicleManager::Remove(CNetworkVehicle* vehicle)
 {
+	ClearVehicleRelations(vehicle);
+
 	auto it = std::find(m_pVehicles.begin(), m_pVehicles.end(), vehicle);
 	if (it != m_pVehicles.end())
 	{
@@ -90,6 +103,7 @@ void CNetworkVehicleManager::UpdateDriver(CVehicle* pVehicle)
 		}
 
 		vehicleDriverUpdate.locked = pVehicle->m_eDoorLock;
+		vehicleDriverUpdate.auxState = CaptureAuxState(pNetworkVehicle);
 
 		GetPacketFactory().Send(vehicleDriverUpdate);
 	}
@@ -98,6 +112,7 @@ void CNetworkVehicleManager::UpdateDriver(CVehicle* pVehicle)
 void CNetworkVehicleManager::UpdateIdle()
 {
 	CNetworkVehicleManager::RemoveHostedUnused();
+	ResolvePendingVehicleState();
 
 	for (auto pNetworkVehicle : m_pVehicles)
 	{
@@ -127,6 +142,7 @@ void CNetworkVehicleManager::UpdateIdle()
 			}
 
 			packet.locked = pVehicle->m_eDoorLock;
+			packet.auxState = CaptureAuxState(pNetworkVehicle);
 			GetPacketFactory().Send(packet);
 		}
 	}
@@ -186,6 +202,8 @@ void CNetworkVehicleManager::RemoveHostedUnused()
 			CVehicle* vehicle = (*it)->m_pVehicle;
 			if (!IsVehiclePointerValid(vehicle))
 			{
+				(*it)->m_pVehicle = nullptr;
+				ClearVehicleRelations(*it);
 				delete* it;
 				it = m_pVehicles.erase(it);
 				continue;
@@ -214,6 +232,92 @@ void CNetworkVehicleManager::UpdateDamageSync()
 					GetPacketFactory().Send(packet);
 				}
 			}
+		}
+	}
+}
+
+Packets::Vehicles::VehicleAuxState CNetworkVehicleManager::CaptureAuxState(CNetworkVehicle* networkVehicle)
+{
+	Packets::Vehicles::VehicleAuxState state{};
+	if (!networkVehicle || !networkVehicle->m_pVehicle || !networkVehicle->m_pVehicle->IsVTableValid())
+	{
+		return state;
+	}
+
+	CVehicle* vehicle = networkVehicle->m_pVehicle;
+	if (Packets::Vehicles::IsHydraulicSyncModel(static_cast<uint16_t>(networkVehicle->m_nModelId)) &&
+		vehicle->m_nVehicleType == VEHICLE_AUTOMOBILE && vehicle->m_nHandlingFlags.bHydraulicInst)
+	{
+		auto* automobile = static_cast<CAutomobile*>(vehicle);
+		state.hydraulicsActive = true;
+		state.hydraulicControlAngle = static_cast<uint16_t>(
+			std::clamp<int>(automobile->m_wMiscComponentAngle, 0, Packets::Vehicles::VEHICLE_HYDRAULIC_ANGLE_MAX));
+		for (int wheel = 0; wheel < 4; ++wheel)
+		{
+			state.hydraulicSuspension[wheel] = std::clamp(automobile->wheelsDistancesToGround1[wheel], 0.0f, 1.0f);
+		}
+	}
+
+	if (Packets::Vehicles::CanTowTrailerModel(static_cast<uint16_t>(networkVehicle->m_nModelId)) && vehicle->m_pTrailer)
+	{
+		if (auto* trailer = GetVehicle(vehicle->m_pTrailer))
+		{
+			if (Packets::Vehicles::CanAttachTrailerModel(static_cast<uint16_t>(networkVehicle->m_nModelId),
+				static_cast<uint16_t>(trailer->m_nModelId)))
+			{
+				state.trailerId = trailer->m_nVehicleId;
+			}
+		}
+	}
+
+	CPlayerPed* localPlayer = FindPlayerPed(0);
+	if (localPlayer && localPlayer->m_nPedFlags.bInVehicle && localPlayer->m_pVehicle == vehicle &&
+		AudioEngine.IsVehicleRadioActive() && AudioEngine.IsRadioOn())
+	{
+		const int station = static_cast<int>(AERadioTrackManager.m_TempSettings.m_nCurrentRadioStation);
+		if (station >= 0 && station < Packets::Vehicles::VEHICLE_RADIO_OFF)
+		{
+			state.radioActive = true;
+			state.radioStation = station;
+			state.radioTrackId = std::clamp(
+				AEAudioHardware.GetActiveTrackID(), Packets::Vehicles::VEHICLE_RADIO_TRACK_NONE,
+				Packets::Vehicles::VEHICLE_RADIO_TRACK_MAX);
+			state.radioPlayTimeMs = state.radioTrackId == Packets::Vehicles::VEHICLE_RADIO_TRACK_NONE
+				? 0
+				: std::clamp(GetRadioTrackPlayTime(), 0, Packets::Vehicles::VEHICLE_RADIO_PLAY_TIME_MAX_MS);
+		}
+	}
+
+	return state;
+}
+
+void CNetworkVehicleManager::ResolvePendingVehicleState()
+{
+	for (auto* vehicle : m_pVehicles)
+	{
+		if (vehicle)
+		{
+			vehicle->ResolvePendingTrailer();
+		}
+	}
+}
+
+void CNetworkVehicleManager::ClearVehicleRelations(CNetworkVehicle* vehicle)
+{
+	if (!vehicle)
+		return;
+
+	vehicle->DetachTrailerLinks();
+	for (auto* other : m_pVehicles)
+	{
+		if (other && other != vehicle &&
+			(other->m_nPendingTrailerId == vehicle->m_nVehicleId ||
+				other->m_nAppliedTrailerId == vehicle->m_nVehicleId))
+		{
+			other->m_nPendingTrailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
+			other->m_nPendingTrailerSince = 0;
+			other->m_nAppliedTrailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
+			other->m_lastAuxState.trailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
 		}
 	}
 }

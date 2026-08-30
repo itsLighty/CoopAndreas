@@ -10,10 +10,34 @@ void CNetworkVehicleManager::Add(CNetworkVehicle* vehicle)
 
 void CNetworkVehicleManager::Remove(CNetworkVehicle* vehicle)
 {
+    if (vehicle)
+    {
+        ClearVehicleRelations(vehicle->m_nVehicleId);
+    }
+
     auto it = std::find(m_pVehicles.begin(), m_pVehicles.end(), vehicle);
     if (it != m_pVehicles.end())
     {
         m_pVehicles.erase(it);
+    }
+}
+
+void CNetworkVehicleManager::ClearVehicleRelations(int vehicleid)
+{
+    for (auto* vehicle : m_pVehicles)
+    {
+        if (!vehicle)
+            continue;
+
+        if (vehicle->m_auxState.trailerId == vehicleid)
+        {
+            vehicle->m_auxState.trailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
+        }
+        if (vehicle->m_nPendingTrailerId == vehicleid)
+        {
+            vehicle->m_nPendingTrailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
+            vehicle->m_nPendingTrailerSinceMs = 0;
+        }
     }
 }
 
@@ -50,6 +74,7 @@ void CNetworkVehicleManager::RemoveAllHostedAndNotify(CNetworkPlayer* player)
             packet.vehicleid = (*it)->m_nVehicleId;
             GetPacketFactory().SendToAll(packet, player);
 
+            ClearVehicleRelations((*it)->m_nVehicleId);
             delete *it;
             it = CNetworkVehicleManager::m_pVehicles.erase(it);
         }

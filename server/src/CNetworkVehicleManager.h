@@ -10,4 +10,5 @@ public:
     static CNetworkVehicle* GetVehicle(int vehicleid);
     static int GetFreeID();
     static void RemoveAllHostedAndNotify(CNetworkPlayer* player);
+    static void ClearVehicleRelations(int vehicleid);
 };

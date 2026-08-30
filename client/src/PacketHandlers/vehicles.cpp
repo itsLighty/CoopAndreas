@@ -87,6 +87,7 @@ PACKET_HANDLER(ePacketType::VEHICLE_IDLE_UPDATE, Packets::Vehicles::VehicleIdleU
     }
 
     pNetworkVehicle->m_pVehicle->m_eDoorLock = pVehicleIdleUpdate->locked;
+    pNetworkVehicle->ApplyAuxState(pVehicleIdleUpdate->auxState);
 }
 
 PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDriverUpdate* pVehicleDriverUpdate)
@@ -147,6 +148,7 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
     }
 
     pNetworkVehicle->m_pVehicle->m_eDoorLock = pVehicleDriverUpdate->locked;
+    pNetworkVehicle->ApplyAuxState(pVehicleDriverUpdate->auxState);
     pNetworkVehicle->m_playerDriverSnapshot = *pVehicleDriverUpdate;
 }
 

@@ -16,5 +16,8 @@ public:
     static uint8_t AddToTempList(CNetworkVehicle* networkVehicle);
     static void RemoveHostedUnused();
     static void UpdateDamageSync();
+    static Packets::Vehicles::VehicleAuxState CaptureAuxState(CNetworkVehicle* networkVehicle);
+    static void ResolvePendingVehicleState();
+    static void ClearVehicleRelations(CNetworkVehicle* vehicle);
 };
 
