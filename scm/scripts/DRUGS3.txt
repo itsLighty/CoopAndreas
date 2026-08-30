@@ -3,6 +3,7 @@
 
 :DRUGS3
 script_name 'DRUGS3'
+Coop.EnableSyncingThisScript()
 gosub @DRUGS3_47
 if 
   has_deatharrest_been_executed 
@@ -16,38 +17,101 @@ terminate_this_script
 :DRUGS3_47
 $onmission = 1
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+188@ = 0 // frozen remote roster size
+for $temp_int = 0 to 2
+    $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+    189@($temp_int,3i) = -1 // frozen network-player internal identity
+    192@($temp_int,3i) = 0 // currently valid member of the frozen roster
+    195@($temp_int,3i) = -1 // last objective phase sent to this player
+    198@($temp_int,3i) = 0 // remote MP5 pickup authority fallback used
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        189@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        192@($temp_int,3i) = 1
+        188@ += 1
+    end
+end
+206@ = 0 // next bounded entity-registration retry
+207@ = 0 // next remote objective refresh
+208@ = 0 // next remote combat retarget pass
+209@ = 0 // out-of-range regroup timer
+210@ = 0 // cleanup/restoration guard
+211@ = 0 // remote pursuit vehicles staged
+213@ = 0 // a remote player has engaged the current encounter
+215@ = $scplayer // dealer flee target
+216@ = 0 // a frozen-roster player occupies the dealer car
+217@ = 0 // frozen-roster player died while still connected
+223@ = 0 // any active player is within 200m of the dealer
+224@ = 0 // any active player is within 40m of the dealer
+245@ = 0 // any active player is within 60m of the dealer
+225@ = 0 // remote reached the warehouse threshold
+226@ = 0 // remote reached the lower warehouse bay
+227@ = 0 // remote reached the deep warehouse bay
+228@ = 0 // remote reached the dealer catwalk
+229@ = 0 // remote reached the dealer escape transition
+231@ = 0 // bounded registration timeout count
+232@ = 0 // remotes are frozen for a synchronized scene
+243@ = 0 // remote gate-damage authority fallback used
+244@ = 0 // remote dealer engagement detected
 Text.LoadMissionText('CRASH3')
 World.SetPedDensityMultiplier(0.0)
 World.SetCarDensityMultiplier(0.0)
 World.ClearArea(0, 1036.86, -1336.49, 20.0, 20.0)
+gosub @DRUGS3_COOP_FREEZE_REMOTES
 Cutscene.Load('CRASH3A')
+242@ = Clock.GetGameTimer()
+242@ += 30000
 
 :DRUGS3_116
 if 
   not Cutscene.HasLoaded
 goto_if_false @DRUGS3_140
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_116
 
 :DRUGS3_140
 Cutscene.Start
 Camera.DoFade(1, 1000)
+242@ = Clock.GetGameTimer()
+242@ += 120000
 
 :DRUGS3_149
 if 
   not Cutscene.HasFinished
 goto_if_false @DRUGS3_173
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_173
+end
 goto @DRUGS3_149
 
 :DRUGS3_173
 Camera.DoFade(0, Fade.Out)
+242@ = Clock.GetGameTimer()
+242@ += 10000
 
 :DRUGS3_179
 if 
   Camera.GetFadingStatus
 goto_if_false @DRUGS3_203
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_203
+end
 goto @DRUGS3_179
 
 :DRUGS3_203
@@ -64,6 +128,8 @@ Streaming.RequestModel(429)
 Streaming.RequestModel(461)
 Streaming.RequestCarRecording(342)
 Streaming.LoadAllModelsNow
+242@ = Clock.GetGameTimer()
+242@ += 30000
 
 :DRUGS3_260
 if or
@@ -72,6 +138,12 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(342)
 goto_if_false @DRUGS3_297
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_260
 
 :DRUGS3_297
@@ -83,6 +155,12 @@ if or
   not Streaming.HasModelLoaded(461)
 goto_if_false @DRUGS3_344
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_297
 
 :DRUGS3_344
@@ -98,6 +176,7 @@ Char.SetHeading($scplayer, 1.0)
 Camera.SetBehindPlayer
 Streaming.LoadSceneInDirection(1038.0, -1340.99, 13.94, 1.0)
 Camera.DoFade(1, 1500)
+gosub @DRUGS3_COOP_DEPLOY_REMOTES
 141@ = 0
 142@ = 0
 143@ = 0
@@ -152,6 +231,12 @@ Skip.SetUp(2263.378, -2226.33, 12.4, 47.416)
 
 :DRUGS3_850
 wait 0
+gosub @DRUGS3_COOP_UPDATE
+if
+  217@ == 1
+then
+    goto @DRUGS3_19343
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @DRUGS3_876
@@ -163,6 +248,10 @@ if
 goto_if_false @DRUGS3_937
 137@ = Blip.AddForCoord(2247.639, -2202.144, 12.59)
 Text.PrintNow('CSH3_1', 7000, 1)
+set_lvar_text_label 218@s = 'CSH3_1'
+220@ = 7000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 141@ = 1
 
 :DRUGS3_937
@@ -179,15 +268,24 @@ $tripskip_c3flag = 1
 
 :DRUGS3_1018
 Skip.Clear
+gosub @DRUGS3_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Game.SwitchEmergencyServices(False)
 Camera.DoFade(0, 500)
+242@ = Clock.GetGameTimer()
+242@ += 10000
 
 :DRUGS3_1038
 if 
   Camera.GetFadingStatus
 goto_if_false @DRUGS3_1062
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_1062
+end
 goto @DRUGS3_1038
 
 :DRUGS3_1062
@@ -217,6 +315,8 @@ Streaming.RequestCarRecording(329)
 Streaming.RequestCarRecording(309)
 Streaming.RequestCarRecording(347)
 Streaming.LoadAllModelsNow
+242@ = Clock.GetGameTimer()
+242@ += 30000
 
 :DRUGS3_1216
 if or
@@ -225,6 +325,12 @@ if or
   not Streaming.HasModelLoaded(#BARREL4)
 goto_if_false @DRUGS3_1252
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_1216
 
 :DRUGS3_1252
@@ -235,6 +341,12 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(309)
 goto_if_false @DRUGS3_1294
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_1252
 
 :DRUGS3_1294
@@ -245,6 +357,12 @@ if or
   not Streaming.HasModelLoaded(#IMCOMPMOVEDR1_LAS)
 goto_if_false @DRUGS3_1336
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_1294
 
 :DRUGS3_1336
@@ -288,6 +406,11 @@ Object.FreezePosition(51@, True)
 Object.SetHeading(51@, 35.23)
 Object.SetHealth(51@, 10)
 Object.SetOnlyDamagedByPlayer(51@, True)
+if
+  188@ > 0
+then
+    Object.SetOnlyDamagedByPlayer(51@, False)
+end
 73@ = Object.Create(#BARREL4, 2187.538, -2255.581, 12.51)
 Object.SetOnlyDamagedByPlayer(73@, True)
 58@ = Car.Create(414, 2175.94, -2268.1, 12.66)
@@ -381,6 +504,7 @@ Char.SetDecisionMaker(68@, 52@)
 Char.GiveWeapon(68@, WeaponType.Mp5, 9999)
 Char.SetAccuracy(68@, 30)
 Task.ChatWithChar(68@, 67@, False, 1)
+gosub @DRUGS3_COOP_SYNC_WORLD
 Camera.SetFixedPosition(2256.623, -2213.522, 23.0389, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2255.702, -2213.833, 22.8027, SwitchType.JumpCut)
 Hud.SwitchWidescreen(True)
@@ -402,6 +526,10 @@ Car.StartPlayback(56@, 328)
 Car.StartPlayback(57@, 329)
 Car.StartPlayback(54@, 309)
 Text.PrintNow('CSH3_2', 5000, 1)
+set_lvar_text_label 218@s = 'CSH3_2'
+220@ = 5000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 
 :DRUGS3_3391
 141@ = 2
@@ -477,6 +605,10 @@ if
   TIMERA > 3150
 goto_if_false @DRUGS3_4088
 Text.PrintNow('CSH3_3', 7000, 2)
+set_lvar_text_label 218@s = 'CSH3_3'
+220@ = 7000
+221@ = 2
+gosub @DRUGS3_COOP_PRINT_NOW
 Camera.SetFixedPosition(2210.3, -2254.067, 16.7105, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2209.311, -2254.181, 16.6143, SwitchType.JumpCut)
 if 
@@ -518,6 +650,8 @@ Task.PlayAnim(-1, "ATM", "PED", 4.0, False, False, False, False, -1)
 Sequence.Close(75@)
 Char.PerformSequence(87@, 75@)
 Sequence.Clear(75@)
+247@ = Clock.GetGameTimer()
+247@ += 30000
 if 
   not Char.IsDead(64@)
 goto_if_false @DRUGS3_4345
@@ -528,6 +662,13 @@ if
   142@ <> 6
 goto_if_false @DRUGS3_5119
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 247@
+then
+    142@ = 6
+    goto @DRUGS3_5119
+end
 if 
   142@ == 0
 goto_if_false @DRUGS3_4453
@@ -644,12 +785,20 @@ goto_if_false @DRUGS3_6312
 :DRUGS3_5144
 skip_cutscene_end 
 Camera.DoFade(0, 500)
+242@ = Clock.GetGameTimer()
+242@ += 10000
 
 :DRUGS3_5153
 if 
   Camera.GetFadingStatus
 goto_if_false @DRUGS3_5177
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_5177
+end
 goto @DRUGS3_5153
 
 :DRUGS3_5177
@@ -746,6 +895,8 @@ Streaming.RequestAnimation("DODGE")
 Streaming.RequestCarRecording(347)
 Streaming.LoadSpecialCharacter('ANDRE', 1)
 Streaming.LoadAllModelsNow
+242@ = Clock.GetGameTimer()
+242@ += 30000
 
 :DRUGS3_6144
 if or
@@ -755,6 +906,12 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(347)
 goto_if_false @DRUGS3_6188
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_6144
 
 :DRUGS3_6188
@@ -763,6 +920,12 @@ if or
   not Streaming.HasSpecialCharacterLoaded(1)
 goto_if_false @DRUGS3_6223
 wait 0
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 242@
+then
+    goto @DRUGS3_19343
+end
 goto @DRUGS3_6188
 
 :DRUGS3_6223
@@ -774,6 +937,8 @@ Camera.SetBehindPlayer
 Blip.Remove(137@)
 137@ = Blip.AddForCoord(2178.38, -2254.89, 13.81)
 Camera.DoFade(1, 500)
+gosub @DRUGS3_COOP_SYNC_WORLD
+gosub @DRUGS3_COOP_DEPLOY_REMOTES
 111@ = Object.CreateNoOffset(#IMY_LA_DOOR, 2118.088, -2274.635, 20.867)
 Object.SetHeading(111@, 225.0)
 141@ = 8
@@ -982,6 +1147,10 @@ if
 goto_if_false @DRUGS3_7512
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('CRA3_EA', 3000, 1)
+set_lvar_text_label 218@s = 'CRA3_EA'
+220@ = 3000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 145@ = 4
 
 :DRUGS3_7512
@@ -1001,6 +1170,10 @@ Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('CRA3_EC', 3000, 1)
+set_lvar_text_label 218@s = 'CRA3_EC'
+220@ = 3000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 145@ = 5
 
 :DRUGS3_7609
@@ -1399,6 +1572,10 @@ if
   150@ == 0
 goto_if_false @DRUGS3_10758
 Text.PrintNow('CSH3_13', 5000, 1)
+set_lvar_text_label 218@s = 'CSH3_13'
+220@ = 5000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 Object.Delete(51@)
 Streaming.MarkModelAsNoLongerNeeded(#SEC_KEYPAD)
 Sound.AddOneOffSound(65535, 2181.127, -2251.999, 14.036)
@@ -1458,6 +1635,7 @@ Char.SetHeading(88@, 230.37)
 Char.SetDecisionMaker(88@, 52@)
 Char.GiveWeapon(88@, WeaponType.Pistol, 99999)
 Char.SetAccuracy(88@, 20)
+gosub @DRUGS3_COOP_SYNC_WORLD
 if 
   155@ == 0
 goto_if_false @DRUGS3_10671
@@ -1485,6 +1663,7 @@ Audio.ReportMissionAudioEventAtObject(50@, 1035)
 
 :DRUGS3_10744
 150@ = 1
+213@ = 0
 141@ = 10
 
 :DRUGS3_10758
@@ -1556,6 +1735,8 @@ if
   Char.IsDead(87@)
 goto_if_false @DRUGS3_11176
 Text.PrintHelp('CSH3_10')
+set_lvar_text_label 218@s = 'CSH3_10'
+gosub @DRUGS3_COOP_PRINT_HELP
 TIMERA = 0
 178@ = 1
 
@@ -1567,6 +1748,8 @@ if
   TIMERA > 8000
 goto_if_false @DRUGS3_11238
 Text.PrintHelp('CSH3_11')
+set_lvar_text_label 218@s = 'CSH3_11'
+gosub @DRUGS3_COOP_PRINT_HELP
 TIMERA = 0
 178@ = 2
 
@@ -1578,6 +1761,8 @@ if
   TIMERA > 8000
 goto_if_false @DRUGS3_11300
 Text.PrintHelp('CSH3_12')
+set_lvar_text_label 218@s = 'CSH3_12'
+gosub @DRUGS3_COOP_PRINT_HELP
 TIMERA = 0
 178@ = 3
 
@@ -1589,6 +1774,8 @@ if
   TIMERA > 8000
 goto_if_false @DRUGS3_11362
 Text.PrintHelp('CSH3_52')
+set_lvar_text_label 218@s = 'CSH3_52'
+gosub @DRUGS3_COOP_PRINT_HELP
 TIMERA = 0
 178@ = 4
 
@@ -1600,6 +1787,8 @@ if
   TIMERA > 8000
 goto_if_false @DRUGS3_11417
 Text.PrintHelp('CSH3_51')
+set_lvar_text_label 218@s = 'CSH3_51'
+gosub @DRUGS3_COOP_PRINT_HELP
 178@ = 5
 
 :DRUGS3_11417
@@ -1667,8 +1856,9 @@ gosub @DRUGS3_19036
 if 
   152@ == 0
 goto_if_false @DRUGS3_12231
-if 
+if or
   Char.IsInAngledArea2D($scplayer, 2160.659, -2244.409, 2168.71, -2237.79, 12.0, False)
+  225@ == 1
 goto_if_false @DRUGS3_12231
 Streaming.MarkModelAsNoLongerNeeded(414)
 Streaming.MarkModelAsNoLongerNeeded(#SEC_KEYPAD)
@@ -1714,6 +1904,12 @@ Object.SetOnlyDamagedByPlayer(72@, True)
 Object.SetHeading(102@, 317.068)
 Object.SetHealth(102@, 1000)
 Object.SetOnlyDamagedByPlayer(102@, True)
+if
+  188@ > 0
+then
+    Object.SetOnlyDamagedByPlayer(102@, False)
+end
+gosub @DRUGS3_COOP_SYNC_WORLD
 152@ = 1
 
 :DRUGS3_12231
@@ -1769,8 +1965,9 @@ gosub @DRUGS3_18964
 if 
   153@ == 0
 goto_if_false @DRUGS3_13164
-if 
+if or
   Char.IsInAngledArea2D($scplayer, 2157.47, -2246.72, 2152.737, -2251.857, -10.0, False)
+  226@ == 1
 goto_if_false @DRUGS3_13164
 92@ = Char.Create(24, 50, 2164.943, -2259.275, 12.594)
 Char.SetHeading(92@, 46.776)
@@ -1824,6 +2021,7 @@ Char.SetDecisionMaker(100@, 52@)
 Char.GiveWeapon(100@, WeaponType.Pistol, 99999)
 Char.SetAccuracy(100@, 10)
 Char.SetShootRate(100@, 20)
+gosub @DRUGS3_COOP_SYNC_WORLD
 153@ = 1
 
 :DRUGS3_13164
@@ -1855,8 +2053,9 @@ gosub @DRUGS3_18882
 if 
   154@ == 0
 goto_if_false @DRUGS3_14045
-if 
+if or
   Char.IsInAngledArea2D($scplayer, 2160.728, -2254.586, 2152.4, -2263.3, 10.0, False)
+  227@ == 1
 goto_if_false @DRUGS3_14045
 if 
   166@ == 0
@@ -1975,13 +2174,18 @@ gosub @DRUGS3_18882
 if 
   173@ == 0
 goto_if_false @DRUGS3_14209
-if 
+if or
   Char.IsInAngledArea3D($scplayer, 2136.48, -2266.78, 28.0, 2145.55, -2275.04, 18.0, -20.0, False)
+  228@ == 1
 goto_if_false @DRUGS3_14209
 Streaming.MarkModelAsNoLongerNeeded(#IMCMPTRKDRL_LAS)
 Streaming.MarkModelAsNoLongerNeeded(#IMCMPTRKDRR_LAS)
 Streaming.MarkModelAsNoLongerNeeded(#IMCOMPMOVEDR1_LAS)
 Text.PrintNow('CSH3_53', 7000, 1)
+set_lvar_text_label 218@s = 'CSH3_53'
+220@ = 7000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 if 
   not Char.IsDead(109@)
 goto_if_false @DRUGS3_14178
@@ -2239,8 +2443,9 @@ Char.MarkAsNoLongerNeeded(100@)
 if 
   173@ == 1
 goto_if_false @DRUGS3_16461
-if 
+if or
   Char.IsInAngledArea3D($scplayer, 2125.14, -2270.97, 27.0, 2121.09, -2275.33, 19.0, 14.0, False)
+  229@ == 1
 goto_if_false @DRUGS3_16461
 Char.MarkAsNoLongerNeeded(83@)
 Char.MarkAsNoLongerNeeded(84@)
@@ -2275,6 +2480,7 @@ Car.SetHealth(54@, 1000)
 Car.SetHeading(55@, 315.41)
 Car.SetCanBurstTires(55@, False)
 136@ = Pickup.CreateWithAmmo(353, 3, 250, 2175.614, -2282.959, 13.54)
+gosub @DRUGS3_COOP_SETUP_CHASE_ROLES
 83@ = Char.Create(24, 50, 2132.698, -2303.37, 13.699)
 Char.SetHeading(83@, 826.228)
 Char.SetDecisionMaker(83@, 52@)
@@ -2329,6 +2535,7 @@ Char.GiveWeapon(90@, WeaponType.Mp5, 99999)
 Char.SetHealth(90@, 50)
 set_lvar_int_to_lvar_int 112@ = 90@
 gosub @DRUGS3_18926
+gosub @DRUGS3_COOP_SYNC_WORLD
 if 
   Object.DoesExist(111@)
 goto_if_false @DRUGS3_16396
@@ -2358,6 +2565,7 @@ if or
   TIMERA > 750
   Char.HasBeenDamagedByChar(101@, $scplayer)
   Player.IsTargetingChar($player1, 101@)
+  244@ == 1
 goto_if_false @DRUGS3_16689
 87@ = Char.Create(24, 50, 2135.46, -2296.64, 12.9)
 Char.SetHeading(87@, 337.5533)
@@ -2366,12 +2574,14 @@ Char.GiveWeapon(87@, WeaponType.Pistol, 99999)
 Task.KillCharOnFoot(87@, $scplayer)
 set_lvar_int_to_lvar_int 112@ = 87@
 gosub @DRUGS3_18926
+gosub @DRUGS3_COOP_SYNC_WORLD
 113@ = Sequence.Open()
 Task.FollowPathNodesToCoord(-1, 2128.43, -2292.01, 13.75, 6, 350000)
 Task.FollowPathNodesToCoord(-1, 2185.5, -2274.8, 13.75, 7, 350000)
 Sequence.Close(113@)
 Char.PerformSequence(101@, 113@)
 Sequence.Clear(113@)
+244@ = 0
 173@ = 3
 
 :DRUGS3_16689
@@ -2395,12 +2605,16 @@ if
   173@ == 4
 goto_if_false @DRUGS3_17553
 if 
-  not Char.LocateAnyMeansChar2D($scplayer, 101@, 200.0, 200.0, False)
+  223@ == 0
 goto_if_false @DRUGS3_16877
 if 
   not Char.IsOnScreen(101@)
 goto_if_false @DRUGS3_16877
 Text.PrintNow('CSH3_55', 5000, 1)
+set_lvar_text_label 218@s = 'CSH3_55'
+220@ = 5000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 goto @DRUGS3_19343
 
 :DRUGS3_16877
@@ -2414,8 +2628,9 @@ if
   not Car.IsDead(54@)
 goto_if_false @DRUGS3_16970
 $car = Char.GetCarIsUsing($scplayer)
-if 
+if or
   is_int_var_equal_to_int_lvar $car == 54@
+  216@ == 1
 goto_if_false @DRUGS3_16970
 gosub @DRUGS3_18627
 182@ = 2
@@ -2430,8 +2645,9 @@ goto_if_false @DRUGS3_17171
 if 
   Car.Locate2D(54@, 0, 2190.07, -2269.8, 6.0, 6.0)
 goto_if_false @DRUGS3_17150
-if 
+if and
   not Char.IsInCar($scplayer, 54@)
+  216@ == 0
 goto_if_false @DRUGS3_17129
 if 
   184@ == 0
@@ -2480,9 +2696,13 @@ if
   Char.IsInCar(101@, 54@)
 goto_if_false @DRUGS3_17400
 if 
-  Char.LocateAnyMeansChar2D(101@, $scplayer, 60.0, 60.0, False)
+  245@ == 1
 goto_if_false @DRUGS3_17400
 Text.PrintNow('CSH3_54', 5000, 1)
+set_lvar_text_label 218@s = 'CSH3_54'
+220@ = 5000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 Char.SetHealth(101@, 100)
 Char.SetSuffersCriticalHits(101@, True)
 Car.GotoCoordinates(54@, 2246.61, -2204.78, 13.65)
@@ -2506,8 +2726,9 @@ goto_if_false @DRUGS3_17539
 if 
   184@ == 0
 goto_if_false @DRUGS3_17488
-if 
+if or
   Char.IsInCar($scplayer, 54@)
+  216@ == 1
 goto_if_false @DRUGS3_17488
 gosub @DRUGS3_18627
 184@ = 1
@@ -2516,8 +2737,9 @@ gosub @DRUGS3_18627
 if 
   184@ == 1
 goto_if_false @DRUGS3_17532
-if 
+if and
   not Char.IsInCar($scplayer, 54@)
+  216@ == 0
 goto_if_false @DRUGS3_17532
 184@ = 0
 
@@ -2535,7 +2757,7 @@ goto_if_false @DRUGS3_17649
 if 
   not Char.IsSittingInAnyCar(101@)
 goto_if_false @DRUGS3_17649
-Task.SmartFleeChar(101@, $scplayer, 300.0, 500000)
+Task.SmartFleeChar(101@, 215@, 300.0, 500000)
 if 
   not Car.IsDead(54@)
 goto_if_false @DRUGS3_17642
@@ -2593,7 +2815,7 @@ if
   Car.IsPlaybackGoingOn(54@)
 goto_if_false @DRUGS3_17989
 if 
-  not Char.LocateAnyMeansChar2D(101@, $scplayer, 40.0, 40.0, False)
+  224@ == 0
 goto_if_false @DRUGS3_17989
 Car.SetPlaybackSpeed(54@, 0.4)
 187@ = 2
@@ -2606,7 +2828,7 @@ if
   Car.IsPlaybackGoingOn(54@)
 goto_if_false @DRUGS3_18071
 if 
-  Char.LocateAnyMeansChar2D(101@, $scplayer, 40.0, 40.0, False)
+  224@ == 1
 goto_if_false @DRUGS3_18071
 Car.SetPlaybackSpeed(54@, 0.85)
 187@ = 1
@@ -2696,6 +2918,10 @@ if
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @DRUGS3_18572
 Text.PrintNow(78@s, 4000, 1)
+set_lvar_text_label 218@s = 78@s
+220@ = 4000
+221@ = 1
+gosub @DRUGS3_COOP_PRINT_NOW
 if 
   not Char.IsDead(101@)
 goto_if_false @DRUGS3_18561
@@ -2725,7 +2951,7 @@ Char.SetHealth(101@, 100)
 Char.SetMaxHealth(101@, 100)
 114@ = Sequence.Open()
 Task.FollowPathNodesToCoord(-1, 2191.422, -2183.429, 13.55, 6, -2)
-Task.SmartFleeChar(-1, $scplayer, 300.0, 500000)
+Task.SmartFleeChar(-1, 215@, 300.0, 500000)
 Sequence.Close(114@)
 Char.PerformSequence(101@, 114@)
 Sequence.Clear(114@)
@@ -2817,13 +3043,1048 @@ Char.PerformSequence(112@, 126@)
 Sequence.Clear(126@)
 return 
 
+// Cooperative mission layer. The three remote slots are frozen by the internal
+// identities captured at mission start. Disconnected slots are ignored and are
+// never silently replaced by late joiners reusing an actor handle.
+:DRUGS3_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    192@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        201@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 201@ == 189@($temp_int,3i)
+        then
+            192@($temp_int,3i) = 1
+            if and
+                232@ == 0
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                217@ = 1
+            end
+        end
+    end
+end
+if
+    not Char.DoesExist(215@)
+then
+    215@ = $scplayer
+end
+return
+
+:DRUGS3_COOP_BUILD_ACTIVE_ARGS
+233@ = -1
+234@ = -1
+235@ = -1
+for $temp_int = 0 to 2
+    if and
+        192@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        set_lvar_int_to_var_int 233@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    end
+end
+return
+
+:DRUGS3_COOP_TELEPORT_ACTIVE
+if
+  188@ == 0
+then
+    return
+end
+gosub @DRUGS3_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(233@, 234@, 235@)
+return
+
+:DRUGS3_COOP_PRINT_NOW
+for $temp_int = 0 to 2
+    if and
+        192@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(218@s, 220@, 221@, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS3_COOP_PRINT_HELP
+for $temp_int = 0 to 2
+    if and
+        192@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintHelpForNetworkPlayer(218@s, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        192@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+    195@($temp_int,3i) = -1
+end
+return
+
+:DRUGS3_COOP_FREEZE_REMOTES
+if
+  188@ == 0
+then
+    return
+end
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+gosub @DRUGS3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+    end
+end
+gosub @DRUGS3_COOP_TELEPORT_ACTIVE
+232@ = 1
+return
+
+:DRUGS3_COOP_DEPLOY_REMOTES
+if
+  188@ == 0
+then
+    return
+end
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+gosub @DRUGS3_COOP_TELEPORT_ACTIVE
+232@ = 0
+209@ = 0
+return
+
+// All registration attempts share one 750 ms deadline. A missing entity can only
+// defer its own synchronization; it can never stall mission progression. The
+// periodic update retries timed-out registrations for late-streamed entities.
+:DRUGS3_COOP_SYNC_WORLD
+if
+  188@ == 0
+then
+    return
+end
+202@ = Clock.GetGameTimer()
+202@ += 750
+
+:DRUGS3_COOP_SYNC_WORLD_PASS
+203@ = 0
+205@ = 62@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 63@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 64@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 65@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 66@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 67@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 68@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 83@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 84@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 85@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 86@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 87@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 88@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 89@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 90@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 92@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 93@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 94@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 95@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 96@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 97@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 98@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 99@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 100@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 101@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 109@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 110@
+gosub @DRUGS3_COOP_SYNC_PED_ONCE
+205@ = 54@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 55@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 56@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 57@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 58@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 59@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 60@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+205@ = 61@
+gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+    then
+        set_lvar_int_to_var_int 205@ = $NETWORK_PLAYER_VEHICLE[$temp_int]
+        gosub @DRUGS3_COOP_SYNC_VEHICLE_ONCE
+    end
+end
+if
+  203@ == 0
+then
+    return
+end
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 202@
+then
+    231@ += 1
+    return
+end
+wait 0
+goto @DRUGS3_COOP_SYNC_WORLD_PASS
+
+:DRUGS3_COOP_SYNC_PED_ONCE
+if
+    Char.DoesExist(205@)
+then
+    Char.SetOnlyDamagedByPlayer(205@, False)
+    204@ = Coop.GetPedNetworkId(205@)
+    if
+      204@ == -1
+    then
+        203@ = 1
+    end
+end
+return
+
+:DRUGS3_COOP_SYNC_VEHICLE_ONCE
+if
+    Car.DoesExist(205@)
+then
+    Car.SetOnlyDamagedByPlayer(205@, False)
+    204@ = Coop.GetVehicleNetworkId(205@)
+    if
+      204@ == -1
+    then
+        203@ = 1
+    end
+end
+return
+
+:DRUGS3_COOP_UPDATE_OBJECTIVES
+222@ = 0
+if
+  2 > 141@
+then
+    222@ = 1
+end
+if
+  141@ == 8
+then
+    222@ = 2
+end
+if and
+  141@ >= 9
+  2 > 173@
+then
+    222@ = 3
+end
+if
+  173@ >= 2
+then
+    222@ = 4
+end
+for $temp_int = 0 to 2
+    if and
+        192@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            not is_int_lvar_equal_to_int_lvar 195@($temp_int,3i) == 222@
+        then
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            if
+              222@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CSH3_1', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              222@ == 2
+            then
+                Coop.PrintHelpForNetworkPlayer('CSH3_7', $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              222@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('CSH3_13', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              222@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('CSH3_53', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            set_lvar_int_to_lvar_int 195@($temp_int,3i) = 222@
+        end
+        if
+          222@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2247.639, -2202.144, 12.59, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+          222@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2178.38, -2254.89, 13.81, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+          222@ == 3
+        then
+            if
+              141@ < 11
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2169.0, -2249.0, 13.0, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            else
+                if
+                  173@ == 0
+                then
+                    Coop.UpdateCheckpointForNetworkPlayer(2139.0, -2270.0, 20.0, 9.0, 9.0, 8.0, $NETWORK_PLAYER[$temp_int])
+                else
+                    Coop.UpdateCheckpointForNetworkPlayer(2123.0, -2273.0, 20.0, 8.0, 8.0, 7.0, $NETWORK_PLAYER[$temp_int])
+                end
+            end
+        end
+        if and
+            Char.DoesExist(101@)
+            not Char.IsDead(101@)
+        then
+            204@ = Coop.GetPedNetworkId(101@)
+            if
+              204@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 101@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if
+            Car.DoesExist(54@)
+        then
+            204@ = Coop.GetVehicleNetworkId(54@)
+            if
+              204@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 54@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            end
+        end
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            204@ = Coop.GetVehicleNetworkId($NETWORK_PLAYER_VEHICLE[$temp_int])
+            if
+              204@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int], True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+    end
+end
+return
+
+:DRUGS3_COOP_REMOTE_PROGRESS
+223@ = 0
+224@ = 0
+245@ = 0
+216@ = 0
+if
+    Char.DoesExist(101@)
+then
+    if
+        not Char.IsDead(101@)
+    then
+        if
+            Char.LocateAnyMeansChar2D($scplayer, 101@, 200.0, 200.0, False)
+        then
+            223@ = 1
+        end
+        if
+            Char.LocateAnyMeansChar2D($scplayer, 101@, 60.0, 60.0, False)
+        then
+            245@ = 1
+        end
+        if
+            Char.LocateAnyMeansChar2D($scplayer, 101@, 40.0, 40.0, False)
+        then
+            224@ = 1
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+              141@ == 8
+            then
+                if
+                    Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 2198.686, -2180.832, 2116.212, -2263.317, 82.0, False)
+                then
+                    if
+                      144@ == 0
+                    then
+                        144@ = 1
+                        145@ = 1
+                    end
+                    if or
+                        Char.IsShooting($NETWORK_PLAYER[$temp_int])
+                        Player.IsTargetingAnything(189@($temp_int,3i))
+                    then
+                        147@ = 1
+                        213@ = 1
+                    end
+                end
+                if and
+                    Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 2172.36, -2207.176, 2116.212, -2263.317, 82.0, False)
+                    Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+                then
+                    147@ = 1
+                    213@ = 1
+                end
+                if and
+                    Object.DoesExist(51@)
+                    Char.IsShooting($NETWORK_PLAYER[$temp_int])
+                    Char.LocateAnyMeansObject3D($NETWORK_PLAYER[$temp_int], 51@, 7.0, 7.0, 5.0, False)
+                then
+                    141@ = 9
+                    243@ = 1
+                end
+            end
+            if
+              141@ == 10
+            then
+                if
+                    Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 2167.955, -2253.054, 2175.023, -2245.327, -11.5, False)
+                then
+                    141@ = 11
+                end
+            end
+            if
+              141@ == 11
+            then
+                if
+                    Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 2160.659, -2244.409, 2168.71, -2237.79, 12.0, False)
+                then
+                    225@ = 1
+                end
+                if
+                    Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 2157.47, -2246.72, 2152.737, -2251.857, -10.0, False)
+                then
+                    226@ = 1
+                end
+                if
+                    Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 2160.728, -2254.586, 2152.4, -2263.3, 10.0, False)
+                then
+                    227@ = 1
+                end
+                if
+                    Char.IsInAngledArea3D($NETWORK_PLAYER[$temp_int], 2136.48, -2266.78, 28.0, 2145.55, -2275.04, 18.0, -20.0, False)
+                then
+                    228@ = 1
+                end
+                if
+                    Char.IsInAngledArea3D($NETWORK_PLAYER[$temp_int], 2125.14, -2270.97, 27.0, 2121.09, -2275.33, 19.0, 14.0, False)
+                then
+                    229@ = 1
+                end
+                if and
+                    Object.DoesExist(102@)
+                    Char.IsShooting($NETWORK_PLAYER[$temp_int])
+                    Char.LocateAnyMeansObject3D($NETWORK_PLAYER[$temp_int], 102@, 6.0, 6.0, 6.0, False)
+                then
+                    Object.SetHealth(102@, 999)
+                end
+            end
+            if and
+                173@ >= 1
+                198@($temp_int,3i) == 0
+                Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 2175.614, -2282.959, 13.54, 4.0, 4.0, 4.0)
+            then
+                Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Mp5, 250)
+                198@($temp_int,3i) = 1
+            end
+            if and
+                Char.DoesExist(101@)
+                not Char.IsDead(101@)
+            then
+                if
+                    Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 101@, 200.0, 200.0, False)
+                then
+                    223@ = 1
+                end
+                if
+                    Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 101@, 60.0, 60.0, False)
+                then
+                    245@ = 1
+                end
+                if
+                    Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], 101@, 40.0, 40.0, False)
+                then
+                    224@ = 1
+                end
+                if or
+                    Char.HasBeenDamagedByChar(101@, $NETWORK_PLAYER[$temp_int])
+                    Player.IsTargetingChar(189@($temp_int,3i), 101@)
+                then
+                    set_lvar_int_to_var_int 215@ = $NETWORK_PLAYER[$temp_int]
+                    244@ = 1
+                    Char.ClearLastDamageEntity(101@)
+                end
+            end
+            if and
+                Car.DoesExist(54@)
+                Char.IsInCar($NETWORK_PLAYER[$temp_int], 54@)
+            then
+                216@ = 1
+            end
+            if
+                Char.DoesExist(62@)
+            then
+                if
+                    Char.HasBeenDamagedByChar(62@, $NETWORK_PLAYER[$temp_int])
+                then
+                    147@ = 1
+                    213@ = 1
+                    Char.ClearLastDamageEntity(62@)
+                end
+            end
+            if
+                Char.DoesExist(63@)
+            then
+                if
+                    Char.HasBeenDamagedByChar(63@, $NETWORK_PLAYER[$temp_int])
+                then
+                    147@ = 1
+                    213@ = 1
+                    Char.ClearLastDamageEntity(63@)
+                end
+            end
+        end
+    end
+end
+if and
+  141@ == 10
+  213@ == 1
+then
+    141@ = 11
+end
+return
+
+:DRUGS3_COOP_COMBAT_TARGETS
+212@ = 64@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 65@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 66@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 67@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 68@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 83@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 84@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 85@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 86@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 87@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 88@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 89@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 90@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 92@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 93@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 94@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 95@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 96@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 97@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 98@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 99@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 100@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 109@
+gosub @DRUGS3_COOP_RETARGET_ONE
+212@ = 110@
+gosub @DRUGS3_COOP_RETARGET_ONE
+return
+
+:DRUGS3_COOP_RETARGET_ONE
+if
+    Char.DoesExist(212@)
+then
+    if
+        not Char.IsDead(212@)
+    then
+        for $temp_int = 0 to 2
+            if
+                192@($temp_int,3i) == 1
+            then
+                if
+                    not Char.IsDead($NETWORK_PLAYER[$temp_int])
+                then
+                    if
+                        Char.HasBeenDamagedByChar(212@, $NETWORK_PLAYER[$temp_int])
+                    then
+                        Task.KillCharOnFoot(212@, $NETWORK_PLAYER[$temp_int])
+                        Char.ClearLastDamageEntity(212@)
+                        213@ = 1
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:DRUGS3_COOP_REGROUP
+if or
+  232@ == 1
+  173@ >= 2
+then
+    209@ = 0
+    return
+end
+236@ = 0
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                not Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], $scplayer, 250.0, 250.0, False)
+            then
+                236@ = 1
+            end
+        end
+    end
+end
+if
+  236@ == 0
+then
+    209@ = 0
+    return
+end
+201@ = Clock.GetGameTimer()
+if
+  209@ == 0
+then
+    set_lvar_int_to_lvar_int 209@ = 201@
+    return
+end
+241@ = 201@
+241@ -= 209@
+if
+  241@ > 12000
+then
+    gosub @DRUGS3_COOP_TELEPORT_ACTIVE
+    209@ = 0
+end
+return
+
+:DRUGS3_COOP_SETUP_CHASE_ROLES
+if or
+  188@ == 0
+  211@ == 1
+then
+    return
+end
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        if
+            Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+        then
+            Car.Delete($NETWORK_PLAYER_VEHICLE[$temp_int])
+        end
+        if
+          $temp_int == 0
+        then
+            $NETWORK_PLAYER_VEHICLE[$temp_int] = Car.Create(461, 2180.0, -2284.0, 12.57)
+        end
+        if
+          $temp_int == 1
+        then
+            $NETWORK_PLAYER_VEHICLE[$temp_int] = Car.Create(461, 2184.0, -2288.0, 12.57)
+        end
+        if
+          $temp_int == 2
+        then
+            $NETWORK_PLAYER_VEHICLE[$temp_int] = Car.Create(461, 2188.0, -2292.0, 12.57)
+        end
+        Car.SetHeading($NETWORK_PLAYER_VEHICLE[$temp_int], 315.0)
+        Car.SetHealth($NETWORK_PLAYER_VEHICLE[$temp_int], 1200)
+        Car.SetCanBurstTires($NETWORK_PLAYER_VEHICLE[$temp_int], False)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Mp5, 250)
+        198@($temp_int,3i) = 1
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        if
+          $temp_int == 0
+        then
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 2181.0, -2283.0, 13.57)
+        end
+        if
+          $temp_int == 1
+        then
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 2185.0, -2287.0, 13.57)
+        end
+        if
+          $temp_int == 2
+        then
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 2189.0, -2291.0, 13.57)
+        end
+        Task.EnterCarAsDriver($NETWORK_PLAYER[$temp_int], $NETWORK_PLAYER_VEHICLE[$temp_int], 10000)
+    end
+end
+211@ = 1
+gosub @DRUGS3_COOP_SYNC_WORLD
+return
+
+:DRUGS3_COOP_UPDATE
+if
+  188@ == 0
+then
+    return
+end
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+gosub @DRUGS3_COOP_REMOTE_PROGRESS
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 206@
+then
+    set_lvar_int_to_lvar_int 206@ = 201@
+    206@ += 5000
+    gosub @DRUGS3_COOP_SYNC_WORLD
+end
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 207@
+then
+    set_lvar_int_to_lvar_int 207@ = 201@
+    207@ += 1500
+    gosub @DRUGS3_COOP_UPDATE_OBJECTIVES
+end
+201@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 201@ >= 208@
+then
+    set_lvar_int_to_lvar_int 208@ = 201@
+    208@ += 1000
+    gosub @DRUGS3_COOP_COMBAT_TARGETS
+    gosub @DRUGS3_COOP_REGROUP
+end
+return
+
+:DRUGS3_COOP_RESTORE_PLAYERS
+if
+  210@ == 1
+then
+    return
+end
+210@ = 1
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+gosub @DRUGS3_COOP_CLEAR_OBJECTIVES
+Player.SetControl($player1, True)
+Char.FreezePosition($scplayer, False)
+Char.SetProofs($scplayer, False, False, False, False, False)
+Char.SetCollision($scplayer, True)
+Char.SetVisible($scplayer, True)
+Char.SetAreaVisible($scplayer, 0)
+Hud.SwitchWidescreen(False)
+Hud.Display(True)
+Hud.DisplayRadar(True)
+Camera.ResetNewScriptables
+Camera.SetBehindPlayer
+Camera.RestoreJumpcut
+Streaming.SetAreaVisible(0)
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+232@ = 0
+gosub @DRUGS3_COOP_TELEPORT_ACTIVE
+return
+
+:DRUGS3_COOP_CLEAR_REMOTE_WANTED
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        Player.ClearWantedLevel(189@($temp_int,3i))
+    end
+end
+return
+
+:DRUGS3_COOP_DELETE_CHASE_VEHICLES
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist($NETWORK_PLAYER_VEHICLE[$temp_int])
+    then
+        Car.Delete($NETWORK_PLAYER_VEHICLE[$temp_int])
+    end
+    $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
+end
+return
+
+:DRUGS3_COOP_CLEANUP_ENTITIES
+205@ = 62@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 63@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 64@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 65@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 66@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 67@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 68@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 83@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 84@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 85@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 86@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 87@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 88@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 89@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 90@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 92@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 93@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 94@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 95@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 96@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 97@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 98@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 99@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 100@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 101@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 109@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 110@
+gosub @DRUGS3_COOP_RELEASE_CHAR
+205@ = 54@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 55@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 56@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 57@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 58@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 59@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 60@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 61@
+gosub @DRUGS3_COOP_DELETE_CAR
+205@ = 34@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 35@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 36@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 37@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 38@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 39@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 40@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 41@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 42@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 43@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 44@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 45@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 46@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 47@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 48@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 49@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 50@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 51@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 69@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 70@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 71@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 72@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 73@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 74@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 102@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+205@ = 111@
+gosub @DRUGS3_COOP_DELETE_OBJECT
+return
+
+:DRUGS3_COOP_RELEASE_CHAR
+if
+    Char.DoesExist(205@)
+then
+    Char.RemoveElegantly(205@)
+end
+return
+
+:DRUGS3_COOP_DELETE_CAR
+if
+    Car.DoesExist(205@)
+then
+    if
+        Car.IsPlaybackGoingOn(205@)
+    then
+        Car.StopPlayback(205@)
+    end
+    Car.Delete(205@)
+end
+return
+
+:DRUGS3_COOP_DELETE_OBJECT
+if
+    Object.DoesExist(205@)
+then
+    Object.Delete(205@)
+end
+return
+
 :DRUGS3_19343
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+gosub @DRUGS3_COOP_CLEAR_OBJECTIVES
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 return 
 
 :DRUGS3_19361
+gosub @DRUGS3_COOP_UPDATE_ROSTER
+gosub @DRUGS3_COOP_CLEAR_OBJECTIVES
 Text.PrintWithNumberBig('M_PASSD', 0, 5000, TextStyle.Middle)
 Player.ClearWantedLevel($player1)
+gosub @DRUGS3_COOP_CLEAR_REMOTE_WANTED
+for $temp_int = 0 to 2
+    if
+        192@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Audio.PlayMissionPassedTune(1)
 Stat.PlayerMadeProgress(1)
 Stat.RegisterMissionPassed('CRASH_3')
@@ -2832,6 +4093,8 @@ Blip.Remove($crash_contact_blip)
 return 
 
 :DRUGS3_19417
+gosub @DRUGS3_COOP_RESTORE_PLAYERS
+gosub @DRUGS3_COOP_DELETE_CHASE_VEHICLES
 if 
   not Car.IsDead($car)
 goto_if_false @DRUGS3_19448
@@ -2942,9 +4205,33 @@ Car.SetCanBurstTires(60@, True)
 if 
   not Car.IsDead($car)
 goto_if_false @DRUGS3_19940
-Car.SetProofs($car, False, False, True, False, False)
+Car.SetProofs($car, False, False, False, False, False)
 
 :DRUGS3_19940
+gosub @DRUGS3_COOP_CLEANUP_ENTITIES
+if
+    DecisionMakerChar.DoesExist(52@)
+then
+    DecisionMaker.Remove(52@)
+end
+if
+    DecisionMakerChar.DoesExist(53@)
+then
+    DecisionMaker.Remove(53@)
+end
+Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
+Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
+Text.ClearHelp
+Text.ClearPrints
+Cutscene.Clear
+Hud.SwitchWidescreen(False)
+Player.SetControl($player1, True)
+Camera.ResetNewScriptables
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+World.SetPedDensityMultiplier(1.0)
+World.SetCarDensityMultiplier(1.0)
+Game.SetMaxFireGenerations(1)
 $timer_mobile_start = Clock.GetGameTimer()
 Game.SwitchEmergencyServices(True)
 $onmission = 0
