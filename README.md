@@ -354,12 +354,12 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [ ] Blood Bowl
   - [ ] Dirt Track
   - [ ] Kick Start
-- [ ] Ammu-nation challenge
-- [ ] Schools
-  - [ ] Driving school
+- [X] Ammu-nation challenge
+- [X] Schools
+  - [X] Driving school
   - [X] Flight school
-  - [ ] Bike school
-  - [ ] Boat school
+  - [X] Bike school
+  - [X] Boat school
 - [ ] Asset Missions
   - [ ] Trucker (8 missions)
   - [ ] Valet (5 missions)
