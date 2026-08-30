@@ -5076,7 +5076,9 @@ return
 // actors are admitted once by actor handle plus immutable internal identity;
 // disconnected, dead, replaced and late-joining actors cannot inherit a slot.
 :SYN5_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 530@ = 506@($temp_int,3i)
     506@($temp_int,3i) = 0
     if and
         503@($temp_int,3i) <> -1
@@ -5093,6 +5095,47 @@ for $temp_int = 0 to 2
             else
                 506@($temp_int,3i) = 1
             end
+        end
+    end
+    if and
+        503@($temp_int,3i) <> -1
+        506@($temp_int,3i) == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        528@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                522@ = 1
+            else
+                506@($temp_int,3i) = 1
+            end
+        end
+    end
+    if and
+        506@($temp_int,3i) == 1
+        530@ == 0
+    then
+        509@($temp_int,3i) = -1
+        set_lvar_int_to_lvar_int 530@ = 500@($temp_int,3i)
+        Coop.TeleportPlayersToHostSafely(530@, -1, -1)
+        if
+            523@ == 1
+        then
+            Char.ClearTasksImmediately(530@)
+            Char.FreezePosition(530@, True)
+            Char.SetProofs(530@, True, True, True, True, True)
+            Char.SetCollision(530@, False)
+            Char.SetVisible(530@, False)
+        else
+            Char.FreezePosition(530@, False)
+            Char.SetProofs(530@, False, False, False, False, False)
+            Char.SetCollision(530@, True)
+            Char.SetVisible(530@, True)
         end
     end
 end

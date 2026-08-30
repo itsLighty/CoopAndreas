@@ -3579,6 +3579,7 @@ return
 // combat support without becoming an alternate progression authority.
 :SYN3_COOP_UPDATE_ROSTER
 559@ = 0
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     638@ = 0
     if
@@ -3597,18 +3598,36 @@ for $temp_int = 0 to 2
             is_int_lvar_equal_to_int_lvar 556@ == 503@($temp_int,3i)
         then
             506@($temp_int,3i) = 1
-            if
-                638@ == 0
-            then
-                509@($temp_int,3i) = 1
-                512@($temp_int,3i) = -1
-                559@ = 1
-            end
-            if
-                Char.IsDead(557@)
-            then
-                547@ = 1
-            end
+        end
+    end
+    if and
+        503@($temp_int,3i) <> -1
+        506@($temp_int,3i) == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        556@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 556@ == 503@($temp_int,3i)
+        then
+            set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            506@($temp_int,3i) = 1
+        end
+    end
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 557@ = 500@($temp_int,3i)
+        if
+            638@ == 0
+        then
+            509@($temp_int,3i) = 1
+            512@($temp_int,3i) = -1
+            559@ = 1
+        end
+        if
+            Char.IsDead(557@)
+        then
+            547@ = 1
         end
     end
     if

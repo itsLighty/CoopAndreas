@@ -2017,6 +2017,7 @@ return
 // path above. Frozen-roster peers race their own synchronized Monster trucks over
 // the same terrain points; their finish/DNF state cannot advance the host index.
 :TORENO1_COOP_VALIDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     237@($temp_int,3i) = 0
     if

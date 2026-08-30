@@ -3136,6 +3136,7 @@ return
 // can reactivate its slot. Disconnects do not fail or transfer a slot, the same
 // identity can reconnect, and mission-session late joiners remain spectators.
 :DRIV3_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     514@ = 0
     if and

@@ -2144,6 +2144,7 @@ return
 // identity captured at mission entry. Reconnects of that identity resume safely;
 // late joiners and recycled handles remain spectators.
 :DRIV6_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     319@ = 0
     if and

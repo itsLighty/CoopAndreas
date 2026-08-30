@@ -4395,9 +4395,12 @@ return
 // identities at mission start, so late joiners remain spectators and recycled
 // network slots cannot silently replace a disconnected participant.
 :WUZI2_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 630@ = 606@($temp_int,3i)
     606@($temp_int,3i) = 0
-    if
+    if and
+        603@($temp_int,3i) <> -1
         Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
     then
         628@ = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
@@ -4405,11 +4408,50 @@ for $temp_int = 0 to 2
             is_int_lvar_equal_to_int_lvar 628@ == 603@($temp_int,3i)
         then
             606@($temp_int,3i) = 1
+        end
+    end
+    if and
+        603@($temp_int,3i) <> -1
+        606@($temp_int,3i) == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        628@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 628@ == 603@($temp_int,3i)
+        then
+            set_lvar_int_to_var_int 600@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            606@($temp_int,3i) = 1
+        end
+    end
+    if
+        606@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead(600@($temp_int,3i))
+        then
+            622@ = 1
+            649@ = 1
+        else
             if
-                Char.IsDead(600@($temp_int,3i))
+                630@ == 0
             then
-                622@ = 1
-                649@ = 1
+                609@($temp_int,3i) = -1
+                set_lvar_int_to_lvar_int 630@ = 600@($temp_int,3i)
+                Coop.TeleportPlayersToHostSafely(630@, -1, -1)
+                if
+                    623@ == 1
+                then
+                    Char.ClearTasksImmediately(630@)
+                    Char.FreezePosition(630@, True)
+                    Char.SetProofs(630@, True, True, True, True, True)
+                    Char.SetCollision(630@, False)
+                    Char.SetVisible(630@, False)
+                else
+                    Char.FreezePosition(630@, False)
+                    Char.SetProofs(630@, False, False, False, False, False)
+                    Char.SetCollision(630@, True)
+                    Char.SetVisible(630@, True)
+                end
             end
         end
     end

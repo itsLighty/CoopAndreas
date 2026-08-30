@@ -1675,6 +1675,7 @@ return
 :STEAL5_COOP_UPDATE_ROSTER
 525@ = 0
 542@ = 0
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     set_lvar_int_to_lvar_int 541@ = 506@($temp_int,3i)
     506@($temp_int,3i) = 0
@@ -1687,19 +1688,36 @@ for $temp_int = 0 to 2
             is_int_lvar_equal_to_int_lvar 540@ == 503@($temp_int,3i)
         then
             506@($temp_int,3i) = 1
-            525@ += 1
-            if
-                541@ == 0
-            then
-                509@($temp_int,3i) = 1
-                512@($temp_int,3i) = -1
-                542@ = 1
-            end
-            if
-                Char.IsDead(500@($temp_int,3i))
-            then
-                526@ = 1
-            end
+        end
+    end
+    if and
+        503@($temp_int,3i) <> -1
+        506@($temp_int,3i) == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        540@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 540@ == 503@($temp_int,3i)
+        then
+            set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+            506@($temp_int,3i) = 1
+        end
+    end
+    if
+        506@($temp_int,3i) == 1
+    then
+        525@ += 1
+        if
+            541@ == 0
+        then
+            509@($temp_int,3i) = 1
+            512@($temp_int,3i) = -1
+            542@ = 1
+        end
+        if
+            Char.IsDead(500@($temp_int,3i))
+        then
+            526@ = 1
         end
     end
 end

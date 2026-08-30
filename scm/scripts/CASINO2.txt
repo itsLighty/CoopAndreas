@@ -3372,6 +3372,7 @@ return
 // reconnect resumes its old slot and receives the current freeze/objective
 // state; an identity mismatch is cleared once and remains a spectator.
 :CASINO2_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 285@ = 1
 for $temp_int = 0 to 2
     set_lvar_int_to_lvar_int 306@($temp_int,3i) = 303@($temp_int,3i)

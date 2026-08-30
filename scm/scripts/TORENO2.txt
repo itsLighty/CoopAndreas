@@ -2842,6 +2842,7 @@ return
 // matches. Death does not fail the host mission; a respawn or same-ID reconnect
 // is safely restaged and receives the current objective again.
 :TORENO2_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     304@($temp_int,3i) = 0
     gosub @TORENO2_COOP_VALIDATE_SLOT

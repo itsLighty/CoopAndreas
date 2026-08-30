@@ -1532,6 +1532,7 @@ return
 // internal identity captured at mission entry; recycled handles and late joins
 // therefore remain spectators, while the same identity can reconnect safely.
 :STEAL1_COOP_UPDATE_ROSTER
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 for $temp_int = 0 to 2
     559@ = 0
     gosub @STEAL1_COOP_VALIDATE_SLOT
