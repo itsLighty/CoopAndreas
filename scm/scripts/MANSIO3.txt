@@ -3,6 +3,66 @@
 
 :MANSIO3
 script_name 'MANSIO3'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Home Coming keeps both cutscenes, gang-war state, Sweet's canonical escort,
+// rewards and story progression host-owned. Frozen peers retain support Strata
+// through travel, escort and Grove Street combat transitions.
+124@ = 0 // frozen remote-roster size
+125@ = 0 // deterministic participant failure
+126@ = 0 // idempotent cooperative cleanup guard
+127@ = 0 // cooperative play has begun
+128@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+129@ = 0 // result notification guard
+130@ = 0 // next bounded entity-registration poll
+131@ = 0 // next objective refresh
+132@ = -1 // Sweet network id
+133@ = -1 // host Stratum network id
+134@ = 0 // Sweet registration attempts
+135@ = 0 // host Stratum registration attempts
+136@ = 0 // currently connected frozen participants
+137@ = 0 // roster/reconnect scratch
+138@ = 0 // actor/entity scratch
+139@ = 0 // internal-id/time scratch
+140@, 141@, 142@ = Coop.CollectNetworkPlayersForTheMission()
+143@ = 0 // coordinate scratch
+144@ = 0 // coordinate scratch
+145@ = 0 // coordinate scratch
+146@ = -1 // active teleport argument 1
+147@ = -1 // active teleport argument 2
+148@ = -1 // active teleport argument 3
+149@ = 0 // transition/finale remote freeze guard
+150@ = 700 // previous canonical Sweet health
+151@ = 0 // canonical cooperative objective phase
+152@ = 0.0 // support-vehicle release X
+153@ = 0.0 // support-vehicle release Y
+154@ = 0.0 // support-vehicle release Z
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 100@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    103@($temp_int,3i) = -1 // immutable internal network identity
+    106@($temp_int,3i) = 0 // currently connected frozen participant
+    109@($temp_int,3i) = 0 // reconnect requires restaging
+    112@($temp_int,3i) = -1 // support Stratum
+    115@($temp_int,3i) = -1 // support Stratum network id
+    118@($temp_int,3i) = 0 // bounded support registration attempts
+    121@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(100@($temp_int,3i))
+    then
+        103@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(100@($temp_int,3i))
+        if
+            103@($temp_int,3i) <> -1
+        then
+            106@($temp_int,3i) = 1
+            124@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 5
+    160@($temp_int,6i) = -1 // Grove Street enemy network id
+    166@($temp_int,6i) = 0 // bounded enemy registration attempts
+end
+gosub @MANSIO3_COOP_FREEZE_REMOTES
 gosub @MANSIO3_47
 if 
   has_deatharrest_been_executed 
@@ -136,12 +196,19 @@ Camera.RestoreJumpcut
 Streaming.LoadSceneInDirection(1251.541, -808.7633, 83.1484, 109.0044)
 gosub @MANSIO3_7345
 Text.PrintNow('MAN3_01', 7000, 1)
+gosub @MANSIO3_COOP_START_PLAY
 
 :MANSIO3_763
 if 
   not Char.IsDead($scplayer)
 goto_if_false @MANSIO3_5468
 wait 0
+gosub @MANSIO3_COOP_UPDATE
+if
+    125@ == 1
+then
+    goto @MANSIO3_6722
+end
 if 
 is_ps2_keyboard_key_just_pressed 83
 goto_if_false @MANSIO3_805
@@ -192,6 +259,7 @@ goto_if_false @MANSIO3_1823
 if 
   Char.IsInAnyCar($scplayer)
 goto_if_false @MANSIO3_1807
+gosub @MANSIO3_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 if 
   Char.IsInAnyCar($scplayer)
@@ -307,6 +375,7 @@ Group.SetMember($sweet, $Players_Group)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
+gosub @MANSIO3_COOP_RELEASE_TRANSITION
 72@ = Char.GetHeading($scplayer)
 if 
   not Car.IsDead($car)
@@ -457,6 +526,7 @@ goto_if_false @MANSIO3_3847
 if 
   Char.LocateAnyMeans3D($scplayer, 1, 2514.461, -1674.104, 12.6425, 4.0, 4.0, 4.0)
 goto_if_false @MANSIO3_3847
+gosub @MANSIO3_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 if 
   Char.IsInAnyCar($scplayer)
@@ -639,6 +709,7 @@ Zone.SetGangStrength('GAN2', GangType.Ballas, 40)
 Char.Delete(47@)
 59@ = 0
 gosub @MANSIO3_7293
+gosub @MANSIO3_COOP_RELEASE_TRANSITION
 if 
   not Char.IsDead($sweet)
 goto_if_false @MANSIO3_3824
@@ -925,6 +996,7 @@ goto @MANSIO3_763
 goto @MANSIO3_6722
 
 :MANSIO3_5475
+gosub @MANSIO3_COOP_BEGIN_TRANSITION
 gosub @MANSIO3_7312
 gosub @MANSIO3_7280
 if and
@@ -1149,10 +1221,14 @@ Char.Delete($sweet)
 goto @MANSIO3_6740
 
 :MANSIO3_6722
+128@ = 1
+gosub @MANSIO3_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :MANSIO3_6740
+128@ = 2
+gosub @MANSIO3_COOP_NOTIFY_OUTCOME
 Game.CanTriggerGangWarWhenOnAMission(True)
 Game.SetGangWarsActive(True)
 Zone.SetGangStrength('GAN1', GangType.Grove, 40)
@@ -1177,6 +1253,7 @@ Stat.SetInt(StatId.PassedMansion3, 1)
 return 
 
 :MANSIO3_6948
+gosub @MANSIO3_COOP_CLEANUP
 if 
   65@ == 0
 goto_if_false @MANSIO3_7034
@@ -1391,4 +1468,514 @@ Text.ClearThisPrint(86@s)
 
 :MANSIO3_7914
 return 
+
+:MANSIO3_COOP_UPDATE_ROSTER
+136@ = 0
+140@, 141@, 142@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 137@ = 106@($temp_int,3i)
+    106@($temp_int,3i) = 0
+    if and
+        103@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(100@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        139@ = Coop.GetNetworkPlayerInternalId(138@)
+        if
+            is_int_lvar_equal_to_int_lvar 139@ == 103@($temp_int,3i)
+        then
+            106@($temp_int,3i) = 1
+        end
+    end
+    if and
+        103@($temp_int,3i) <> -1
+        106@($temp_int,3i) == 0
+    then
+        for 138@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(140@(138@,3i))
+            then
+                139@ = Coop.GetNetworkPlayerInternalId(140@(138@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 139@ == 103@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 100@($temp_int,3i) = 140@(138@,3i)
+                    106@($temp_int,3i) = 1
+                    if and
+                        127@ == 1
+                        137@ == 0
+                    then
+                        109@($temp_int,3i) = 1
+                        121@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        106@($temp_int,3i) == 1
+    then
+        136@ += 1
+        if and
+            128@ == 0
+            Char.IsDead(100@($temp_int,3i))
+        then
+            125@ = 1
+        end
+    end
+end
+return
+
+:MANSIO3_COOP_BUILD_ACTIVE_ARGS
+146@ = -1
+147@ = -1
+148@ = -1
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 146@($temp_int,3i) = 100@($temp_int,3i)
+    end
+end
+return
+
+:MANSIO3_COOP_FREEZE_REMOTES
+if
+    124@ == 0
+then
+    return
+end
+143@, 144@, 145@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(100@($temp_int,3i))
+        if
+            Char.IsInAnyCar(100@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(100@($temp_int,3i), 143@, 144@, 145@)
+        else
+            Char.SetCoordinates(100@($temp_int,3i), 143@, 144@, 145@)
+        end
+        Char.SetVisible(100@($temp_int,3i), False)
+        Char.SetCollision(100@($temp_int,3i), False)
+        Char.SetProofs(100@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(100@($temp_int,3i), -1)
+        Char.FreezePosition(100@($temp_int,3i), True)
+    end
+end
+return
+
+:MANSIO3_COOP_START_PLAY
+if
+    127@ == 1
+then
+    return
+end
+127@ = 1
+gosub @MANSIO3_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        103@($temp_int,3i) <> -1
+        112@($temp_int,3i) == -1
+    then
+        143@ = 1238.0
+        144@ = -811.0
+        145@ = 83.15
+        if
+            $temp_int == 1
+        then
+            143@ = 1234.0
+        end
+        if
+            $temp_int == 2
+        then
+            143@ = 1230.0
+        end
+        112@($temp_int,3i) = Car.Create(540, 143@, 144@, 145@)
+        if
+            Car.DoesExist(112@($temp_int,3i))
+        then
+            Car.SetHeading(112@($temp_int,3i), 181.4888)
+            Car.ChangeColor(112@($temp_int,3i), 0, 0)
+            Car.SetHealth(112@($temp_int,3i), 1000)
+            Car.SetCanBurstTires(112@($temp_int,3i), False)
+            Car.LockDoors(112@($temp_int,3i), CarLock.Unlocked)
+        end
+    end
+end
+130@ = 0
+gosub @MANSIO3_COOP_POLL_REGISTRATIONS
+gosub @MANSIO3_COOP_RELEASE_TRANSITION
+151@ = 1
+131@ = 0
+gosub @MANSIO3_COOP_UPDATE_OBJECTIVES
+return
+
+:MANSIO3_COOP_BEGIN_TRANSITION
+if
+    149@ == 1
+then
+    return
+end
+149@ = 1
+gosub @MANSIO3_COOP_UPDATE_ROSTER
+gosub @MANSIO3_COOP_CLEAR_OBJECTIVES
+143@, 144@, 145@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(100@($temp_int,3i))
+        if
+            Char.IsInAnyCar(100@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(100@($temp_int,3i), 143@, 144@, 145@)
+        end
+        Char.SetProofs(100@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(100@($temp_int,3i), False)
+        Char.SetVisible(100@($temp_int,3i), False)
+        Char.FreezePosition(100@($temp_int,3i), True)
+    end
+end
+return
+
+:MANSIO3_COOP_RELEASE_TRANSITION
+149@ = 0
+gosub @MANSIO3_COOP_UPDATE_ROSTER
+gosub @MANSIO3_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(146@, 147@, 148@)
+143@, 144@, 145@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        106@($temp_int,3i) == 1
+        not Char.IsDead(100@($temp_int,3i))
+    then
+        set_lvar_float_to_lvar_float 152@ = 143@
+        set_lvar_float_to_lvar_float 153@ = 144@
+        set_lvar_float_to_lvar_float 154@ = 145@
+        if
+            $temp_int == 0
+        then
+            152@ += 4.0
+        end
+        if
+            $temp_int == 1
+        then
+            153@ += 4.0
+        end
+        if
+            $temp_int == 2
+        then
+            152@ -= 4.0
+        end
+        if and
+            Car.DoesExist(112@($temp_int,3i))
+            not Car.IsDead(112@($temp_int,3i))
+        then
+            Car.SetCoordinates(112@($temp_int,3i), 152@, 153@, 154@)
+            Char.WarpIntoCar(100@($temp_int,3i), 112@($temp_int,3i))
+        else
+            Char.SetCoordinates(100@($temp_int,3i), 152@, 153@, 154@)
+        end
+        Char.SetAreaVisible(100@($temp_int,3i), 0)
+        Char.SetVisible(100@($temp_int,3i), True)
+        Char.SetCollision(100@($temp_int,3i), True)
+        Char.SetProofs(100@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(100@($temp_int,3i), False)
+        Task.StandStill(100@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(100@($temp_int,3i))
+        109@($temp_int,3i) = 0
+        121@($temp_int,3i) = -1
+    end
+end
+131@ = 0
+return
+
+:MANSIO3_COOP_POLL_REGISTRATIONS
+if
+    127@ == 0
+then
+    return
+end
+139@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 130@ > 139@
+then
+    return
+end
+130@ = Clock.GetGameTimer()
+130@ += 500
+if and
+    132@ == -1
+    134@ < 10
+    Char.DoesExist($sweet)
+then
+    132@ = Coop.GetPedNetworkId($sweet)
+    134@ += 1
+end
+if and
+    133@ == -1
+    135@ < 10
+    Car.DoesExist(60@)
+then
+    133@ = Coop.GetVehicleNetworkId(60@)
+    135@ += 1
+end
+for $temp_int = 0 to 2
+    if and
+        115@($temp_int,3i) == -1
+        118@($temp_int,3i) < 10
+        Car.DoesExist(112@($temp_int,3i))
+    then
+        115@($temp_int,3i) = Coop.GetVehicleNetworkId(112@($temp_int,3i))
+        118@($temp_int,3i) += 1
+    end
+end
+for $temp_int = 0 to 5
+    if and
+        160@($temp_int,6i) == -1
+        166@($temp_int,6i) < 10
+        Char.DoesExist(40@($temp_int,6i))
+    then
+        160@($temp_int,6i) = Coop.GetPedNetworkId(40@($temp_int,6i))
+        166@($temp_int,6i) += 1
+    end
+end
+return
+
+:MANSIO3_COOP_PROTECT_SWEET
+if or
+    not Char.DoesExist($sweet)
+    Char.IsDead($sweet)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        106@($temp_int,3i) == 1
+        Char.HasBeenDamagedByChar($sweet, 100@($temp_int,3i))
+    then
+        Char.SetHealth($sweet, 150@)
+        Char.ClearLastDamageEntity($sweet)
+    end
+end
+150@ = Char.GetHealth($sweet)
+return
+
+:MANSIO3_COOP_UPDATE_OBJECTIVES
+if or
+    124@ == 0
+    127@ == 0
+    149@ == 1
+then
+    return
+end
+139@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 131@ > 139@
+then
+    return
+end
+131@ = Clock.GetGameTimer()
+131@ += 750
+151@ = 1
+if or
+    64@ == 1
+    64@ == 2
+then
+    151@ = 2
+end
+if
+    64@ >= 3
+then
+    151@ = 3
+end
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(138@)
+        Coop.RemoveCheckpointForNetworkPlayer(138@)
+        if
+            not is_int_lvar_equal_to_int_lvar 121@($temp_int,3i) == 151@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('MAN3_01', 138@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN3_05', 138@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN3_22', 138@)
+            if
+                151@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('MAN3_01', 7000, 1, 138@)
+            end
+            if
+                151@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('MAN3_05', 7000, 1, 138@)
+            end
+            if
+                151@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('MAN3_22', 7000, 1, 138@)
+            end
+            set_lvar_int_to_lvar_int 121@($temp_int,3i) = 151@
+        end
+        if
+            151@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1521.252, -1673.336, 12.5607, 8.0, 8.0, 6.0, 138@)
+        end
+        if
+            151@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2514.461, -1674.104, 12.6425, 8.0, 8.0, 6.0, 138@)
+        end
+        if
+            151@ == 3
+        then
+            for 139@ = 0 to 5
+                if and
+                    160@(139@,6i) <> -1
+                    Char.DoesExist(40@(139@,6i))
+                then
+                    if
+                        not Char.IsDead(40@(139@,6i))
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(138@, 40@(139@,6i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+        end
+        if and
+            132@ <> -1
+            Char.DoesExist($sweet)
+        then
+            if
+                not Char.IsDead($sweet)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(138@, $sweet, True, BlipDisplay.Both, BlipColor.Green, 2)
+            end
+        end
+    end
+end
+return
+
+:MANSIO3_COOP_UPDATE
+if or
+    124@ == 0
+    128@ <> 0
+then
+    return
+end
+gosub @MANSIO3_COOP_UPDATE_ROSTER
+if
+    149@ == 0
+then
+    for $temp_int = 0 to 2
+        if and
+            106@($temp_int,3i) == 1
+            109@($temp_int,3i) == 1
+        then
+            gosub @MANSIO3_COOP_RELEASE_TRANSITION
+        end
+    end
+end
+if
+    125@ == 1
+then
+    return
+end
+gosub @MANSIO3_COOP_POLL_REGISTRATIONS
+gosub @MANSIO3_COOP_PROTECT_SWEET
+gosub @MANSIO3_COOP_UPDATE_OBJECTIVES
+return
+
+:MANSIO3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        103@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(100@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        139@ = Coop.GetNetworkPlayerInternalId(138@)
+        if
+            is_int_lvar_equal_to_int_lvar 139@ == 103@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(138@)
+            Coop.RemoveCheckpointForNetworkPlayer(138@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN3_01', 138@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN3_05', 138@)
+            Coop.ClearThisPrintForNetworkPlayer('MAN3_22', 138@)
+        end
+    end
+    121@($temp_int,3i) = -1
+end
+return
+
+:MANSIO3_COOP_NOTIFY_OUTCOME
+if or
+    124@ == 0
+    129@ == 1
+then
+    return
+end
+129@ = 1
+gosub @MANSIO3_COOP_UPDATE_ROSTER
+gosub @MANSIO3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        if
+            128@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 100@($temp_int,3i))
+        end
+        if
+            128@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 100@($temp_int,3i))
+        end
+    end
+end
+return
+
+:MANSIO3_COOP_CLEANUP
+if
+    126@ == 1
+then
+    return
+end
+126@ = 1
+gosub @MANSIO3_COOP_UPDATE_ROSTER
+gosub @MANSIO3_COOP_CLEAR_OBJECTIVES
+143@, 144@, 145@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        106@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 138@ = 100@($temp_int,3i)
+        Char.FreezePosition(138@, False)
+        Char.SetProofs(138@, False, False, False, False, False)
+        Char.SetCollision(138@, True)
+        Char.SetVisible(138@, True)
+        Char.SetAreaVisible(138@, 0)
+        if and
+            149@ == 1
+            not Char.IsDead(138@)
+        then
+            Char.SetCoordinates(138@, 143@, 144@, 145@)
+        end
+    end
+    if
+        Car.DoesExist(112@($temp_int,3i))
+    then
+        Car.Delete(112@($temp_int,3i))
+    end
+    112@($temp_int,3i) = -1
+    115@($temp_int,3i) = -1
+end
+return
 
