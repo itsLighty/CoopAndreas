@@ -230,7 +230,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [ ] stunt
   - [ ] collecting
   - [ ] for-player slow motion
-- [ ] chat gamepad support with on-screen keyboard
+- [X] chat gamepad support with on-screen keyboard
 ### Minor tasks and ideas
 - [ ] Sync laser sniper rifle red dot with all players
 - [X] Sync moon sniper rifle shot changing size easter egg with all players
