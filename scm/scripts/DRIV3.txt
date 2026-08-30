@@ -3,6 +3,7 @@
 
 :DRIV3
 script_name 'DRIV3'
+Coop.EnableSyncingThisScript()
 gosub @DRIV3_47
 if 
   has_deatharrest_been_executed 
@@ -17,6 +18,73 @@ terminate_this_script
 $onmission = 1
 Stat.RegisterMissionGiven
 wait 0
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+500@ = 0 // frozen remote participant count
+501@ = 0 // idempotent cooperative cleanup guard
+502@ = 0 // cooperative failure: 1 participant death, 2 ally fire, 3 participant fire
+503@ = 0 // remotes are staged for a host-only cinematic
+504@ = 0 // cooperative gameplay is active
+505@ = -1 // authoritative cooperative objective phase
+506@ = 0 // next remote objective refresh
+507@ = 0 // next non-blocking entity-id retry
+508@ = 0 // next hostile retarget pass
+509@ = 0 // next remote regroup pass
+510@ = -1 // entity/actor passed to cooperative helpers
+511@ = -1 // entity network id returned by registration
+512@ = 0 // bounded registration start time
+513@ = 0 // current time / elapsed time
+514@ = 0 // scratch integer
+515@ = -1 // current participant internal identity
+516@ = -1 // selected combat target / scratch actor
+517@ = 0 // bounded entity registration timeout count
+518@ = 0 // terminal fanout guard: 0 active, 1 passed, 2 failed
+519@ = 0 // objective refresh forced by a phase/reconnect
+for $temp_int = 0 to 2
+    520@($temp_int,3i) = -1 // frozen internal network identity
+    523@($temp_int,3i) = 0 // connected matching participant
+    526@($temp_int,3i) = -1 // last objective phase sent
+    529@($temp_int,3i) = 0 // separation grace timer
+    532@($temp_int,3i) = -1 // personal vehicle preserved for a cinematic
+    535@($temp_int,3i) = -1 // preserved personal vehicle network id
+    538@($temp_int,3i) = 0 // preserved vehicle was safely staged
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        520@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            520@($temp_int,3i) <> -1
+        then
+            523@($temp_int,3i) = 1
+            Char.ClearLastDamageEntity($NETWORK_PLAYER[$temp_int])
+            Char.ClearLastWeaponDamage($NETWORK_PLAYER[$temp_int])
+            500@ += 1
+        end
+    end
+end
+541@ = -1 // target van network id
+542@ = -1 // right escort bike network id
+543@ = -1 // left escort bike network id
+544@ = -1 // host transport network id
+545@ = -1 // cinematic car network id
+546@ = -1 // Toreno network id
+547@ = -1 // target van driver network id
+548@ = -1 // target van passenger network ids
+549@ = -1
+550@ = -1
+551@ = -1 // right escort biker network id
+552@ = -1 // left escort biker network id
+553@ = -1 // T-Bone network id
+554@ = 0.0 // cooperative objective/regroup X
+555@ = 0.0 // cooperative objective/regroup Y
+556@ = 0.0 // cooperative objective/regroup Z
+557@ = -1 // validated active player arguments
+558@ = -1
+559@ = -1
+560@ = 0 // deterministic combat target rotation
+561@ = 0 // helper scratch / mission-vehicle discriminator
+Char.ClearLastDamageEntity($scplayer)
+Char.ClearLastWeaponDamage($scplayer)
+gosub @DRIV3_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Camera.DoFade(0, 1000)
 Camera.SetFadingColor(0, 0, 0)
@@ -216,6 +284,7 @@ Camera.SetBehindPlayer
 
 :DRIV3_1575
 wait 0
+gosub @DRIV3_COOP_UPDATE
 if 
   89@ == 1
 goto_if_false @DRIV3_1604
@@ -303,6 +372,9 @@ goto @DRIV3_2014
 
 :DRIV3_2041
 38@ = Car.Create(426, -2620.0, 1398.0, 6.5)
+set_lvar_int_to_lvar_int 510@ = 38@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 544@ = 511@
 Car.SetHeading(38@, 204.0)
 114@ = Blip.AddForCar(38@)
 Blip.SetAsFriendly(114@, True)
@@ -317,6 +389,9 @@ Char.ShutUpForScriptedSpeech($scplayer, True)
 
 :DRIV3_2134
 53@ = Char.Create(25, 291, -2623.64, 1403.9, 6.2)
+set_lvar_int_to_lvar_int 510@ = 53@
+gosub @DRIV3_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 553@ = 511@
 Char.SetGetOutUpsideDownCar(53@, False)
 DecisionMakerChar.AddEventResponse(87@, 36, 1022, 0.0, 100.0, 0.0, 0.0, True, False)
 Char.SetAccuracy(53@, 95)
@@ -342,6 +417,7 @@ goto @DRIV3_2319
 
 :DRIV3_2343
 Player.SetControl($player1, True)
+gosub @DRIV3_COOP_STAGE_GAMEPLAY
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 $timer_countdown_farlie3 += 330000
@@ -393,6 +469,12 @@ if
   not Char.IsInCar($scplayer, 38@)
 goto_if_false @DRIV3_2857
 wait 0
+gosub @DRIV3_COOP_UPDATE
+if
+    502@ > 0
+then
+    return
+end
 if 
   Char.IsDead(53@)
 goto_if_false @DRIV3_2651
@@ -481,6 +563,7 @@ if
   not Char.LocateAnyMeans3D($scplayer, 0, 71@, 72@, 73@, 35.0, 35.0, 35.0)
 goto_if_false @DRIV3_4398
 wait 0
+gosub @DRIV3_COOP_UPDATE
 gosub @DRIV3_14595
 if 
   93@ == 1
@@ -495,6 +578,10 @@ if
   Char.IsInAnyCar($scplayer)
 goto_if_false @DRIV3_3080
 38@ = Char.StoreCarIsIn($scplayer)
+544@ = -1
+set_lvar_int_to_lvar_int 510@ = 38@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 544@ = 511@
 
 :DRIV3_3080
 if and
@@ -800,11 +887,17 @@ goto @DRIV3_4415
 :DRIV3_4442
 Hud.DisplayCounterWithString($int_distance_player_girl, CounterDisplay.Bar, 'DRI2_17')
 35@ = Car.Create(482, 56@, 57@, 58@)
+set_lvar_int_to_lvar_int 510@ = 35@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 541@ = 511@
 Car.ChangeColor(35@, 6, 0)
 115@ = Blip.AddForCar(35@)
 Blip.ChangeDisplay(115@, BlipDisplay.MarkerOnly)
 Car.SetHeading(35@, 84@)
 41@ = Char.CreateInsideCar(PedType.Mission1, 123, 35@)
+set_lvar_int_to_lvar_int 510@ = 41@
+gosub @DRIV3_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 547@ = 511@
 Char.SetProofs(41@, True, False, False, False, False)
 Char.SetSuffersCriticalHits(41@, False)
 Char.SetDecisionMaker(41@, 86@)
@@ -814,6 +907,9 @@ DecisionMakerChar.AddEventResponse(86@, 36, 1022, 0.0, 100.0, 0.0, 0.0, True, Fa
 Car.SetHealth(35@, 1000)
 Car.LockDoors(35@, CarLock.SkipShutDoors)
 Car.SetOnlyDamagedByPlayer(35@, True)
+// Network participants are real attackers; canonical destruction/progression
+// remains host-observed even though synchronized peer damage is accepted.
+Car.SetOnlyDamagedByPlayer(35@, False)
 131@ = 0
 
 :DRIV3_4630
@@ -833,6 +929,9 @@ goto_if_false @DRIV3_4729
 42@(131@,9i) = Char.CreateAsPassenger(PedType.Mission1, 122, 35@, 131@)
 
 :DRIV3_4729
+set_lvar_int_to_lvar_int 510@ = 42@(131@,9i)
+gosub @DRIV3_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 548@(131@,3i) = 511@
 Char.GiveWeapon(42@(131@,9i), WeaponType.MicroUzi, 1000)
 Char.SetCurrentWeapon(42@(131@,9i), WeaponType.MicroUzi)
 if 
@@ -852,8 +951,14 @@ if
 goto_if_false @DRIV3_5062
 77@ = Car.GetOffsetInWorldCoords(78@, 79@, 35@, 2.0, -6.0, -0.3)
 36@ = Car.Create(463, 77@, 78@, 79@)
+set_lvar_int_to_lvar_int 510@ = 36@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 542@ = 511@
 Car.SetHeading(36@, 84@)
 51@ = Char.CreateInsideCar(PedType.Mission1, 122, 36@)
+set_lvar_int_to_lvar_int 510@ = 51@
+gosub @DRIV3_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 551@ = 511@
 Char.GiveWeapon(51@, WeaponType.MicroUzi, 1000)
 Char.SetCurrentWeapon(51@, WeaponType.MicroUzi)
 Char.SetDecisionMaker(51@, 86@)
@@ -862,8 +967,14 @@ Char.SetRelationship(51@, RelationshipType.Like, PedType.Mission1)
 Car.SetStraightLineDistance(36@, 255)
 77@ = Car.GetOffsetInWorldCoords(78@, 79@, 35@, -2.0, -6.0, -0.3)
 37@ = Car.Create(463, 77@, 78@, 79@)
+set_lvar_int_to_lvar_int 510@ = 37@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 543@ = 511@
 Car.SetHeading(37@, 84@)
 52@ = Char.CreateInsideCar(PedType.Mission1, 121, 37@)
+set_lvar_int_to_lvar_int 510@ = 52@
+gosub @DRIV3_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 552@ = 511@
 Char.GiveWeapon(52@, WeaponType.MicroUzi, 1000)
 Char.SetCurrentWeapon(52@, WeaponType.MicroUzi)
 Char.SetDecisionMaker(52@, 86@)
@@ -883,6 +994,7 @@ if
   98@ <> 1
 goto_if_false @DRIV3_6806
 wait 0
+gosub @DRIV3_COOP_UPDATE
 gosub @DRIV3_14595
 if 
   93@ == 1
@@ -998,6 +1110,10 @@ if
   Char.IsInAnyCar($scplayer)
 goto_if_false @DRIV3_5740
 38@ = Char.StoreCarIsIn($scplayer)
+544@ = -1
+set_lvar_int_to_lvar_int 510@ = 38@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 544@ = 511@
 
 :DRIV3_5740
 95@ = 1
@@ -1222,6 +1338,10 @@ if
   Char.IsInAnyCar($scplayer)
 goto_if_false @DRIV3_6870
 38@ = Char.StoreCarIsIn($scplayer)
+544@ = -1
+set_lvar_int_to_lvar_int 510@ = 38@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 544@ = 511@
 
 :DRIV3_6870
 131@ = 0
@@ -1355,6 +1475,7 @@ if
   $timer_countdown_farlie3 > 0
 goto_if_false @DRIV3_8216
 wait 0
+gosub @DRIV3_COOP_UPDATE
 gosub @DRIV3_14595
 if 
   93@ == 1
@@ -1489,6 +1610,7 @@ return
 if 
   99@ == 0
 goto_if_false @DRIV3_9964
+gosub @DRIV3_COOP_FREEZE_REMOTES
 178@ = 0
 wait 2000
 Player.SetControl($player1, False)
@@ -1521,6 +1643,9 @@ Car.SetCoordinates(35@, -1321.8, -189.79, 13.46)
 Car.SetHeading(35@, 60.0)
 77@ = Car.GetOffsetInWorldCoords(78@, 79@, 35@, 6.0, 10.5, -0.2)
 34@ = Car.Create(409, 77@, 78@, 79@)
+set_lvar_int_to_lvar_int 510@ = 34@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 545@ = 511@
 
 :DRIV3_8454
 Streaming.MarkModelAsNoLongerNeeded(409)
@@ -1585,6 +1710,9 @@ if
 goto_if_false @DRIV3_9066
 77@ = Car.GetOffsetInWorldCoords(78@, 79@, 35@, -6.0, -20.0, 0.0)
 40@ = Char.Create(25, 290, 77@, 78@, 79@)
+set_lvar_int_to_lvar_int 510@ = 40@
+gosub @DRIV3_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 546@ = 511@
 Char.SetDrownsInWater(40@, True)
 Char.ShutUpForScriptedSpeech(40@, True)
 Char.SetGetOutUpsideDownCar(40@, False)
@@ -1768,6 +1896,7 @@ goto @DRIV3_9899
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
+gosub @DRIV3_COOP_STAGE_GAMEPLAY
 Game.SetPoliceIgnorePlayer($player1, True)
 Text.PrintNow('DRI2_33', 10000, 1)
 99@ = 1
@@ -2055,6 +2184,10 @@ if
   112@ == 0
 goto_if_false @DRIV3_11882
 38@ = Char.StoreCarIsIn($scplayer)
+544@ = -1
+set_lvar_int_to_lvar_int 510@ = 38@
+gosub @DRIV3_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 544@ = 511@
 39@ = Car.GetMaximumNumberOfPassengers(38@)
 if 
   2 > 39@
@@ -2266,6 +2399,7 @@ gosub @DRIV3_15530
 if 
   Char.LocateAnyMeans3D($scplayer, 1, 59@, 60@, 61@, 4.0, 4.0, 4.0)
 goto_if_false @DRIV3_13424
+gosub @DRIV3_COOP_FREEZE_REMOTES
 91@ = 0
 92@ = 1
 178@ = 0
@@ -2418,6 +2552,7 @@ Car.MarkAsNoLongerNeeded(38@)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Player.SetControl($player1, True)
+gosub @DRIV3_COOP_STAGE_GAMEPLAY
 Hud.SwitchWidescreen(False)
 
 :DRIV3_13424
@@ -2842,6 +2977,7 @@ if
 goto_if_false @DRIV3_15837
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow($farlie3_text(132@,40s), 10000, 1)
+gosub @DRIV3_COOP_PRINT_PHONE_SUBTITLE
 if 
   $flag_phone_dialog_driv3 == 0
 goto_if_false @DRIV3_15646
@@ -2902,6 +3038,7 @@ $flag_phone_dialog_driv3 += 1
 return 
 
 :DRIV3_15909
+gosub @DRIV3_COOP_NOTIFY_SUCCESS
 Audio.PlayMissionPassedTune(1)
 Player.ClearWantedLevel($player1)
 Blip.Remove($synd_contact_blip)
@@ -2917,10 +3054,12 @@ Stat.SetInt(StatId.PassedFarlie3, 1)
 return 
 
 :DRIV3_16007
+gosub @DRIV3_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :DRIV3_16025
+gosub @DRIV3_COOP_CLEANUP
 $onmission = 0
 $flag_is_farlie3_running = 0
 if 
@@ -2985,4 +3124,1154 @@ $2653 = Blip.AddShortRangeSpriteForCoord(63, -1908.9, 292.3, 40.0)
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// Cooperative Mike Toreno layer. The host exclusively owns every original
+// timer, locate gate, wanted transition, cutscene, success/failure flag, reward,
+// stat, and story mutation. Frozen-roster peers escort the host, protect T-Bone
+// and Toreno, and can destroy synchronized convoy enemies. Camera, audio, group,
+// wanted-level, and canonical interaction checks have no peer-targeted API, so
+// those remain host-only while remote checkpoints/subtitles mirror intent.
+
+// Actor handles can be recycled; only the immutable identity captured at launch
+// can reactivate its slot. Disconnects do not fail or transfer a slot, the same
+// identity can reconnect, and mission-session late joiners remain spectators.
+:DRIV3_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    514@ = 0
+    if and
+        520@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        515@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 515@ == 520@($temp_int,3i)
+        then
+            514@ = 1
+            if
+                523@($temp_int,3i) == 0
+            then
+                523@($temp_int,3i) = 1
+                526@($temp_int,3i) = -1
+                529@($temp_int,3i) = 0
+                Char.ClearLastDamageEntity($NETWORK_PLAYER[$temp_int])
+                Char.ClearLastWeaponDamage($NETWORK_PLAYER[$temp_int])
+                if
+                    not Char.IsDead($NETWORK_PLAYER[$temp_int])
+                then
+                    Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
+                    if
+                        503@ == 1
+                    then
+                        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                        Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+                        Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+                    else
+                        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+                        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+                        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+                        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+                        if
+                            504@ == 1
+                        then
+                            gosub @DRIV3_COOP_TELEPORT_CURRENT
+                            Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.MicroUzi, 250)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if
+        514@ == 0
+    then
+        523@($temp_int,3i) = 0
+        529@($temp_int,3i) = 0
+    end
+end
+return
+
+:DRIV3_COOP_VALIDATE_SLOT
+514@ = 0
+if and
+    520@($temp_int,3i) <> -1
+    Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+then
+    515@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+    if
+        is_int_lvar_equal_to_int_lvar 515@ == 520@($temp_int,3i)
+    then
+        514@ = 1
+    end
+end
+return
+
+:DRIV3_COOP_BUILD_ACTIVE_ARGS
+557@ = -1
+558@ = -1
+559@ = -1
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        set_lvar_int_to_var_int 557@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    end
+end
+return
+
+:DRIV3_COOP_TELEPORT_ACTIVE
+if
+    500@ == 0
+then
+    return
+end
+gosub @DRIV3_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(557@, 558@, 559@)
+return
+
+:DRIV3_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+end
+return
+
+// Peers and any non-mission vehicle they occupy are made inert and invisible
+// during host camera work. Mission vehicles are never hidden by this routine.
+:DRIV3_COOP_FREEZE_REMOTES
+if or
+    500@ == 0
+    503@ == 1
+then
+    return
+end
+503@ = 1
+gosub @DRIV3_COOP_UPDATE_ROSTER
+gosub @DRIV3_COOP_CLEAR_OBJECTIVES
+554@, 555@, 556@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    532@($temp_int,3i) = -1
+    535@($temp_int,3i) = -1
+    538@($temp_int,3i) = 0
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            532@($temp_int,3i) = Char.GetCarIsUsing($NETWORK_PLAYER[$temp_int])
+            561@ = 0
+            if
+                is_int_lvar_equal_to_int_lvar 532@($temp_int,3i) == 35@
+            then
+                561@ = 1
+            end
+            if
+                is_int_lvar_equal_to_int_lvar 532@($temp_int,3i) == 36@
+            then
+                561@ = 1
+            end
+            if
+                is_int_lvar_equal_to_int_lvar 532@($temp_int,3i) == 37@
+            then
+                561@ = 1
+            end
+            if
+                is_int_lvar_equal_to_int_lvar 532@($temp_int,3i) == 38@
+            then
+                561@ = 1
+            end
+            if
+                is_int_lvar_equal_to_int_lvar 532@($temp_int,3i) == 34@
+            then
+                561@ = 1
+            end
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 554@, 555@, 556@)
+            if and
+                561@ == 0
+                Car.DoesExist(532@($temp_int,3i))
+            then
+                set_lvar_int_to_lvar_int 510@ = 532@($temp_int,3i)
+                gosub @DRIV3_COOP_REGISTER_VEHICLE
+                set_lvar_int_to_lvar_int 535@($temp_int,3i) = 511@
+                if
+                    535@($temp_int,3i) <> -1
+                then
+                    538@($temp_int,3i) = 1
+                    Car.SetAsMissionCar(532@($temp_int,3i))
+                    Car.FreezePosition(532@($temp_int,3i), True)
+                    Car.SetCollision(532@($temp_int,3i), False)
+                    Car.SetVisible(532@($temp_int,3i), False)
+                end
+            end
+        end
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+        Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+    end
+end
+return
+
+:DRIV3_COOP_RELEASE_REMOTES
+if
+    500@ == 0
+then
+    return
+end
+gosub @DRIV3_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        538@($temp_int,3i) == 1
+        532@($temp_int,3i) <> -1
+    then
+        if
+            Car.DoesExist(532@($temp_int,3i))
+        then
+            Car.FreezePosition(532@($temp_int,3i), False)
+            Car.SetCollision(532@($temp_int,3i), True)
+            Car.SetVisible(532@($temp_int,3i), True)
+            Car.MarkAsNoLongerNeeded(532@($temp_int,3i))
+        end
+    end
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], False)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.MicroUzi, 250)
+        526@($temp_int,3i) = -1
+    end
+    532@($temp_int,3i) = -1
+    535@($temp_int,3i) = -1
+    538@($temp_int,3i) = 0
+end
+503@ = 0
+return
+
+:DRIV3_COOP_STAGE_GAMEPLAY
+if
+    500@ == 0
+then
+    return
+end
+504@ = 1
+gosub @DRIV3_COOP_UPDATE_ROSTER
+gosub @DRIV3_COOP_TELEPORT_ACTIVE
+gosub @DRIV3_COOP_RELEASE_REMOTES
+519@ = 1
+return
+
+// Any connected frozen-roster participant death fails the shared attempt.
+// T-Bone and Toreno retain their original death failures; peer damage against
+// either protected ally, the host, or another active participant is also fatal.
+:DRIV3_COOP_CHECK_FAILURES
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            502@ = 1
+            return
+        end
+        if and
+            Char.DoesExist(53@)
+            not Char.IsDead(53@)
+        then
+            if
+                Char.HasBeenDamagedByChar(53@, $NETWORK_PLAYER[$temp_int])
+            then
+                502@ = 2
+                return
+            end
+        end
+        if and
+            Char.DoesExist(40@)
+            not Char.IsDead(40@)
+        then
+            if
+                Char.HasBeenDamagedByChar(40@, $NETWORK_PLAYER[$temp_int])
+            then
+                502@ = 2
+                return
+            end
+        end
+        if or
+            Char.HasBeenDamagedByChar($scplayer, $NETWORK_PLAYER[$temp_int])
+            Char.HasBeenDamagedByChar($NETWORK_PLAYER[$temp_int], $scplayer)
+        then
+            502@ = 3
+            return
+        end
+        if and
+            Car.DoesExist(38@)
+            Char.IsInCar($NETWORK_PLAYER[$temp_int], 38@)
+        then
+            // T-Bone and Toreno need the canonical host transport's seats.
+            // Peers escort in separate vehicles or on foot.
+            Task.LeaveCarImmediately($NETWORK_PLAYER[$temp_int], 38@)
+        end
+        set_lvar_int_to_var_int 510@ = $NETWORK_PLAYER[$temp_int]
+        for 513@ = 0 to 2
+            if and
+                523@(513@,3i) == 1
+                Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[513@])
+            then
+                515@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[513@])
+                if
+                    is_int_lvar_equal_to_int_lvar 515@ == 520@(513@,3i)
+                then
+                    set_lvar_int_to_var_int 516@ = $NETWORK_PLAYER[513@]
+                    if and
+                        not is_int_lvar_equal_to_int_lvar 510@ == 516@
+                        Char.HasBeenDamagedByChar(510@, 516@)
+                    then
+                        502@ = 3
+                        return
+                    end
+                end
+            end
+        end
+    end
+end
+if
+    Char.DoesExist(53@)
+then
+    if
+        Char.IsDead(53@)
+    then
+        502@ = 2
+        return
+    end
+end
+if
+    Char.DoesExist(40@)
+then
+    if
+        Char.IsDead(40@)
+    then
+        502@ = 2
+        return
+    end
+end
+return
+
+:DRIV3_COOP_APPLY_FAILURE
+if
+    502@ == 0
+then
+    return
+end
+89@ = 0
+90@ = 0
+94@ = 0
+91@ = 0
+92@ = 0
+93@ = 1
+return
+
+// Enemies that a peer attacks switch to that peer. This gives remotes material
+// combat pressure without allowing their position to trip host progression.
+:DRIV3_COOP_RETARGET_PED
+if
+    Char.DoesExist(510@)
+then
+    if
+        not Char.IsDead(510@)
+    then
+        for $temp_int = 0 to 2
+            gosub @DRIV3_COOP_VALIDATE_SLOT
+            if and
+                514@ == 1
+                523@($temp_int,3i) == 1
+                not Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                if
+                    Char.HasBeenDamagedByChar(510@, $NETWORK_PLAYER[$temp_int])
+                then
+                    Task.KillCharOnFoot(510@, $NETWORK_PLAYER[$temp_int])
+                end
+            end
+        end
+    end
+end
+return
+
+:DRIV3_COOP_UPDATE_COMBAT
+if and
+    505@ >= 20
+    33 > 505@
+then
+    set_lvar_int_to_lvar_int 510@ = 41@
+    gosub @DRIV3_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 510@ = 42@
+    gosub @DRIV3_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 510@ = 43@
+    gosub @DRIV3_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 510@ = 44@
+    gosub @DRIV3_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 510@ = 51@
+    gosub @DRIV3_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 510@ = 52@
+    gosub @DRIV3_COOP_RETARGET_PED
+end
+return
+
+:DRIV3_COOP_COMPUTE_PHASE
+561@ = 0
+if
+    89@ == 1
+then
+    561@ = 10
+end
+if
+    90@ == 1
+then
+    561@ = 20
+end
+if
+    94@ == 1
+then
+    561@ = 30
+    if
+        99@ == 1
+    then
+        561@ = 31
+    end
+    if
+        96@ == 1
+    then
+        561@ = 32
+    end
+end
+if
+    91@ == 1
+then
+    561@ = 40
+end
+if
+    92@ == 1
+then
+    561@ = 50
+end
+if
+    93@ == 1
+then
+    561@ = 60
+end
+return
+
+:DRIV3_COOP_PHASE_CHANGED
+gosub @DRIV3_COOP_CLEAR_OBJECTIVES
+gosub @DRIV3_COOP_UPDATE_ROSTER
+if
+    561@ == 30
+then
+    gosub @DRIV3_COOP_FREEZE_REMOTES
+else
+    if
+        50 > 561@
+    then
+        gosub @DRIV3_COOP_STAGE_GAMEPLAY
+    else
+        gosub @DRIV3_COOP_RELEASE_REMOTES
+    end
+end
+set_lvar_int_to_lvar_int 505@ = 561@
+519@ = 1
+return
+
+// Invalid interiors/water/out-of-world positions regroup immediately. Ordinary
+// separation receives a 20-second grace period and is sampled only once/second.
+:DRIV3_COOP_UPDATE_REGROUP
+513@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 509@ > 513@
+then
+    return
+end
+set_lvar_int_to_lvar_int 509@ = 513@
+509@ += 1000
+for $temp_int = 0 to 2
+    if and
+        523@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        514@ = 0
+        set_lvar_int_to_var_int 510@ = $NETWORK_PLAYER[$temp_int]
+        561@ = Char.GetAreaVisible(510@)
+        554@, 555@, 556@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+        if or
+            561@ <> 0
+            Char.IsInWater($NETWORK_PLAYER[$temp_int])
+            -10.0 > 556@
+        then
+            514@ = 2
+        else
+            if
+                not Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], $scplayer, 450.0, 450.0, 150.0, False)
+            then
+                514@ = 1
+            end
+        end
+        if
+            514@ == 0
+        then
+            529@($temp_int,3i) = 0
+        else
+            if
+                514@ == 2
+            then
+                gosub @DRIV3_COOP_TELEPORT_CURRENT
+                529@($temp_int,3i) = 0
+                526@($temp_int,3i) = -1
+            else
+                if
+                    529@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 529@($temp_int,3i) = 513@
+                end
+                set_lvar_int_to_lvar_int 561@ = 513@
+                sub_int_lvar_from_int_lvar 561@ -= 529@($temp_int,3i)
+                if
+                    561@ > 20000
+                then
+                    gosub @DRIV3_COOP_TELEPORT_CURRENT
+                    529@($temp_int,3i) = 0
+                    526@($temp_int,3i) = -1
+                end
+            end
+        end
+    else
+        529@($temp_int,3i) = 0
+    end
+end
+return
+
+:DRIV3_COOP_UPDATE
+if
+    500@ == 0
+then
+    return
+end
+gosub @DRIV3_COOP_UPDATE_ROSTER
+gosub @DRIV3_COOP_CHECK_FAILURES
+if
+    502@ > 0
+then
+    gosub @DRIV3_COOP_APPLY_FAILURE
+    return
+end
+gosub @DRIV3_COOP_COMPUTE_PHASE
+if
+    not is_int_lvar_equal_to_int_lvar 505@ == 561@
+then
+    gosub @DRIV3_COOP_PHASE_CHANGED
+end
+if or
+    503@ == 1
+    504@ == 0
+then
+    return
+end
+513@ = Clock.GetGameTimer()
+if or
+    519@ == 1
+    is_int_lvar_greater_or_equal_to_int_lvar 513@ >= 506@
+then
+    gosub @DRIV3_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 506@ = 513@
+    506@ += 3000
+    519@ = 0
+end
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 513@ >= 507@
+then
+    gosub @DRIV3_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 507@ = 513@
+    507@ += 3000
+end
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 513@ >= 508@
+then
+    gosub @DRIV3_COOP_UPDATE_COMBAT
+    set_lvar_int_to_lvar_int 508@ = 513@
+    508@ += 750
+end
+gosub @DRIV3_COOP_UPDATE_REGROUP
+return
+
+:DRIV3_COOP_BLIP_PED_RED
+if and
+    Char.DoesExist(510@)
+    511@ <> -1
+then
+    if
+        not Char.IsDead(510@)
+    then
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 510@, False, BlipDisplay.Both, BlipColor.Red, 3)
+    end
+end
+return
+
+:DRIV3_COOP_BLIP_PED_BLUE
+if and
+    Char.DoesExist(510@)
+    511@ <> -1
+then
+    if
+        not Char.IsDead(510@)
+    then
+        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 510@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+    end
+end
+return
+
+:DRIV3_COOP_BLIP_CAR_RED
+if and
+    Car.DoesExist(510@)
+    511@ <> -1
+then
+    if
+        not Car.IsDead(510@)
+    then
+        Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 510@, False, BlipDisplay.Both, BlipColor.Red, 3)
+    end
+end
+return
+
+:DRIV3_COOP_BLIP_CAR_BLUE
+if and
+    Car.DoesExist(510@)
+    511@ <> -1
+then
+    if
+        not Car.IsDead(510@)
+    then
+        Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 510@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+    end
+end
+return
+
+// Objective fanout never drives canonical state. Missing entity IDs omit only
+// that blip; coordinate checkpoints and later retry passes continue normally.
+:DRIV3_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+        not Char.IsDead($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        554@, 555@, 556@ = Char.GetCoordinates($scplayer)
+        if
+            505@ == 10
+        then
+            set_lvar_float_to_lvar_float 554@ = 71@
+            set_lvar_float_to_lvar_float 555@ = 72@
+            set_lvar_float_to_lvar_float 556@ = 73@
+            Coop.UpdateCheckpointForNetworkPlayer(554@, 555@, 556@, 12.0, 12.0, 8.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            505@ == 20
+        then
+            if
+                Car.DoesExist(35@)
+            then
+                554@, 555@, 556@ = Car.GetCoordinates(35@)
+            end
+            Coop.UpdateCheckpointForNetworkPlayer(554@, 555@, 556@, 15.0, 15.0, 10.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            505@ == 31
+        then
+            if
+                Car.DoesExist(35@)
+            then
+                554@, 555@, 556@ = Car.GetCoordinates(35@)
+            end
+            Coop.UpdateCheckpointForNetworkPlayer(554@, 555@, 556@, 12.0, 12.0, 8.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            505@ == 32
+        then
+            if
+                Char.DoesExist(40@)
+            then
+                554@, 555@, 556@ = Char.GetCoordinates(40@)
+            else
+                if
+                    Char.DoesExist(53@)
+                then
+                    554@, 555@, 556@ = Char.GetCoordinates(53@)
+                end
+            end
+            Coop.UpdateCheckpointForNetworkPlayer(554@, 555@, 556@, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            505@ == 40
+        then
+            set_lvar_float_to_lvar_float 554@ = 59@
+            set_lvar_float_to_lvar_float 555@ = 60@
+            set_lvar_float_to_lvar_float 556@ = 61@
+            Coop.UpdateCheckpointForNetworkPlayer(554@, 555@, 556@, 10.0, 10.0, 7.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            not is_int_lvar_equal_to_int_lvar 526@($temp_int,3i) == 505@
+        then
+            if
+                505@ == 10
+            then
+                Coop.PrintNowForNetworkPlayer('DRI2_1', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                505@ == 20
+            then
+                Coop.PrintNowForNetworkPlayer('DRI2_12', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                505@ == 31
+            then
+                Coop.PrintNowForNetworkPlayer('DRI2_33', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                505@ == 32
+            then
+                Coop.PrintNowForNetworkPlayer('DRI2_4', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                505@ == 40
+            then
+                Coop.PrintNowForNetworkPlayer('DRI2_25', 6000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            set_lvar_int_to_lvar_int 526@($temp_int,3i) = 505@
+        end
+        if
+            505@ == 10
+        then
+            set_lvar_int_to_lvar_int 510@ = 53@
+            set_lvar_int_to_lvar_int 511@ = 553@
+            gosub @DRIV3_COOP_BLIP_PED_BLUE
+            set_lvar_int_to_lvar_int 510@ = 38@
+            set_lvar_int_to_lvar_int 511@ = 544@
+            gosub @DRIV3_COOP_BLIP_CAR_BLUE
+        end
+        if
+            505@ == 20
+        then
+            set_lvar_int_to_lvar_int 510@ = 35@
+            set_lvar_int_to_lvar_int 511@ = 541@
+            gosub @DRIV3_COOP_BLIP_CAR_RED
+            set_lvar_int_to_lvar_int 510@ = 36@
+            set_lvar_int_to_lvar_int 511@ = 542@
+            gosub @DRIV3_COOP_BLIP_CAR_RED
+            set_lvar_int_to_lvar_int 510@ = 37@
+            set_lvar_int_to_lvar_int 511@ = 543@
+            gosub @DRIV3_COOP_BLIP_CAR_RED
+            set_lvar_int_to_lvar_int 510@ = 41@
+            set_lvar_int_to_lvar_int 511@ = 547@
+            gosub @DRIV3_COOP_BLIP_PED_RED
+            for 561@ = 0 to 2
+                set_lvar_int_to_lvar_int 510@ = 42@(561@,9i)
+                set_lvar_int_to_lvar_int 511@ = 548@(561@,3i)
+                gosub @DRIV3_COOP_BLIP_PED_RED
+            end
+            set_lvar_int_to_lvar_int 510@ = 51@
+            set_lvar_int_to_lvar_int 511@ = 551@
+            gosub @DRIV3_COOP_BLIP_PED_RED
+            set_lvar_int_to_lvar_int 510@ = 52@
+            set_lvar_int_to_lvar_int 511@ = 552@
+            gosub @DRIV3_COOP_BLIP_PED_RED
+        end
+        if or
+            505@ == 31
+            505@ == 32
+        then
+            set_lvar_int_to_lvar_int 510@ = 35@
+            set_lvar_int_to_lvar_int 511@ = 541@
+            gosub @DRIV3_COOP_BLIP_CAR_RED
+        end
+        if or
+            505@ == 31
+            505@ == 32
+            505@ == 40
+        then
+            set_lvar_int_to_lvar_int 510@ = 40@
+            set_lvar_int_to_lvar_int 511@ = 546@
+            gosub @DRIV3_COOP_BLIP_PED_BLUE
+            set_lvar_int_to_lvar_int 510@ = 53@
+            set_lvar_int_to_lvar_int 511@ = 553@
+            gosub @DRIV3_COOP_BLIP_PED_BLUE
+        end
+    end
+end
+return
+
+:DRIV3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if
+        514@ == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_1', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_12', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_33', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_4', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_25', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_34', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('DRI2_47', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('FAR3_FA', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('FAR3_FB', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('FAR3_FC', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('FAR3_FD', $NETWORK_PLAYER[$temp_int])
+        526@($temp_int,3i) = -1
+    end
+end
+return
+
+// Periodic one-shot retries recover IDs that were unavailable during a bounded
+// creation handshake. These calls never wait and cannot hold mission progress.
+:DRIV3_COOP_REGISTER_PED_ONCE
+511@ = -1
+if and
+    500@ > 0
+    Char.DoesExist(510@)
+then
+    if
+        not Char.IsDead(510@)
+    then
+        511@ = Coop.GetPedNetworkId(510@)
+        if
+            511@ <> -1
+        then
+            Coop.PedTakeHost(510@, True)
+        end
+    end
+end
+return
+
+:DRIV3_COOP_REGISTER_VEHICLE_ONCE
+511@ = -1
+if and
+    500@ > 0
+    Car.DoesExist(510@)
+then
+    if
+        not Car.IsDead(510@)
+    then
+        511@ = Coop.GetVehicleNetworkId(510@)
+    end
+end
+return
+
+:DRIV3_COOP_SYNC_WORLD_PASS
+if and
+    541@ == -1
+    Car.DoesExist(35@)
+then
+    set_lvar_int_to_lvar_int 510@ = 35@
+    gosub @DRIV3_COOP_REGISTER_VEHICLE_ONCE
+    set_lvar_int_to_lvar_int 541@ = 511@
+end
+if and
+    542@ == -1
+    Car.DoesExist(36@)
+then
+    set_lvar_int_to_lvar_int 510@ = 36@
+    gosub @DRIV3_COOP_REGISTER_VEHICLE_ONCE
+    set_lvar_int_to_lvar_int 542@ = 511@
+end
+if and
+    543@ == -1
+    Car.DoesExist(37@)
+then
+    set_lvar_int_to_lvar_int 510@ = 37@
+    gosub @DRIV3_COOP_REGISTER_VEHICLE_ONCE
+    set_lvar_int_to_lvar_int 543@ = 511@
+end
+if and
+    544@ == -1
+    Car.DoesExist(38@)
+then
+    set_lvar_int_to_lvar_int 510@ = 38@
+    gosub @DRIV3_COOP_REGISTER_VEHICLE_ONCE
+    set_lvar_int_to_lvar_int 544@ = 511@
+end
+if and
+    545@ == -1
+    Car.DoesExist(34@)
+then
+    set_lvar_int_to_lvar_int 510@ = 34@
+    gosub @DRIV3_COOP_REGISTER_VEHICLE_ONCE
+    set_lvar_int_to_lvar_int 545@ = 511@
+end
+if and
+    546@ == -1
+    Char.DoesExist(40@)
+then
+    set_lvar_int_to_lvar_int 510@ = 40@
+    gosub @DRIV3_COOP_REGISTER_PED_ONCE
+    set_lvar_int_to_lvar_int 546@ = 511@
+end
+if and
+    547@ == -1
+    Char.DoesExist(41@)
+then
+    set_lvar_int_to_lvar_int 510@ = 41@
+    gosub @DRIV3_COOP_REGISTER_PED_ONCE
+    set_lvar_int_to_lvar_int 547@ = 511@
+end
+for 561@ = 0 to 2
+    if and
+        548@(561@,3i) == -1
+        Char.DoesExist(42@(561@,9i))
+    then
+        set_lvar_int_to_lvar_int 510@ = 42@(561@,9i)
+        gosub @DRIV3_COOP_REGISTER_PED_ONCE
+        set_lvar_int_to_lvar_int 548@(561@,3i) = 511@
+    end
+end
+if and
+    551@ == -1
+    Char.DoesExist(51@)
+then
+    set_lvar_int_to_lvar_int 510@ = 51@
+    gosub @DRIV3_COOP_REGISTER_PED_ONCE
+    set_lvar_int_to_lvar_int 551@ = 511@
+end
+if and
+    552@ == -1
+    Char.DoesExist(52@)
+then
+    set_lvar_int_to_lvar_int 510@ = 52@
+    gosub @DRIV3_COOP_REGISTER_PED_ONCE
+    set_lvar_int_to_lvar_int 552@ = 511@
+end
+if and
+    553@ == -1
+    Char.DoesExist(53@)
+then
+    set_lvar_int_to_lvar_int 510@ = 53@
+    gosub @DRIV3_COOP_REGISTER_PED_ONCE
+    set_lvar_int_to_lvar_int 553@ = 511@
+end
+return
+
+:DRIV3_COOP_PRINT_PHONE_SUBTITLE
+if
+    500@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer($farlie3_text(132@,40s), 10000, 1, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRIV3_COOP_NOTIFY_FAILURE
+if
+    518@ <> 0
+then
+    return
+end
+518@ = 2
+gosub @DRIV3_COOP_UPDATE_ROSTER
+gosub @DRIV3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRIV3_COOP_NOTIFY_SUCCESS
+if
+    518@ <> 0
+then
+    return
+end
+518@ = 1
+gosub @DRIV3_COOP_UPDATE_ROSTER
+gosub @DRIV3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if and
+        514@ == 1
+        523@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+// Repeat-safe after pass, scripted failure, death/arrest, registration timeout,
+// disconnect, or either partially completed cinematic. Original entity cleanup
+// remains below and still owns every canonical mission handle.
+:DRIV3_COOP_CLEANUP
+if
+    501@ == 1
+then
+    return
+end
+501@ = 1
+504@ = 0
+Skip.Clear
+Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
+Hud.SwitchWidescreen(False)
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+Player.SetControl($player1, True)
+gosub @DRIV3_COOP_UPDATE_ROSTER
+gosub @DRIV3_COOP_CLEAR_OBJECTIVES
+gosub @DRIV3_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    gosub @DRIV3_COOP_VALIDATE_SLOT
+    if
+        514@ == 1
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+            Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+            Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+            Char.SetWantedByPolice($NETWORK_PLAYER[$temp_int], True)
+            Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+        end
+    end
+    523@($temp_int,3i) = 0
+    526@($temp_int,3i) = -1
+    529@($temp_int,3i) = 0
+    532@($temp_int,3i) = -1
+    535@($temp_int,3i) = -1
+    538@($temp_int,3i) = 0
+end
+503@ = 0
+return
+
+// Creation handshakes are guarded by existence/death checks and hard-bounded to
+// 750 ms. A timeout degrades only remote entity presentation; periodic one-shot
+// retries above can recover later without blocking authoritative progression.
+:DRIV3_COOP_REGISTER_PED
+511@ = -1
+if
+    500@ == 0
+then
+    return
+end
+512@ = Clock.GetGameTimer()
+while 511@ == -1
+    if
+        not Char.DoesExist(510@)
+    then
+        break
+    end
+    if
+        Char.IsDead(510@)
+    then
+        break
+    end
+    511@ = Coop.GetPedNetworkId(510@)
+    if
+        511@ == -1
+    then
+        513@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 513@ -= 512@
+        if
+            513@ >= 750
+        then
+            517@ += 1
+            break
+        end
+        wait 0
+    else
+        Coop.PedTakeHost(510@, True)
+    end
+end
+return
+
+:DRIV3_COOP_REGISTER_VEHICLE
+511@ = -1
+if
+    500@ == 0
+then
+    return
+end
+512@ = Clock.GetGameTimer()
+while 511@ == -1
+    if
+        not Car.DoesExist(510@)
+    then
+        break
+    end
+    if
+        Car.IsDead(510@)
+    then
+        break
+    end
+    511@ = Coop.GetVehicleNetworkId(510@)
+    if
+        511@ == -1
+    then
+        513@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 513@ -= 512@
+        if
+            513@ >= 750
+        then
+            517@ += 1
+            break
+        end
+        wait 0
+    end
+end
+return
 
