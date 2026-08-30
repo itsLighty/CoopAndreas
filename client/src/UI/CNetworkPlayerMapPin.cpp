@@ -43,8 +43,13 @@ float CalculateMarkerAngle(CNetworkPlayer* player)
 
 void CNetworkPlayerMapPin::Process()
 {
+	const auto previousPlayerInFocus = CWorld::PlayerInFocus;
+
 	for (auto player : CNetworkPlayerManager::m_pPlayers)
 	{
+		if (player == nullptr || player->m_pPed == nullptr)
+			continue;
+
 		CWorld::PlayerInFocus = player->GetInternalId();
 
 		if (CWorld::PlayerInFocus == -1)
@@ -58,11 +63,11 @@ void CNetworkPlayerMapPin::Process()
 			pos.x,
 			pos.y,
 			angle,
-			5 * RsGlobal.maximumWidth / 640,
-			5 * RsGlobal.maximumHeight / 360,
+			CUtil::SCREEN_SCALE_X(5.0f),
+			CUtil::SCREEN_SCALE_Y(5.0f),
 			player->m_pPed->IsHidden() ? CRGBA{ 50, 50, 50, 255 } : CRGBA{ 255, 255, 255, 255 }
 		);
 	}
 
-	CWorld::PlayerInFocus = 0;
+	CWorld::PlayerInFocus = previousPlayerInFocus;
 }

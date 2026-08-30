@@ -168,7 +168,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [ ] Areas aka GangZones
   - [X] Mission icons
   - [X] Player map pin
-    - [ ] fix proportion
+    - [X] fix proportion
   - [X] Player mark (waypoint)
 - [ ] wanted level
 - [ ] stats sync
