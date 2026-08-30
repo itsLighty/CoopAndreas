@@ -3,6 +3,7 @@
 
 :CRASH1
 script_name 'CRASH1'
+Coop.EnableSyncingThisScript()
 gosub @CRASH1_47
 if 
   has_deatharrest_been_executed 
@@ -15,6 +16,54 @@ terminate_this_script
 
 :CRASH1_47
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+430@ = 0 // number of participants captured in the frozen mission roster
+for 429@ = 0 to 2
+    set_lvar_int_to_var_int 362@(429@,3i) = $NETWORK_PLAYER[429@] // frozen participant actor
+    365@(429@,3i) = -1 // last per-player objective
+    368@(429@,3i) = 0 // original Molotov ammo
+    371@(429@,3i) = 0 // original extinguisher ammo
+    374@(429@,3i) = 0 // original selected weapon
+    377@(429@,3i) = 0 // inventory snapshot valid
+    380@(429@,3i) = 0 // mission Molotov granted
+    383@(429@,3i) = 0 // mission extinguisher granted
+    386@(429@,3i) = 0 // last synchronized Molotov ammo
+    389@(429@,3i) = 0 // last synchronized extinguisher ammo
+    392@(429@,3i) = -1 // optional convoy vehicle
+    395@(429@,3i) = -1 // convoy vehicle network id
+    398@(429@,3i) = 0 // last cooperative fire-hazard tick
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+        374@(429@,3i) = Char.GetCurrentWeapon(406@)
+        368@(429@,3i) = Char.GetAmmoInWeapon(406@, 18)
+        371@(429@,3i) = Char.GetAmmoInWeapon(406@, 42)
+        377@(429@,3i) = 1
+        430@ += 1
+    end
+end
+401@ = 0 // regroup completed for the current mission stage
+402@ = -1 // last stage used by the cooperative layer
+403@ = 0 // regroup timer
+404@ = 0 // cooperative timer scratch
+405@ = 0 // participant failure flag
+407@ = -1 // entity registration result
+410@ = -1 // Denise network id
+411@ = -1 // house vehicle network id
+412@ = -1 // pursuing gang vehicle network id
+413@ = 0 // participants frozen for a host cinematic
+414@ = 0 // convoy vehicles prepared
+415@ = 0 // remote ignition fallback cooldown
+416@ = 0 // next host-authoritative interior fire fallback
+419@ = -1 // participant vehicle currently carrying Denise
+420@ = 0 // Denise passenger-task retry timer
+421@ = 0 // remote extinguisher fallback cooldown
+422@ = 0 // participant delivered Denise without the host in that vehicle
+423@ = 0 // Molotov pickup fallback resolved
+424@ = 0 // extinguisher pickup fallback resolved
+425@ = 0 // cooperative cleanup completed
+426@ = -1 // opening police vehicle network id
 $onmission = 1
 34@ = 0
 35@ = 0
@@ -134,13 +183,23 @@ goto_if_false @CRASH1_1041
 
 :CRASH1_1160
 Text.LoadMissionText('CRASH1')
+gosub @CRASH1_coop_freeze_players
 gosub @CRASH1_38857
 180@ = DecisionMakerChar.Load(DecisionMakerType.Empty)
 181@ = DecisionMakerChar.Load(DecisionMakerType.Tough)
 gosub @CRASH1_39065
+Coop.TeleportPlayersToHostSafely(362@, 363@, 364@)
+gosub @CRASH1_coop_unfreeze_players
 
 :CRASH1_1199
 wait 0
+gosub @CRASH1_coop_update
+if
+  405@ == 1
+then
+  37@ = 1
+  goto @CRASH1_1651
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @CRASH1_1232
@@ -2197,6 +2256,7 @@ Blip.Remove(131@)
 gosub @CRASH1_32981
 Char.ShutUpForScriptedSpeech($scplayer, True)
 Char.ShutUpForScriptedSpeech(95@, True)
+gosub @CRASH1_coop_prepare_convoy
 35@ += 1
 
 :CRASH1_13324
@@ -2244,6 +2304,36 @@ if
   not Char.IsInCar($scplayer, $car)
 goto_if_false @CRASH1_13580
 351@ = 0
+422@ = 0
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        if
+            Char.IsInCar(362@(429@,3i), $car)
+        then
+            351@ = 1
+            422@ = 1
+        end
+    end
+end
+if
+    422@ == 1
+then
+    if
+        not Char.LocateAnyMeans3D($scplayer, False, 2402.307, -1727.53, 12.3906, 35.0, 35.0, 12.0)
+    then
+        if
+            Char.IsInAnyCar($scplayer)
+        then
+            Char.WarpFromCarToCoord($scplayer, 2397.0, -1728.0, 12.5)
+        else
+            Char.SetCoordinates($scplayer, 2397.0, -1728.0, 12.5)
+        end
+        Char.SetHeading($scplayer, 90.0)
+    end
+    Coop.TeleportPlayersToHostSafely(362@, 363@, 364@)
+end
 
 :CRASH1_13580
 if 
@@ -3399,6 +3489,13 @@ Char.SetIsTargetPriority(92@(214@,2i), True)
 92@(214@,2i) = Char.CreateAsPassenger(PedType.Gang8, 108, 99@, 0)
 Char.GiveWeapon(92@(214@,2i), WeaponType.Pistol, 999)
 Char.SetIsTargetPriority(92@(214@,2i), True)
+set_lvar_int_to_lvar_int 406@ = 99@
+gosub @CRASH1_coop_register_vehicle
+set_lvar_int_to_lvar_int 412@ = 407@
+for 429@ = 0 to 1
+    set_lvar_int_to_lvar_int 406@ = 92@(429@,2i)
+    gosub @CRASH1_coop_register_ped
+end
 252@ = 2370.792
 253@ = -1185.662
 254@ = 26.4297
@@ -4007,6 +4104,8 @@ return
 284@ = 26.9766
 285@ = 2.8064
 94@ = Char.Create(14, 110, 282@, 283@, 284@)
+set_lvar_int_to_lvar_int 406@ = 94@
+gosub @CRASH1_coop_register_ped
 Char.SetAreaVisible(94@, 5)
 Char.SetHeading(94@, 285@)
 Char.SetDecisionMaker(94@, 180@)
@@ -4019,6 +4118,12 @@ return
 284@ = 30.9688
 285@ = 359.0737
 95@ = Char.Create(5, 195, 282@, 283@, 284@)
+set_lvar_int_to_lvar_int 406@ = 95@
+gosub @CRASH1_coop_register_ped
+set_lvar_int_to_lvar_int 410@ = 407@
+for 429@ = 0 to 2
+    365@(429@,3i) = -1
+end
 Char.SetAreaVisible(95@, 5)
 Char.SetHeading(95@, 285@)
 Char.SetHealth(95@, 100)
@@ -4367,6 +4472,10 @@ Char.SetAccuracy(97@, 5)
 141@ = ScriptFire.CreateCharFire(97@)
 Task.Dead(97@)
 189@ = 0
+set_lvar_int_to_lvar_int 406@ = 96@
+gosub @CRASH1_coop_register_ped
+set_lvar_int_to_lvar_int 406@ = 97@
+gosub @CRASH1_coop_register_ped
 360@ = 1
 return 
 
@@ -4941,6 +5050,7 @@ if
   56@ == 1
 goto_if_false @CRASH1_32588
 Text.PrintNow(69@(51@,9s), 10000, 1)
+gosub @CRASH1_coop_broadcast_subtitle
 
 :CRASH1_32588
 57@(47@,3i) = 3
@@ -6005,6 +6115,9 @@ Char.SetCoordinates($scplayer, 1038.17, -1335.221, 12.5493)
 Char.SetHeading($scplayer, 0.0)
 Camera.SetBehindPlayer
 100@ = Car.Create(596, 1032.438, -1330.931, 12.3864)
+set_lvar_int_to_lvar_int 406@ = 100@
+gosub @CRASH1_coop_register_vehicle
+set_lvar_int_to_lvar_int 426@ = 407@
 Car.SetHeading(100@, 270.0)
 Car.LockDoors(100@, CarLock.Unlocked)
 Car.MarkAsNoLongerNeeded(100@)
@@ -6108,6 +6221,9 @@ return
 285@ = 268.343
 World.ClearArea(0, 282@, 283@, 284@, 10.0)
 98@ = Car.Create(412, 282@, 283@, 284@)
+set_lvar_int_to_lvar_int 406@ = 98@
+gosub @CRASH1_coop_register_vehicle
+set_lvar_int_to_lvar_int 411@ = 407@
 Car.SetHeading(98@, 285@)
 Car.OpenDoor(98@, CarDoor.Hood)
 356@ = 1
@@ -6170,6 +6286,10 @@ Char.GiveWeapon(87@(214@,5i), WeaponType.Pistol, 999)
 Char.SetIsTargetPriority(87@(214@,5i), True)
 Char.SetDecisionMaker(87@(214@,5i), 180@)
 182@(214@,5i) = -1
+for 429@ = 0 to 4
+    set_lvar_int_to_lvar_int 406@ = 87@(429@,5i)
+    gosub @CRASH1_coop_register_ped
+end
 355@ = 1
 return 
 
@@ -6260,6 +6380,14 @@ return
 
 :CRASH1_41227
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @CRASH1_coop_clear_objectives
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 362@(429@,3i))
+    end
+end
 if and
   340@ == 0
   359@ == 1
@@ -6272,6 +6400,14 @@ return
 
 :CRASH1_41291
 Text.PrintWithNumberBig('M_PASSD', 0, 5000, TextStyle.Middle)
+gosub @CRASH1_coop_clear_objectives
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 362@(429@,3i))
+    end
+end
 Player.ClearWantedLevel($player1)
 Audio.PlayMissionPassedTune(1)
 Stat.RegisterMissionPassed('CRASH_1')
@@ -6281,6 +6417,7 @@ set_global_var_bit_const $iActiveGF bit 0
 return 
 
 :CRASH1_41349
+gosub @CRASH1_coop_restore_players
 if 
   355@ == 1
 goto_if_false @CRASH1_41411
@@ -6433,4 +6570,1035 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative Burning Desire layer. Story state remains host-authoritative, but
+// the frozen participant roster can collect mission equipment, fight, suppress
+// host-owned fires, escort Denise, and drive her home without blocking the host.
+:CRASH1_coop_update
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        if
+            377@(429@,3i) == 0
+        then
+            set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+            374@(429@,3i) = Char.GetCurrentWeapon(406@)
+            368@(429@,3i) = Char.GetAmmoInWeapon(406@, 18)
+            371@(429@,3i) = Char.GetAmmoInWeapon(406@, 42)
+            377@(429@,3i) = 1
+            430@ += 1
+        end
+        if
+            Char.IsDead(362@(429@,3i))
+        then
+            405@ = 1
+        end
+    else
+        365@(429@,3i) = -1
+    end
+end
+
+if
+    Player.IsControlOn($player1)
+then
+    if
+        413@ == 1
+    then
+        gosub @CRASH1_coop_unfreeze_players
+    end
+else
+    if
+        413@ == 0
+    then
+        gosub @CRASH1_coop_freeze_players
+    end
+end
+
+if
+    not is_int_lvar_equal_to_int_lvar 402@ == 34@
+then
+    set_lvar_int_to_lvar_int 402@ = 34@
+    403@ = Clock.GetGameTimer()
+    401@ = 0
+    if
+        34@ == 4
+    then
+        gosub @CRASH1_coop_move_players_inside
+    end
+    if
+        34@ == 7
+    then
+        gosub @CRASH1_coop_move_players_outside
+    end
+end
+
+gosub @CRASH1_coop_update_area_transitions
+gosub @CRASH1_coop_update_regroup
+gosub @CRASH1_coop_update_pickups
+gosub @CRASH1_coop_update_remote_fire_tools
+gosub @CRASH1_coop_update_combat
+gosub @CRASH1_coop_update_rescue
+gosub @CRASH1_coop_update_objectives
+return
+
+:CRASH1_coop_update_regroup
+if or
+    1 > 34@
+    34@ > 7
+then
+    return
+end
+if
+    401@ == 1
+then
+    return
+end
+401@ = 1
+417@ = Char.GetAreaVisible($scplayer)
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+        418@ = Char.GetAreaVisible(406@)
+        if
+            not is_int_lvar_equal_to_int_lvar 417@ == 418@
+        then
+            401@ = 0
+        end
+        if
+            not Char.LocateAnyMeansChar3D(362@(429@,3i), $scplayer, 120.0, 120.0, 45.0, False)
+        then
+            401@ = 0
+        end
+    end
+end
+if
+    401@ == 0
+then
+    404@ = Clock.GetGameTimer()
+    sub_int_lvar_from_int_lvar 404@ -= 403@
+    if
+        404@ > 20000
+    then
+        if or
+            34@ == 4
+            34@ == 5
+        then
+            gosub @CRASH1_coop_move_players_inside
+        else
+            if
+                34@ == 7
+            then
+                gosub @CRASH1_coop_move_players_outside
+            else
+                Coop.TeleportPlayersToHostSafely(362@, 363@, 364@)
+            end
+        end
+        401@ = 1
+    end
+end
+return
+
+:CRASH1_coop_update_area_transitions
+if
+    34@ == 6
+then
+    417@ = Char.GetAreaVisible($scplayer)
+    if
+        417@ == 0
+    then
+        for 429@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+            then
+                set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+                418@ = Char.GetAreaVisible(406@)
+                if
+                    418@ <> 0
+                then
+                    Char.ClearTasksImmediately(362@(429@,3i))
+                    432@ = 2354.0
+                    433@ = -1178.0
+                    if
+                        429@ == 1
+                    then
+                        432@ = 2355.0
+                        433@ = -1179.0
+                    end
+                    if
+                        429@ == 2
+                    then
+                        432@ = 2356.0
+                        433@ = -1180.0
+                    end
+                    if
+                        Char.IsInAnyCar(362@(429@,3i))
+                    then
+                        Char.WarpFromCarToCoord(362@(429@,3i), 432@, 433@, 26.98)
+                    else
+                        Char.SetCoordinates(362@(429@,3i), 432@, 433@, 26.98)
+                    end
+                    Char.SetAreaVisible(362@(429@,3i), 0)
+                    Char.SetHeading(362@(429@,3i), 180.0)
+                    set_char_fire_damage_multiplier 362@(429@,3i) 1.0
+                end
+            end
+        end
+    end
+end
+return
+
+:CRASH1_coop_update_pickups
+if
+    34@ == 1
+then
+    if and
+        35@ == 1
+        423@ == 0
+    then
+        for 429@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+            then
+                if
+                    Char.LocateAnyMeans3D(362@(429@,3i), False, 1785.698, -1222.105, 16.9119, 2.2, 2.2, 2.5)
+                then
+                    Pickup.Remove(132@)
+                    Blip.Remove(128@)
+                    Char.GiveWeapon($scplayer, WeaponType.Molotov, 20)
+                    349@ = 0
+                    set_lvar_int_to_lvar_int 204@ = 45@
+                    204@ += 5000
+                    35@ = 2
+                    423@ = 1
+                end
+            end
+        end
+    end
+    if
+        35@ >= 2
+    then
+        423@ = 1
+    end
+end
+
+if and
+    34@ >= 2
+    34@ <= 3
+then
+    423@ = 1
+end
+if
+    423@ == 1
+then
+    for 429@ = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+        then
+            if
+                380@(429@,3i) == 0
+            then
+                Char.GiveWeapon(362@(429@,3i), WeaponType.Molotov, 20)
+                Char.SetCurrentWeapon(362@(429@,3i), WeaponType.Molotov)
+                380@(429@,3i) = 1
+                set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+                386@(429@,3i) = Char.GetAmmoInWeapon(406@, 18)
+            end
+        end
+    end
+end
+
+if and
+    34@ >= 4
+    34@ <= 6
+then
+    if
+        Char.HasGotWeapon($scplayer, WeaponType.Extinguisher)
+    then
+        424@ = 1
+    end
+    if
+        424@ == 0
+    then
+        for 429@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+            then
+                if
+                    Char.LocateAnyMeans3D(362@(429@,3i), False, 2322.639, -1176.537, 1027.757, 2.2, 2.2, 2.5)
+                then
+                    Pickup.Remove(135@)
+                    317@ = 0
+                    Char.GiveWeapon($scplayer, WeaponType.Extinguisher, 30000)
+                    424@ = 1
+                end
+            end
+        end
+    end
+    if
+        424@ == 1
+    then
+        for 429@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+            then
+                if
+                    383@(429@,3i) == 0
+                then
+                    Char.GiveWeapon(362@(429@,3i), WeaponType.Extinguisher, 30000)
+                    Char.SetCurrentWeapon(362@(429@,3i), WeaponType.Extinguisher)
+                    383@(429@,3i) = 1
+                    set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+                    389@(429@,3i) = Char.GetAmmoInWeapon(406@, 42)
+                end
+            end
+        end
+    end
+end
+return
+
+// Projectiles, pickups, and script fires are not fully network entities yet.
+// Ammo deltas near the objective are therefore accepted as bounded, host-owned
+// interactions; one throw lights one remaining window and extinguisher use only
+// affects a nearby scripted hazard.
+:CRASH1_coop_update_remote_fire_tools
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        if and
+            34@ == 2
+            380@(429@,3i) == 1
+        then
+            set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+            417@ = Char.GetAmmoInWeapon(406@, 18)
+            if
+                is_int_lvar_greater_than_int_lvar 386@(429@,3i) > 417@
+            then
+                if
+                    Char.LocateAnyMeans3D(362@(429@,3i), False, 2337.666, -1180.994, 31.7513, 45.0, 40.0, 15.0)
+                then
+                    404@ = Clock.GetGameTimer()
+                    if
+                        is_int_lvar_greater_than_int_lvar 404@ > 415@
+                    then
+                        gosub @CRASH1_coop_ignite_next_window
+                        415@ = Clock.GetGameTimer()
+                        415@ += 600
+                    end
+                end
+            end
+            set_lvar_int_to_lvar_int 386@(429@,3i) = 417@
+        end
+        if and
+            34@ >= 4
+            34@ <= 6
+            383@(429@,3i) == 1
+        then
+            set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+            417@ = Char.GetAmmoInWeapon(406@, 42)
+            if
+                is_int_lvar_greater_than_int_lvar 389@(429@,3i) > 417@
+            then
+                404@ = Clock.GetGameTimer()
+                if
+                    is_int_lvar_greater_than_int_lvar 404@ > 421@
+                then
+                    set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+                    gosub @CRASH1_coop_extinguish_near_participant
+                    421@ = Clock.GetGameTimer()
+                    421@ += 750
+                end
+            end
+            set_lvar_int_to_lvar_int 389@(429@,3i) = 417@
+        end
+    end
+end
+return
+
+:CRASH1_coop_ignite_next_window
+431@ = 0
+432@ = 0
+while 5 > 431@
+    if and
+        432@ == 0
+        302@(431@,5i) == 0
+    then
+        set_lvar_int_to_lvar_int 217@ = 431@
+        if
+            Object.DoesExist(101@(431@,8i))
+        then
+            Object.Break(101@(431@,8i), 1)
+        end
+        302@(431@,5i) = 1
+        301@ = 1
+        if
+            Object.DoesExist(109@(431@,5i))
+        then
+            Object.Delete(109@(431@,5i))
+        end
+        Blip.Remove(123@(431@,5i))
+        set_lvar_int_to_lvar_int 205@ = 45@
+        205@ += 500
+        432@ = 1
+    end
+    431@ += 1
+end
+return
+
+:CRASH1_coop_extinguish_near_participant
+417@ = 0
+if
+    Char.LocateAnyMeans3D(406@, False, 2344.884, -1178.697, 1031.1, 6.0, 6.0, 4.0)
+then
+    World.ExtinguishFireAtPoint(2344.884, -1178.697, 1031.1, 3.0)
+    417@ = 1
+end
+if and
+    417@ == 0
+    Char.LocateAnyMeans3D(406@, False, 2340.365, -1184.928, 1031.1, 6.0, 6.0, 4.0)
+then
+    World.ExtinguishFireAtPoint(2340.365, -1184.928, 1031.1, 3.0)
+    417@ = 1
+end
+if and
+    417@ == 0
+    Char.LocateAnyMeans3D(406@, False, 2332.483, -1180.889, 1031.1, 6.0, 6.0, 4.0)
+then
+    World.ExtinguishFireAtPoint(2332.483, -1180.889, 1031.1, 3.0)
+    417@ = 1
+end
+if and
+    417@ == 0
+    Char.LocateAnyMeans3D(406@, False, 2326.081, -1178.825, 1027.2, 6.0, 6.0, 4.0)
+then
+    World.ExtinguishFireAtPoint(2326.081, -1178.825, 1027.2, 3.0)
+    417@ = 1
+end
+if and
+    359@ == 1
+    not Char.IsDead(95@)
+    Char.LocateAnyMeansChar3D(406@, 95@, 6.0, 6.0, 4.0, False)
+then
+    418@ = Char.GetHealth(95@)
+    418@ += 5
+    if
+        418@ > 100
+    then
+        418@ = 100
+    end
+    Char.SetHealth(95@, 418@)
+end
+return
+
+:CRASH1_coop_update_combat
+if
+    355@ == 1
+then
+    for 431@ = 0 to 4
+        if
+            not Char.IsDead(87@(431@,5i))
+        then
+            for 429@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+                then
+                    if and
+                        not Char.IsDead(362@(429@,3i))
+                        Char.LocateAnyMeansChar3D(362@(429@,3i), 87@(431@,5i), 18.0, 18.0, 8.0, False)
+                    then
+                        if or
+                            Char.HasBeenDamagedByChar(87@(431@,5i), 362@(429@,3i))
+                            Char.LocateAnyMeansChar3D(362@(429@,3i), 87@(431@,5i), 8.0, 8.0, 5.0, False)
+                        then
+                            Task.KillCharOnFoot(87@(431@,5i), 362@(429@,3i))
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+if
+    357@ == 1
+then
+    for 431@ = 0 to 1
+        if
+            not Char.IsDead(92@(431@,2i))
+        then
+            for 429@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+                then
+                    if and
+                        not Char.IsDead(362@(429@,3i))
+                        Char.LocateAnyMeansChar3D(362@(429@,3i), 92@(431@,2i), 20.0, 20.0, 8.0, False)
+                    then
+                        Task.KillCharOnFoot(92@(431@,2i), 362@(429@,3i))
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:CRASH1_coop_update_rescue
+if and
+    34@ == 7
+    326@ == 0
+    359@ == 1
+    not Char.IsDead(95@)
+then
+    if
+        Char.IsInAnyCar(95@)
+    then
+        419@ = Char.StoreCarIsInNoSave(95@)
+        431@ = 0
+        if
+            Char.IsInCar($scplayer, 419@)
+        then
+            431@ = 1
+        end
+        for 429@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+            then
+                if
+                    Char.IsInCar(362@(429@,3i), 419@)
+                then
+                    431@ = 1
+                end
+            end
+        end
+        if
+            431@ == 0
+        then
+            Task.LeaveAnyCar(95@)
+            419@ = -1
+        end
+    else
+        419@ = -1
+        404@ = Clock.GetGameTimer()
+        if
+            is_int_lvar_greater_than_int_lvar 404@ > 420@
+        then
+            for 429@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+                then
+                    if and
+                        not Char.IsDead(362@(429@,3i))
+                        Char.IsInAnyCar(362@(429@,3i))
+                        Char.LocateAnyMeansChar3D(362@(429@,3i), 95@, 12.0, 12.0, 6.0, False)
+                    then
+                        set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+                        431@ = Char.StoreCarIsInNoSave(406@)
+                        if
+                            not Car.IsDead(431@)
+                        then
+                            Task.EnterCarAsPassenger(95@, 431@, 0, 5000)
+                            set_lvar_int_to_lvar_int 419@ = 431@
+                            420@ = Clock.GetGameTimer()
+                            420@ += 6000
+                        end
+                    end
+                end
+            end
+        end
+        if
+            419@ == -1
+        then
+            for 429@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+                then
+                    if and
+                        Char.LocateAnyMeansChar3D(362@(429@,3i), 95@, 15.0, 15.0, 6.0, False)
+                        not Char.LocateAnyMeansChar3D($scplayer, 95@, 45.0, 45.0, 15.0, False)
+                    then
+                        Task.FollowFootsteps(95@, 362@(429@,3i))
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:CRASH1_coop_prepare_convoy
+if
+    414@ == 1
+then
+    return
+end
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        432@ = 2358.5
+        433@ = -1182.0
+        if
+            429@ == 1
+        then
+            433@ = -1184.0
+        end
+        if
+            429@ == 2
+        then
+            433@ = -1186.0
+        end
+        392@(429@,3i) = Car.Create(412, 432@, 433@, 26.7)
+        Car.SetHeading(392@(429@,3i), 90.0)
+        Car.ChangeColor(392@(429@,3i), 98, 14)
+        Car.SetHealth(392@(429@,3i), 1250)
+        Car.SetCanBurstTires(392@(429@,3i), False)
+        Car.LockDoors(392@(429@,3i), CarLock.Unlocked)
+        set_lvar_int_to_lvar_int 406@ = 392@(429@,3i)
+        gosub @CRASH1_coop_register_vehicle
+        set_lvar_int_to_lvar_int 395@(429@,3i) = 407@
+    end
+end
+414@ = 1
+for 429@ = 0 to 2
+    365@(429@,3i) = -1
+end
+return
+
+:CRASH1_coop_update_objectives
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        417@ = -1
+        if
+            34@ == 1
+        then
+            417@ = 10
+            if
+                35@ >= 2
+            then
+                417@ = 11
+            end
+        end
+        if
+            34@ == 2
+        then
+            417@ = 20
+        end
+        if
+            34@ == 3
+        then
+            417@ = 30
+        end
+        if
+            34@ == 4
+        then
+            417@ = 40
+            if
+                383@(429@,3i) == 1
+            then
+                417@ = 41
+            end
+        end
+        if
+            34@ == 5
+        then
+            417@ = 50
+        end
+        if
+            34@ == 6
+        then
+            417@ = 60
+        end
+        if
+            34@ == 7
+        then
+            417@ = 70
+        end
+        if
+            not is_int_lvar_equal_to_int_lvar 365@(429@,3i) == 417@
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(362@(429@,3i))
+            Coop.RemoveCheckpointForNetworkPlayer(362@(429@,3i))
+            if
+                417@ == 10
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(1785.698, -1222.105, 16.9119, 3.0, 3.0, 3.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_00', 8000, 1, 362@(429@,3i))
+            end
+            if
+                417@ == 11
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2351.904, -1170.826, 28.5, 8.0, 8.0, 6.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_01', 6000, 1, 362@(429@,3i))
+                Coop.PrintHelpForNetworkPlayer('MOLOTOV', 362@(429@,3i))
+            end
+            if
+                417@ == 20
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2337.666, -1180.994, 31.7513, 35.0, 30.0, 10.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_02', 6000, 1, 362@(429@,3i))
+                Coop.PrintHelpForNetworkPlayer('WINDOWS', 362@(429@,3i))
+            end
+            if
+                417@ == 30
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2352.037, -1170.318, 26.9702, 4.0, 4.0, 4.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_06', 6000, 1, 362@(429@,3i))
+                if and
+                    410@ <> -1
+                    359@ == 1
+                    not Char.IsDead(95@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(362@(429@,3i), 95@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                417@ == 40
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2322.639, -1176.537, 1027.757, 3.0, 3.0, 3.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_09', 6000, 1, 362@(429@,3i))
+                Coop.PrintHelpForNetworkPlayer('FIRE_EX', 362@(429@,3i))
+            end
+            if
+                417@ == 41
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2344.751, -1181.161, 1030.961, 4.0, 4.0, 4.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_35', 6000, 1, 362@(429@,3i))
+                if and
+                    410@ <> -1
+                    359@ == 1
+                    not Char.IsDead(95@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(362@(429@,3i), 95@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                417@ == 50
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2319.717, -1178.556, 1030.969, 4.0, 4.0, 4.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_10', 6000, 1, 362@(429@,3i))
+            end
+            if
+                417@ == 60
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2352.0, -1169.0, 27.0, 5.0, 5.0, 4.0, 362@(429@,3i))
+                Coop.PrintNowForNetworkPlayer('CRA1_10', 6000, 1, 362@(429@,3i))
+            end
+            if
+                417@ == 70
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(2402.307, -1727.53, 12.3906, 8.0, 8.0, 5.0, 362@(429@,3i))
+                if and
+                    410@ <> -1
+                    359@ == 1
+                    not Char.IsDead(95@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(362@(429@,3i), 95@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+                if and
+                    395@(429@,3i) <> -1
+                    392@(429@,3i) <> -1
+                    not Car.IsDead(392@(429@,3i))
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(362@(429@,3i), 392@(429@,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+                Coop.PrintNowForNetworkPlayer('CRA1_12', 7000, 1, 362@(429@,3i))
+            end
+            set_lvar_int_to_lvar_int 365@(429@,3i) = 417@
+        end
+    end
+end
+return
+
+:CRASH1_coop_broadcast_subtitle
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Coop.PrintNowForNetworkPlayer(69@(51@,9s), 10000, 1, 362@(429@,3i))
+    end
+end
+return
+
+:CRASH1_coop_freeze_players
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Char.FreezePosition(362@(429@,3i), True)
+        Char.SetProofs(362@(429@,3i), True, True, True, True, True)
+        Task.StandStill(362@(429@,3i), -1)
+    end
+end
+413@ = 1
+return
+
+:CRASH1_coop_unfreeze_players
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Char.FreezePosition(362@(429@,3i), False)
+        Char.SetProofs(362@(429@,3i), False, False, False, False, False)
+        Task.StandStill(362@(429@,3i), 0)
+    end
+end
+413@ = 0
+return
+
+:CRASH1_coop_move_players_inside
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Char.ClearTasksImmediately(362@(429@,3i))
+        432@ = 2348.0
+        433@ = -1177.0
+        if
+            429@ == 1
+        then
+            432@ = 2349.0
+            433@ = -1178.0
+        end
+        if
+            429@ == 2
+        then
+            432@ = 2350.0
+            433@ = -1179.0
+        end
+        if
+            Char.IsInAnyCar(362@(429@,3i))
+        then
+            Char.WarpFromCarToCoord(362@(429@,3i), 432@, 433@, 1030.969)
+        else
+            Char.SetCoordinates(362@(429@,3i), 432@, 433@, 1030.969)
+        end
+        Char.SetAreaVisible(362@(429@,3i), 5)
+        Char.SetHeading(362@(429@,3i), 270.0)
+        set_char_fire_damage_multiplier 362@(429@,3i) 0.5
+    end
+end
+return
+
+:CRASH1_coop_move_players_outside
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+        418@ = Char.GetAreaVisible(406@)
+        if
+            418@ <> 0
+        then
+            Char.ClearTasksImmediately(362@(429@,3i))
+            432@ = 2354.0
+            433@ = -1178.0
+            if
+                429@ == 1
+            then
+                432@ = 2355.0
+                433@ = -1179.0
+            end
+            if
+                429@ == 2
+            then
+                432@ = 2356.0
+                433@ = -1180.0
+            end
+            if
+                Char.IsInAnyCar(362@(429@,3i))
+            then
+                Char.WarpFromCarToCoord(362@(429@,3i), 432@, 433@, 26.98)
+            else
+                Char.SetCoordinates(362@(429@,3i), 432@, 433@, 26.98)
+            end
+            Char.SetAreaVisible(362@(429@,3i), 0)
+            Char.SetHeading(362@(429@,3i), 180.0)
+        end
+        set_char_fire_damage_multiplier 362@(429@,3i) 1.0
+    end
+end
+return
+
+:CRASH1_coop_clear_objectives
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(362@(429@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_00', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_01', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_02', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_06', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_09', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_10', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_12', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CRA1_35', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('MOLOTOV', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('WINDOWS', 362@(429@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('FIRE_EX', 362@(429@,3i))
+    end
+    365@(429@,3i) = -1
+end
+return
+
+:CRASH1_coop_restore_players
+if
+    425@ == 1
+then
+    return
+end
+425@ = 1
+gosub @CRASH1_coop_clear_objectives
+gosub @CRASH1_coop_unfreeze_players
+for 429@ = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(362@(429@,3i))
+    then
+        if and
+            377@(429@,3i) == 1
+            380@(429@,3i) == 1
+        then
+            Char.RemoveWeapon(18, 362@(429@,3i))
+            if
+                368@(429@,3i) > 0
+            then
+                Char.GiveWeapon(362@(429@,3i), WeaponType.Molotov, 368@(429@,3i))
+            end
+        end
+        if and
+            377@(429@,3i) == 1
+            383@(429@,3i) == 1
+        then
+            Char.RemoveWeapon(42, 362@(429@,3i))
+            if
+                371@(429@,3i) > 0
+            then
+                Char.GiveWeapon(362@(429@,3i), WeaponType.Extinguisher, 371@(429@,3i))
+            end
+        end
+        if
+            377@(429@,3i) == 1
+        then
+            if
+                374@(429@,3i) == 0
+            then
+                Char.SetCurrentWeapon(362@(429@,3i), WeaponType.Unarmed)
+            else
+                if
+                    Char.HasGotWeapon(362@(429@,3i), 374@(429@,3i))
+                then
+                    Char.SetCurrentWeapon(362@(429@,3i), 374@(429@,3i))
+                end
+            end
+        end
+        set_lvar_int_to_lvar_int 406@ = 362@(429@,3i)
+        418@ = Char.GetAreaVisible(406@)
+        if
+            418@ <> 0
+        then
+            Char.ClearTasksImmediately(362@(429@,3i))
+            432@ = 2354.0
+            433@ = -1178.0
+            if
+                429@ == 1
+            then
+                432@ = 2355.0
+                433@ = -1179.0
+            end
+            if
+                429@ == 2
+            then
+                432@ = 2356.0
+                433@ = -1180.0
+            end
+            if
+                Char.IsInAnyCar(362@(429@,3i))
+            then
+                Char.WarpFromCarToCoord(362@(429@,3i), 432@, 433@, 26.98)
+            else
+                Char.SetCoordinates(362@(429@,3i), 432@, 433@, 26.98)
+            end
+            Char.SetAreaVisible(362@(429@,3i), 0)
+            Char.SetHeading(362@(429@,3i), 180.0)
+        end
+        Char.FreezePosition(362@(429@,3i), False)
+        Char.SetProofs(362@(429@,3i), False, False, False, False, False)
+        Char.SetCollision(362@(429@,3i), True)
+        Char.SetVisible(362@(429@,3i), True)
+        Task.StandStill(362@(429@,3i), 0)
+        set_char_fire_damage_multiplier 362@(429@,3i) 1.0
+    end
+    if
+        392@(429@,3i) <> -1
+    then
+        if
+            not Car.IsDead(392@(429@,3i))
+        then
+            Car.MarkAsNoLongerNeeded(392@(429@,3i))
+        end
+    end
+    362@(429@,3i) = 0
+    365@(429@,3i) = -1
+    392@(429@,3i) = -1
+    395@(429@,3i) = -1
+end
+Hud.SwitchWidescreen(False)
+Camera.RestoreJumpcut
+Player.SetControl($player1, True)
+Game.SetEveryoneIgnorePlayer($player1, False)
+Game.SetAllCarsCanBeDamaged(True)
+return
+
+// Synced scripts register mission actors asynchronously. Both handshakes are
+// deliberately bounded so a disconnected client or failed stream can never
+// stall the story mission. A -1 result simply disables entity-specific blips.
+:CRASH1_coop_register_ped
+407@ = -1
+if
+    430@ == 0
+then
+    return
+end
+408@ = Clock.GetGameTimer()
+407@ = Coop.GetPedNetworkId(406@)
+while 407@ == -1
+    wait 0
+    409@ = Clock.GetGameTimer()
+    sub_int_lvar_from_int_lvar 409@ -= 408@
+    if
+        409@ > 3000
+    then
+        break
+    end
+    407@ = Coop.GetPedNetworkId(406@)
+end
+return
+
+:CRASH1_coop_register_vehicle
+407@ = -1
+if
+    430@ == 0
+then
+    return
+end
+408@ = Clock.GetGameTimer()
+407@ = Coop.GetVehicleNetworkId(406@)
+while 407@ == -1
+    wait 0
+    409@ = Clock.GetGameTimer()
+    sub_int_lvar_from_int_lvar 409@ -= 408@
+    if
+        409@ > 3000
+    then
+        break
+    end
+    407@ = Coop.GetVehicleNetworkId(406@)
+end
+return
 
