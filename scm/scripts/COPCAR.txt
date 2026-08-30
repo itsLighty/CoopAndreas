@@ -1,4 +1,15 @@
 :COPCAR
+script_name 'COPCAR'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @COPCAR_COOP_REJECT_NON_HOST
+goto @COPCAR_COOP_HOST_START
+
+:COPCAR_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:COPCAR_COOP_HOST_START
 gosub @COPCAR_52
 if 
   has_deatharrest_been_executed 
@@ -7,12 +18,12 @@ Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 gosub @COPCAR_14808
 
 :COPCAR_43
+gosub @COPCAR_COOP_NOTIFY_FAILURE
 gosub @COPCAR_14810
 terminate_this_script 
 
 :COPCAR_52
 $onmission = 1
-script_name 'COPCAR'
 wait 0
 if 
   $done_copcar_progress == 0
@@ -148,6 +159,7 @@ set_lvar_int_to_constant 263@ = 561
 set_lvar_int_to_constant 264@ = 580
 set_lvar_int_to_constant 265@ = 585
 set_lvar_int_to_constant 266@ = 604
+gosub @COPCAR_COOP_INIT
 Streaming.RequestModel(346)
 Streaming.RequestModel(352)
 Streaming.RequestModel(355)
@@ -925,6 +937,12 @@ Hud.FreezeTimer(False)
 
 :COPCAR_5818
 wait 0
+gosub @COPCAR_COOP_UPDATE
+if
+  294@ == 1
+then
+    goto @COPCAR_14808
+end
 $game_timer = Clock.GetGameTimer()
 $player_x, $player_y, $player_z = Char.GetCoordinates($scplayer)
 gosub @COPCAR_18593
@@ -2490,6 +2508,11 @@ mult_int_lvar_by_int_lvar 54@ *= 51@
 Hud.ForceBigMessageAndCounter(True)
 Text.PrintWithNumberBig('C_PASS', 54@, 5000, TextStyle.MiddleSmallerHigher)
 Player.AddScore($player1, 54@)
+if
+  51@ == 12
+then
+    gosub @COPCAR_COOP_NOTIFY_PASS
+end
 if 
   $done_copcar_progress == 0
 goto_if_false @COPCAR_14328
@@ -2601,6 +2624,7 @@ goto @COPCAR_1291
 return 
 
 :COPCAR_14810
+gosub @COPCAR_COOP_CLEANUP
 $onmission = 0
 Blip.Remove(92@)
 Blip.Remove(93@)
@@ -3434,4 +3458,406 @@ return
 
 :COPCAR_19359
 return 
+
+// Co-op policy for Vigilante:
+// - the host alone runs the stock suspect spawner, police AI, timer, level,
+//   payout, armor unlock, statistics, and persistent completion state;
+// - the three frozen mission identities may assist against synchronized
+//   suspects and receive private objective UI;
+// - disconnect is a DNF until the same immutable identity reconnects;
+// - death of a connected, identity-matched participant fails the shared run.
+:COPCAR_COOP_INIT
+277@, 278@, 279@ = Coop.CollectNetworkPlayersForTheMission()
+289@ = 0 // number of frozen remote gameplay participants
+for 290@ = 0 to 2
+    280@(290@,3i) = -1 // immutable internal network identity
+    283@(290@,3i) = -1 // last objective revision delivered
+    373@(290@,3i) = -1 // last level message delivered
+    if
+        Coop.IsNetworkPlayerActorValid(277@(290@,3i))
+    then
+        280@(290@,3i) = Coop.GetNetworkPlayerInternalId(277@(290@,3i))
+        if
+            280@(290@,3i) >= 0
+        then
+            289@ += 1
+        end
+    end
+end
+294@ = 0 // connected participant death failure latch
+295@ = 0 // exactly-once shared result: 0 pending, 1 failed, 2 passed
+296@ = 0 // idempotent cooperative cleanup latch
+297@ = 0 // connected-participant regroup timer
+299@ = -1 // last observed stock level
+300@ = -1 // last observed stock kill count
+371@ = 0 // objective revision
+for 361@ = 0 to 14
+    316@(361@,15i) = -1 // authoritative network entity id
+    331@(361@,15i) = 0 // registration start time
+    346@(361@,15i) = 0 // registration timeout latch
+end
+if
+    289@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(277@, 278@, 279@)
+end
+return
+
+// Recollect every tick, but only accept a handle whose immutable network id
+// matches its mission-start slot. A disconnect leaves a zero handle and cannot
+// be replaced by another player. Reconnect invalidates that slot's UI cache.
+:COPCAR_COOP_REFRESH_ROSTER
+286@, 287@, 288@ = Coop.CollectNetworkPlayersForTheMission()
+for 290@ = 0 to 2
+    set_lvar_int_to_lvar_int 366@ = 277@(290@,3i)
+    277@(290@,3i) = 0
+    if
+        280@(290@,3i) >= 0
+    then
+        for 291@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(286@(291@,3i))
+            then
+                292@ = Coop.GetNetworkPlayerInternalId(286@(291@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 292@ == 280@(290@,3i)
+                then
+                    set_lvar_int_to_lvar_int 277@(290@,3i) = 286@(291@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 366@ == 277@(290@,3i)
+    then
+        283@(290@,3i) = -1
+        373@(290@,3i) = -1
+    end
+end
+return
+
+:COPCAR_COOP_VALIDATE_SLOT
+293@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(277@(290@,3i))
+then
+    292@ = Coop.GetNetworkPlayerInternalId(277@(290@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 292@ == 280@(290@,3i)
+    then
+        293@ = 1
+    end
+end
+return
+
+:COPCAR_COOP_UPDATE
+if
+    296@ == 1
+then
+    return
+end
+gosub @COPCAR_COOP_REFRESH_ROSTER
+for 290@ = 0 to 2
+    gosub @COPCAR_COOP_VALIDATE_SLOT
+    if
+        293@ == 1
+    then
+        if
+            Char.IsDead(277@(290@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH takes the same stock failure return used
+            // for the host timer, vehicle, cancel, and death failures.
+            294@ = 1
+            58@ = 1
+        end
+    end
+end
+if
+    294@ == 1
+then
+    return
+end
+
+// Stable index map: three suspect vehicles followed by twelve suspects.
+set_lvar_int_to_lvar_int 301@ = 35@
+set_lvar_int_to_lvar_int 302@ = 40@
+set_lvar_int_to_lvar_int 303@ = 45@
+set_lvar_int_to_lvar_int 304@ = 36@
+set_lvar_int_to_lvar_int 305@ = 37@
+set_lvar_int_to_lvar_int 306@ = 38@
+set_lvar_int_to_lvar_int 307@ = 39@
+set_lvar_int_to_lvar_int 308@ = 41@
+set_lvar_int_to_lvar_int 309@ = 42@
+set_lvar_int_to_lvar_int 310@ = 43@
+set_lvar_int_to_lvar_int 311@ = 44@
+set_lvar_int_to_lvar_int 312@ = 46@
+set_lvar_int_to_lvar_int 313@ = 47@
+set_lvar_int_to_lvar_int 314@ = 48@
+set_lvar_int_to_lvar_int 315@ = 49@
+
+// A new stock level owns a new entity set. Registration is reset without
+// changing or waiting on the stock state machine.
+if
+    not is_int_lvar_equal_to_int_lvar 299@ == 51@
+then
+    set_lvar_int_to_lvar_int 299@ = 51@
+    for 361@ = 0 to 14
+        316@(361@,15i) = -1
+        331@(361@,15i) = 0
+        346@(361@,15i) = 0
+    end
+    371@ += 1
+end
+if
+    not is_int_lvar_equal_to_int_var 300@ == $total_criminals_killed
+then
+    set_lvar_int_to_var_int 300@ = $total_criminals_killed
+    371@ += 1
+end
+gosub @COPCAR_COOP_POLL_ENTITY_REGISTRATION
+gosub @COPCAR_COOP_UPDATE_REGROUP
+gosub @COPCAR_COOP_UPDATE_OBJECTIVES
+return
+
+// Registration is incremental and nonblocking. Every concrete vehicle or ped
+// gets at most five seconds of retries, while stock Vigilante always advances.
+:COPCAR_COOP_POLL_ENTITY_REGISTRATION
+for 361@ = 0 to 14
+    if and
+        316@(361@,15i) == -1
+        346@(361@,15i) == 0
+    then
+        set_lvar_int_to_lvar_int 362@ = 301@(361@,15i)
+        if
+            3 > 361@
+        then
+            if
+                Car.DoesExist(362@)
+            then
+                if
+                    331@(361@,15i) == 0
+                then
+                    331@(361@,15i) = Clock.GetGameTimer()
+                end
+                316@(361@,15i) = Coop.GetVehicleNetworkId(362@)
+            end
+        else
+            if
+                Char.DoesExist(362@)
+            then
+                if
+                    331@(361@,15i) == 0
+                then
+                    331@(361@,15i) = Clock.GetGameTimer()
+                end
+                316@(361@,15i) = Coop.GetPedNetworkId(362@)
+            end
+        end
+        if
+            316@(361@,15i) <> -1
+        then
+            371@ += 1
+        end
+        if and
+            316@(361@,15i) == -1
+            331@(361@,15i) <> 0
+        then
+            363@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 363@ -= 331@(361@,15i)
+            if
+                363@ > 5000
+            then
+                346@(361@,15i) = 1
+            end
+        end
+    end
+end
+return
+
+// Only currently connected frozen identities are regrouped. A DNF never
+// blocks the host; the same identity is brought back safely after reconnect.
+:COPCAR_COOP_UPDATE_REGROUP
+364@ = 0
+for 290@ = 0 to 2
+    gosub @COPCAR_COOP_VALIDATE_SLOT
+    if
+        293@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(277@(290@,3i), $scplayer, 160.0, 160.0, 45.0, False)
+        then
+            364@ = 1
+        end
+    end
+end
+if
+    364@ == 0
+then
+    297@ = 0
+    return
+end
+if
+    297@ == 0
+then
+    297@ = Clock.GetGameTimer()
+end
+363@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 363@ -= 297@
+if
+    363@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(277@, 278@, 279@)
+    297@ = 0
+end
+return
+
+// Red suspect markers, purple suspect-vehicle markers, and a checkpoint on the
+// first live registered suspect give every connected participant a useful
+// shared combat objective. UI is resent after reconnect and entity changes.
+:COPCAR_COOP_UPDATE_OBJECTIVES
+365@ = 0
+for 361@ = 3 to 14
+    if and
+        365@ == 0
+        316@(361@,15i) <> -1
+    then
+        set_lvar_int_to_lvar_int 362@ = 301@(361@,15i)
+        if
+            Char.DoesExist(362@)
+        then
+            if
+                not Char.IsDead(362@)
+            then
+                set_lvar_int_to_lvar_int 365@ = 362@
+            end
+        end
+    end
+end
+for 290@ = 0 to 2
+    gosub @COPCAR_COOP_VALIDATE_SLOT
+    if and
+        293@ == 1
+        not is_int_lvar_equal_to_int_lvar 283@(290@,3i) == 371@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(277@(290@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(277@(290@,3i))
+        for 361@ = 0 to 14
+            if
+                316@(361@,15i) <> -1
+            then
+                set_lvar_int_to_lvar_int 362@ = 301@(361@,15i)
+                if
+                    3 > 361@
+                then
+                    if
+                        Car.DoesExist(362@)
+                    then
+                        if
+                            not Car.IsDead(362@)
+                        then
+                            Coop.UpdateCarBlipForNetworkPlayer(277@(290@,3i), 362@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+                        end
+                    end
+                else
+                    if
+                        Char.DoesExist(362@)
+                    then
+                        if
+                            not Char.IsDead(362@)
+                        then
+                            Coop.UpdateCharBlipForNetworkPlayer(277@(290@,3i), 362@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                        end
+                    end
+                end
+            end
+        end
+        if
+            365@ <> 0
+        then
+            368@, 369@, 370@ = Char.GetCoordinates(365@)
+            Coop.UpdateCheckpointForNetworkPlayer(368@, 369@, 370@, 14.0, 14.0, 8.0, 277@(290@,3i))
+        end
+        if
+            not is_int_lvar_equal_to_int_lvar 373@(290@,3i) == 51@
+        then
+            // KILLS is stock Vigilante's localized objective/counter caption.
+            Coop.PrintNowForNetworkPlayer('KILLS', 5000, 1, 277@(290@,3i))
+            set_lvar_int_to_lvar_int 373@(290@,3i) = 51@
+        end
+        set_lvar_int_to_lvar_int 283@(290@,3i) = 371@
+    end
+end
+return
+
+:COPCAR_COOP_NOTIFY_FAILURE
+if
+    295@ <> 0
+then
+    return
+end
+295@ = 1
+gosub @COPCAR_COOP_REFRESH_ROSTER
+for 290@ = 0 to 2
+    gosub @COPCAR_COOP_VALIDATE_SLOT
+    if
+        293@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 277@(290@,3i))
+    end
+end
+return
+
+:COPCAR_COOP_NOTIFY_PASS
+if
+    295@ <> 0
+then
+    return
+end
+295@ = 2
+gosub @COPCAR_COOP_REFRESH_ROSTER
+for 290@ = 0 to 2
+    gosub @COPCAR_COOP_VALIDATE_SLOT
+    if
+        293@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 277@(290@,3i))
+    end
+end
+return
+
+:COPCAR_COOP_CLEANUP
+if
+    296@ == 1
+then
+    return
+end
+296@ = 1
+gosub @COPCAR_COOP_REFRESH_ROSTER
+for 290@ = 0 to 2
+    gosub @COPCAR_COOP_VALIDATE_SLOT
+    if
+        293@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(277@(290@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(277@(290@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('KILLS', 277@(290@,3i))
+        Char.FreezePosition(277@(290@,3i), False)
+        Char.SetProofs(277@(290@,3i), False, False, False, False, False)
+    end
+end
+// Vigilante does not alter participant weapons, so preserving each remote
+// loadout is deterministic. Synchronized control restoration covers all peers.
+Player.SetControl($player1, True)
+for 290@ = 0 to 2
+    277@(290@,3i) = 0
+    280@(290@,3i) = -1
+    283@(290@,3i) = -1
+    373@(290@,3i) = -1
+end
+for 361@ = 0 to 14
+    316@(361@,15i) = -1
+    331@(361@,15i) = 0
+    346@(361@,15i) = 0
+end
+return
 
