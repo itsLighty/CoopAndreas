@@ -1,4 +1,14 @@
 :FIRETRU
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @FIRETRU_COOP_REJECT_NON_HOST
+goto @FIRETRU_COOP_HOST_START
+
+:FIRETRU_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:FIRETRU_COOP_HOST_START
 gosub @FIRETRU_16
 gosub @FIRETRU_10464
 terminate_this_script 
@@ -62,6 +72,7 @@ $db_firetruck_level = 1
 119@ = 0
 $car_numer_flag = 0
 $car_or_ped_flag = 0
+gosub @FIRETRU_COOP_INIT
 Game.SetWantedMultiplier(0.5)
 if 
   $onmission == 0
@@ -98,6 +109,7 @@ goto_if_false @FIRETRU_789
 62@ = ScriptFire.CreateCharFire(39@)
 
 :FIRETRU_789
+272@ = 0 // current level entities are not ready for network registration
 88@ = 0
 89@ = 0
 92@ = 0
@@ -430,6 +442,7 @@ Char.SetProofs(48@, False, True, True, False, False)
 88@ += 1
 
 :FIRETRU_2800
+272@ = 1 // all active vehicles and victims for this level now exist
 if 
   not Car.IsDead(35@)
 goto_if_false @FIRETRU_2823
@@ -1024,6 +1037,12 @@ wait 0
 TIMERA = 0
 
 :FIRETRU_5989
+gosub @FIRETRU_COOP_UPDATE
+if
+  212@ == 1
+then
+    goto @FIRETRU_10464
+end
 if 
   120@ == 0
 goto_if_false @FIRETRU_8079
@@ -1428,6 +1447,13 @@ $fire_time_limit = 60000
 return 
 
 :FIRETRU_8348
+gosub @FIRETRU_COOP_UPDATE
+if
+  212@ == 1
+then
+    77@ = 1
+    return
+end
 if 
   80@ == 1
 goto_if_false @FIRETRU_8411
@@ -1810,6 +1836,7 @@ Stat.RegisterOddjobMissionPassed
 $done_firetruck_progress = 1
 
 :FIRETRU_10367
+gosub @FIRETRU_COOP_NOTIFY_PASS
 77@ = 1
 return 
 goto @FIRETRU_10457
@@ -1833,6 +1860,11 @@ Hud.ClearCounter($db_firetruck_level)
 Text.ClearThisPrint('F_START')
 Text.ClearThisPrint('F_STAR1')
 Text.ClearThisPrint('FIRELVL')
+if
+  $db_firetruck_level <> 13
+then
+    gosub @FIRETRU_COOP_NOTIFY_FAILURE
+end
 if 
   $db_firetruck_level <> 13
 goto_if_false @FIRETRU_10572
@@ -1841,6 +1873,7 @@ Text.PrintWithNumberBig('TSCORE', 83@, 6000, TextStyle.WhiteMiddleSmaller)
 goto @FIRETRU_10572
 
 :FIRETRU_10572
+gosub @FIRETRU_COOP_CLEANUP
 Game.SetWantedMultiplier(1.0)
 Blip.Remove(63@)
 Blip.Remove(64@)
@@ -1994,6 +2027,606 @@ start_new_script @BACKON
 
 :FIRETRU_11392
 return 
+
+// Co-op policy for Firefighter:
+// - the host alone owns fire and victim creation, timers, level progression,
+//   rewards, and the persistent level-12 fireproof unlock;
+// - disconnecting a frozen participant is a DNF until that immutable identity
+//   reconnects, and never substitutes a replacement player or fails the host;
+// - death of a connected, identity-matched participant deterministically fails
+//   through the stock Firefighter failure and cleanup path.
+:FIRETRU_COOP_INIT
+200@, 201@, 202@ = Coop.CollectNetworkPlayersForTheMission()
+215@ = 0 // number of frozen remote gameplay participants
+for 216@ = 0 to 2
+    203@(216@,3i) = -1 // immutable internal network identity
+    206@(216@,3i) = -1 // last objective sent to this identity
+    if
+        Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+    then
+        203@(216@,3i) = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+        if
+            203@(216@,3i) >= 0
+        then
+            215@ += 1
+        end
+    end
+end
+212@ = 0 // connected participant death failure latch
+213@ = 0 // exactly-once shared result: 0 pending, 1 failed, 2 passed
+214@ = 0 // idempotent cooperative cleanup latch
+221@ = -1 // current coarse support objective
+222@ = 0 // last level whose network entities were registered
+223@ = 0 // connected-participant regroup timer
+272@ = 0 // current level entity-set readiness gate
+for 216@ = 0 to 2
+    231@(216@,3i) = -1 // burning vehicle network id
+    234@(216@,3i) = 0 // vehicle registration start
+    237@(216@,3i) = 0 // vehicle registration timed out
+end
+for 216@ = 0 to 8
+    240@(216@,9i) = -1 // victim network id
+    249@(216@,9i) = 0 // victim registration start
+    258@(216@,9i) = 0 // victim registration timed out
+end
+if
+    215@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+end
+return
+
+// Recollect every tick, but only accept a handle whose immutable network id
+// matches the mission-start slot. A disconnect produces handle 0; another
+// player can never substitute into that slot. Reconnect invalidates the old
+// objective cache and safely restages the returning identity with the team.
+:FIRETRU_COOP_REFRESH_ROSTER
+209@, 210@, 211@ = Coop.CollectNetworkPlayersForTheMission()
+230@ = 0
+for 216@ = 0 to 2
+    set_lvar_int_to_lvar_int 219@ = 200@(216@,3i)
+    200@(216@,3i) = 0
+    if
+        203@(216@,3i) >= 0
+    then
+        for 217@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(209@(217@,3i))
+            then
+                220@ = Coop.GetNetworkPlayerInternalId(209@(217@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 220@ == 203@(216@,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@(216@,3i) = 209@(217@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 219@ == 200@(216@,3i)
+    then
+        206@(216@,3i) = -1
+        if
+            Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+        then
+            230@ = 1
+        end
+    end
+end
+if
+    230@ == 1
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+end
+return
+
+:FIRETRU_COOP_VALIDATE_SLOT
+218@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+then
+    220@ = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 220@ == 203@(216@,3i)
+    then
+        218@ = 1
+    end
+end
+return
+
+:FIRETRU_COOP_UPDATE
+if
+    214@ == 1
+then
+    return
+end
+gosub @FIRETRU_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FIRETRU_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            Char.IsDead(200@(216@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH: connected frozen participant death is
+            // the single deterministic shared-failure policy.
+            212@ = 1
+            77@ = 1
+        end
+    end
+end
+if
+    212@ == 1
+then
+    return
+end
+if
+    272@ == 0
+then
+    // Model loading and spawn-point searches may still expose previous-level
+    // handles. Never register or target them as the next incident.
+    return
+end
+gosub @FIRETRU_COOP_RESET_LEVEL_REGISTRATION
+gosub @FIRETRU_COOP_POLL_ENTITY_REGISTRATION
+gosub @FIRETRU_COOP_UPDATE_REGROUP
+gosub @FIRETRU_COOP_UPDATE_OBJECTIVE
+return
+
+// Firefighter reuses stock local handles at every level. Reset registration
+// state when the level changes, then retry each concrete entity for at most
+// five seconds without ever waiting on or blocking the stock state machine.
+:FIRETRU_COOP_RESET_LEVEL_REGISTRATION
+if
+    not is_int_lvar_equal_to_int_var 222@ == $db_firetruck_level
+then
+    set_lvar_int_to_var_int 222@ = $db_firetruck_level
+    221@ = -1
+    for 216@ = 0 to 2
+        231@(216@,3i) = -1
+        234@(216@,3i) = 0
+        237@(216@,3i) = 0
+    end
+    for 216@ = 0 to 8
+        240@(216@,9i) = -1
+        249@(216@,9i) = 0
+        258@(216@,9i) = 0
+    end
+    for 216@ = 0 to 2
+        206@(216@,3i) = -1
+    end
+end
+return
+
+:FIRETRU_COOP_POLL_ENTITY_REGISTRATION
+for 267@ = 0 to 2
+    268@ = -1
+    if
+        267@ == 0
+    then
+        set_lvar_int_to_lvar_int 268@ = 35@
+    end
+    if and
+        267@ == 1
+        $db_firetruck_level > 4
+    then
+        set_lvar_int_to_lvar_int 268@ = 36@
+    end
+    if and
+        267@ == 2
+        $db_firetruck_level > 8
+    then
+        set_lvar_int_to_lvar_int 268@ = 37@
+    end
+    if and
+        268@ <> -1
+        231@(267@,3i) == -1
+        237@(267@,3i) == 0
+    then
+        if
+            Car.DoesExist(268@)
+        then
+            if
+                234@(267@,3i) == 0
+            then
+                234@(267@,3i) = Clock.GetGameTimer()
+            end
+            231@(267@,3i) = Coop.GetVehicleNetworkId(268@)
+            if
+                231@(267@,3i) <> -1
+            then
+                for 216@ = 0 to 2
+                    206@(216@,3i) = -1
+                end
+            end
+            if
+                231@(267@,3i) == -1
+            then
+                229@ = Clock.GetGameTimer()
+                sub_int_lvar_from_int_lvar 229@ -= 234@(267@,3i)
+                if
+                    229@ > 5000
+                then
+                    237@(267@,3i) = 1
+                end
+            end
+        end
+    end
+end
+for 267@ = 0 to 8
+    268@ = -1
+    if and
+        267@ == 0
+        $db_firetruck_level > 1
+    then
+        set_lvar_int_to_lvar_int 268@ = 40@
+    end
+    if and
+        267@ == 1
+        $db_firetruck_level > 2
+    then
+        set_lvar_int_to_lvar_int 268@ = 41@
+    end
+    if and
+        267@ == 2
+        $db_firetruck_level > 3
+    then
+        set_lvar_int_to_lvar_int 268@ = 42@
+    end
+    if and
+        267@ == 3
+        $db_firetruck_level > 5
+    then
+        set_lvar_int_to_lvar_int 268@ = 43@
+    end
+    if and
+        267@ == 4
+        $db_firetruck_level > 6
+    then
+        set_lvar_int_to_lvar_int 268@ = 44@
+    end
+    if and
+        267@ == 5
+        $db_firetruck_level > 7
+    then
+        set_lvar_int_to_lvar_int 268@ = 45@
+    end
+    if and
+        267@ == 6
+        $db_firetruck_level > 9
+    then
+        set_lvar_int_to_lvar_int 268@ = 46@
+    end
+    if and
+        267@ == 7
+        $db_firetruck_level > 10
+    then
+        set_lvar_int_to_lvar_int 268@ = 47@
+    end
+    if and
+        267@ == 8
+        $db_firetruck_level > 11
+    then
+        set_lvar_int_to_lvar_int 268@ = 48@
+    end
+    if and
+        268@ <> -1
+        240@(267@,9i) == -1
+        258@(267@,9i) == 0
+    then
+        if
+            Char.DoesExist(268@)
+        then
+            if
+                249@(267@,9i) == 0
+            then
+                249@(267@,9i) = Clock.GetGameTimer()
+            end
+            240@(267@,9i) = Coop.GetPedNetworkId(268@)
+            if
+                240@(267@,9i) <> -1
+            then
+                for 216@ = 0 to 2
+                    206@(216@,3i) = -1
+                end
+            end
+            if
+                240@(267@,9i) == -1
+            then
+                229@ = Clock.GetGameTimer()
+                sub_int_lvar_from_int_lvar 229@ -= 249@(267@,9i)
+                if
+                    229@ > 5000
+                then
+                    258@(267@,9i) = 1
+                end
+            end
+        end
+    end
+end
+return
+
+// Disconnected participants are a nonblocking DNF. A connected frozen player
+// farther than the active incident for twenty seconds is safely regrouped;
+// reconnecting the same identity also receives immediate restaging above.
+:FIRETRU_COOP_UPDATE_REGROUP
+224@ = 0
+for 216@ = 0 to 2
+    gosub @FIRETRU_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(200@(216@,3i), $scplayer, 160.0, 160.0, 45.0, False)
+        then
+            224@ = 1
+        end
+    end
+end
+if
+    224@ == 0
+then
+    223@ = 0
+    return
+end
+if
+    223@ == 0
+then
+    223@ = Clock.GetGameTimer()
+end
+229@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 229@ -= 223@
+if
+    229@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+    223@ = 0
+end
+return
+
+// Pick the first unfinished stock incident in stock progression order. Remote
+// support can spray the synchronized fire/victim while only the host script
+// counts extinguishes, advances the timer, and grants rewards.
+:FIRETRU_COOP_UPDATE_OBJECTIVE
+set_lvar_int_to_var_int 221@ = $db_firetruck_level
+221@ *= 32
+add_int_lvar_to_int_lvar 221@ += 89@
+225@ = 0 // 1 vehicle, 2 victim
+226@ = -1 // registration-array index
+227@ = -1 // stock entity handle
+228@ = -1 // network entity id
+if
+    92@ <> 10
+then
+    225@ = 1
+    226@ = 0
+    set_lvar_int_to_lvar_int 227@ = 35@
+    set_lvar_int_to_lvar_int 228@ = 231@(226@,3i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 1
+    95@ < 2
+then
+    225@ = 2
+    226@ = 0
+    set_lvar_int_to_lvar_int 227@ = 40@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 2
+    96@ < 2
+then
+    225@ = 2
+    226@ = 1
+    set_lvar_int_to_lvar_int 227@ = 41@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 3
+    97@ < 2
+then
+    225@ = 2
+    226@ = 2
+    set_lvar_int_to_lvar_int 227@ = 42@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 4
+    93@ <> 10
+then
+    225@ = 1
+    226@ = 1
+    set_lvar_int_to_lvar_int 227@ = 36@
+    set_lvar_int_to_lvar_int 228@ = 231@(226@,3i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 5
+    98@ < 2
+then
+    225@ = 2
+    226@ = 3
+    set_lvar_int_to_lvar_int 227@ = 43@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 6
+    99@ < 2
+then
+    225@ = 2
+    226@ = 4
+    set_lvar_int_to_lvar_int 227@ = 44@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 7
+    100@ < 2
+then
+    225@ = 2
+    226@ = 5
+    set_lvar_int_to_lvar_int 227@ = 45@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 8
+    94@ <> 10
+then
+    225@ = 1
+    226@ = 2
+    set_lvar_int_to_lvar_int 227@ = 37@
+    set_lvar_int_to_lvar_int 228@ = 231@(226@,3i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 9
+    101@ < 2
+then
+    225@ = 2
+    226@ = 6
+    set_lvar_int_to_lvar_int 227@ = 46@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 10
+    102@ < 2
+then
+    225@ = 2
+    226@ = 7
+    set_lvar_int_to_lvar_int 227@ = 47@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+if and
+    225@ == 0
+    $db_firetruck_level > 11
+    103@ < 2
+then
+    225@ = 2
+    226@ = 8
+    set_lvar_int_to_lvar_int 227@ = 48@
+    set_lvar_int_to_lvar_int 228@ = 240@(226@,9i)
+end
+for 216@ = 0 to 2
+    gosub @FIRETRU_COOP_VALIDATE_SLOT
+    if and
+        218@ == 1
+        not is_int_lvar_equal_to_int_lvar 206@(216@,3i) == 221@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        if and
+            225@ == 1
+            Car.DoesExist(227@)
+        then
+            269@, 270@, 271@ = Car.GetCoordinates(227@)
+            Coop.UpdateCheckpointForNetworkPlayer(269@, 270@, 271@, 12.0, 12.0, 8.0, 200@(216@,3i))
+            if
+                228@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(200@(216@,3i), 227@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+        end
+        if and
+            225@ == 2
+            Char.DoesExist(227@)
+        then
+            269@, 270@, 271@ = Char.GetCoordinates(227@)
+            Coop.UpdateCheckpointForNetworkPlayer(269@, 270@, 271@, 8.0, 8.0, 6.0, 200@(216@,3i))
+            if
+                228@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(200@(216@,3i), 227@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+        end
+        if
+            225@ <> 0
+        then
+            Coop.PrintNowForNetworkPlayer('SPRAY_1', 5000, 1, 200@(216@,3i))
+        end
+        set_lvar_int_to_lvar_int 206@(216@,3i) = 221@
+    end
+end
+return
+
+:FIRETRU_COOP_NOTIFY_FAILURE
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 1
+gosub @FIRETRU_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FIRETRU_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:FIRETRU_COOP_NOTIFY_PASS
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 2
+gosub @FIRETRU_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FIRETRU_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:FIRETRU_COOP_CLEANUP
+if
+    214@ == 1
+then
+    return
+end
+214@ = 1
+gosub @FIRETRU_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FIRETRU_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('SPRAY_1', 200@(216@,3i))
+        Char.FreezePosition(200@(216@,3i), False)
+        Char.SetProofs(200@(216@,3i), False, False, False, False, False)
+    end
+end
+// Firefighter never changes participant weapons, so preserving each frozen
+// identity's loadout is the deterministic weapon-restore policy.
+Player.SetControl($player1, True)
+for 216@ = 0 to 2
+    200@(216@,3i) = 0
+    203@(216@,3i) = -1
+    206@(216@,3i) = -1
+end
+for 216@ = 0 to 2
+    231@(216@,3i) = -1
+end
+for 216@ = 0 to 8
+    240@(216@,9i) = -1
+end
+return
 
 //-------------Mission 124---------------
 // Originally: Vigilante Sub-Mission
