@@ -3,6 +3,7 @@
 
 :SWEET7
 script_name 'SWEET7'
+Coop.EnableSyncingThisScript()
 gosub @SWEET7_54
 if 
   has_deatharrest_been_executed 
@@ -16,10 +17,50 @@ terminate_this_script
 
 :SWEET7_54
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+578@ = 0 // participants captured in the identity-stable mission roster
+for 579@ = 0 to 2
+    set_lvar_int_to_var_int 551@(579@,3i) = $NETWORK_PLAYER[579@]
+    554@(579@,3i) = -1 // last per-player cooperative objective
+    557@(579@,3i) = 0 // selected weapon before the mission grant
+    560@(579@,3i) = 0 // Micro Uzi ammo before the mission grant
+    563@(579@,3i) = 0 // inventory snapshot is valid
+    566@(579@,3i) = 0 // mission Micro Uzi granted
+    569@(579@,3i) = -1 // participant convoy vehicle
+    572@(579@,3i) = -1 // participant convoy vehicle network id
+    575@(579@,3i) = 0 // participant seated for the cemetery convoy
+    629@(579@,3i) = -1 // frozen internal network identity
+    if
+        Coop.IsNetworkPlayerActorValid(551@(579@,3i))
+    then
+        629@(579@,3i) = Coop.GetNetworkPlayerInternalId(551@(579@,3i))
+        set_lvar_int_to_lvar_int 580@ = 551@(579@,3i)
+        557@(579@,3i) = Char.GetCurrentWeapon(580@)
+        560@(579@,3i) = Char.GetAmmoInWeapon(580@, 28)
+        563@(579@,3i) = 1
+        578@ += 1
+    end
+end
+585@ = 0 // cooperative participant failure
+586@ = -1 // last canonical story state observed
+587@ = 0 // cooperative story-state timestamp
+588@ = 0 // participants frozen for a host cinematic
+589@ = 0 // cooperative cleanup completed
+590@ = 0 // at least one entity registration timed out
+592@ = 0 // cemetery combat entities registered
+593@ = 0 // Kane escape entities registered
+594@ = 0 // ally-command cooldown
+595@ = 1 // participant regroup result
+596@ = 0 // cemetery regroup timestamp
+597@ = 0 // Grove Street return regroup timestamp
+602@ = 0 // participants moved through the cemetery wall
+625@ = 0 // initial entity registration completed
+626@ = 0 // support-vehicle registration completed
 Text.LoadMissionText('SWEET7')
 $onmission = 1
 wait 0
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 Camera.SetFadingColor(0, 0, 0)
 Camera.DoFade(0, 2000)
 Weather.ForceNow(WeatherType.SunnyLa)
@@ -69,6 +110,11 @@ Weather.Release
 wait 0
 Char.SetCoordinates($scplayer, 2515.207, -1674.086, 12.7552)
 Char.SetHeading($scplayer, 54.1779)
+if
+    578@ > 0
+then
+    gosub @SWEET7_coop_teleport_active_players_to_host
+end
 Streaming.LoadSpecialCharacter('SWEET', 1)
 Streaming.RequestModel(492)
 Streaming.RequestModel(68)
@@ -379,6 +425,8 @@ Streaming.UnloadSpecialCharacter(1)
 TIMERB = 0
 
 :SWEET7_3089
+gosub @SWEET7_coop_register_initial_entities
+gosub @SWEET7_coop_spawn_support_vehicles
 Task.TurnCharToFaceChar($scplayer, $sweet)
 TIMERA = 0
 
@@ -563,6 +611,12 @@ set_lvar_int_to_constant 530@ = 38471
 
 :SWEET7_5066
 wait 0
+gosub @SWEET7_coop_update
+if
+    585@ == 1
+then
+    goto @SWEET7_32404
+end
 if 
   304@ == 0
 goto_if_false @SWEET7_5102
@@ -624,6 +678,7 @@ if
 goto_if_false @SWEET7_5405
 Audio.PlayMissionAudio(532@)
 Text.PrintNow(310@(534@,74s), 10000, 1)
+gosub @SWEET7_coop_broadcast_current_subtitle
 536@ = 3
 
 :SWEET7_5405
@@ -1150,6 +1205,7 @@ if
   not Game.IsMinigameInProgress
 goto_if_false @SWEET7_8317
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_unfreeze_players
 
 :SWEET7_8317
 if 
@@ -1162,12 +1218,14 @@ Player.SetControl($player1, False)
 if 
   Car.IsStopped(78@)
 goto_if_false @SWEET7_8598
+gosub @SWEET7_coop_freeze_players
 Car.FreezePosition(78@, True)
 World.ClearArea(1, 2268.039, -1670.695, 14.3594, 10.0)
 Streaming.RemoveAnimation("SMOKING")
 Text.ClearPrints
 539@ = 1
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_unfreeze_players
 Game.SetRelationship(RelationshipType.Respect, PedType.Gang2, PedType.Player1)
 Player.SetGroupRecruitment($player1, True)
 Blip.Remove(267@)
@@ -1199,6 +1257,7 @@ Streaming.RemoveAnimation("SMOKING")
 Text.ClearPrints
 539@ = 1
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_unfreeze_players
 Game.SetRelationship(RelationshipType.Respect, PedType.Gang2, PedType.Player1)
 Player.SetGroupRecruitment($player1, True)
 if 
@@ -1729,6 +1788,7 @@ if
   not Game.IsMinigameInProgress
 goto_if_false @SWEET7_11882
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_unfreeze_players
 
 :SWEET7_11882
 if 
@@ -1740,12 +1800,17 @@ goto_if_false @SWEET7_12788
 if 
   Char.LocateInCar3D($scplayer, 799.0102, -1074.032, 23.0115, 3.8, 3.8, 4.0, True)
 goto_if_false @SWEET7_12788
+gosub @SWEET7_coop_check_cemetery_regroup
+if
+    595@ == 1
+goto_if_false @SWEET7_12788
 Player.SetControl($player1, False)
 if 
   Car.IsStopped(78@)
 goto_if_false @SWEET7_12788
 Blip.Remove(42@)
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 Hud.ClearTimer($sw7_funeraltimer)
 Camera.DoFade(0, 500)
 
@@ -1760,6 +1825,7 @@ goto @SWEET7_12014
 Camera.SetFixedPosition(790.7784, -1072.139, 26.2131, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(791.6847, -1072.378, 25.8645, SwitchType.JumpCut)
 Streaming.LoadScene(803.5742, -1075.752, 23.3957)
+gosub @SWEET7_coop_move_players_to_wall
 wait 0
 if 
   not Car.IsDead(78@)
@@ -1768,6 +1834,7 @@ Car.FreezePosition(78@, True)
 
 :SWEET7_12133
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 Hud.SwitchWidescreen(True)
 Camera.DoFade(1, 1000)
 
@@ -2039,6 +2106,8 @@ Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Text.ClearPrints
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_move_players_inside_cemetery
+gosub @SWEET7_coop_unfreeze_players
 133@ = 20
 Text.ClearPrints
 Text.PrintNow('TWAR635', 6000, 1)
@@ -2552,6 +2621,7 @@ Car.MarkAsNoLongerNeeded(78@)
 :SWEET7_16584
 World.ClearArea(1, 894.0744, -1073.497, 23.3203, 125.0)
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 76@ = Car.Create(445, 897.3787, -1073.502, 23.3203)
 Car.SetHeading(76@, 90.2)
 Car.ChangeColor(76@, 25, 40)
@@ -2807,6 +2877,7 @@ if
   not Game.IsMinigameInProgress
 goto_if_false @SWEET7_18375
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_unfreeze_players
 
 :SWEET7_18375
 if 
@@ -2821,10 +2892,15 @@ goto_if_false @SWEET7_18514
 if 
   Char.LocateInCar3D($scplayer, 2501.634, -1674.131, 12.3689, 4.0, 4.0, 4.0, True)
 goto_if_false @SWEET7_18514
+gosub @SWEET7_coop_check_return_regroup
+if
+    595@ == 1
+goto_if_false @SWEET7_18514
 Player.SetControl($player1, False)
 if 
   Car.IsStopped(79@)
 goto_if_false @SWEET7_18514
+gosub @SWEET7_coop_freeze_players
 Blip.Remove(271@)
 Text.ClearPrints
 71@ = 74
@@ -2834,6 +2910,7 @@ if
   71@ == 74
 goto_if_false @SWEET7_18727
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 Game.SetEveryoneIgnorePlayer($player1, True)
 World.ClearArea(1, 2501.634, -1674.131, 12.3689, 5.0)
 Hud.SwitchWidescreen(True)
@@ -2901,6 +2978,7 @@ Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Text.ClearPrints
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_unfreeze_players
 Game.SetEveryoneIgnorePlayer($player1, False)
 goto @SWEET7_32422
 
@@ -2909,6 +2987,7 @@ if
   53@ == 5
 goto_if_false @SWEET7_19303
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 wait 0
 Camera.DoFade(0, 1500)
 
@@ -2921,6 +3000,7 @@ goto @SWEET7_19039
 
 :SWEET7_19063
 Player.SetControl($player1, False)
+gosub @SWEET7_coop_freeze_players
 if 
   not Char.IsDead(81@)
 goto_if_false @SWEET7_19093
@@ -3205,6 +3285,8 @@ Car.SetProofs(76@, False, False, False, False, False)
 
 :SWEET7_20911
 Player.SetControl($player1, True)
+gosub @SWEET7_coop_move_players_to_combat
+gosub @SWEET7_coop_unfreeze_players
 Group.SetFollowStatus(260@, True)
 if 
   not Char.IsDead(263@)
@@ -5146,6 +5228,7 @@ return
 
 :SWEET7_32404
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @SWEET7_coop_broadcast_failure
 return 
 
 :SWEET7_32422
@@ -5160,9 +5243,11 @@ Player.ClearWantedLevel($player1)
 $flag_sweet_mission_counter += 1
 Blip.Remove($sweet_contact_blip)
 Game.SetPoliceIgnorePlayer($player1, False)
+gosub @SWEET7_coop_broadcast_success
 return 
 
 :SWEET7_32503
+gosub @SWEET7_coop_cleanup
 Game.SetEveryoneIgnorePlayer($player1, False)
 Path.SwitchRoadsOn(2297.038, -1664.6, 10.8474, 2324.865, -1652.124, 14.8382)
 Path.SwitchPedRoadsOn(2297.038, -1664.6, 10.8474, 2324.865, -1652.124, 14.8382)
@@ -5235,4 +5320,1537 @@ Path.SwitchPedRoadsOn(135@, 136@, 0.0, 137@, 138@, 60.0)
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative Los Sepulcros layer. The original mission state remains
+// host-authoritative. The frozen roster can recruit the Grove escorts, drive
+// support cars, fight Kane's crew, trigger Kane's canonical movement by damage
+// or proximity, drive the escape Admiral, and share every regroup objective.
+:SWEET7_coop_validate_current_roster_slot
+627@ = 0
+if
+    629@(579@,3i) == -1
+then
+    return
+end
+if
+    not Coop.IsNetworkPlayerActorValid(551@(579@,3i))
+then
+    return
+end
+632@ = Coop.GetNetworkPlayerInternalId(551@(579@,3i))
+if
+    is_int_lvar_equal_to_int_lvar 632@ == 629@(579@,3i)
+then
+    627@ = 1
+end
+return
+
+:SWEET7_coop_teleport_active_players_to_host
+for 579@ = 0 to 2
+    633@(579@,3i) = -1
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        set_lvar_int_to_lvar_int 633@(579@,3i) = 551@(579@,3i)
+    end
+end
+Coop.TeleportPlayersToHostSafely(633@, 634@, 635@)
+return
+
+:SWEET7_coop_update
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            563@(579@,3i) == 0
+        then
+            set_lvar_int_to_lvar_int 580@ = 551@(579@,3i)
+            557@(579@,3i) = Char.GetCurrentWeapon(580@)
+            560@(579@,3i) = Char.GetAmmoInWeapon(580@, 28)
+            563@(579@,3i) = 1
+            578@ += 1
+        end
+        if
+            Char.IsDead(551@(579@,3i))
+        then
+            585@ = 1
+        end
+        if
+            Char.DoesExist($sweet)
+        then
+            if
+                Char.HasBeenDamagedByChar($sweet, 551@(579@,3i))
+            then
+                585@ = 1
+            end
+        end
+        if
+            Char.DoesExist(263@)
+        then
+            if
+                Char.HasBeenDamagedByChar(263@, 551@(579@,3i))
+            then
+                585@ = 1
+            end
+        end
+        if
+            Char.DoesExist(264@)
+        then
+            if
+                Char.HasBeenDamagedByChar(264@, 551@(579@,3i))
+            then
+                585@ = 1
+            end
+        end
+    end
+end
+
+if
+    578@ == 0
+then
+    return
+end
+
+if
+    Char.DoesExist($sweet)
+then
+    if
+        Char.IsDead($sweet)
+    then
+        585@ = 1
+    end
+end
+if
+    Char.DoesExist(263@)
+then
+    if
+        Char.IsDead(263@)
+    then
+        585@ = 1
+    end
+end
+if
+    Char.DoesExist(264@)
+then
+    if
+        Char.IsDead(264@)
+    then
+        585@ = 1
+    end
+end
+
+if
+    not is_int_lvar_equal_to_int_lvar 586@ == 53@
+then
+    set_lvar_int_to_lvar_int 586@ = 53@
+    587@ = Clock.GetGameTimer()
+end
+
+gosub @SWEET7_coop_poll_initial_entities
+gosub @SWEET7_coop_poll_support_vehicles
+if and
+    53@ >= 5
+    592@ == 0
+then
+    gosub @SWEET7_coop_begin_combat_registration
+end
+gosub @SWEET7_coop_poll_combat_entities
+if and
+    53@ >= 55
+    593@ == 0
+then
+    gosub @SWEET7_coop_begin_chase_registration
+end
+gosub @SWEET7_coop_poll_chase_entities
+gosub @SWEET7_coop_update_late_stream_players
+gosub @SWEET7_coop_update_recruitment
+gosub @SWEET7_coop_update_convoy
+gosub @SWEET7_coop_update_weapons
+gosub @SWEET7_coop_update_kane_progress
+gosub @SWEET7_coop_update_combat_targets
+gosub @SWEET7_coop_update_escape_driver
+gosub @SWEET7_coop_update_objectives
+return
+
+// A participant that was temporarily unavailable during the wall transition
+// is placed inside once its original roster actor streams back. This applies
+// only during the cemetery fight setup, never during Kane's chase or escape.
+:SWEET7_coop_update_late_stream_players
+if
+    602@ <> 1
+then
+    return
+end
+if or
+    1 > 53@
+    53@ >= 50
+    71@ <> 0
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(551@(579@,3i), $scplayer, 250.0, 250.0, 80.0, False)
+        then
+            603@ = 815.5
+            604@ = -1071.8
+            if
+                579@ == 1
+            then
+                603@ = 815.8
+                604@ = -1075.2
+            end
+            if
+                579@ == 2
+            then
+                603@ = 816.2
+                604@ = -1078.6
+            end
+            Char.ClearTasksImmediately(551@(579@,3i))
+            if
+                Char.IsInAnyCar(551@(579@,3i))
+            then
+                Char.WarpFromCarToCoord(551@(579@,3i), 603@, 604@, 23.1)
+            else
+                Char.SetCoordinates(551@(579@,3i), 603@, 604@, 23.1)
+            end
+            Char.SetAreaVisible(551@(579@,3i), 0)
+            Char.SetHeading(551@(579@,3i), 270.0)
+        end
+    end
+end
+return
+
+// A remote standing beside either marked Grove member recruits that actor into
+// CJ's canonical group. The host group variables and the original completion
+// checks remain the sole authority for advancing the mission.
+:SWEET7_coop_update_recruitment
+if
+    55@ <> 4
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if and
+            not Char.IsDead(263@)
+            not Char.IsGroupMember(263@, 260@)
+        then
+            if
+                Char.LocateAnyMeansChar3D(551@(579@,3i), 263@, 3.0, 3.0, 3.0, False)
+            then
+                Group.SetMember(263@, 260@)
+                Char.SetNeverLeavesGroup(263@, True)
+            end
+        end
+        if and
+            not Char.IsDead(264@)
+            not Char.IsGroupMember(264@, 260@)
+        then
+            if
+                Char.LocateAnyMeansChar3D(551@(579@,3i), 264@, 3.0, 3.0, 3.0, False)
+            then
+                Group.SetMember(264@, 260@)
+                Char.SetNeverLeavesGroup(264@, True)
+            end
+        end
+    end
+end
+return
+
+// The Greenwood is full once Sweet and both Grove escorts are aboard. Each
+// participant therefore receives an identity-stable support Greenwood and is
+// made its driver only when the cemetery run actually starts.
+:SWEET7_coop_update_convoy
+if or
+    55@ <> 20
+    53@ > 0
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            569@(579@,3i) == -1
+        then
+            gosub @SWEET7_coop_spawn_support_vehicle_for_current_slot
+            626@ = 1
+            604@ = Clock.GetGameTimer()
+        end
+        if
+            569@(579@,3i) <> -1
+        then
+            if
+                Car.DoesExist(569@(579@,3i))
+            then
+                if
+                    not Car.IsDead(569@(579@,3i))
+                then
+                    Car.FreezePosition(569@(579@,3i), False)
+                    if and
+                        575@(579@,3i) == 0
+                        not Char.IsInAnyCar(551@(579@,3i))
+                    then
+                        Char.ClearTasksImmediately(551@(579@,3i))
+                        Char.WarpIntoCar(551@(579@,3i), 569@(579@,3i))
+                        575@(579@,3i) = 1
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:SWEET7_coop_update_weapons
+if
+    15 > 53@
+then
+    return
+end
+if
+    53@ == 999
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if and
+            not Char.IsDead(551@(579@,3i))
+            566@(579@,3i) == 0
+        then
+            Char.GiveWeapon(551@(579@,3i), WeaponType.MicroUzi, 500)
+            Char.SetCurrentWeapon(551@(579@,3i), WeaponType.MicroUzi)
+            566@(579@,3i) = 1
+        end
+    end
+end
+return
+
+// Kane's route is still advanced by the original state variables. Remote
+// damage/proximity feeds those exact transitions so no peer can bypass the
+// scripted fight, escape-car spawn, wanted escape, or success sequence.
+:SWEET7_coop_update_kane_progress
+if
+    not Char.DoesExist(98@)
+then
+    return
+end
+if
+    Char.IsDead(98@)
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            not Char.IsDead(551@(579@,3i))
+        then
+            if
+                53@ == 20
+            then
+                if or
+                    Char.HasBeenDamagedByChar(98@, 551@(579@,3i))
+                    Char.LocateAnyMeansChar2D(551@(579@,3i), 98@, 20.0, 20.0, False)
+                then
+                    53@ = 25
+                    139@ += 1
+                    gosub @SWEET7_30126
+                    59@ = 1
+                    60@ = 1
+                    TIMERA = 0
+                end
+            end
+            if and
+                53@ == 25
+                59@ == 2
+            then
+                if or
+                    Char.HasBeenDamagedByChar(98@, 551@(579@,3i))
+                    Char.LocateAnyMeansChar2D(551@(579@,3i), 98@, 20.0, 20.0, False)
+                then
+                    53@ = 30
+                    139@ += 1
+                    gosub @SWEET7_30126
+                    59@ = 3
+                    60@ = 2
+                end
+            end
+            if and
+                53@ == 30
+                59@ == 4
+            then
+                if or
+                    Char.HasBeenDamagedByChar(98@, 551@(579@,3i))
+                    Char.LocateAnyMeansChar2D(551@(579@,3i), 98@, 20.0, 20.0, False)
+                then
+                    53@ = 35
+                    139@ += 1
+                    gosub @SWEET7_30126
+                    59@ = 5
+                end
+            end
+            if and
+                53@ == 35
+                59@ == 6
+            then
+                if or
+                    Char.HasBeenDamagedByChar(98@, 551@(579@,3i))
+                    Char.LocateAnyMeansChar2D(551@(579@,3i), 98@, 10.0, 10.0, False)
+                then
+                    53@ = 40
+                    139@ += 1
+                    gosub @SWEET7_30126
+                    59@ = 7
+                    53@ = 50
+                end
+            end
+        end
+    end
+end
+return
+
+:SWEET7_coop_update_combat_targets
+if
+    15 > 53@
+then
+    return
+end
+if
+    53@ == 999
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            not Char.IsDead(551@(579@,3i))
+        then
+            set_lvar_int_to_lvar_int 599@ = 551@(579@,3i)
+            600@ = 105@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 107@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 109@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 111@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 112@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 113@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 98@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 117@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 119@
+            gosub @SWEET7_coop_target_enemy
+            600@ = 122@
+            gosub @SWEET7_coop_target_enemy
+        end
+    end
+end
+return
+
+:SWEET7_coop_target_enemy
+if
+    not Char.DoesExist(600@)
+then
+    return
+end
+if
+    Char.IsDead(600@)
+then
+    return
+end
+if
+    is_int_lvar_equal_to_int_lvar 600@ == 98@
+then
+    if or
+        59@ == 1
+        59@ == 3
+        59@ == 5
+        59@ == 7
+    then
+        return
+    end
+end
+if
+    Char.LocateAnyMeansChar3D(599@, 600@, 24.0, 24.0, 10.0, False)
+then
+    if or
+        Char.HasBeenDamagedByChar(600@, 599@)
+        Char.LocateAnyMeansChar3D(599@, 600@, 7.0, 7.0, 5.0, False)
+    then
+        Task.KillCharOnFoot(600@, 599@)
+        if
+            50 > 53@
+        then
+            601@ = Clock.GetGameTimer()
+            if
+                is_int_lvar_greater_than_int_lvar 601@ > 594@
+            then
+                if and
+                    not Char.IsDead($sweet)
+                    64@ > 0
+                then
+                    Task.KillCharOnFoot($sweet, 600@)
+                end
+                if
+                    not Char.IsDead(263@)
+                then
+                    Task.KillCharOnFoot(263@, 600@)
+                end
+                if
+                    not Char.IsDead(264@)
+                then
+                    Task.KillCharOnFoot(264@, 600@)
+                end
+                594@ = Clock.GetGameTimer()
+                594@ += 3000
+            end
+        end
+    end
+end
+return
+
+// During the escape a peer may take the Admiral's driver seat. CJ is placed in
+// a free rear seat so all original host checks (Sweet aboard, arrival, wanted
+// escape, and final cutscene) continue to run unchanged.
+:SWEET7_coop_update_escape_driver
+if
+    not Car.DoesExist(79@)
+then
+    return
+end
+if
+    Car.IsDead(79@)
+then
+    return
+end
+if and
+    71@ == 0
+    132@ == 0
+then
+    return
+end
+Car.LockDoors(79@, CarLock.Unlocked)
+603@ = Car.GetDriver(79@)
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        set_lvar_int_to_lvar_int 604@ = 551@(579@,3i)
+        if
+            is_int_lvar_equal_to_int_lvar 603@ == 604@
+        then
+            if
+                not Char.IsInCar($scplayer, 79@)
+            then
+                if
+                    not Char.IsInAnyCar($scplayer)
+                then
+                    if
+                        Car.IsPassengerSeatFree(79@, SeatIndex.RearLeft)
+                    then
+                        Char.WarpIntoCarAsPassenger($scplayer, 79@, 1)
+                    else
+                        if
+                            Car.IsPassengerSeatFree(79@, SeatIndex.RearRight)
+                        then
+                            Char.WarpIntoCarAsPassenger($scplayer, 79@, 2)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:SWEET7_coop_update_objectives
+598@ = 0
+if or
+    55@ == 0
+    55@ == 1
+    55@ == 2
+    55@ == 3
+then
+    598@ = 10
+end
+if
+    55@ == 4
+then
+    598@ = 20
+end
+if
+    55@ == 10
+then
+    598@ = 30
+end
+if
+    55@ == 20
+then
+    598@ = 40
+end
+if
+    53@ > 0
+then
+    598@ = 50
+end
+if and
+    53@ >= 15
+    50 > 53@
+then
+    598@ = 60
+end
+if and
+    53@ >= 50
+    53@ <> 999
+then
+    598@ = 70
+end
+if
+    71@ > 0
+then
+    598@ = 80
+end
+if
+    71@ == 8
+then
+    598@ = 90
+end
+if
+    71@ >= 74
+then
+    598@ = 0
+end
+
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            not is_int_lvar_equal_to_int_lvar 554@(579@,3i) == 598@
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(551@(579@,3i))
+            Coop.RemoveCheckpointForNetworkPlayer(551@(579@,3i))
+            if
+                598@ == 10
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR617', 7000, 1, 551@(579@,3i))
+                if
+                    607@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(551@(579@,3i), 78@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+                Coop.UpdateCheckpointForNetworkPlayer(2460.499, -1656.57, 12.3125, 8.0, 8.0, 5.0, 551@(579@,3i))
+            end
+            if
+                598@ == 20
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR652', 7000, 1, 551@(579@,3i))
+                if and
+                    610@ <> -1
+                    not Char.IsDead(263@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 263@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+                if and
+                    611@ <> -1
+                    not Char.IsDead(264@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 264@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                598@ == 30
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR654', 7000, 1, 551@(579@,3i))
+                if
+                    607@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(551@(579@,3i), 78@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                598@ == 40
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR631', 7000, 1, 551@(579@,3i))
+                Coop.UpdateCheckpointForNetworkPlayer(799.0102, -1074.032, 23.0115, 12.0, 12.0, 8.0, 551@(579@,3i))
+                if and
+                    572@(579@,3i) <> -1
+                    569@(579@,3i) <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(551@(579@,3i), 569@(579@,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+            end
+            if
+                598@ == 50
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR635', 7000, 1, 551@(579@,3i))
+                Coop.UpdateCheckpointForNetworkPlayer(818.4114, -1076.603, 23.0623, 8.0, 8.0, 6.0, 551@(579@,3i))
+            end
+            if
+                598@ == 60
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR636', 7000, 1, 551@(579@,3i))
+                if and
+                    616@ <> -1
+                    not Char.IsDead(98@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 98@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+                if and
+                    612@ <> -1
+                    not Char.IsDead(105@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 105@, False, BlipDisplay.Both, BlipColor.Red, 2)
+                end
+                if and
+                    613@ <> -1
+                    not Char.IsDead(107@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 107@, False, BlipDisplay.Both, BlipColor.Red, 2)
+                end
+                if and
+                    614@ <> -1
+                    not Char.IsDead(109@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 109@, False, BlipDisplay.Both, BlipColor.Red, 2)
+                end
+            end
+            if
+                598@ == 70
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR636', 7000, 1, 551@(579@,3i))
+                if and
+                    616@ <> -1
+                    not Char.IsDead(98@)
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(551@(579@,3i), 98@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+            if
+                598@ == 80
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR644', 7000, 1, 551@(579@,3i))
+                if
+                    608@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(551@(579@,3i), 79@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                598@ == 90
+            then
+                Coop.PrintNowForNetworkPlayer('TWAR647', 8000, 1, 551@(579@,3i))
+                Coop.UpdateCheckpointForNetworkPlayer(2501.634, -1674.131, 12.3689, 10.0, 10.0, 6.0, 551@(579@,3i))
+            end
+            set_lvar_int_to_lvar_int 554@(579@,3i) = 598@
+        end
+    end
+end
+return
+
+:SWEET7_coop_broadcast_current_subtitle
+if
+    534@ == 0
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        Coop.PrintNowForNetworkPlayer(310@(534@,74s), 10000, 1, 551@(579@,3i))
+    end
+end
+return
+
+:SWEET7_coop_broadcast_failure
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 551@(579@,3i))
+    end
+end
+return
+
+:SWEET7_coop_broadcast_success
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 551@(579@,3i))
+    end
+end
+return
+
+:SWEET7_coop_freeze_players
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        Char.FreezePosition(551@(579@,3i), True)
+        Char.SetProofs(551@(579@,3i), True, True, True, True, True)
+        Char.SetCollision(551@(579@,3i), False)
+    end
+end
+588@ = 1
+return
+
+:SWEET7_coop_unfreeze_players
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        Char.FreezePosition(551@(579@,3i), False)
+        Char.SetProofs(551@(579@,3i), False, False, False, False, False)
+        Char.SetCollision(551@(579@,3i), True)
+        Char.SetVisible(551@(579@,3i), True)
+    end
+end
+588@ = 0
+return
+
+:SWEET7_coop_move_players_to_wall
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        603@ = 803.4
+        604@ = -1074.2
+        if
+            579@ == 1
+        then
+            603@ = 803.8
+            604@ = -1076.0
+        end
+        if
+            579@ == 2
+        then
+            603@ = 804.2
+            604@ = -1077.8
+        end
+        Char.ClearTasksImmediately(551@(579@,3i))
+        if
+            Char.IsInAnyCar(551@(579@,3i))
+        then
+            Char.WarpFromCarToCoord(551@(579@,3i), 603@, 604@, 23.4)
+        else
+            Char.SetCoordinates(551@(579@,3i), 603@, 604@, 23.4)
+        end
+        Char.SetAreaVisible(551@(579@,3i), 0)
+        Char.SetHeading(551@(579@,3i), 272.0)
+    end
+end
+return
+
+:SWEET7_coop_move_players_inside_cemetery
+if
+    602@ == 1
+then
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        603@ = 815.5
+        604@ = -1071.8
+        if
+            579@ == 1
+        then
+            603@ = 815.8
+            604@ = -1075.2
+        end
+        if
+            579@ == 2
+        then
+            603@ = 816.2
+            604@ = -1078.6
+        end
+        Char.ClearTasksImmediately(551@(579@,3i))
+        if
+            Char.IsInAnyCar(551@(579@,3i))
+        then
+            Char.WarpFromCarToCoord(551@(579@,3i), 603@, 604@, 23.1)
+        else
+            Char.SetCoordinates(551@(579@,3i), 603@, 604@, 23.1)
+        end
+        Char.SetAreaVisible(551@(579@,3i), 0)
+        Char.SetHeading(551@(579@,3i), 270.0)
+    end
+end
+602@ = 1
+return
+
+:SWEET7_coop_move_players_to_combat
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        603@ = 814.4
+        604@ = -1073.2
+        if
+            579@ == 1
+        then
+            603@ = 814.9
+            604@ = -1077.0
+        end
+        if
+            579@ == 2
+        then
+            603@ = 818.2
+            604@ = -1080.2
+        end
+        Char.ClearTasksImmediately(551@(579@,3i))
+        if
+            Char.IsInAnyCar(551@(579@,3i))
+        then
+            Char.WarpFromCarToCoord(551@(579@,3i), 603@, 604@, 23.1)
+        else
+            Char.SetCoordinates(551@(579@,3i), 603@, 604@, 23.1)
+        end
+        Char.SetAreaVisible(551@(579@,3i), 0)
+        Char.SetHeading(551@(579@,3i), 270.0)
+    end
+end
+return
+
+// Regroups count only currently valid actors from the frozen roster. A
+// disconnect or temporarily unavailable actor cannot block progression; a
+// connected straggler is safely pulled to the host after twenty seconds.
+:SWEET7_coop_check_cemetery_regroup
+595@ = 1
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(551@(579@,3i), $scplayer, 80.0, 80.0, 25.0, False)
+        then
+            595@ = 0
+        end
+    end
+end
+if
+    595@ == 1
+then
+    596@ = 0
+    return
+end
+if
+    596@ == 0
+then
+    596@ = Clock.GetGameTimer()
+end
+601@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 601@ -= 596@
+if
+    601@ > 20000
+then
+    gosub @SWEET7_coop_teleport_active_players_to_host
+    595@ = 1
+end
+return
+
+:SWEET7_coop_check_return_regroup
+595@ = 1
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(551@(579@,3i), $scplayer, 90.0, 90.0, 30.0, False)
+        then
+            595@ = 0
+        end
+    end
+end
+if
+    595@ == 1
+then
+    597@ = 0
+    return
+end
+if
+    597@ == 0
+then
+    597@ = Clock.GetGameTimer()
+end
+601@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 601@ -= 597@
+if
+    601@ > 20000
+then
+    gosub @SWEET7_coop_teleport_active_players_to_host
+    595@ = 1
+end
+return
+
+// Registration is polled incrementally and stops after five seconds per spawn
+// wave. No network handshake can pause or abort the canonical story state.
+:SWEET7_coop_register_initial_entities
+if
+    625@ <> 0
+then
+    return
+end
+if
+    578@ == 0
+then
+    625@ = 2
+    return
+end
+607@ = -1 // mission Greenwood
+608@ = -1 // Sweet's escape Admiral
+609@ = -1 // Sweet
+610@ = -1 // first Grove escort
+611@ = -1 // second Grove escort
+612@ = -1 // first funeral Balla
+613@ = -1 // second funeral Balla
+614@ = -1 // third funeral Balla
+625@ = 1
+583@ = Clock.GetGameTimer()
+gosub @SWEET7_coop_poll_initial_entities
+return
+
+:SWEET7_coop_poll_initial_entities
+if
+    625@ <> 1
+then
+    return
+end
+628@ = 0
+if and
+    607@ == -1
+    Car.DoesExist(78@)
+then
+    607@ = Coop.GetVehicleNetworkId(78@)
+end
+if
+    607@ == -1
+then
+    628@ += 1
+end
+if and
+    608@ == -1
+    Car.DoesExist(79@)
+then
+    608@ = Coop.GetVehicleNetworkId(79@)
+end
+if
+    608@ == -1
+then
+    628@ += 1
+end
+if and
+    609@ == -1
+    Char.DoesExist($sweet)
+then
+    609@ = Coop.GetPedNetworkId($sweet)
+end
+if
+    609@ == -1
+then
+    628@ += 1
+end
+if and
+    610@ == -1
+    Char.DoesExist(263@)
+then
+    610@ = Coop.GetPedNetworkId(263@)
+end
+if
+    610@ == -1
+then
+    628@ += 1
+end
+if and
+    611@ == -1
+    Char.DoesExist(264@)
+then
+    611@ = Coop.GetPedNetworkId(264@)
+end
+if
+    611@ == -1
+then
+    628@ += 1
+end
+if and
+    612@ == -1
+    Char.DoesExist(105@)
+then
+    612@ = Coop.GetPedNetworkId(105@)
+end
+if
+    612@ == -1
+then
+    628@ += 1
+end
+if and
+    613@ == -1
+    Char.DoesExist(107@)
+then
+    613@ = Coop.GetPedNetworkId(107@)
+end
+if
+    613@ == -1
+then
+    628@ += 1
+end
+if and
+    614@ == -1
+    Char.DoesExist(109@)
+then
+    614@ = Coop.GetPedNetworkId(109@)
+end
+if
+    614@ == -1
+then
+    628@ += 1
+end
+if
+    628@ == 0
+then
+    625@ = 2
+    gosub @SWEET7_coop_invalidate_objectives
+    return
+end
+584@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 584@ -= 583@
+if
+    584@ > 5000
+then
+    625@ = 2
+    590@ = 1
+    gosub @SWEET7_coop_invalidate_objectives
+end
+return
+
+:SWEET7_coop_spawn_support_vehicles
+if
+    578@ == 0
+then
+    626@ = 2
+    return
+end
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        gosub @SWEET7_coop_spawn_support_vehicle_for_current_slot
+    end
+end
+626@ = 1
+604@ = Clock.GetGameTimer()
+gosub @SWEET7_coop_poll_support_vehicles
+return
+
+:SWEET7_coop_spawn_support_vehicle_for_current_slot
+if
+    579@ == 0
+then
+    569@(579@,3i) = Car.Create(492, 2504.0, -1681.5, 12.4)
+end
+if
+    579@ == 1
+then
+    569@(579@,3i) = Car.Create(492, 2500.0, -1681.5, 12.4)
+end
+if
+    579@ == 2
+then
+    569@(579@,3i) = Car.Create(492, 2496.0, -1681.5, 12.4)
+end
+572@(579@,3i) = -1
+Car.SetHeading(569@(579@,3i), 354.0)
+Car.ChangeColor(569@(579@,3i), 59, 34)
+Car.SetHealth(569@(579@,3i), 1500)
+Car.SetCanBurstTires(569@(579@,3i), False)
+Car.LockDoors(569@(579@,3i), CarLock.Unlocked)
+return
+
+:SWEET7_coop_poll_support_vehicles
+if
+    626@ <> 1
+then
+    return
+end
+628@ = 0
+for 579@ = 0 to 2
+    if
+        569@(579@,3i) <> -1
+    then
+        if and
+            572@(579@,3i) == -1
+            Car.DoesExist(569@(579@,3i))
+        then
+            572@(579@,3i) = Coop.GetVehicleNetworkId(569@(579@,3i))
+        end
+        if
+            572@(579@,3i) == -1
+        then
+            628@ += 1
+        end
+    end
+end
+if
+    628@ == 0
+then
+    626@ = 2
+    gosub @SWEET7_coop_invalidate_objectives
+    return
+end
+584@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 584@ -= 604@
+if
+    584@ > 5000
+then
+    626@ = 2
+    590@ = 1
+    gosub @SWEET7_coop_invalidate_objectives
+end
+return
+
+:SWEET7_coop_begin_combat_registration
+if
+    578@ == 0
+then
+    592@ = 2
+    return
+end
+615@ = -1 // Kane arrival car
+616@ = -1 // Kane
+617@ = -1 // Kane's driver
+618@ = -1 // second-wave Balla one
+619@ = -1 // second-wave Balla two
+620@ = -1 // second-wave Balla three
+if
+    Char.DoesExist(98@)
+then
+    Char.SetOnlyDamagedByPlayer(98@, False)
+end
+if
+    Char.DoesExist(111@)
+then
+    Char.SetOnlyDamagedByPlayer(111@, False)
+end
+if
+    Char.DoesExist(112@)
+then
+    Char.SetOnlyDamagedByPlayer(112@, False)
+end
+if
+    Char.DoesExist(113@)
+then
+    Char.SetOnlyDamagedByPlayer(113@, False)
+end
+592@ = 1
+605@ = Clock.GetGameTimer()
+return
+
+:SWEET7_coop_poll_combat_entities
+if
+    592@ <> 1
+then
+    return
+end
+628@ = 0
+if and
+    615@ == -1
+    Car.DoesExist(76@)
+then
+    615@ = Coop.GetVehicleNetworkId(76@)
+end
+if
+    615@ == -1
+then
+    628@ += 1
+end
+if and
+    616@ == -1
+    Char.DoesExist(98@)
+then
+    616@ = Coop.GetPedNetworkId(98@)
+end
+if
+    616@ == -1
+then
+    628@ += 1
+end
+if and
+    617@ == -1
+    Char.DoesExist(101@)
+then
+    617@ = Coop.GetPedNetworkId(101@)
+end
+if
+    617@ == -1
+then
+    628@ += 1
+end
+if and
+    618@ == -1
+    Char.DoesExist(111@)
+then
+    618@ = Coop.GetPedNetworkId(111@)
+end
+if
+    618@ == -1
+then
+    628@ += 1
+end
+if and
+    619@ == -1
+    Char.DoesExist(112@)
+then
+    619@ = Coop.GetPedNetworkId(112@)
+end
+if
+    619@ == -1
+then
+    628@ += 1
+end
+if and
+    620@ == -1
+    Char.DoesExist(113@)
+then
+    620@ = Coop.GetPedNetworkId(113@)
+end
+if
+    620@ == -1
+then
+    628@ += 1
+end
+if
+    628@ == 0
+then
+    592@ = 2
+    gosub @SWEET7_coop_invalidate_objectives
+    return
+end
+584@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 584@ -= 605@
+if
+    584@ > 5000
+then
+    592@ = 2
+    590@ = 1
+    gosub @SWEET7_coop_invalidate_objectives
+end
+return
+
+:SWEET7_coop_begin_chase_registration
+if
+    578@ == 0
+then
+    593@ = 2
+    return
+end
+621@ = -1 // Kane's escape Greenwood
+622@ = -1 // Kane's escape driver
+623@ = -1 // Kane escort one
+624@ = -1 // Kane escort two
+593@ = 1
+606@ = Clock.GetGameTimer()
+return
+
+:SWEET7_coop_poll_chase_entities
+if
+    593@ <> 1
+then
+    return
+end
+628@ = 0
+if and
+    621@ == -1
+    Car.DoesExist(77@)
+then
+    621@ = Coop.GetVehicleNetworkId(77@)
+end
+if
+    621@ == -1
+then
+    628@ += 1
+end
+if and
+    622@ == -1
+    Char.DoesExist(122@)
+then
+    622@ = Coop.GetPedNetworkId(122@)
+end
+if
+    622@ == -1
+then
+    628@ += 1
+end
+if and
+    623@ == -1
+    Char.DoesExist(117@)
+then
+    623@ = Coop.GetPedNetworkId(117@)
+end
+if
+    623@ == -1
+then
+    628@ += 1
+end
+if and
+    624@ == -1
+    Char.DoesExist(119@)
+then
+    624@ = Coop.GetPedNetworkId(119@)
+end
+if
+    624@ == -1
+then
+    628@ += 1
+end
+if
+    628@ == 0
+then
+    593@ = 2
+    gosub @SWEET7_coop_invalidate_objectives
+    return
+end
+584@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 584@ -= 606@
+if
+    584@ > 5000
+then
+    593@ = 2
+    590@ = 1
+    gosub @SWEET7_coop_invalidate_objectives
+end
+return
+
+:SWEET7_coop_invalidate_objectives
+for 579@ = 0 to 2
+    554@(579@,3i) = -1
+end
+return
+
+:SWEET7_coop_clear_objectives
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(551@(579@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR617', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR652', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR654', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR631', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR635', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR636', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR644', 551@(579@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TWAR647', 551@(579@,3i))
+        if
+            534@ > 0
+        then
+            Coop.ClearThisPrintForNetworkPlayer(310@(534@,74s), 551@(579@,3i))
+        end
+    end
+    554@(579@,3i) = -1
+end
+return
+
+:SWEET7_coop_cleanup
+if
+    589@ == 1
+then
+    return
+end
+589@ = 1
+gosub @SWEET7_coop_clear_objectives
+gosub @SWEET7_coop_unfreeze_players
+for 579@ = 0 to 2
+    gosub @SWEET7_coop_validate_current_roster_slot
+    if
+        627@ == 1
+    then
+        if and
+            not Char.IsDead(551@(579@,3i))
+            563@(579@,3i) == 1
+            566@(579@,3i) == 1
+        then
+            Char.RemoveWeapon(28, 551@(579@,3i))
+            if
+                560@(579@,3i) > 0
+            then
+                Char.GiveWeapon(551@(579@,3i), WeaponType.MicroUzi, 560@(579@,3i))
+            end
+            if
+                557@(579@,3i) == 0
+            then
+                Char.SetCurrentWeapon(551@(579@,3i), WeaponType.Unarmed)
+            else
+                if
+                    Char.HasGotWeapon(551@(579@,3i), 557@(579@,3i))
+                then
+                    Char.SetCurrentWeapon(551@(579@,3i), 557@(579@,3i))
+                end
+            end
+        end
+    end
+    if
+        569@(579@,3i) <> -1
+    then
+        if
+            Car.DoesExist(569@(579@,3i))
+        then
+            Car.FreezePosition(569@(579@,3i), False)
+            Car.MarkAsNoLongerNeeded(569@(579@,3i))
+        end
+    end
+    551@(579@,3i) = 0
+    569@(579@,3i) = -1
+    572@(579@,3i) = -1
+    629@(579@,3i) = -1
+end
+Hud.SwitchWidescreen(False)
+Camera.RestoreJumpcut
+Player.SetControl($player1, True)
+Game.SetEveryoneIgnorePlayer($player1, False)
+return
 
