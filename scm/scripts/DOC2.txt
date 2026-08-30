@@ -3,6 +3,61 @@
 
 :DOC2
 script_name 'DOC2'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Madd Dogg remains host-authoritative for the fall, rescue state, hospital
+// handoff, reward and story flags. A frozen immutable peer roster can position
+// and drive the rescue truck; cinematics hand its driver seat back to the host.
+144@ = 0 // frozen remote-roster size
+145@ = 0 // deterministic participant failure
+146@ = 0 // idempotent cooperative cleanup guard
+147@ = 0 // cooperative play has begun
+148@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+149@ = 0 // result notification guard
+150@ = 1 // cinematic transition/freeze guard
+151@ = 0 // next bounded entity-registration poll
+152@ = 0 // next objective refresh
+153@ = -1 // rescue truck network id
+154@ = -1 // Madd Dogg network id
+155@ = 0 // rescue truck registration attempts
+156@ = 0 // Madd Dogg registration attempts
+157@ = 0 // connected frozen participants
+158@ = 0 // previous connection scratch
+159@ = 0 // actor/entity scratch
+160@ = 0 // internal id/time scratch
+161@, 162@, 163@ = Coop.CollectNetworkPlayersForTheMission()
+164@ = 0.0 // coordinate scratch X
+165@ = 0.0 // coordinate scratch Y
+166@ = 0.0 // coordinate scratch Z
+167@ = -1 // active teleport argument 1
+168@ = -1 // active teleport argument 2
+169@ = -1 // active teleport argument 3
+170@ = -1 // rescue truck driver actor
+171@ = 0 // frozen participant is driving rescue truck
+172@ = 0 // rescue truck is beneath Madd Dogg
+173@ = 0 // rescue truck is at the hospital
+174@ = 0 // previous canonical objective phase
+175@ = 0 // current canonical objective phase
+176@ = 100 // previous rescued Madd Dogg health
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 180@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    183@($temp_int,3i) = -1 // immutable internal network identity
+    186@($temp_int,3i) = 0 // currently connected participant
+    189@($temp_int,3i) = 0 // reconnect requires restaging
+    192@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(180@($temp_int,3i))
+    then
+        183@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(180@($temp_int,3i))
+        if
+            183@($temp_int,3i) <> -1
+        then
+            186@($temp_int,3i) = 1
+            144@ += 1
+        end
+    end
+end
+gosub @DOC2_COOP_FREEZE_REMOTES
 gosub @DOC2_47
 if 
   has_deatharrest_been_executed 
@@ -399,6 +454,7 @@ Text.ClearPrints
 gosub @DOC2_14020
 Camera.SetBehindPlayer
 Text.PrintNow('DOC2_01', 7000, 1)
+gosub @DOC2_COOP_START_PLAY
 
 :DOC2_4228
 if and
@@ -407,6 +463,12 @@ if and
   not Char.IsDead(95@)
 goto_if_false @DOC2_13032
 wait 0
+gosub @DOC2_COOP_UPDATE
+if
+  145@ == 1
+then
+  goto @DOC2_13046
+end
 if 
 is_ps2_keyboard_key_just_pressed 83
 goto_if_false @DOC2_4280
@@ -553,7 +615,7 @@ if or
   91@ == 0
 goto_if_false @DOC2_5748
 if 
-  Char.IsInCar($scplayer, 34@)
+  171@ == 1
 goto_if_false @DOC2_5588
 if and
   not Char.IsDead(114@)
@@ -601,9 +663,11 @@ if
   91@ == 1
 goto_if_false @DOC2_5748
 if and
-  Char.LocateAnyMeans3D($scplayer, 1, 105@, 106@, 107@, 4.0, 4.0, 4.0)
+  Car.Locate3D(34@, 1, 105@, 106@, 107@, 4.0, 4.0, 4.0)
   not Char.IsDead($scplayer)
 goto_if_false @DOC2_5748
+gosub @DOC2_COOP_BEGIN_TRANSITION
+gosub @DOC2_COOP_HANDOFF_TRUCK_TO_HOST
 Player.SetControl($player1, False)
 91@ = 2
 108@ = Char.GetHeading($scplayer)
@@ -849,6 +913,7 @@ Blip.SetCoordAppearance(92@, 1)
 
 :DOC2_6954
 gosub @DOC2_14020
+gosub @DOC2_COOP_RELEASE_REMOTES
 91@ = 3
 TIMERA = 0
 
@@ -869,7 +934,7 @@ goto @DOC2_13046
 
 :DOC2_7090
 if 
-  Char.IsInCar($scplayer, 34@)
+  171@ == 1
 goto_if_false @DOC2_7155
 if 
   89@ == 0
@@ -892,7 +957,7 @@ Blip.ChangeDisplay(92@, BlipDisplay.Neither)
 
 :DOC2_7210
 if and
-  not Char.LocateAnyMeans3D($scplayer, 0, 105@, 106@, 107@, 12.0, 12.0, 12.0)
+  not Car.Locate3D(34@, 0, 105@, 106@, 107@, 12.0, 12.0, 12.0)
   112@ == 1
 goto_if_false @DOC2_7275
 TIMERB = 0
@@ -909,7 +974,7 @@ Text.PrintNow('DOC2_11', 4000, 1)
 
 :DOC2_7324
 if 
-  Char.LocateAnyMeans3D($scplayer, 0, 105@, 106@, 107@, 12.0, 12.0, 12.0)
+  Car.Locate3D(34@, 0, 105@, 106@, 107@, 12.0, 12.0, 12.0)
 goto_if_false @DOC2_9058
 112@ = 1
 if 
@@ -984,6 +1049,8 @@ goto @DOC2_7754
 if 
   is_int_lvar_greater_than_int_var TIMERA > $doc2_rnd
 goto_if_false @DOC2_9058
+gosub @DOC2_COOP_BEGIN_TRANSITION
+gosub @DOC2_COOP_HANDOFF_TRUCK_TO_HOST
 Player.SetControl($player1, True)
 if 
   not Char.IsDead(95@)
@@ -1100,6 +1167,7 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 :DOC2_8584
 Clock.SetTimeScale(1.0)
 gosub @DOC2_14020
+gosub @DOC2_COOP_RELEASE_REMOTES
 if and
   not Char.IsDead(95@)
   not Car.IsDead(34@)
@@ -1248,7 +1316,7 @@ if and
   not Car.IsDead(34@)
 goto_if_false @DOC2_9618
 if 
-  not Char.IsInCar($scplayer, 34@)
+  171@ == 0
 goto_if_false @DOC2_9577
 if 
   117@ == 0
@@ -1488,7 +1556,7 @@ Char.SetBleeding(95@, False)
 
 :DOC2_10875
 if 
-  Char.IsInCar($scplayer, 34@)
+  171@ == 1
 goto_if_false @DOC2_10915
 Blip.ChangeDisplay(35@, BlipDisplay.Neither)
 Blip.ChangeDisplay(93@, BlipDisplay.Both)
@@ -1503,12 +1571,14 @@ if
   not Car.IsDead(34@)
 goto_if_false @DOC2_12980
 if 
-  Char.IsInCar($scplayer, 34@)
+  171@ == 1
 goto_if_false @DOC2_12980
 if and
-  Char.LocateAnyMeans3D($scplayer, 1, 1878.546, 2240.82, 9.813, 4.0, 4.0, 4.0)
+  Car.Locate3D(34@, 1, 1878.546, 2240.82, 9.813, 4.0, 4.0, 4.0)
   not Car.IsDead(34@)
 goto_if_false @DOC2_12980
+gosub @DOC2_COOP_BEGIN_TRANSITION
+gosub @DOC2_COOP_HANDOFF_TRUCK_TO_HOST
 Player.SetControl($player1, False)
 if 
   not Char.IsDead(95@)
@@ -1924,6 +1994,8 @@ goto @DOC2_13046
 if 
   104@ == 0
 goto_if_false @DOC2_13231
+148@ = 1
+gosub @DOC2_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 if 
   91@ == 5
@@ -1960,6 +2032,8 @@ return
 
 :DOC2_13233
 104@ = 1
+148@ = 2
+gosub @DOC2_COOP_NOTIFY_RESULT
 if 
   Blip.DoesExist($doc_contact_blip)
 goto_if_false @DOC2_13261
@@ -2046,6 +2120,7 @@ Char.RemoveElegantly(121@)
 return 
 
 :DOC2_13757
+gosub @DOC2_COOP_CLEANUP
 $onmission = 0
 if 
   not Char.IsDead(95@)
@@ -2277,4 +2352,485 @@ Text.ClearThisPrint(127@s)
 
 :DOC2_14988
 return 
+
+:DOC2_COOP_UPDATE_ROSTER
+157@ = 0
+177@ = 0
+161@, 162@, 163@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 158@ = 186@($temp_int,3i)
+    186@($temp_int,3i) = 0
+    if and
+        183@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(180@($temp_int,3i))
+    then
+        160@ = Coop.GetNetworkPlayerInternalId(180@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 160@ == 183@($temp_int,3i)
+        then
+            186@($temp_int,3i) = 1
+        end
+    end
+    if and
+        183@($temp_int,3i) <> -1
+        186@($temp_int,3i) == 0
+    then
+        for 159@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(161@(159@,3i))
+            then
+                160@ = Coop.GetNetworkPlayerInternalId(161@(159@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 160@ == 183@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 180@($temp_int,3i) = 161@(159@,3i)
+                    186@($temp_int,3i) = 1
+                    if and
+                        147@ == 1
+                        158@ == 0
+                    then
+                        189@($temp_int,3i) = 1
+                        192@($temp_int,3i) = -1
+                        177@ = 1
+                    end
+                end
+            end
+        end
+    end
+    if
+        186@($temp_int,3i) == 1
+    then
+        157@ += 1
+        if and
+            148@ == 0
+            Char.IsDead(180@($temp_int,3i))
+        then
+            145@ = 1
+        end
+    end
+end
+return
+
+:DOC2_COOP_BUILD_ACTIVE_ARGS
+167@ = -1
+168@ = -1
+169@ = -1
+for $temp_int = 0 to 2
+    if
+        186@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 167@($temp_int,3i) = 180@($temp_int,3i)
+    end
+end
+return
+
+:DOC2_COOP_FREEZE_REMOTES
+if
+    144@ == 0
+then
+    return
+end
+164@, 165@, 166@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        186@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(180@($temp_int,3i))
+        if
+            Char.IsInAnyCar(180@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(180@($temp_int,3i), 164@, 165@, 166@)
+        else
+            Char.SetCoordinates(180@($temp_int,3i), 164@, 165@, 166@)
+        end
+        Char.SetVisible(180@($temp_int,3i), False)
+        Char.SetCollision(180@($temp_int,3i), False)
+        Char.SetProofs(180@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(180@($temp_int,3i), -1)
+        Char.FreezePosition(180@($temp_int,3i), True)
+    end
+end
+return
+
+:DOC2_COOP_START_PLAY
+if
+    147@ == 1
+then
+    return
+end
+147@ = 1
+gosub @DOC2_COOP_UPDATE_ROSTER
+gosub @DOC2_COOP_RELEASE_REMOTES
+151@ = 0
+152@ = 0
+gosub @DOC2_COOP_POLL_REGISTRATIONS
+gosub @DOC2_COOP_UPDATE_OBJECTIVES
+return
+
+:DOC2_COOP_BEGIN_TRANSITION
+if
+    150@ == 1
+then
+    return
+end
+150@ = 1
+gosub @DOC2_COOP_UPDATE_ROSTER
+gosub @DOC2_COOP_CLEAR_OBJECTIVES
+gosub @DOC2_COOP_FREEZE_REMOTES
+return
+
+:DOC2_COOP_HANDOFF_TRUCK_TO_HOST
+if or
+    Car.IsDead(34@)
+    Char.IsDead($scplayer)
+then
+    return
+end
+164@, 165@, 166@ = Car.GetCoordinates(34@)
+170@ = Car.GetDriver(34@)
+set_lvar_int_to_var_int 159@ = $scplayer
+if
+    170@ <> -1
+then
+    if
+        not is_int_lvar_equal_to_int_lvar 170@ == 159@
+    then
+        if
+            Char.DoesExist(170@)
+        then
+            164@ += 3.0
+            Char.WarpFromCarToCoord(170@, 164@, 165@, 166@)
+            164@ -= 3.0
+        end
+    end
+end
+if
+    not Char.IsInCar($scplayer, 34@)
+then
+    if
+        Char.IsInAnyCar($scplayer)
+    then
+        Char.WarpFromCarToCoord($scplayer, 164@, 165@, 166@)
+    end
+    Char.WarpIntoCar($scplayer, 34@)
+end
+return
+
+:DOC2_COOP_RELEASE_REMOTES
+150@ = 0
+gosub @DOC2_COOP_UPDATE_ROSTER
+gosub @DOC2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(167@, 168@, 169@)
+164@, 165@, 166@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        186@($temp_int,3i) == 1
+        not Char.IsDead(180@($temp_int,3i))
+    then
+        Char.SetAreaVisible(180@($temp_int,3i), 0)
+        Char.SetVisible(180@($temp_int,3i), True)
+        Char.SetCollision(180@($temp_int,3i), True)
+        Char.SetProofs(180@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(180@($temp_int,3i), False)
+        Task.StandStill(180@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(180@($temp_int,3i))
+        189@($temp_int,3i) = 0
+        192@($temp_int,3i) = -1
+    end
+end
+152@ = 0
+return
+
+:DOC2_COOP_REFRESH_SHARED_TRUCK
+171@ = 0
+172@ = 0
+173@ = 0
+170@ = -1
+if
+    not Car.IsDead(34@)
+then
+    170@ = Car.GetDriver(34@)
+    set_lvar_int_to_var_int 159@ = $scplayer
+    if
+        is_int_lvar_equal_to_int_lvar 170@ == 159@
+    then
+        171@ = 1
+    end
+    for $temp_int = 0 to 2
+        if and
+            186@($temp_int,3i) == 1
+            is_int_lvar_equal_to_int_lvar 170@ == 180@($temp_int,3i)
+        then
+            171@ = 1
+        end
+    end
+    if
+        Car.Locate3D(34@, 0, 105@, 106@, 107@, 12.0, 12.0, 12.0)
+    then
+        172@ = 1
+    end
+    if
+        Car.Locate3D(34@, 1, 1878.546, 2240.82, 9.813, 4.0, 4.0, 4.0)
+    then
+        173@ = 1
+    end
+end
+return
+
+:DOC2_COOP_POLL_REGISTRATIONS
+if
+    147@ == 0
+then
+    return
+end
+160@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 151@ > 160@
+then
+    return
+end
+151@ = Clock.GetGameTimer()
+151@ += 500
+if and
+    153@ == -1
+    155@ < 10
+    Car.DoesExist(34@)
+then
+    153@ = Coop.GetVehicleNetworkId(34@)
+    155@ += 1
+end
+if and
+    154@ == -1
+    156@ < 10
+    Char.DoesExist(95@)
+then
+    154@ = Coop.GetPedNetworkId(95@)
+    156@ += 1
+end
+return
+
+:DOC2_COOP_PROTECT_MADD_DOGG
+if or
+    91@ <> 5
+    not Char.DoesExist(95@)
+    Char.IsDead(95@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        186@($temp_int,3i) == 1
+        Char.HasBeenDamagedByChar(95@, 180@($temp_int,3i))
+    then
+        Char.SetHealth(95@, 176@)
+        Char.ClearLastDamageEntity(95@)
+    end
+end
+176@ = Char.GetHealth(95@)
+return
+
+:DOC2_COOP_UPDATE_OBJECTIVES
+if or
+    144@ == 0
+    147@ == 0
+    150@ == 1
+then
+    return
+end
+160@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 152@ > 160@
+then
+    return
+end
+152@ = Clock.GetGameTimer()
+152@ += 750
+175@ = 1
+if
+    91@ == 3
+then
+    175@ = 2
+end
+if
+    91@ == 4
+then
+    175@ = 2
+end
+if
+    91@ >= 5
+then
+    175@ = 3
+end
+for $temp_int = 0 to 2
+    if
+        186@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 159@ = 180@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(159@)
+        Coop.RemoveCheckpointForNetworkPlayer(159@)
+        if
+            not is_int_lvar_equal_to_int_lvar 192@($temp_int,3i) == 175@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_01', 159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_05', 159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_06', 159@)
+            if
+                175@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('DOC2_01', 7000, 1, 159@)
+            end
+            if
+                175@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('DOC2_05', 4000, 1, 159@)
+            end
+            if
+                175@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('DOC2_06', 5000, 1, 159@)
+            end
+            set_lvar_int_to_lvar_int 192@($temp_int,3i) = 175@
+        end
+        if
+            175@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2107.19, 1409.153, 9.8203, 7.0, 7.0, 5.0, 159@)
+        end
+        if
+            175@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(105@, 106@, 107@, 8.0, 8.0, 6.0, 159@)
+        end
+        if
+            175@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1878.546, 2240.82, 9.813, 8.0, 8.0, 6.0, 159@)
+        end
+        if and
+            153@ <> -1
+            Car.DoesExist(34@)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(159@, 34@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if and
+            154@ <> -1
+            Char.DoesExist(95@)
+        then
+            if
+                not Char.IsDead(95@)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(159@, 95@, True, BlipDisplay.Both, BlipColor.Green, 2)
+            end
+        end
+    end
+end
+set_lvar_int_to_lvar_int 174@ = 175@
+return
+
+:DOC2_COOP_UPDATE
+if or
+    144@ == 0
+    148@ <> 0
+then
+    return
+end
+gosub @DOC2_COOP_UPDATE_ROSTER
+if and
+    177@ == 1
+    150@ == 0
+then
+    gosub @DOC2_COOP_RELEASE_REMOTES
+end
+if
+    145@ == 1
+then
+    return
+end
+gosub @DOC2_COOP_REFRESH_SHARED_TRUCK
+gosub @DOC2_COOP_POLL_REGISTRATIONS
+gosub @DOC2_COOP_PROTECT_MADD_DOGG
+gosub @DOC2_COOP_UPDATE_OBJECTIVES
+return
+
+:DOC2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        183@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(180@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 159@ = 180@($temp_int,3i)
+        160@ = Coop.GetNetworkPlayerInternalId(159@)
+        if
+            is_int_lvar_equal_to_int_lvar 160@ == 183@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(159@)
+            Coop.RemoveCheckpointForNetworkPlayer(159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_01', 159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_05', 159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_06', 159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_19', 159@)
+            Coop.ClearThisPrintForNetworkPlayer('DOC2_20', 159@)
+        end
+    end
+    192@($temp_int,3i) = -1
+end
+return
+
+:DOC2_COOP_NOTIFY_RESULT
+if or
+    144@ == 0
+    149@ == 1
+then
+    return
+end
+149@ = 1
+gosub @DOC2_COOP_UPDATE_ROSTER
+gosub @DOC2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        186@($temp_int,3i) == 1
+    then
+        if
+            148@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 180@($temp_int,3i))
+        end
+        if
+            148@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 180@($temp_int,3i))
+        end
+    end
+end
+return
+
+:DOC2_COOP_CLEANUP
+if
+    146@ == 1
+then
+    return
+end
+146@ = 1
+gosub @DOC2_COOP_UPDATE_ROSTER
+gosub @DOC2_COOP_CLEAR_OBJECTIVES
+164@, 165@, 166@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        186@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 159@ = 180@($temp_int,3i)
+        Char.FreezePosition(159@, False)
+        Char.SetProofs(159@, False, False, False, False, False)
+        Char.SetCollision(159@, True)
+        Char.SetVisible(159@, True)
+        Char.SetAreaVisible(159@, 0)
+        if and
+            150@ == 1
+            not Char.IsDead(159@)
+        then
+            Char.SetCoordinates(159@, 164@, 165@, 166@)
+        end
+    end
+end
+return
 
