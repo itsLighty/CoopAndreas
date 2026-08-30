@@ -3,6 +3,16 @@
 
 :FREIGHT
 script_name 'FREIGHT'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @FREIGHT_COOP_REJECT_NON_HOST
+goto @FREIGHT_COOP_HOST_START
+
+:FREIGHT_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:FREIGHT_COOP_HOST_START
 gosub @FREIGHT_80
 if 
   has_deatharrest_been_executed 
@@ -29,6 +39,7 @@ $flag_player_on_freight_mission = 1
 130@ = 0
 126@ = 0
 125@ = 0
+gosub @FREIGHT_COOP_INIT
 if 
   $ft_train_level == 0
 goto_if_false @FREIGHT_162
@@ -235,6 +246,12 @@ if
   not Char.IsDead($scplayer)
 goto_if_false @FREIGHT_2766
 wait 0
+gosub @FREIGHT_COOP_UPDATE
+if
+  212@ == 1
+then
+    goto @FREIGHT_2819
+end
 if 
 is_ps2_keyboard_key_just_pressed 65
 goto_if_false @FREIGHT_1373
@@ -495,6 +512,7 @@ goto @FREIGHT_1331
 goto @FREIGHT_2819
 
 :FREIGHT_2773
+gosub @FREIGHT_COOP_NOTIFY_FAILURE
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Text.ClearPrints
@@ -507,6 +525,7 @@ wait 2000
 return 
 
 :FREIGHT_2819
+gosub @FREIGHT_COOP_NOTIFY_FAILURE
 if 
   Blip.DoesExist(105@(125@,20i))
 goto_if_false @FREIGHT_2848
@@ -580,9 +599,11 @@ goto_if_false @FREIGHT_3176
 $ft_train_level += 1
 
 :FREIGHT_3176
+gosub @FREIGHT_COOP_NOTIFY_PASS
 return 
 
 :FREIGHT_3178
+gosub @FREIGHT_COOP_CLEANUP
 if 
   Blip.DoesExist(105@(125@,20i))
 goto_if_false @FREIGHT_3207
@@ -679,3 +700,306 @@ Player.IncreaseMaxHealth($player1, 100)
 :FREIGHT_3535
 return 
 
+// Co-op policy for Freight Train:
+// - the host alone owns the stock train, station order, timers, levels, payouts,
+//   progression flags, and persistent completion rewards;
+// - disconnecting a frozen participant is a DNF until that immutable identity
+//   reconnects and never blocks or fails the host's run;
+// - death of a connected, identity-matched participant deterministically fails
+//   the shared activity through the stock Freight failure path.
+:FREIGHT_COOP_INIT
+200@, 201@, 202@ = Coop.CollectNetworkPlayersForTheMission()
+215@ = 0 // number of frozen remote gameplay participants
+for 216@ = 0 to 2
+    203@(216@,3i) = -1 // immutable internal network identity
+    206@(216@,3i) = -1 // last station objective sent to this identity
+    if
+        Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+    then
+        203@(216@,3i) = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+        if
+            203@(216@,3i) >= 0
+        then
+            215@ += 1
+        end
+    end
+end
+212@ = 0 // connected participant death failure latch
+213@ = 0 // exactly-once shared result: 0 pending, 1 failed, 2 passed
+214@ = 0 // idempotent cooperative cleanup latch
+221@ = -1 // authoritative locomotive network id
+222@ = 0 // locomotive registration start time
+223@ = 0 // locomotive registration timed out
+225@ = 0 // connected-participant regroup timer
+if
+    215@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+end
+return
+
+// Recollect every tick, but only restore a handle whose immutable network id
+// matches the mission-start slot. A disconnect leaves a nonblocking DNF; a
+// different player cannot occupy the frozen slot. Reconnect invalidates the
+// objective cache so the returning participant gets a complete snapshot.
+:FREIGHT_COOP_REFRESH_ROSTER
+209@, 210@, 211@ = Coop.CollectNetworkPlayersForTheMission()
+for 216@ = 0 to 2
+    set_lvar_int_to_lvar_int 224@ = 200@(216@,3i)
+    200@(216@,3i) = 0
+    if
+        203@(216@,3i) >= 0
+    then
+        for 217@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(209@(217@,3i))
+            then
+                219@ = Coop.GetNetworkPlayerInternalId(209@(217@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@(216@,3i) = 209@(217@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 224@ == 200@(216@,3i)
+    then
+        206@(216@,3i) = -1
+    end
+end
+return
+
+:FREIGHT_COOP_VALIDATE_SLOT
+218@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+then
+    219@ = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+    then
+        218@ = 1
+    end
+end
+return
+
+:FREIGHT_COOP_UPDATE
+if
+    214@ == 1
+then
+    return
+end
+gosub @FREIGHT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FREIGHT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            Char.IsDead(200@(216@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH: a connected frozen participant death
+            // enters the existing timer/derailment/death failure path.
+            212@ = 1
+        end
+    end
+end
+if
+    212@ == 1
+then
+    return
+end
+if
+    Car.DoesExist($car)
+then
+    // Freight locomotives and passenger coaches do not expose ordinary seats
+    // consistently, but unlock access wherever the current train model permits.
+    Car.LockDoors($car, CarLock.Unlocked)
+end
+gosub @FREIGHT_COOP_POLL_TRAIN_REGISTRATION
+gosub @FREIGHT_COOP_UPDATE_REGROUP
+gosub @FREIGHT_COOP_UPDATE_OBJECTIVES
+return
+
+// Registration is incremental and nonblocking. Freight progression never waits
+// on networking, and an unregistered locomotive is abandoned after five seconds.
+:FREIGHT_COOP_POLL_TRAIN_REGISTRATION
+if and
+    221@ == -1
+    223@ == 0
+then
+    if
+        Car.DoesExist($car)
+    then
+        if
+            222@ == 0
+        then
+            222@ = Clock.GetGameTimer()
+        end
+        221@ = Coop.GetVehicleNetworkId($car)
+        if
+            221@ <> -1
+        then
+            for 216@ = 0 to 2
+                206@(216@,3i) = -1
+            end
+        end
+        if
+            221@ == -1
+        then
+            224@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 224@ -= 222@
+            if
+                224@ > 5000
+            then
+                223@ = 1
+            end
+        end
+    end
+end
+return
+
+// Regroup only connected frozen identities and only while the train is nearly
+// stopped, avoiding unsafe teleports around a moving locomotive. Disconnects
+// remain DNF and never hold progression open.
+:FREIGHT_COOP_UPDATE_REGROUP
+220@ = 0
+for 216@ = 0 to 2
+    gosub @FREIGHT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(200@(216@,3i), $scplayer, 150.0, 150.0, 45.0, False)
+        then
+            220@ = 1
+        end
+    end
+end
+if
+    220@ == 0
+then
+    225@ = 0
+    return
+end
+if
+    225@ == 0
+then
+    225@ = Clock.GetGameTimer()
+end
+224@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 224@ -= 225@
+if
+    224@ > 20000
+then
+    if
+        Car.DoesExist($car)
+    then
+        229@ = Car.GetSpeed($car)
+        if
+            2.0 > 229@
+        then
+            Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+            225@ = 0
+        end
+    end
+end
+return
+
+// Frozen supporters receive the current station checkpoint and, after bounded
+// registration succeeds, a blip for the host-controlled locomotive. The station
+// index is the cache key, so reconnect and every stock objective transition send
+// one fresh snapshot without taking ownership of timer or payout progression.
+:FREIGHT_COOP_UPDATE_OBJECTIVES
+set_lvar_float_to_lvar_float 226@ = 45@(125@,20f)
+set_lvar_float_to_lvar_float 227@ = 65@(125@,20f)
+set_lvar_float_to_lvar_float 228@ = 85@(125@,20f)
+for 216@ = 0 to 2
+    gosub @FREIGHT_COOP_VALIDATE_SLOT
+    if and
+        218@ == 1
+        not is_int_lvar_equal_to_int_lvar 206@(216@,3i) == 125@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        if
+            221@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(200@(216@,3i), $car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        Coop.UpdateCheckpointForNetworkPlayer(226@, 227@, 228@, 12.0, 12.0, 8.0, 200@(216@,3i))
+        Coop.PrintNowForNetworkPlayer('FREI_03', 5000, 1, 200@(216@,3i))
+        set_lvar_int_to_lvar_int 206@(216@,3i) = 125@
+    end
+end
+return
+
+:FREIGHT_COOP_NOTIFY_FAILURE
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 1
+gosub @FREIGHT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FREIGHT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:FREIGHT_COOP_NOTIFY_PASS
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 2
+gosub @FREIGHT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FREIGHT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:FREIGHT_COOP_CLEANUP
+if
+    214@ == 1
+then
+    return
+end
+214@ = 1
+gosub @FREIGHT_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @FREIGHT_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('FREI_03', 200@(216@,3i))
+        Char.FreezePosition(200@(216@,3i), False)
+        Char.SetProofs(200@(216@,3i), False, False, False, False, False)
+    end
+end
+// Freight never grants or removes participant weapons, so preserving each
+// frozen player's loadout is the deterministic weapon-restore policy. Restore
+// host and synchronized participant control before stock mission termination.
+Player.SetControl($player1, True)
+221@ = -1
+for 216@ = 0 to 2
+    200@(216@,3i) = 0
+    203@(216@,3i) = -1
+    206@(216@,3i) = -1
+end
+return
