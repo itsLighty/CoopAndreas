@@ -126,6 +126,7 @@ Stat.RegisterMissionGiven
 47@ = 0
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 218@ = 1 // stable frozen roster is active
+227@ = 0 // guarded co-op cleanup has not run
 for $temp_int = 0 to 2
     212@($temp_int,3i) = -1 // immutable participant internal ID
     215@($temp_int,3i) = 0 // exact participant is currently connected
@@ -2805,6 +2806,7 @@ World.SwitchEntryExit('LACRAK', True)
 
 :SWEET1B_15590
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @SWEET1B_COOP_NOTIFY_FAILURE
 78@ = Streaming.GetAreaVisible()
 if 
   78@ == 5
@@ -2865,6 +2867,7 @@ return
 $flag_sweet_mission_counter += 1
 Stat.RegisterMissionPassed('SWEET1B')
 Text.PrintWithNumberBig('M_PASSR', 3, 5000, TextStyle.Middle)
+gosub @SWEET1B_COOP_NOTIFY_PASS
 Stat.AwardPlayerMissionRespect(3)
 Zone.SetGangStrength('GAN1', GangType.Grove, 40)
 Zone.SetGangStrength('GAN2', GangType.Grove, 40)
@@ -2874,6 +2877,7 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :SWEET1B_16064
+gosub @SWEET1B_COOP_CLEANUP
 218@ = 0
 $entry_exit_area = 0
 $entry_exit_status = 0
@@ -3527,15 +3531,6 @@ end
 if
     226@ == 1
 then
-    218@ = 0
-    for $temp_int = 0 to 2
-        if and
-            215@($temp_int,3i) == 1
-            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-        then
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-        end
-    end
     gosub @SWEET1B_mission_sweet1b_failed
     gosub @SWEET1B_16064
     terminate_this_script
@@ -3567,5 +3562,47 @@ then
         end
     end
     Coop.TeleportPlayersToHostSafely(222@, 223@, 224@)
+end
+return
+
+:SWEET1B_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SWEET1B_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SWEET1B_COOP_CLEANUP
+if
+    227@ == 1
+then
+    return
+end
+227@ = 1
+218@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+    end
 end
 return

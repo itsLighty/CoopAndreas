@@ -32,6 +32,7 @@ goto_if_false @HOODS5_251
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 421@ = 1 // stable frozen roster is active
+430@ = 0 // guarded co-op cleanup has not run
 for $temp_int = 0 to 2
     415@($temp_int,3i) = -1 // immutable participant internal ID
     418@($temp_int,3i) = 0 // exact participant is currently connected
@@ -2723,6 +2724,7 @@ return
 
 :HOODS5_15256
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @HOODS5_COOP_NOTIFY_FAILURE
 return 
 
 :HOODS5_15274
@@ -2732,10 +2734,12 @@ Stat.PlayerMadeProgress(1)
 Audio.PlayMissionPassedTune(1)
 Player.ClearWantedLevel($player1)
 Text.PrintWithNumberBig('M_PASSR', 7, 5000, TextStyle.Middle)
+gosub @HOODS5_COOP_NOTIFY_PASS
 Stat.AwardPlayerMissionRespect(7)
 return 
 
 :HOODS5_15329
+gosub @HOODS5_COOP_CLEANUP
 421@ = 0
 $onmission = 0
 CarGenerator.Switch($gen_car7, 101)
@@ -2998,15 +3002,6 @@ end
 if
     429@ == 1
 then
-    421@ = 0
-    for $temp_int = 0 to 2
-        if and
-            418@($temp_int,3i) == 1
-            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-        then
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-        end
-    end
     gosub @HOODS5_15256
     gosub @HOODS5_15329
     terminate_this_script
@@ -3038,5 +3033,47 @@ then
         end
     end
     Coop.TeleportPlayersToHostSafely(425@, 426@, 427@)
+end
+return
+
+:HOODS5_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:HOODS5_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:HOODS5_COOP_CLEANUP
+if
+    430@ == 1
+then
+    return
+end
+430@ = 1
+421@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+    end
 end
 return

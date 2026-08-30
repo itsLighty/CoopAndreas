@@ -765,6 +765,7 @@ return
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 568@ = 1 // stable frozen roster is active
+577@ = 0 // guarded co-op cleanup has not run
 for $temp_int = 0 to 2
     562@($temp_int,3i) = -1 // immutable participant internal ID
     565@($temp_int,3i) = 0 // exact participant is currently connected
@@ -4362,6 +4363,7 @@ goto @SWEET4_7599
 :SWEET4_23767
 gosub @SWEET4_clear_network_objectives
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @SWEET4_COOP_NOTIFY_FAILURE
 return 
 
 :SWEET4_23785
@@ -4372,6 +4374,7 @@ Stat.PlayerMadeProgress(1)
 Player.AddScore($player1, 500)
 Stat.AwardPlayerMissionRespect(6)
 Text.PrintWithNumberBig('M_PASSS', 500, 5000, TextStyle.Middle)
+gosub @SWEET4_COOP_NOTIFY_PASS
 Audio.PlayMissionPassedTune(1)
 start_new_script @RYDER 
 Blip.Remove($ryder_contact_blip)
@@ -4382,6 +4385,7 @@ Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWOR
 return 
 
 :SWEET4_23887
+gosub @SWEET4_COOP_CLEANUP
 568@ = 0
 gosub @SWEET4_clear_network_objectives
 for $temp_int = 0 to 2
@@ -4704,15 +4708,6 @@ end
 if
     576@ == 1
 then
-    568@ = 0
-    for $temp_int = 0 to 2
-        if and
-            565@($temp_int,3i) == 1
-            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-        then
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-        end
-    end
     gosub @SWEET4_23767
     gosub @SWEET4_23887
     terminate_this_script
@@ -4744,5 +4739,47 @@ then
         end
     end
     Coop.TeleportPlayersToHostSafely(572@, 573@, 574@)
+end
+return
+
+:SWEET4_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SWEET4_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SWEET4_COOP_CLEANUP
+if
+    577@ == 1
+then
+    return
+end
+577@ = 1
+568@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+    end
 end
 return
