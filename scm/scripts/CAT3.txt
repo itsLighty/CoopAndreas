@@ -3,6 +3,7 @@
 
 :CAT3
 script_name 'CAT3'
+Coop.EnableSyncingThisScript()
 gosub @CAT3_1452
 if 
   has_deatharrest_been_executed 
@@ -228,6 +229,18 @@ return
 :CAT3_1452
 $onmission = 1
 wait 0
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+602@ = 0 // number of identity-stable remote mission participants
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        602@ += 1
+    end
+end
+605@ = 0 // cooperative participant failure
+606@ = -1 // last objective state published to remote participants
+607@ = 0 // cooperative cleanup has run
 Text.LoadMissionText('CAT')
 34@ = 5000
 35@ = 0
@@ -413,6 +426,22 @@ gosub @CAT3_330
 gosub @CAT3_710
 gosub @CAT3_851
 gosub @CAT3_981
+if
+    602@ > 0
+then
+    set_lvar_int_to_var_int 600@ = $catalina
+    gosub @CAT3_COOP_WAIT_FOR_PED
+    600@ = 310@
+    gosub @CAT3_COOP_WAIT_FOR_PED
+    600@ = 311@
+    gosub @CAT3_COOP_WAIT_FOR_PED
+    600@ = 327@
+    gosub @CAT3_COOP_WAIT_FOR_VEHICLE
+    600@ = 334@
+    gosub @CAT3_COOP_WAIT_FOR_VEHICLE
+    600@ = 340@
+    gosub @CAT3_COOP_WAIT_FOR_VEHICLE
+end
 Player.SetGroupRecruitment($player1, False)
 Streaming.LoadSceneInDirection(53@, 54@, 55@, 295.0)
 Player.SetControl($player1, False)
@@ -427,6 +456,11 @@ goto @CAT3_3466
 Char.SetCoordinates($scplayer, 659.6722, -569.272, 15.3465)
 
 :CAT3_3466
+if
+    602@ > 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+end
 if and
   not Char.IsDead($catalina)
   not Char.IsDead(310@)
@@ -464,6 +498,14 @@ World.SetCarDensityMultiplier(0.5)
 
 :CAT3_3696
 wait 0
+gosub @CAT3_COOP_CHECK_PLAYERS
+if
+    605@ == 1
+then
+    Text.PrintNow('M_FAIL', 3000, 1)
+    goto @CAT3_17048
+end
+gosub @CAT3_COOP_UPDATE_OBJECTIVE
 if 
   301@ <> 0
 goto_if_false @CAT3_4141
@@ -2717,10 +2759,12 @@ goto @CAT3_17048
 goto @CAT3_15906
 
 :CAT3_17048
+gosub @CAT3_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :CAT3_17066
+gosub @CAT3_COOP_CLEANUP
 $cat_counter += 1
 if and
   not Car.IsDead(327@)
@@ -2756,6 +2800,7 @@ $flag_cat_mission3_passed = 1
 return 
 
 :CAT3_17250
+gosub @CAT3_COOP_CLEANUP
 Blip.Remove(328@)
 Blip.Remove(335@)
 Blip.Remove(341@)
@@ -3072,4 +3117,138 @@ Text.PrintNow('CAT3_01', 5000, 1)
 
 :CAT3_18825
 return 
+
+// Keep every remote participant involved as an escort while the host drives the
+// canonical tanker. Mission entities are registered with bounded waits: failed
+// streaming or a disconnected peer can reduce presentation quality, but can
+// never deadlock story progression.
+:CAT3_COOP_CHECK_PLAYERS
+605@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            605@ = 1
+        end
+    end
+end
+return
+
+:CAT3_COOP_UPDATE_OBJECTIVE
+if
+    606@ == 35@
+then
+    return
+end
+set_lvar_int_to_lvar_int 606@ = 35@
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            35@ == 1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 327@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            Coop.PrintNowForNetworkPlayer('CAT3_02', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            35@ == 2
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 327@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 334@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            Coop.PrintNowForNetworkPlayer('CAT3_12', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            35@ == 4
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 327@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 340@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            Coop.UpdateCheckpointForNetworkPlayer(50@, 51@, 52@, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
+            Coop.PrintNowForNetworkPlayer('CAT3_04', 7000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+:CAT3_COOP_CLEANUP
+if
+    607@ == 1
+then
+    return
+end
+607@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:CAT3_COOP_WAIT_FOR_PED
+601@ = -1
+603@ = Clock.GetGameTimer()
+while 601@ == -1
+    if
+        not Char.DoesExist(600@)
+    then
+        break
+    end
+    if
+        Char.IsDead(600@)
+    then
+        break
+    end
+    601@ = Coop.GetPedNetworkId(600@)
+    if
+        601@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
+
+:CAT3_COOP_WAIT_FOR_VEHICLE
+601@ = -1
+603@ = Clock.GetGameTimer()
+while 601@ == -1
+    if
+        not Car.DoesExist(600@)
+    then
+        break
+    end
+    if
+        Car.IsDead(600@)
+    then
+        break
+    end
+    601@ = Coop.GetVehicleNetworkId(600@)
+    if
+        601@ == -1
+    then
+        wait 0
+        604@ = Clock.GetGameTimer()
+        604@ -= 603@
+        if
+            604@ > 3000
+        then
+            break
+        end
+    end
+end
+return
 
