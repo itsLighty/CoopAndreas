@@ -27,8 +27,11 @@ public:
 	static std::wstring m_sInputText;
 	static bool m_bInputActive;
 	static size_t m_nCaretPos;
+	static bool InsertTextAtCaret(const std::wstring& text);
 	static void EraseCharacter(std::wstring& text, size_t offCaretPos);
 	static void MoveCaretDirection(bool isMoveRight);
+	static void ClearInputText();
+	static bool SubmitInput();
 	static void AddMessage(const std::vector<CTextSegment>& segs);
 	static void AddMessage(const std::string& str);
 	static void AddMessage(const char* format, ...);

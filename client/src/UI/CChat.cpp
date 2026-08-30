@@ -1,6 +1,7 @@
 #include "config.h"
 #include "stdafx.h"
 #include "CUnicode.h"
+#include "CChatGamepadKeyboard.h"
 
 std::vector<CChatMessage> CChat::m_aMessages{};
 std::vector<std::wstring> CChat::m_aPrevMessages{};
@@ -29,9 +30,58 @@ static bool IsLowSymbolSurrogate(wchar_t ch)
     return (ch >= 0xDC00 && ch <= 0xDFFF);
 }
 
+bool CChat::InsertTextAtCaret(const std::wstring& text)
+{
+    if (text.empty() || m_nCaretPos > m_sInputText.size() ||
+        m_sInputText.size() >= Config::MAX_CHAT_MESSAGE_LENGTH)
+        return false;
+
+    const size_t remaining = Config::MAX_CHAT_MESSAGE_LENGTH - m_sInputText.size();
+    size_t accepted = 0;
+    while (accepted < text.size() && accepted < remaining)
+    {
+        const wchar_t current = text[accepted];
+        if (IsHighSymbolSurrogate(current))
+        {
+            if (accepted + 1 < text.size() && IsLowSymbolSurrogate(text[accepted + 1]))
+            {
+                if (accepted + 2 > remaining)
+                    break;
+                accepted += 2;
+                continue;
+            }
+
+            // WM_CHAR delivers a non-BMP character as two events. Keep the
+            // high surrogate only when the wire limit still leaves room for
+            // the low half arriving in the next event.
+            if (text.size() == 1 && remaining >= 2)
+                ++accepted;
+            else
+                break;
+            continue;
+        }
+
+        if (IsLowSymbolSurrogate(current))
+        {
+            const bool completesPendingPair = accepted == 0 && m_nCaretPos > 0 &&
+                IsHighSymbolSurrogate(m_sInputText[m_nCaretPos - 1]);
+            if (!completesPendingPair)
+                break;
+        }
+        ++accepted;
+    }
+
+    if (accepted == 0)
+        return false;
+
+    m_sInputText.insert(m_nCaretPos, text, 0, accepted);
+    m_nCaretPos += accepted;
+    return true;
+}
+
 void CChat::EraseCharacter(std::wstring& wtext, size_t offCaretPos)
 {
-    if (m_nCaretPos < 0 || m_nCaretPos + offCaretPos > wtext.size())
+    if (m_nCaretPos > wtext.size() || offCaretPos > wtext.size() - m_nCaretPos)
         return;
 
     std::wstring::iterator it = wtext.begin() + m_nCaretPos;
@@ -121,6 +171,42 @@ void CChat::MoveCaretDirection(bool isMoveRight)
     }
 
     m_nCaretPos = std::distance(m_sInputText.begin(), it);
+}
+
+void CChat::ClearInputText()
+{
+    m_sInputText.clear();
+    m_nCaretPos = 0;
+}
+
+bool CChat::SubmitInput()
+{
+    if (!m_bInputActive || !CNetwork::m_bAuthenticated)
+        return false;
+
+    ToggleInput(false);
+
+    if (m_sInputText.empty())
+        return true;
+
+    if (IsInputTextEmpty(m_sInputText))
+    {
+        ClearInputText();
+        return true;
+    }
+
+    Packets::System::ChatMessage packet{};
+    wcscpy_s(packet.message, m_sInputText.c_str());
+    SendPlayerMessage(CLocalPlayer::m_Name, CNetworkPlayerManager::m_nMyId, packet.message);
+    AddPreviousMessage(m_sInputText);
+    GetPacketFactory().Send(packet);
+
+    auto it = std::find(m_aPrevMessages.begin(), m_aPrevMessages.end(), m_sInputText);
+    if (it != m_aPrevMessages.end())
+        m_nCurrentPrevMessageIndex = static_cast<uint8_t>(std::distance(m_aPrevMessages.begin(), it)) + 1;
+
+    ClearInputText();
+    return true;
 }
 
 void CChat::AddMessage(const std::vector<CTextSegment>& segs)
@@ -356,6 +442,9 @@ void CChat::Draw()
 
 void CChat::ToggleInput(bool toggle)
 {
+    if (m_bInputActive == toggle)
+        return;
+
     m_bInputActive = toggle;
 
     if (toggle)
@@ -366,6 +455,7 @@ void CChat::ToggleInput(bool toggle)
     else
     {
         patch::SetRaw(0x53BEE6, patch_disable_inputs, 5);
+        CChatGamepadKeyboard::OnChatInputClosed();
     }
     CPad::NewMouseControllerState.x = 0;
     CPad::NewMouseControllerState.y = 0;
@@ -392,8 +482,10 @@ void CChat::DrawInput()
         return;
 
     const int x = static_cast<int>(std::lround(transform.X(10.0f)));
-    const int y = static_cast<int>(std::lround(transform.Y(CUtil::SCREEN_BASE_HEIGHT / 5.0f))) +
-        16 * CDXFont::m_fFontSize;
+    const int y = CChatGamepadKeyboard::IsActive()
+        ? static_cast<int>(std::lround(transform.Y(180.0f)))
+        : static_cast<int>(std::lround(transform.Y(CUtil::SCREEN_BASE_HEIGHT / 5.0f))) +
+            16 * CDXFont::m_fFontSize;
     CDXFont::Draw(x, y, L": " + displayText, D3DCOLOR_RGBA(255, 255, 255, 255));
 }
 
@@ -409,11 +501,7 @@ void CChat::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         std::wstring chr = CUnicode::ConvertWideCharToUtf16Char((wchar_t)wParam);
 
-        if (m_sInputText.size() + chr.size() <= Config::MAX_CHAT_MESSAGE_LENGTH)
-        {
-            m_sInputText.insert(m_nCaretPos, chr);
-            m_nCaretPos += chr.size();
-        }
+        InsertTextAtCaret(chr);
     }
     else if (message == WM_KEYDOWN && m_bInputActive)
     {
@@ -480,8 +568,7 @@ void CChat::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             if (GetKeyState(VK_SHIFT) & 0x8000)
             {
-                m_sInputText.clear();
-                m_nCaretPos = 0;
+                ClearInputText();
                 return;
             }
 
@@ -498,20 +585,22 @@ void CChat::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     return;
 
                 HANDLE hData = GetClipboardData(CF_UNICODETEXT);
-
-                CloseClipboard();
-
                 if (!hData)
+                {
+                    CloseClipboard();
                     return;
+                }
 
-                wchar_t* wideText = (wchar_t*)(GlobalLock(hData));
-                
-                GlobalUnlock(hData);
-
+                wchar_t* wideText = static_cast<wchar_t*>(GlobalLock(hData));
                 if (!wideText)
+                {
+                    CloseClipboard();
                     return;
+                }
 
                 std::wstring clipboardText(wideText);
+                GlobalUnlock(hData);
+                CloseClipboard();
 
                 clipboardText.erase(
                     std::remove_if(clipboardText.begin(), clipboardText.end(), [](wchar_t c) {
@@ -520,14 +609,7 @@ void CChat::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     clipboardText.end()
                 );
 
-                size_t remain = Config::MAX_CHAT_MESSAGE_LENGTH - m_sInputText.size();
-                if (clipboardText.size() > remain)
-                {
-                    clipboardText.resize(remain);
-                }
-
-                m_sInputText.insert(m_nCaretPos, clipboardText);
-                m_nCaretPos += clipboardText.size();
+                InsertTextAtCaret(clipboardText);
             }
         }
     }
@@ -543,35 +625,7 @@ void CChat::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else if (wParam == VK_RETURN && m_bInputActive)
         {
-            if (!CNetwork::m_bAuthenticated)
-                return;
-
-            ToggleInput(false);
-
-            if (m_sInputText.empty())
-                return;
-
-            if (IsInputTextEmpty(m_sInputText))
-            {
-                m_sInputText.clear();
-                m_nCaretPos = 0;
-                return;
-            }
-
-            Packets::System::ChatMessage packet{};
-            wcscpy_s(packet.message, m_sInputText.c_str());
-            SendPlayerMessage(CLocalPlayer::m_Name, CNetworkPlayerManager::m_nMyId, packet.message);
-            AddPreviousMessage(m_sInputText);
-            GetPacketFactory().Send(packet);
-
-            auto it = std::find(m_aPrevMessages.begin(), m_aPrevMessages.end(), m_sInputText);
-            if (it != m_aPrevMessages.end())
-            {
-                m_nCurrentPrevMessageIndex = (uint8_t)(std::distance(m_aPrevMessages.begin(), it)) + 1;
-            }
-
-            m_sInputText.clear();
-            m_nCaretPos = 0;
+            SubmitInput();
         }
     }
 }

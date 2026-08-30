@@ -33,6 +33,7 @@
 #include <network/packets/scripts.h>
 #include <CNetworkEntityBlip.h>
 #include <CMissionSessionClient.h>
+#include <UI/CChatGamepadKeyboard.h>
 
 unsigned int lastOnFootSyncTickRate = 0;
 unsigned int lastDriverSyncTickRate = 0;
@@ -55,6 +56,7 @@ public:
 			};
         Events::gameProcessEvent.before += []
         {
+            CChatGamepadKeyboard::Process();
             ENetEvent event;
             if (CNetwork::m_bConnected)
             {
@@ -274,6 +276,7 @@ public:
             CNetworkPlayerNameTag::Process();
             CChat::Draw();
             CChat::DrawInput();
+            CChatGamepadKeyboard::Draw();
 
             if (FrontEndMenuManager.m_bPrefsShowHud)
             {
