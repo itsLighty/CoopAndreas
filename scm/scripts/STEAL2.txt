@@ -3,6 +3,7 @@
 
 :STEAL2
 script_name 'STEAL2'
+Coop.EnableSyncingThisScript()
 gosub @STEAL2_47
 if 
   has_deatharrest_been_executed 
@@ -18,6 +19,33 @@ $onmission = 1
 Stat.RegisterMissionGiven
 Text.LoadMissionText('STEAL2')
 Text.ClearPrints
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+520@ = 0 // frozen cooperative roster size
+521@ = 0 // cooperative cleanup guard
+522@ = 0 // connected participant/protected ally failure
+523@ = 0 // remotes staged for opening cinematic
+524@ = 0 // next objective refresh
+525@ = 0 // next entity registration retry
+526@ = 0 // next lag recovery/protection pass
+527@ = 0 // unresolved registration pass
+528@ = 0 // timer/internal-id scratch
+529@ = -1 // entity network-id scratch
+530@ = 0 // entity scratch
+548@ = -1 // last cooperative route stage
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        506@($temp_int,3i) = 1
+        520@ += 1
+    end
+end
+gosub @STEAL2_COOP_FREEZE_REMOTES
 wait 0
 99@ = 0
 100@ = 0
@@ -146,6 +174,12 @@ Char.ShutUpForScriptedSpeech($cesar, True)
 
 :STEAL2_988
 wait 0
+gosub @STEAL2_COOP_UPDATE
+if
+    522@ == 1
+then
+    goto @STEAL2_26013
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @STEAL2_1014
@@ -3899,10 +3933,12 @@ gosub @STEAL2_28925
 goto @STEAL2_988
 
 :STEAL2_26013
+gosub @STEAL2_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :STEAL2_26031
+gosub @STEAL2_COOP_NOTIFY_SUCCESS
 $flag_steal_mission_counter += 1
 CarGenerator.Switch($steal_car_cargen2, 101)
 CarGenerator.Switch($steal_car_cargen3, 101)
@@ -3916,6 +3952,7 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :STEAL2_26109
+gosub @STEAL2_COOP_CLEANUP
 if 
   is_var_text_label_empty s$shop_name
 goto_if_false @STEAL2_26127
@@ -5013,4 +5050,380 @@ Text.ClearThisPrint(115@(113@,13s))
 
 :STEAL2_32511
 return 
+
+// Immutable mission-entry identities keep late joiners out of the active convoy
+// while allowing the same participant to recover a reconnected actor handle.
+:STEAL2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    506@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                522@ = 1
+            end
+        end
+    end
+end
+return
+
+:STEAL2_COOP_BUILD_ACTIVE_ARGS
+553@ = -1
+554@ = -1
+555@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 553@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:STEAL2_COOP_TELEPORT_ACTIVE
+if
+    520@ == 0
+then
+    return
+end
+gosub @STEAL2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(553@, 554@, 555@)
+return
+
+:STEAL2_COOP_FREEZE_REMOTES
+if
+    523@ == 1
+then
+    return
+end
+535@, 536@, 537@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 535@, 536@, 537@)
+        end
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+523@ = 1
+return
+
+:STEAL2_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), 0)
+    end
+end
+523@ = 0
+return
+
+:STEAL2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('STE2_02', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('STE2_04', 500@($temp_int,3i))
+    end
+    509@($temp_int,3i) = -1
+end
+return
+
+:STEAL2_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        if
+            509@($temp_int,3i) <> 99@
+        then
+            if
+                99@ > 0
+            then
+                if
+                    99@ == 14
+                then
+                    Coop.PrintNowForNetworkPlayer('STE2_04', 5000, 1, 500@($temp_int,3i))
+                else
+                    Coop.PrintNowForNetworkPlayer('STE2_02', 6000, 1, 500@($temp_int,3i))
+                end
+            end
+            set_lvar_int_to_lvar_int 509@($temp_int,3i) = 99@
+        end
+        if
+            99@ > 0
+        then
+            if
+                Car.DoesExist(34@)
+            then
+                529@ = Coop.GetVehicleNetworkId(34@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                Car.DoesExist(35@)
+            then
+                529@ = Coop.GetVehicleNetworkId(35@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 35@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+    end
+end
+return
+
+:STEAL2_COOP_REGISTER_PED
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        529@ = Coop.GetPedNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:STEAL2_COOP_REGISTER_VEHICLE
+if
+    Car.DoesExist(530@)
+then
+    if
+        not Car.IsDead(530@)
+    then
+        529@ = Coop.GetVehicleNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:STEAL2_COOP_SYNC_WORLD_PASS
+527@ = 0
+set_lvar_int_to_var_int 530@ = $cesar
+gosub @STEAL2_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 34@
+gosub @STEAL2_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 530@ = 35@
+gosub @STEAL2_COOP_REGISTER_VEHICLE
+for 560@ = 0 to 21
+    set_lvar_int_to_lvar_int 530@ = 36@(560@,22i)
+    gosub @STEAL2_COOP_REGISTER_VEHICLE
+    set_lvar_int_to_lvar_int 530@ = 58@(560@,22i)
+    gosub @STEAL2_COOP_REGISTER_PED
+end
+return
+
+// The two route cars and Cesar remain host-authoritative. Peers act as escort
+// vehicles; only peers that fall far outside the convoy are selected for a safe
+// host regroup, avoiding routine stage-transition warps for active drivers.
+:STEAL2_COOP_RECOVER_LAGGING
+553@ = -1
+554@ = -1
+555@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            not Char.LocateAnyMeansChar2D(500@($temp_int,3i), $scplayer, 220.0, 220.0, False)
+        then
+            set_lvar_int_to_lvar_int 553@($temp_int,3i) = 500@($temp_int,3i)
+        end
+    end
+end
+Coop.TeleportPlayersToHostSafely(553@, 554@, 555@)
+return
+
+:STEAL2_COOP_CHECK_PROTECTED
+if
+    Char.DoesExist($cesar)
+then
+    if
+        Char.IsDead($cesar)
+    then
+        522@ = 1
+        return
+    end
+    for $temp_int = 0 to 2
+        if
+            506@($temp_int,3i) == 1
+        then
+            if
+                Char.HasBeenDamagedByChar($cesar, 500@($temp_int,3i))
+            then
+                522@ = 1
+            end
+        end
+    end
+end
+return
+
+:STEAL2_COOP_PHASE_CHANGED
+gosub @STEAL2_COOP_CLEAR_OBJECTIVES
+gosub @STEAL2_COOP_UPDATE_ROSTER
+if
+    99@ == 0
+then
+    gosub @STEAL2_COOP_FREEZE_REMOTES
+else
+    gosub @STEAL2_COOP_RELEASE_REMOTES
+    gosub @STEAL2_COOP_REFRESH_OBJECTIVES
+end
+set_lvar_int_to_lvar_int 548@ = 99@
+return
+
+:STEAL2_COOP_UPDATE
+if
+    520@ == 0
+then
+    return
+end
+gosub @STEAL2_COOP_UPDATE_ROSTER
+if
+    548@ <> 99@
+then
+    gosub @STEAL2_COOP_PHASE_CHANGED
+end
+528@ = Clock.GetGameTimer()
+if
+    528@ > 524@
+then
+    gosub @STEAL2_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 524@ = 528@
+    524@ += 3000
+end
+if
+    528@ > 525@
+then
+    gosub @STEAL2_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 525@ = 528@
+    if
+        527@ == 1
+    then
+        525@ += 750
+    else
+        525@ += 5000
+    end
+end
+if
+    528@ > 526@
+then
+    gosub @STEAL2_COOP_CHECK_PROTECTED
+    if and
+        99@ > 0
+        14 > 99@
+    then
+        gosub @STEAL2_COOP_RECOVER_LAGGING
+    end
+    set_lvar_int_to_lvar_int 526@ = 528@
+    526@ += 10000
+end
+return
+
+:STEAL2_COOP_NOTIFY_FAILURE
+if
+    520@ == 0
+then
+    return
+end
+gosub @STEAL2_COOP_UPDATE_ROSTER
+gosub @STEAL2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:STEAL2_COOP_NOTIFY_SUCCESS
+if
+    520@ == 0
+then
+    return
+end
+gosub @STEAL2_COOP_UPDATE_ROSTER
+gosub @STEAL2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:STEAL2_COOP_CLEANUP
+if
+    521@ == 1
+then
+    return
+end
+521@ = 1
+gosub @STEAL2_COOP_UPDATE_ROSTER
+gosub @STEAL2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+        503@($temp_int,3i) <> -1
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            Char.ClearTasksImmediately(500@($temp_int,3i))
+            Char.FreezePosition(500@($temp_int,3i), False)
+            Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+            Char.SetCollision(500@($temp_int,3i), True)
+            Char.SetVisible(500@($temp_int,3i), True)
+            Task.StandStill(500@($temp_int,3i), 0)
+        end
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+end
+523@ = 0
+return
 
