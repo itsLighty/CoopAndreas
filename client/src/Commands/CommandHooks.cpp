@@ -8,16 +8,29 @@ CRunningScript* pScript = nullptr;
 
 bool ProcessCustomCommand()
 {
-	// if is in custom command range
 	uint16_t commandNormalised = (nCommand & 0x7FFF);
-	if (commandNormalised >= CCustomCommandMgr::MIN_CUSTOM_COMMAND && commandNormalised <= CCustomCommandMgr::MAX_CUSTOM_COMMAND)
+	if (!CCustomCommandMgr::IsCustomCommand(commandNormalised))
 	{
-		pScript->m_pCurrentIP += 2;
-		pScript->m_bNotFlag = (nCommand & 0x8000) != 0;
-		CCustomCommandMgr::ProcessCommand(commandNormalised, pScript); // process it
+		return false;
+	}
+
+	if (!CCustomCommandMgr::HasCommand(commandNormalised))
+	{
+		char message[160];
+		sprintf_s(message, sizeof message,
+			"Unregistered custom opcode [%X] script name '%s', base ip '%p', cur ip '%p'", commandNormalised,
+			pScript->m_szName, pScript->m_pBaseIP, pScript->m_pCurrentIP);
+		MessageBoxA(nullptr, message, "Invalid opcode processing", MB_ICONERROR);
+
+		// The parameter count of an unknown opcode is unknowable, so continuing
+		// would desynchronize the instruction pointer. Stop only this script.
+		pScript->m_bIsActive = false;
 		return true;
 	}
-	return false;
+
+	pScript->m_pCurrentIP += 2;
+	pScript->m_bNotFlag = (nCommand & 0x8000) != 0;
+	return CCustomCommandMgr::ProcessCommand(commandNormalised, pScript);
 }
 
 

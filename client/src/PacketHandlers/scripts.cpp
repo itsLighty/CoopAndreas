@@ -6,39 +6,30 @@
 #include <CEntryExitMarkerSync.h>
 #include <COpCodeSync.h>
 #include <CTaskSequenceSync.h>
+#include <CMissionSessionClient.h>
+
+namespace
+{
+bool ShouldIgnoreMissionEffect()
+{
+	return CMissionSessionClient::GetState().IsActive() && CMissionSessionClient::IsSpectator();
+}
+}
+
+PACKET_HANDLER(ePacketType::MISSION_SESSION_STATE,
+    Packets::Scripts::MissionSessionState* pMissionSessionState)
+{
+	CMissionSessionClient::HandleState(*pMissionSessionState);
+}
 
 PACKET_HANDLER(ePacketType::ON_MISSION_FLAG_SYNC, Packets::Scripts::OnMissionFlagSync* pOnMissionFlagSync)
 {
-	if (CLocalPlayer::m_bIsHost)
-		return;
-
-	if (CTheScripts::OnAMissionFlag)
-	{
-		CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag] = pOnMissionFlagSync->bOnMission;
-		if (pOnMissionFlagSync->bOnMission == false && (bool)CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag])
-		{
-			// cleanup
-			CNetworkCheckpoint::Remove();
-			CNetworkEntityBlip::ClearEntityBlips();
-			TheCamera.SetWideScreenOff();
-			CPad::GetPad(0)->SetDrunkInputDelay(0);
-			CPad::GetPad(0)->DisablePlayerControls = 0;
-			CPad::GetPad(0)->bApplyBrakes = 0;
-			CPad::GetPad(0)->bDisablePlayerEnterCar = 0;
-			CPad::GetPad(0)->bDisablePlayerDuck = 0;
-			CPad::GetPad(0)->bDisablePlayerFireWeapon = 0;
-			CPad::GetPad(0)->bDisablePlayerFireWeaponWithL1 = 0;
-			CPad::GetPad(0)->bDisablePlayerCycleWeapon = 0;
-			CPad::GetPad(0)->bDisablePlayerJump = 0;
-			CPad::GetPad(0)->bDisablePlayerDisplayVitalStats = 0;
-			CDraw::FadeValue = 0;
-		}
-	}
+	CMissionSessionClient::HandleLegacyMissionFlag(pOnMissionFlagSync->bOnMission);
 }
 
 PACKET_HANDLER(ePacketType::ENEX_SYNC, Packets::Scripts::EnExSync* pEnExSync)
 {
-	if (CLocalPlayer::m_bIsHost)
+	if (CLocalPlayer::m_bIsHost || ShouldIgnoreMissionEffect())
 		return;
 
 	CEntryExitMarkerSync::Receive(*pEnExSync);
@@ -46,7 +37,7 @@ PACKET_HANDLER(ePacketType::ENEX_SYNC, Packets::Scripts::EnExSync* pEnExSync)
 
 PACKET_HANDLER(ePacketType::ADD_MESSAGE_GXT, Packets::Scripts::AddMessageGXT* pAddMessageGXT)
 {
-	if (CLocalPlayer::m_bIsHost)
+	if (CLocalPlayer::m_bIsHost || ShouldIgnoreMissionEffect())
 		return;
 
 	char gxt[8];
@@ -74,7 +65,7 @@ PACKET_HANDLER(ePacketType::ADD_MESSAGE_GXT, Packets::Scripts::AddMessageGXT* pA
 
 PACKET_HANDLER(ePacketType::REMOVE_MESSAGE_GXT, Packets::Scripts::RemoveMessageGXT* pRemoveMessageGXT)
 {
-	if (CLocalPlayer::m_bIsHost)
+	if (CLocalPlayer::m_bIsHost || ShouldIgnoreMissionEffect())
 		return;
 
 	char gxt[8];
@@ -111,7 +102,7 @@ PACKET_HANDLER(ePacketType::SKIP_CUTSCENE, Packets::Scripts::SkipCutscene* pSkip
 
 PACKET_HANDLER(ePacketType::PLAY_MISSION_AUDIO, Packets::Scripts::PlayMissionAudio* pPlayMissionAudio)
 {	
-	if (CLocalPlayer::m_bIsHost)
+	if (CLocalPlayer::m_bIsHost || ShouldIgnoreMissionEffect())
 		return;
 
 	plugin::CallMethod<0x507290>(&AudioEngine, pPlayMissionAudio->slotid, pPlayMissionAudio->audioid); // CAudioEngine__PreloadMissionAudio
@@ -120,7 +111,12 @@ PACKET_HANDLER(ePacketType::PLAY_MISSION_AUDIO, Packets::Scripts::PlayMissionAud
 
 PACKET_HANDLER(ePacketType::TELEPORT_PLAYER_SCRIPTED, Packets::Scripts::TeleportPlayerScripted* pTeleportPlayerScripted)
 {
+	if (ShouldIgnoreMissionEffect())
+		return;
+
 	auto pPlayerPed = FindPlayerPed(0);
+	if (!pPlayerPed)
+		return;
 	pPlayerPed->Teleport(pTeleportPlayerScripted->pos, false);
 	pPlayerPed->m_fCurrentRotation = pTeleportPlayerScripted->heading.m_angle;
 	pPlayerPed->m_fAimingRotation = pTeleportPlayerScripted->heading.m_angle;
@@ -130,6 +126,9 @@ PACKET_HANDLER(ePacketType::TELEPORT_PLAYER_SCRIPTED, Packets::Scripts::Teleport
 
 PACKET_HANDLER(ePacketType::OPCODE_SYNC, Packets::Scripts::OpCodeSync* pOpCodeSync)
 {
+	if (ShouldIgnoreMissionEffect())
+		return;
+
 	/*if (CLocalPlayer::m_bIsHost)
 		return;*/
 
@@ -139,5 +138,8 @@ PACKET_HANDLER(ePacketType::OPCODE_SYNC, Packets::Scripts::OpCodeSync* pOpCodeSy
 
 PACKET_HANDLER(ePacketType::PERFORM_TASK_SEQUENCE, Packets::Scripts::PerformTaskSequence* pPerformTaskSequence)
 {
+	if (ShouldIgnoreMissionEffect())
+		return;
+
 	CTaskSequenceSync::HandlePacket(pPerformTaskSequence->buffer, pPerformTaskSequence->size);
 }

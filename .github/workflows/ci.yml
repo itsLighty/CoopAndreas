@@ -21,6 +21,26 @@ jobs:
         with:
           xmake-version: latest
 
+      - name: Install Sanny Builder
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod `
+            -Uri 'https://api.github.com/repos/sannybuilder/dev/releases/tags/v4.2.0'
+          $asset = $release.assets | Where-Object name -eq 'SannyBuilder-v4.2.0.zip' | Select-Object -First 1
+          if (-not $asset) {
+            throw 'The pinned Sanny Builder 4.2.0 archive was not found.'
+          }
+
+          $archive = Join-Path $env:RUNNER_TEMP 'SannyBuilder-v4.2.0.zip'
+          $installDirectory = Join-Path $env:RUNNER_TEMP 'SannyBuilder-v4.2.0'
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $installDirectory
+          "SANNY_BUILDER_PATH=$installDirectory" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Compile main SCM
+        shell: pwsh
+        run: ./scripts/validate-scm.ps1
+
       - name: Build client
         run: xmake build client
 

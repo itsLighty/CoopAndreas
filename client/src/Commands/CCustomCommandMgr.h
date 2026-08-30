@@ -2,45 +2,56 @@
 
 #include "CCustomCommand.h"
 
+#include <cstddef>
+
 class CCustomCommandMgr
 {
 public:
 	static constexpr uint16_t MIN_CUSTOM_COMMAND = 0x1D00;
 	static constexpr uint16_t MAX_CUSTOM_COMMAND = 0x1DFF;
-	static constexpr uint16_t MAX_CUSTOM_COMMAND_COUNT = MAX_CUSTOM_COMMAND - MIN_CUSTOM_COMMAND;
+	static constexpr std::size_t CUSTOM_COMMAND_COUNT = MAX_CUSTOM_COMMAND - MIN_CUSTOM_COMMAND + 1;
 
-	static inline CCustomCommand* m_commands[MAX_CUSTOM_COMMAND_COUNT];
+	static inline CCustomCommand* m_commands[CUSTOM_COMMAND_COUNT]{};
+
+	static bool IsCustomCommand(uint16_t opcode)
+	{
+		return opcode >= MIN_CUSTOM_COMMAND && opcode <= MAX_CUSTOM_COMMAND;
+	}
+
+	static bool HasCommand(uint16_t opcode)
+	{
+		return IsCustomCommand(opcode) && m_commands[opcode - MIN_CUSTOM_COMMAND] != nullptr;
+	}
 
 	static void RegisterCommand(uint16_t opcode, CCustomCommand* command)
 	{
-		assert(opcode >= MIN_CUSTOM_COMMAND);
-		assert(opcode <= MAX_CUSTOM_COMMAND);
+		assert(IsCustomCommand(opcode));
+		assert(command != nullptr);
+		if (!IsCustomCommand(opcode) || command == nullptr)
+		{
+			return;
+		}
 
-		size_t idx = opcode - MIN_CUSTOM_COMMAND;
+		std::size_t idx = opcode - MIN_CUSTOM_COMMAND;
 
 		assert(m_commands[idx] == nullptr);
+		if (m_commands[idx] != nullptr)
+		{
+			return;
+		}
 		m_commands[idx] = command;
 	}
 
-	static void ProcessCommand(uint16_t opcode, CRunningScript* script)
+	static bool ProcessCommand(uint16_t opcode, CRunningScript* script)
 	{
-		//assert(opcode >= MIN_CUSTOM_COMMAND);
-		//assert(opcode <= MAX_CUSTOM_COMMAND);
-
-		bool inRange = opcode >= MIN_CUSTOM_COMMAND && opcode <= MAX_CUSTOM_COMMAND;
-
-		if (!inRange)
+		if (!HasCommand(opcode) || script == nullptr)
 		{
-			char message[128];
-			sprintf_s(message, sizeof message, "Invalid custom opcode [%X] script name '%s', base ip '%d', cur ip '%d'", opcode, script->m_szName, (uintptr_t)script->m_pBaseIP, (uintptr_t)script->m_pCurrentIP);
-
-			MessageBoxA(0, message, "Invalid opcode processing", MB_ICONERROR);
+			return false;
 		}
 
-		size_t idx = opcode - MIN_CUSTOM_COMMAND;
-
-		assert(m_commands[idx] != nullptr);
+		std::size_t idx = opcode - MIN_CUSTOM_COMMAND;
 		m_commands[idx]->Process(script);
+		return true;
 	}
 };
 

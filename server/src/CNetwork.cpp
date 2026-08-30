@@ -1,4 +1,5 @@
 #include "CNetworkPlayerManager.h"
+#include "CMissionSessionServer.h"
 #include "CRTTBroadcastManager.h"
 #include "CPacketFactory.h"
 #include "logger.h"
@@ -102,6 +103,8 @@ void CNetwork::HandlePlayerDisconnected(ENetEvent& event)
         return;
     }
 
+    CMissionSessionServer::HandlePlayerDisconnected(pNetworkPlayer);
+
     CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(pNetworkPlayer->m_nVehicleId);
 
     if (vehicle != nullptr)
@@ -164,7 +167,27 @@ void CNetwork::HandlePlayerConnected(ENetPeer* pENetPeer, Packets::System::Playe
         return;
     }
 
-    int freeId = CNetworkPlayerManager::GetFreeID();
+    int freeId = -1;
+    const auto& missionState = CMissionSessionServer::GetState();
+    for (int playerId = 0; playerId < Config::MAX_SERVER_PLAYERS; ++playerId)
+    {
+        if (CNetworkPlayerManager::GetPlayer(playerId) == nullptr &&
+            (!missionState.IsActive() || !missionState.ContainsParticipant(playerId)))
+        {
+            freeId = playerId;
+            break;
+        }
+    }
+    if (freeId < 0)
+    {
+        logger::warn("Rejected a connection because no non-reserved player ID is available");
+        Packets::System::PlayerDisconnected playerDisconnected{};
+        playerDisconnected.payload.playerid = -1;
+        playerDisconnected.payload.reason = Packets::System::PlayerDisconnected::DISCONNECTION_REASON_NOTHING;
+        GetPacketFactory().SendPacketNoAuth_ENet(playerDisconnected, pENetPeer);
+        enet_peer_disconnect_later(pENetPeer, 0);
+        return;
+    }
     CNetworkPlayer* pNewNetworkPlayer = new CNetworkPlayer(pENetPeer, freeId);
     strcpy_s(pNewNetworkPlayer->m_Name, playerConnected.payload.name);
     CNetworkPlayerManager::Add(pNewNetworkPlayer);
@@ -264,14 +287,18 @@ void CNetwork::HandlePlayerConnected(ENetPeer* pENetPeer, Packets::System::Playe
         GetPacketFactory().Send(packet, pNewNetworkPlayer);
     }
 
-     if (Packets::Scripts::g_pLastEnExPlayerOwner)
-     {
-         if (std::find(CNetworkPlayerManager::m_pPlayers.begin(), CNetworkPlayerManager::m_pPlayers.end(),
-             Packets::Scripts::g_pLastEnExPlayerOwner) != CNetworkPlayerManager::m_pPlayers.end())
-         {
-             GetPacketFactory().Send(Packets::Scripts::g_lastEnExData, pNewNetworkPlayer);
-         }
+    if (Packets::Scripts::g_pLastEnExPlayerOwner)
+    {
+        if (std::find(CNetworkPlayerManager::m_pPlayers.begin(), CNetworkPlayerManager::m_pPlayers.end(),
+                Packets::Scripts::g_pLastEnExPlayerOwner) != CNetworkPlayerManager::m_pPlayers.end())
+        {
+            GetPacketFactory().Send(Packets::Scripts::g_lastEnExData, pNewNetworkPlayer);
+        }
     }
+
+    // The participant roster is frozen when a mission starts. A player receiving an active snapshot here is
+    // therefore a spectator until the next mission session.
+    CMissionSessionServer::SendSnapshot(pNewNetworkPlayer);
 
     CNetworkPlayerManager::AssignHostToFirstPlayer();
 }

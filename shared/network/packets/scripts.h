@@ -4,6 +4,299 @@
 
 namespace Packets::Scripts
 {
+constexpr uint16_t MISSION_ID_UNKNOWN = UINT16_MAX;
+constexpr uint16_t MISSION_ID_COUNT = 135;
+constexpr uint16_t MISSION_ID_MAX = MISSION_ID_COUNT - 1;
+constexpr uint8_t MISSION_PLAYER_ID_INVALID = UINT8_MAX;
+// Current SCM globals expose the host plus only three remote players. The wire roster intentionally remains
+// Config::MAX_SERVER_PLAYERS-wide so the protocol does not bake that gameplay limitation into its capacity.
+constexpr uint8_t MISSION_SCM_GAMEPLAY_PLAYER_CAP = 4;
+
+static_assert(Config::MAX_SERVER_PLAYERS > 0, "Mission sessions require at least one player slot");
+static_assert(Config::MAX_SERVER_PLAYERS < MISSION_PLAYER_ID_INVALID,
+    "Mission participant IDs must fit in one byte with an invalid sentinel");
+static_assert(MISSION_SCM_GAMEPLAY_PLAYER_CAP <= Config::MAX_SERVER_PLAYERS,
+    "The SCM gameplay subset cannot exceed the session roster capacity");
+
+inline bool IsMissionIdKnownOrUnknown(uint16_t missionId)
+{
+    return missionId <= MISSION_ID_MAX || missionId == MISSION_ID_UNKNOWN;
+}
+
+inline bool IsSequenceNumberNewer(uint32_t candidate, uint32_t reference)
+{
+    const uint32_t distance = candidate - reference;
+    return distance != 0 && distance < (UINT32_MAX / 2u + 1u);
+}
+
+inline bool IsSequenceNumberNewer(uint64_t candidate, uint64_t reference)
+{
+    const uint64_t distance = candidate - reference;
+    return distance != 0 && distance < (UINT64_MAX / 2ull + 1ull);
+}
+
+enum class eMissionSessionLifecycle
+{
+    INACTIVE = 0,
+    RUNNING,
+    ENDED,
+    ABORTED
+};
+
+enum class eMissionSessionResult
+{
+    NONE = 0,
+    COMPLETED,
+    SUCCEEDED,
+    FAILED,
+    ABORTED_BY_HOST,
+    HOST_DISCONNECTED
+};
+
+enum class eMissionSessionRequestAction
+{
+    LAUNCH = 0,
+    UPDATE_STAGE,
+    END,
+    ABORT
+};
+
+class MissionSessionState : public Packet
+{
+    DEFINE_PACKET_TYPE(MissionSessionState, ePacketType::MISSION_SESSION_STATE, ePacketChannel::SCRIPT);
+
+public:
+    uint64_t sessionId = 0;
+    uint32_t epoch = 0;
+    uint32_t acknowledgedRequestId = 0;
+    uint8_t acknowledgedPlayerId = MISSION_PLAYER_ID_INVALID;
+    bool acknowledgedRequestAccepted = false;
+    uint16_t missionId = MISSION_ID_UNKNOWN;
+    uint8_t hostId = MISSION_PLAYER_ID_INVALID;
+    // participantIds is the complete frozen session roster. Only its first gameplayParticipantCount entries can
+    // currently participate through SCM; remaining roster members are spectators until the SCM API is expanded.
+    uint8_t participantCount = 0;
+    uint8_t gameplayParticipantCount = 0;
+    uint8_t participantIds[Config::MAX_SERVER_PLAYERS]{};
+    eMissionSessionLifecycle lifecycle = eMissionSessionLifecycle::INACTIVE;
+    eMissionSessionResult result = eMissionSessionResult::NONE;
+    uint32_t stage = 0;
+
+    bool IsActive() const { return lifecycle == eMissionSessionLifecycle::RUNNING; }
+
+    bool HasSameAuthoritativeState(const MissionSessionState& other) const
+    {
+        if (sessionId != other.sessionId || epoch != other.epoch || missionId != other.missionId ||
+            hostId != other.hostId || participantCount != other.participantCount ||
+            gameplayParticipantCount != other.gameplayParticipantCount || lifecycle != other.lifecycle ||
+            result != other.result || stage != other.stage)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < participantCount; ++i)
+        {
+            if (participantIds[i] != other.participantIds[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool AcknowledgesRequest(int playerId, uint32_t requestId) const
+    {
+        return requestId != 0 && playerId >= 0 && playerId < Config::MAX_SERVER_PLAYERS &&
+               acknowledgedPlayerId == playerId && acknowledgedRequestId == requestId;
+    }
+
+    bool ContainsParticipant(int playerId) const
+    {
+        if (playerId < 0 || playerId >= Config::MAX_SERVER_PLAYERS ||
+            participantCount > Config::MAX_SERVER_PLAYERS)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < participantCount; ++i)
+        {
+            if (participantIds[i] == playerId)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool ContainsGameplayParticipant(int playerId) const
+    {
+        if (playerId < 0 || playerId >= Config::MAX_SERVER_PLAYERS ||
+            gameplayParticipantCount > participantCount)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < gameplayParticipantCount; ++i)
+        {
+            if (participantIds[i] == playerId)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool HasValidParticipantRoster() const
+    {
+        if (!IsMissionIdKnownOrUnknown(missionId) ||
+            (acknowledgedRequestId == 0 &&
+                (acknowledgedPlayerId != MISSION_PLAYER_ID_INVALID || acknowledgedRequestAccepted)) ||
+            (acknowledgedRequestId != 0 && acknowledgedPlayerId >= Config::MAX_SERVER_PLAYERS))
+        {
+            return false;
+        }
+
+        if (participantCount > Config::MAX_SERVER_PLAYERS || gameplayParticipantCount > participantCount ||
+            gameplayParticipantCount > MISSION_SCM_GAMEPLAY_PLAYER_CAP)
+        {
+            return false;
+        }
+
+        bool seen[Config::MAX_SERVER_PLAYERS]{};
+        for (size_t i = 0; i < participantCount; ++i)
+        {
+            const uint8_t playerId = participantIds[i];
+            if (playerId >= Config::MAX_SERVER_PLAYERS || seen[playerId])
+            {
+                return false;
+            }
+            seen[playerId] = true;
+        }
+
+        if (lifecycle == eMissionSessionLifecycle::INACTIVE)
+        {
+            return sessionId == 0 && epoch == 0 && hostId == MISSION_PLAYER_ID_INVALID && participantCount == 0 &&
+                   gameplayParticipantCount == 0 && result == eMissionSessionResult::NONE;
+        }
+
+        if (sessionId == 0 || epoch == 0 || hostId >= Config::MAX_SERVER_PLAYERS ||
+            gameplayParticipantCount == 0 || !ContainsGameplayParticipant(hostId))
+        {
+            return false;
+        }
+
+        if (lifecycle == eMissionSessionLifecycle::RUNNING)
+        {
+            return result == eMissionSessionResult::NONE;
+        }
+
+        if (lifecycle == eMissionSessionLifecycle::ENDED)
+        {
+            return result == eMissionSessionResult::COMPLETED || result == eMissionSessionResult::SUCCEEDED ||
+                   result == eMissionSessionResult::FAILED;
+        }
+
+        if (lifecycle == eMissionSessionLifecycle::ABORTED)
+        {
+            return result == eMissionSessionResult::ABORTED_BY_HOST ||
+                   result == eMissionSessionResult::HOST_DISCONNECTED;
+        }
+
+        return false;
+    }
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint64(stream, sessionId);
+        serialize_uint32(stream, epoch);
+        serialize_uint32(stream, acknowledgedRequestId);
+        serialize_uint8(stream, acknowledgedPlayerId);
+        serialize_bool(stream, acknowledgedRequestAccepted);
+        serialize_uint16(stream, missionId);
+        serialize_uint8(stream, hostId);
+
+        int serializedParticipantCount = participantCount;
+        serialize_int(stream, serializedParticipantCount, 0, Config::MAX_SERVER_PLAYERS);
+        if (Stream::IsReading)
+        {
+            participantCount = static_cast<uint8_t>(serializedParticipantCount);
+            for (size_t i = participantCount; i < Config::MAX_SERVER_PLAYERS; ++i)
+            {
+                participantIds[i] = MISSION_PLAYER_ID_INVALID;
+            }
+        }
+        int serializedGameplayParticipantCount = gameplayParticipantCount;
+        serialize_int(stream, serializedGameplayParticipantCount, 0, MISSION_SCM_GAMEPLAY_PLAYER_CAP);
+        if (Stream::IsReading)
+        {
+            gameplayParticipantCount = static_cast<uint8_t>(serializedGameplayParticipantCount);
+        }
+        for (size_t i = 0; i < participantCount; ++i)
+        {
+            int participantId = participantIds[i];
+            serialize_int(stream, participantId, 0, Config::MAX_SERVER_PLAYERS - 1);
+            if (Stream::IsReading)
+            {
+                participantIds[i] = static_cast<uint8_t>(participantId);
+            }
+        }
+
+        int serializedLifecycle = static_cast<int>(lifecycle);
+        serialize_int(stream, serializedLifecycle, static_cast<int>(eMissionSessionLifecycle::INACTIVE),
+            static_cast<int>(eMissionSessionLifecycle::ABORTED));
+        int serializedResult = static_cast<int>(result);
+        serialize_int(stream, serializedResult, static_cast<int>(eMissionSessionResult::NONE),
+            static_cast<int>(eMissionSessionResult::HOST_DISCONNECTED));
+        if (Stream::IsReading)
+        {
+            lifecycle = static_cast<eMissionSessionLifecycle>(serializedLifecycle);
+            result = static_cast<eMissionSessionResult>(serializedResult);
+        }
+
+        serialize_uint32(stream, stage);
+        return HasValidParticipantRoster();
+    }
+};
+
+class MissionSessionRequest : public Packet
+{
+    DEFINE_PACKET_TYPE(MissionSessionRequest, ePacketType::MISSION_SESSION_REQUEST, ePacketChannel::SCRIPT);
+
+public:
+    eMissionSessionRequestAction action = eMissionSessionRequestAction::LAUNCH;
+    uint32_t requestId = 0;
+    uint64_t sessionId = 0;
+    uint32_t epoch = 0;
+    uint16_t missionId = MISSION_ID_UNKNOWN;
+    uint32_t stage = 0;
+    eMissionSessionResult result = eMissionSessionResult::NONE;
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        int serializedAction = static_cast<int>(action);
+        serialize_int(stream, serializedAction, static_cast<int>(eMissionSessionRequestAction::LAUNCH),
+            static_cast<int>(eMissionSessionRequestAction::ABORT));
+        serialize_uint32(stream, requestId);
+        serialize_uint64(stream, sessionId);
+        serialize_uint32(stream, epoch);
+        serialize_uint16(stream, missionId);
+        serialize_uint32(stream, stage);
+        int serializedResult = static_cast<int>(result);
+        serialize_int(stream, serializedResult, static_cast<int>(eMissionSessionResult::NONE),
+            static_cast<int>(eMissionSessionResult::HOST_DISCONNECTED));
+        if (Stream::IsReading)
+        {
+            action = static_cast<eMissionSessionRequestAction>(serializedAction);
+            result = static_cast<eMissionSessionResult>(serializedResult);
+        }
+        return IsMissionIdKnownOrUnknown(missionId);
+    }
+};
+
 class OnMissionFlagSync : public Packet
 {
     DEFINE_PACKET_TYPE(OnMissionFlagSync, ePacketType::ON_MISSION_FLAG_SYNC, ePacketChannel::SCRIPT);
@@ -215,13 +508,47 @@ public:
     int size = 0;
     uint8_t buffer[MAX_BUFFER_SIZE]{};
 
+    bool HasValidPayload() const
+    {
+        constexpr size_t HEADER_SIZE = 4;
+        if (size < static_cast<int>(HEADER_SIZE) || size > MAX_BUFFER_SIZE)
+        {
+            return false;
+        }
+
+        // OpcodeSyncHeader stores its two four-bit counts in byte 2 and has one byte of tail padding.
+        const uint8_t parameterCounts = buffer[2];
+        const size_t integerParameterCount = parameterCounts & 0x0F;
+        const size_t stringParameterCount = parameterCounts >> 4;
+        size_t offset = HEADER_SIZE + integerParameterCount * sizeof(int32_t);
+        if (offset > static_cast<size_t>(size))
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < stringParameterCount; ++i)
+        {
+            if (offset >= static_cast<size_t>(size))
+            {
+                return false;
+            }
+            const size_t stringLength = buffer[offset++];
+            if (stringLength > static_cast<size_t>(size) - offset)
+            {
+                return false;
+            }
+            offset += stringLength;
+        }
+        return offset == static_cast<size_t>(size);
+    }
+
 private:
     template <typename Stream>
     bool Serialize(Stream& stream)
     {
         serialize_int(stream, size, 4, MAX_BUFFER_SIZE);
         serialize_bytes(stream, buffer, size);
-        return true;
+        return HasValidPayload();
     }
 
 public:
@@ -243,13 +570,52 @@ public:
     int size = 0;
     uint8_t buffer[MAX_BUFFER_SIZE]{};
 
+    bool HasValidPayload() const
+    {
+        if (size < 9 || size > MAX_BUFFER_SIZE)
+        {
+            return false;
+        }
+
+        const size_t taskCount = buffer[8];
+        if (taskCount == 0 || taskCount > 8)
+        {
+            return false;
+        }
+
+        size_t offset = 9;
+        for (size_t i = 0; i < taskCount; ++i)
+        {
+            if (offset >= static_cast<size_t>(size))
+            {
+                return false;
+            }
+
+            const size_t taskLength = buffer[offset++];
+            if (taskLength < 4 || taskLength > static_cast<size_t>(size) - offset)
+            {
+                return false;
+            }
+
+            OpCodeSync task{};
+            task.size = static_cast<int>(taskLength);
+            memcpy(task.buffer, buffer + offset, taskLength);
+            if (!task.HasValidPayload())
+            {
+                return false;
+            }
+            offset += taskLength;
+        }
+        return offset == static_cast<size_t>(size);
+    }
+
 private:
     template <typename Stream>
     bool Serialize(Stream& stream)
     {
         serialize_int(stream, size, 9, MAX_BUFFER_SIZE);
         serialize_bytes(stream, buffer, size);
-        return true;
+        return HasValidPayload();
     }
 };
 

@@ -1,4 +1,5 @@
 #include "CPacketFactory.h"
+#include "CMissionSessionClient.h"
 #include "enet/enet.h"
 #include "stdafx.h"
 #include "../shared/semver.h"
@@ -144,4 +145,5 @@ void CNetwork::Disconnect()
 
     m_bConnected = false;
     m_bAuthenticated = false;
+    CMissionSessionClient::Reset();
 }

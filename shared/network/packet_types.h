@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 enum class ePacketType : uint16_t
@@ -72,6 +73,8 @@ enum class ePacketType : uint16_t
     ENEX_TRANSITION,
     RTT_BROADCAST,
     UPDATE_MOON_SIZE,
+    MISSION_SESSION_REQUEST,
+    MISSION_SESSION_STATE,
     PACKET_ID_MAX
 };
 
@@ -80,7 +83,7 @@ static_assert(ePacketType::PLAYER_DISCONNECTED == static_cast<ePacketType>(1), "
 
 extern inline const char* ePacketType_ToString(ePacketType packetType)
 {
-    static const char* array[(int)ePacketType::PACKET_ID_MAX] = {"PLAYER_CONNECTED", "PLAYER_DISCONNECTED", "PLAYER_ONFOOT_UPDATE",
+    static constexpr const char* array[] = {"PLAYER_CONNECTED", "PLAYER_DISCONNECTED", "PLAYER_ONFOOT_UPDATE",
         "PLAYER_BULLET_SHOT", "PLAYER_HANDSHAKE", "PLAYER_PLACE_WAYPOINT", "VEHICLE_SPAWN", "PLAYER_ASSIGN_HOST",
         "ADD_EXPLOSION", "VEHICLE_REMOVE", "VEHICLE_IDLE_UPDATE", "VEHICLE_DRIVER_UPDATE", "VEHICLE_ENTER",
         "VEHICLE_EXIT", "VEHICLE_DAMAGE", "VEHICLE_COMPONENT_ADD", "VEHICLE_COMPONENT_REMOVE",
@@ -93,7 +96,19 @@ extern inline const char* ePacketType_ToString(ePacketType packetType)
         "REMOVE_CHECKPOINT", "ENEX_SYNC", "CREATE_STATIC_BLIP", "SET_VEHICLE_CREATED_BY", "SET_PLAYER_TASK", "PED_SAY",
         "PED_CLAIM_ON_RELEASE", "PED_CANCEL_CLAIM", "PED_RESET_ALL_CLAIMS", "PED_TAKE_HOST", "PERFORM_TASK_SEQUENCE",
         "ADD_PROJECTILE", "TAG_UPDATE", "UPDATE_ALL_TAGS", "TELEPORT_PLAYER_SCRIPTED", "SERVER_TIME_REQUEST",
-        "ENEX_TRANSITION", "RTT_BROADCAST", "UPDATE_MOON_SIZE"};
-    
-    return array[(int)packetType];
+        "ENEX_TRANSITION", "RTT_BROADCAST", "UPDATE_MOON_SIZE", "MISSION_SESSION_REQUEST",
+        "MISSION_SESSION_STATE"};
+
+    static_assert(sizeof(array) / sizeof(array[0]) == static_cast<size_t>(ePacketType::PACKET_ID_MAX),
+        "Every packet type must have exactly one debug name");
+
+    const size_t packetTypeIndex = static_cast<size_t>(packetType);
+    if (packetTypeIndex >= sizeof(array) / sizeof(array[0]))
+    {
+        return "UNKNOWN_PACKET_TYPE";
+    }
+    return array[packetTypeIndex];
 }
+
+static_assert(static_cast<uint16_t>(ePacketType::PACKET_ID_MAX) <= UINT16_MAX,
+    "Packet type IDs must fit in the 16-bit wire header");

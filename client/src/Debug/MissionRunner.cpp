@@ -1,4 +1,5 @@
 #include "MissionRunner.h"
+#include <CMissionSessionClient.h>
 #include <imgui.h>
 
 namespace
@@ -109,6 +110,20 @@ constexpr SMissionEntry MISSIONS[] = {
     {"End Of The Line - Part 3", 112},
 };
 
+constexpr bool MissionEntriesAreWireValid()
+{
+    for (const SMissionEntry& mission : MISSIONS)
+    {
+        if (mission.m_nId < 0 || mission.m_nId > Packets::Scripts::MISSION_ID_MAX)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static_assert(MissionEntriesAreWireValid(), "MissionRunner entries must fit the mission-session wire range");
+
 const char* GetLaunchUnavailableReason()
 {
     if (!CNetwork::m_bAuthenticated)
@@ -130,6 +145,11 @@ const char* GetLaunchUnavailableReason()
     if (CTheScripts::IsPlayerOnAMission() || CTheScripts::bAlreadyRunningAMissionScript)
     {
         return "A mission is already active.";
+    }
+
+    if (CMissionSessionClient::GetState().IsActive() || CMissionSessionClient::IsLaunchPending())
+    {
+        return "A multiplayer mission session is already active or awaiting server approval.";
     }
 
     if (CGame::currArea != AREA_MAIN_MAP || pPlayerPed->m_nAreaCode != AREA_MAIN_MAP)
@@ -158,13 +178,15 @@ bool MissionRunner::DrawUI()
     bool bMissionLaunched = false;
     for (const SMissionEntry& mission : MISSIONS)
     {
-        bool bValidMissionId = mission.m_nId >= 0 && mission.m_nId < CTheScripts::NumberOfMissionScripts;
+        bool bValidMissionId = mission.m_nId >= 0 &&
+                               mission.m_nId <= Packets::Scripts::MISSION_ID_MAX &&
+                               mission.m_nId < CTheScripts::NumberOfMissionScripts;
         ImGui::BeginDisabled(szUnavailableReason || !bValidMissionId);
 
         if (ImGui::Button(mission.m_szName, ImVec2(ImGui::GetContentRegionAvail().x, 0.0f)) && bValidMissionId)
         {
-            Command<Commands::LOAD_AND_LAUNCH_MISSION_INTERNAL>(mission.m_nId);
-            bMissionLaunched = true;
+            bMissionLaunched = CMissionSessionClient::RequestLaunch(
+                static_cast<uint16_t>(mission.m_nId), true);
         }
 
         ImGui::EndDisabled();

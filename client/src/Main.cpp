@@ -32,6 +32,7 @@
 #include <CWeatherSync.h>
 #include <network/packets/scripts.h>
 #include <CNetworkEntityBlip.h>
+#include <CMissionSessionClient.h>
 
 unsigned int lastOnFootSyncTickRate = 0;
 unsigned int lastDriverSyncTickRate = 0;
@@ -41,7 +42,6 @@ unsigned int lastPedSyncTickRate = 0;
 unsigned int lastWeatherTimeSyncTickRate = 0;
 unsigned int lastPlayerAimSyncTickRate = 0;
 bool bBeenConnected;
-bool lastOnMissionFlag;
 uint32_t startTime;
 
 class CoopAndreas
@@ -113,15 +113,7 @@ public:
                     }
                 }
 
-                if (CLocalPlayer::m_bIsHost && CTheScripts::OnAMissionFlag &&
-                    static_cast<bool>(CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag]) != lastOnMissionFlag)
-                {
-                    lastOnMissionFlag = CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag];
-                        
-                    Packets::Scripts::OnMissionFlagSync packet{};
-                    packet.bOnMission = CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag];
-                    GetPacketFactory().Send(packet);
-                }
+                CMissionSessionClient::Process();
 
                 unsigned int tickCount = GetTickCount();
 
