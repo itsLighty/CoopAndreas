@@ -3,6 +3,7 @@
 
 :DESERT6
 script_name 'DESERT6'
+Coop.EnableSyncingThisScript()
 gosub @DESERT6_47
 if 
   has_deatharrest_been_executed 
@@ -16,6 +17,96 @@ terminate_this_script
 :DESERT6_47
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Cooperative N.O.E. is additive around the untouched host state machine. Only
+// immutable mission-entry identities participate; fresh connections never inherit
+// a disconnected slot. Shared trigger additions are limited to per-frame co-op
+// maintenance, cinematic staging, subtitle/outcome fan-out, registration resets,
+// and idempotent cleanup. The host alone owns the Rustler route, radar meter,
+// altitude checks, timer, checkpoints, cargo, reward, stats, and story state.
+539@ = 0 // immutable remote-roster size
+540@ = 0 // cooperative participant-death failure
+541@ = 0 // idempotent cooperative cleanup guard
+542@ = 0 // outcome: 0 active, 1 failed, 2 passed
+543@ = 0 // peers are frozen for a host cinematic
+544@ = 0 // next objective refresh
+545@ = 0 // next nonblocking network-registration poll
+546@ = 0 // next separation/regroup poll
+547@ = 0 // current time scratch
+548@ = -1 // immutable identity / network-id scratch
+549@ = -1 // actor/entity scratch
+550@ = 0 // a frozen participant reconnected this update
+551@ = -1 // derived cooperative objective phase
+552@ = 0 // host visible-area scratch
+553@ = 0 // integer / loop scratch
+554@ = 0 // outcome notification guard
+555@ = -1 // canonical Rustler network id
+556@ = 0 // canonical Rustler registration deadline
+557@ = 0 // canonical Rustler health ledger
+558@ = 0 // peer-friendly-fire damage flag
+559@ = 0 // at least one network registration timed out
+568@ = 0 // next support-model request
+569@ = 0 // support-aircraft losses recovered
+570@ = -1 // active actor argument 1
+571@ = -1 // active actor argument 2
+572@ = -1 // active actor argument 3
+573@ = 0.0 // coordinate scratch X
+574@ = 0.0 // coordinate scratch Y
+575@ = 0.0 // coordinate scratch Z
+576@ = 0.0 // distance / heading scratch
+577@ = 0.0 // support staging X
+578@ = 0.0 // support staging Y
+579@ = 0.0 // support staging Z
+580@ = 0 // cooperative objective phase changed
+581@ = -1 // last observed stock mission stage
+582@ = 0 // host actor health ledger
+583@ = 0 // health scratch
+584@ = 0 // nested slot scratch
+585@ = 0 // support creation/restaging scratch
+586@ = 0 // cooperative support setup completed
+587@ = 0 // current support slot valid
+588@ = 0.0 // canonical Rustler heading scratch
+589@ = 0 // role / boolean scratch
+592@ = 0 // subtitle duration scratch
+593@ = 0 // subtitle style scratch
+594@ = 0 // network registration timeout count
+595@ = 0 // final cinematic staging guard
+596@ = -1 // host-player ped network id
+597@ = 0 // host-player ped registration deadline
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // current actor for frozen identity
+    503@($temp_int,3i) = -1 // immutable mission-entry network identity
+    506@($temp_int,3i) = 0 // currently connected frozen participant
+    509@($temp_int,3i) = 0 // reconnect requires safe restaging
+    512@($temp_int,3i) = -1 // last objective phase published
+    515@($temp_int,3i) = -1 // support Sea Sparrow
+    518@($temp_int,3i) = -1 // support aircraft network id
+    521@($temp_int,3i) = 0 // support aircraft registration deadline
+    524@($temp_int,3i) = 0 // support replacement deadline
+    527@($temp_int,3i) = 0 // separation regroup deadline
+    530@($temp_int,3i) = -1 // participant ped network id
+    533@($temp_int,3i) = 0 // participant ped registration deadline
+    536@($temp_int,3i) = 0 // support aircraft health ledger
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 549@ = 500@($temp_int,3i)
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(549@)
+        if
+            503@($temp_int,3i) <> -1
+        then
+            506@($temp_int,3i) = 1
+            Char.ClearLastDamageEntity(549@)
+            539@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 1
+    560@($temp_int,2i) = -1 // hostile Hydra network ids
+    562@($temp_int,2i) = 0 // hostile Hydra registration deadlines
+    564@($temp_int,2i) = -1 // hostile pilot network ids
+    566@($temp_int,2i) = 0 // hostile pilot registration deadlines
+end
 75@ = 0
 76@ = 0
 77@ = 0
@@ -102,6 +193,7 @@ goto_if_false @DESERT6_657
 
 :DESERT6_694
 Text.LoadMissionText('DSERT6')
+gosub @DESERT6_COOP_FREEZE_REMOTES
 gosub @DESERT6_9725
 136@ = DecisionMakerChar.Load(DecisionMakerType.Empty)
 gosub @DESERT6_9939
@@ -126,6 +218,14 @@ goto @DESERT6_1014
 :DESERT6_805
 gosub @DESERT6_9622
 gosub @DESERT6_9656
+gosub @DESERT6_COOP_UPDATE
+if
+  540@ == 1
+then
+    37@ = 1
+    45@ = 0
+    goto @DESERT6_1014
+end
 if 
   Char.IsDead($scplayer)
 goto_if_false @DESERT6_849
@@ -204,6 +304,10 @@ if
   35@ == 0
 goto_if_false @DESERT6_1228
 Text.PrintNow('DES6_00', 7000, 1)
+set_lvar_text_label 590@s = 'DES6_00'
+592@ = 7000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 gosub @DESERT6_6258
 81@ = 1
 gosub @DESERT6_7633
@@ -383,6 +487,10 @@ if
   Camera.IsPointOnScreen(159@, 160@, 161@, 5.0)
 goto_if_false @DESERT6_2331
 Text.PrintNow('DES6_09', 7000, 1)
+set_lvar_text_label 590@s = 'DES6_09'
+592@ = 7000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 168@ = 1
 169@ = 1
 set_lvar_int_to_lvar_int 144@ = 46@
@@ -457,6 +565,10 @@ if and
   79@ <> 2
 goto_if_false @DESERT6_2707
 Text.PrintNow('DES6_06', 7000, 1)
+set_lvar_text_label 590@s = 'DES6_06'
+592@ = 7000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 167@ = 1
 
 :DESERT6_2707
@@ -474,6 +586,10 @@ if
   not Text.IsMessageBeingDisplayed
 goto_if_false @DESERT6_2820
 Text.PrintNow('AREA51', 7000, 1)
+set_lvar_text_label 590@s = 'AREA51'
+592@ = 7000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 180@ = 1
 
 :DESERT6_2820
@@ -496,6 +612,7 @@ if
   is_local_var_bit_set_const 85@ bit 1
 goto_if_false @DESERT6_2941
 Text.PrintHelp('DES6_12')
+gosub @DESERT6_COOP_BROADCAST_HELP
 183@ = 1
 
 :DESERT6_2941
@@ -512,6 +629,10 @@ if
   35@ == 0
 goto_if_false @DESERT6_3201
 Text.PrintNow('DES6_10', 5000, 1)
+set_lvar_text_label 590@s = 'DES6_10'
+592@ = 5000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 set_lvar_int_to_lvar_int 137@ = 46@
 137@ += 5000
 153@ = -76.4228
@@ -572,6 +693,7 @@ goto_if_false @DESERT6_3437
 Blip.Remove(132@)
 gosub @DESERT6_7788
 Player.SetControl($player1, False)
+gosub @DESERT6_COOP_BEGIN_FINAL_STAGING
 165@ = 0
 141@ = 0
 35@ += 1
@@ -618,6 +740,10 @@ if
   500.0 > 72@
 goto_if_false @DESERT6_3730
 Text.PrintNow('DES6_11', 7000, 1)
+set_lvar_text_label 590@s = 'DES6_11'
+592@ = 7000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 170@ = 1
 171@ = 1
 set_lvar_int_to_lvar_int 145@ = 46@
@@ -675,6 +801,10 @@ if
   not Text.IsMessageBeingDisplayed
 goto_if_false @DESERT6_4076
 Text.PrintNow('AREA51', 7000, 1)
+set_lvar_text_label 590@s = 'AREA51'
+592@ = 7000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 180@ = 1
 
 :DESERT6_4076
@@ -693,6 +823,9 @@ return
 63@ = 180.0
 World.ClearArea(1, 57@, 58@, 59@, 15.0)
 125@ = Car.Create(476, 57@, 58@, 59@)
+555@ = -1
+556@ = 0
+557@ = Car.GetHealth(125@)
 Car.SetHeading(125@, 63@)
 return 
 
@@ -750,6 +883,10 @@ if
   79@ <> 2
 goto_if_false @DESERT6_4520
 Text.PrintNow('DES6_07', 1000, 1)
+set_lvar_text_label 590@s = 'DES6_07'
+592@ = 1000
+593@ = 1
+gosub @DESERT6_COOP_BROADCAST_SUBTITLE
 
 :DESERT6_4520
 goto @DESERT6_4574
@@ -947,6 +1084,10 @@ Car.MarkAsNoLongerNeeded(126@(48@,2i))
 Char.MarkAsNoLongerNeeded(123@(48@,2i))
 Blip.Remove(134@(48@,2i))
 184@(48@,2i) = 0
+560@(48@,2i) = -1
+562@(48@,2i) = 0
+564@(48@,2i) = -1
+566@(48@,2i) = 0
 if 
   165@ == 1
 goto_if_false @DESERT6_5575
@@ -1007,11 +1148,15 @@ set_lvar_float_to_lvar_float 70@ = 71@
 set_lvar_float_to_lvar_float 59@ = 70@
 59@ += 200.0
 126@(48@,2i) = Car.Create(520, 57@, 58@, 59@)
+560@(48@,2i) = -1
+562@(48@,2i) = 0
 Plane.StartsInAir(126@(48@,2i))
 Plane.AttackPlayer(126@(48@,2i), $player1, 10.0)
 134@(48@,2i) = Blip.AddForCar(126@(48@,2i))
 Blip.ChangeDisplay(134@(48@,2i), BlipDisplay.BlipOnly)
 123@(48@,2i) = Char.CreateInsideCar(PedType.CivMale, 43, 126@(48@,2i))
+564@(48@,2i) = -1
+566@(48@,2i) = 0
 Char.SetDecisionMaker(123@(48@,2i), 136@)
 177@(48@,2i) = 0
 150@(48@,2i) = 0
@@ -1061,6 +1206,10 @@ Char.RemoveElegantly(123@(48@,2i))
 Car.Delete(126@(48@,2i))
 Blip.Remove(134@(48@,2i))
 184@(48@,2i) = 0
+560@(48@,2i) = -1
+562@(48@,2i) = 0
+564@(48@,2i) = -1
+566@(48@,2i) = 0
 
 :DESERT6_6235
 48@ += 1
@@ -1212,6 +1361,13 @@ goto @DESERT6_7323
 :DESERT6_7221
 Audio.PlayMissionAudio(78@)
 Text.PrintNow(101@(82@,11s), 10000, 1)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer(101@(82@,11s), 10000, 1, 500@($temp_int,3i))
+    end
+end
 87@(78@,3i) = 3
 return 
 goto @DESERT6_7323
@@ -1708,6 +1864,7 @@ World.ClearArea(0, 331.9908, 2533.767, 15.8044, 0.5)
 Streaming.LoadScene(331.9908, 2533.767, 15.8044)
 Char.SetCoordinates($scplayer, 331.9908, 2533.767, 15.8044)
 Char.SetHeading($scplayer, 48.4743)
+gosub @DESERT6_COOP_STAGE_SUPPORT
 Camera.SetBehindPlayer
 Weather.ForceNow(WeatherType.ExtraSunnyDesert)
 Game.SwitchAmbientPlanes(False)
@@ -1729,6 +1886,11 @@ Streaming.RequestModel(476)
 Streaming.RequestModel(520)
 Streaming.RequestModel(43)
 Streaming.RequestModel(#AMMO_CAPSULE)
+if
+  539@ > 0
+then
+    Streaming.RequestModel(447)
+end
 Streaming.LoadAllModelsNow
 
 :DESERT6_10218
@@ -1760,6 +1922,8 @@ return
 return 
 
 :DESERT6_10307
+542@ = 1
+gosub @DESERT6_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Text.ClearSmallPrints
 switch_start 45@ total_jumps 3 default_jump 0 @DESERT6_10457 jumps 1 @DESERT6_10388 2 @DESERT6_10411 3 @DESERT6_10434 -1 @DESERT6_10457 -1 @DESERT6_10457 -1 @DESERT6_10457 -1 @DESERT6_10457
@@ -1780,6 +1944,8 @@ goto @DESERT6_10457
 return 
 
 :DESERT6_10459
+542@ = 2
+gosub @DESERT6_COOP_NOTIFY_OUTCOME
 Text.PrintWithNumberBig('M_PASS', 15000, 5000, TextStyle.Middle)
 Player.AddScore($player1, 15000)
 Player.ClearWantedLevel($player1)
@@ -1790,6 +1956,7 @@ $flag_desert_mission_counter += 1
 return 
 
 :DESERT6_10519
+gosub @DESERT6_COOP_CLEANUP
 Car.MarkAsNoLongerNeeded(125@)
 48@ = 0
 
@@ -1823,6 +1990,7 @@ Streaming.MarkModelAsNoLongerNeeded(476)
 Streaming.MarkModelAsNoLongerNeeded(520)
 Streaming.MarkModelAsNoLongerNeeded(43)
 Streaming.MarkModelAsNoLongerNeeded(#AMMO_CAPSULE)
+Streaming.MarkModelAsNoLongerNeeded(447)
 World.SetPedDensityMultiplier(1.0)
 World.SetCarDensityMultiplier(1.0)
 Game.SetWantedMultiplier(1.0)
@@ -1851,4 +2019,1127 @@ CarGenerator.Switch($d5_gold_generator, 101)
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative N.O.E. layer. Re-collecting current actor handles lets an
+// immutable mission-entry identity resume after reconnect while recycled handles
+// and late joiners remain spectators. A death by a connected frozen participant
+// requests the stock host failure path; a disconnect never blocks progression.
+:DESERT6_COOP_UPDATE_ROSTER
+600@, 601@, 602@ = Coop.CollectNetworkPlayersForTheMission()
+550@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 589@ = 506@($temp_int,3i)
+    506@($temp_int,3i) = 0
+    if
+        503@($temp_int,3i) <> -1
+    then
+        for 584@ = 0 to 2
+            set_lvar_int_to_lvar_int 549@ = 600@(584@,3i)
+            if
+                Coop.IsNetworkPlayerActorValid(549@)
+            then
+                548@ = Coop.GetNetworkPlayerInternalId(549@)
+                if
+                    is_int_lvar_equal_to_int_lvar 548@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 549@
+                    506@($temp_int,3i) = 1
+                end
+            end
+        end
+        if
+            506@($temp_int,3i) == 1
+        then
+            if
+                589@ == 0
+            then
+                509@($temp_int,3i) = 1
+                512@($temp_int,3i) = -1
+                530@($temp_int,3i) = -1
+                533@($temp_int,3i) = 0
+                527@($temp_int,3i) = 0
+                550@ = 1
+            end
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                540@ = 1
+            end
+        end
+    end
+end
+return
+
+:DESERT6_COOP_BUILD_ACTIVE_ARGS
+570@ = -1
+571@ = -1
+572@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 570@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:DESERT6_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_00', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_06', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_07', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_09', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_10', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_11', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DES6_12', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('AREA51', 500@($temp_int,3i))
+    end
+    512@($temp_int,3i) = -1
+end
+551@ = -1
+return
+
+// Active peers are hidden, proofed, and safely staged with the host while the
+// stock opening or delivery presentation owns the camera. Existing support
+// aircraft are frozen in place until release or final cleanup.
+:DESERT6_COOP_FREEZE_REMOTES
+if
+    539@ == 0
+then
+    return
+end
+543@ = 1
+gosub @DESERT6_COOP_UPDATE_ROSTER
+gosub @DESERT6_COOP_CLEAR_OBJECTIVES
+552@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            573@, 574@, 575@ = Char.GetCoordinates(500@($temp_int,3i))
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 573@, 574@, 575@)
+        end
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        Char.SetAreaVisible(500@($temp_int,3i), 552@)
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), False)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+    if
+        Car.DoesExist(515@($temp_int,3i))
+    then
+        Car.SetProofs(515@($temp_int,3i), True, True, True, True, True)
+        Car.FreezePosition(515@($temp_int,3i), True)
+    end
+end
+gosub @DESERT6_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(570@, 571@, 572@)
+return
+
+:DESERT6_COOP_RELEASE_REMOTES
+if
+    539@ == 0
+then
+    return
+end
+gosub @DESERT6_COOP_UPDATE_ROSTER
+552@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        // Direct weapon/fire/explosion/melee proofs protect player bodies from
+        // peers; collision, drowning, and fall deaths remain relevant.
+        Char.SetProofs(500@($temp_int,3i), True, True, True, False, True)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Char.SetAreaVisible(500@($temp_int,3i), 552@)
+        Task.StandStill(500@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(500@($temp_int,3i))
+    end
+    if
+        Car.DoesExist(515@($temp_int,3i))
+    then
+        Car.FreezePosition(515@($temp_int,3i), False)
+        // Attacker-attributed health ledgers below protect against friendly fire
+        // while preserving hostile fire, collision, and water damage.
+        Car.SetProofs(515@($temp_int,3i), False, False, False, False, False)
+        Car.ClearLastDamageEntity(515@($temp_int,3i))
+        536@($temp_int,3i) = Car.GetHealth(515@($temp_int,3i))
+    end
+end
+Char.SetProofs($scplayer, True, True, True, False, True)
+543@ = 0
+544@ = 0
+return
+
+:DESERT6_COOP_BROADCAST_SUBTITLE
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintNowForNetworkPlayer(590@s, 592@, 593@, 500@($temp_int,3i))
+    end
+end
+return
+
+:DESERT6_COOP_BROADCAST_HELP
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintHelpForNetworkPlayer('DES6_12', 500@($temp_int,3i))
+    end
+end
+return
+
+// Every connected frozen peer receives one Sea Sparrow. Spaced airfield pads and
+// host-relative airborne offsets keep support craft clear of the canonical
+// Rustler and of one another. The Sea Sparrows provide air-defense capability but
+// cannot satisfy any host-only Rustler checkpoint, timer, cargo, or reward test.
+:DESERT6_COOP_STAGE_SUPPORT
+if
+    539@ == 0
+then
+    return
+end
+586@ = 1
+gosub @DESERT6_COOP_UPDATE_ROSTER
+547@ = Clock.GetGameTimer()
+gosub @DESERT6_COOP_REQUEST_SUPPORT_MODEL
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        gosub @DESERT6_COOP_CREATE_SUPPORT_CURRENT_SLOT
+    end
+end
+gosub @DESERT6_COOP_RELEASE_REMOTES
+return
+
+:DESERT6_COOP_REQUEST_SUPPORT_MODEL
+if
+    Streaming.HasModelLoaded(447)
+then
+    return
+end
+if
+    is_int_lvar_greater_than_int_lvar 568@ > 547@
+then
+    return
+end
+Streaming.RequestModel(447)
+set_lvar_int_to_lvar_int 568@ = 547@
+568@ += 2000
+return
+
+// Uses $temp_int as the immutable participant slot. Streaming is checked once;
+// failure returns immediately and the main loop retries without waiting.
+:DESERT6_COOP_CREATE_SUPPORT_CURRENT_SLOT
+if
+    506@($temp_int,3i) == 0
+then
+    return
+end
+if
+    not Streaming.HasModelLoaded(447)
+then
+    return
+end
+if
+    Car.DoesExist(515@($temp_int,3i))
+then
+    if
+        not Car.IsDead(515@($temp_int,3i))
+    then
+        return
+    end
+    Car.Delete(515@($temp_int,3i))
+end
+515@($temp_int,3i) = -1
+518@($temp_int,3i) = -1
+521@($temp_int,3i) = 0
+527@($temp_int,3i) = 0
+577@ = 280.0
+578@ = 2480.0
+579@ = 16.0
+588@ = 180.0
+if
+    $temp_int == 1
+then
+    577@ = 323.0
+    578@ = 2460.0
+end
+if
+    $temp_int == 2
+then
+    577@ = 366.0
+    578@ = 2480.0
+end
+if
+    34@ >= 2
+then
+    if
+        Car.DoesExist(125@)
+    then
+        573@, 574@, 575@ = Car.GetCoordinates(125@)
+        588@ = Car.GetHeading(125@)
+        set_lvar_float_to_lvar_float 577@ = 573@
+        set_lvar_float_to_lvar_float 578@ = 574@
+        set_lvar_float_to_lvar_float 579@ = 575@
+        578@ -= 110.0
+        579@ += 35.0
+        if
+            $temp_int == 0
+        then
+            577@ -= 70.0
+        end
+        if
+            $temp_int == 1
+        then
+            579@ += 10.0
+        end
+        if
+            $temp_int == 2
+        then
+            577@ += 70.0
+        end
+    end
+end
+515@($temp_int,3i) = Car.Create(447, 577@, 578@, 579@)
+if
+    not Car.DoesExist(515@($temp_int,3i))
+then
+    515@($temp_int,3i) = -1
+    return
+end
+Car.SetHeading(515@($temp_int,3i), 588@)
+Car.SetHealth(515@($temp_int,3i), 1800)
+Car.LockDoors(515@($temp_int,3i), CarLock.Unlocked)
+Car.SetCanBurstTires(515@($temp_int,3i), False)
+Car.SetProofs(515@($temp_int,3i), False, False, False, False, False)
+Heli.SetBladesFullSpeed(515@($temp_int,3i))
+if
+    543@ == 1
+then
+    Car.SetProofs(515@($temp_int,3i), True, True, True, True, True)
+    Car.FreezePosition(515@($temp_int,3i), True)
+end
+536@($temp_int,3i) = Car.GetHealth(515@($temp_int,3i))
+if and
+    506@($temp_int,3i) == 1
+    not Char.IsDead(500@($temp_int,3i))
+then
+    Char.ClearTasksImmediately(500@($temp_int,3i))
+    if
+        Char.IsInAnyCar(500@($temp_int,3i))
+    then
+        Char.WarpFromCarToCoord(500@($temp_int,3i), 577@, 578@, 579@)
+    end
+    Char.WarpIntoCar(500@($temp_int,3i), 515@($temp_int,3i))
+    Char.SetAreaVisible(500@($temp_int,3i), 552@)
+end
+return
+
+:DESERT6_COOP_RESTAGE_CURRENT_SUPPORT
+if
+    not Car.DoesExist(515@($temp_int,3i))
+then
+    return
+end
+if
+    Car.IsDead(515@($temp_int,3i))
+then
+    return
+end
+if
+    not Car.DoesExist(125@)
+then
+    return
+end
+573@, 574@, 575@ = Car.GetCoordinates(125@)
+588@ = Car.GetHeading(125@)
+set_lvar_float_to_lvar_float 577@ = 573@
+set_lvar_float_to_lvar_float 578@ = 574@
+set_lvar_float_to_lvar_float 579@ = 575@
+578@ -= 110.0
+579@ += 35.0
+if
+    $temp_int == 0
+then
+    577@ -= 70.0
+end
+if
+    $temp_int == 1
+then
+    579@ += 10.0
+end
+if
+    $temp_int == 2
+then
+    577@ += 70.0
+end
+Car.SetCoordinates(515@($temp_int,3i), 577@, 578@, 579@)
+Car.SetHeading(515@($temp_int,3i), 588@)
+Car.SetHealth(515@($temp_int,3i), 1800)
+Car.SetProofs(515@($temp_int,3i), False, False, False, False, False)
+Heli.SetBladesFullSpeed(515@($temp_int,3i))
+536@($temp_int,3i) = Car.GetHealth(515@($temp_int,3i))
+if and
+    506@($temp_int,3i) == 1
+    not Char.IsDead(500@($temp_int,3i))
+then
+    Char.ClearTasksImmediately(500@($temp_int,3i))
+    if
+        Char.IsInAnyCar(500@($temp_int,3i))
+    then
+        Char.WarpFromCarToCoord(500@($temp_int,3i), 577@, 578@, 579@)
+    end
+    Char.WarpIntoCar(500@($temp_int,3i), 515@($temp_int,3i))
+    Char.SetProofs(500@($temp_int,3i), True, True, True, False, True)
+    Char.SetVisible(500@($temp_int,3i), True)
+    Char.FreezePosition(500@($temp_int,3i), False)
+end
+527@($temp_int,3i) = 0
+return
+
+// Reconnected frozen identities are matched by immutable ID, never by slot.
+// During cinematics they resume hidden/frozen; during flight they are safely
+// returned to their own support craft or to a nonblocking model-load fallback.
+:DESERT6_COOP_REGROUP_RECONNECTED
+570@ = -1
+571@ = -1
+572@ = -1
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 570@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+Coop.TeleportPlayersToHostSafely(570@, 571@, 572@)
+552@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        509@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        Char.SetAreaVisible(500@($temp_int,3i), 552@)
+        Char.SetCollision(500@($temp_int,3i), True)
+        if
+            543@ == 1
+        then
+            Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+            Char.SetVisible(500@($temp_int,3i), False)
+            Char.FreezePosition(500@($temp_int,3i), True)
+            Task.StandStill(500@($temp_int,3i), -1)
+        else
+            if
+                not Car.DoesExist(515@($temp_int,3i))
+            then
+                524@($temp_int,3i) = 0
+                gosub @DESERT6_COOP_CREATE_SUPPORT_CURRENT_SLOT
+            else
+                gosub @DESERT6_COOP_RESTAGE_CURRENT_SUPPORT
+            end
+            Char.SetProofs(500@($temp_int,3i), True, True, True, False, True)
+            Char.SetVisible(500@($temp_int,3i), True)
+            Char.FreezePosition(500@($temp_int,3i), False)
+            Task.StandStill(500@($temp_int,3i), 0)
+        end
+        Char.ClearLastDamageEntity(500@($temp_int,3i))
+        509@($temp_int,3i) = 0
+        512@($temp_int,3i) = -1
+    end
+end
+544@ = 0
+return
+
+:DESERT6_COOP_UPDATE_SUPPORT
+if
+    539@ == 0
+then
+    return
+end
+547@ = Clock.GetGameTimer()
+gosub @DESERT6_COOP_REQUEST_SUPPORT_MODEL
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 0
+    then
+        if
+            Car.DoesExist(515@($temp_int,3i))
+        then
+            Car.SetProofs(515@($temp_int,3i), False, False, False, False, False)
+            Car.FreezePosition(515@($temp_int,3i), False)
+            Car.Delete(515@($temp_int,3i))
+        end
+        515@($temp_int,3i) = -1
+        518@($temp_int,3i) = -1
+        521@($temp_int,3i) = 0
+        524@($temp_int,3i) = 0
+        527@($temp_int,3i) = 0
+        536@($temp_int,3i) = 0
+    else
+        if
+            543@ == 0
+        then
+            if and
+                Car.DoesExist(125@)
+                Char.IsInCar(500@($temp_int,3i), 125@)
+            then
+                Task.LeaveCarImmediately(500@($temp_int,3i), 125@)
+            end
+            587@ = 0
+            if
+                Car.DoesExist(515@($temp_int,3i))
+            then
+                if
+                    not Car.IsDead(515@($temp_int,3i))
+                then
+                    if
+                        not Car.IsInWater(515@($temp_int,3i))
+                    then
+                        587@ = 1
+                    end
+                end
+            end
+            if and
+                515@($temp_int,3i) <> -1
+                587@ == 0
+            then
+                if
+                    Car.DoesExist(515@($temp_int,3i))
+                then
+                    if and
+                        not Char.IsDead(500@($temp_int,3i))
+                        Char.IsInAnyCar(500@($temp_int,3i))
+                    then
+                        573@, 574@, 575@ = Char.GetCoordinates(500@($temp_int,3i))
+                        Char.WarpFromCarToCoord(500@($temp_int,3i), 573@, 574@, 575@)
+                    end
+                    Car.Delete(515@($temp_int,3i))
+                end
+                515@($temp_int,3i) = -1
+                518@($temp_int,3i) = -1
+                521@($temp_int,3i) = 0
+                set_lvar_int_to_lvar_int 524@($temp_int,3i) = 547@
+                524@($temp_int,3i) += 5000
+                527@($temp_int,3i) = 0
+                536@($temp_int,3i) = 0
+                569@ += 1
+                Coop.PrintNowForNetworkPlayer('DES6_00', 5000, 1, 500@($temp_int,3i))
+            end
+            if
+                515@($temp_int,3i) == -1
+            then
+                589@ = 0
+                if
+                    524@($temp_int,3i) == 0
+                then
+                    589@ = 1
+                else
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 547@ >= 524@($temp_int,3i)
+                    then
+                        589@ = 1
+                    end
+                end
+                if
+                    589@ == 1
+                then
+                    gosub @DESERT6_COOP_CREATE_SUPPORT_CURRENT_SLOT
+                    if
+                        Car.DoesExist(515@($temp_int,3i))
+                    then
+                        524@($temp_int,3i) = 0
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+// A peer outside its assigned support craft or more than 700 metres from the
+// Rustler gets ten seconds to recover. Expiry moves only that peer's aircraft to
+// a spaced escort offset and warps the peer back in; host progress never waits.
+:DESERT6_COOP_UPDATE_REGROUP
+if or
+    539@ == 0
+    543@ == 1
+then
+    return
+end
+if or
+    2 > 34@
+    34@ > 3
+then
+    return
+end
+547@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 546@ > 547@
+then
+    return
+end
+set_lvar_int_to_lvar_int 546@ = 547@
+546@ += 1000
+if
+    not Car.DoesExist(125@)
+then
+    return
+end
+573@, 574@, 575@ = Car.GetCoordinates(125@)
+for $temp_int = 0 to 2
+    589@ = 0
+    if and
+        506@($temp_int,3i) == 1
+        Car.DoesExist(515@($temp_int,3i))
+    then
+        if
+            not Char.IsInCar(500@($temp_int,3i), 515@($temp_int,3i))
+        then
+            589@ = 1
+        else
+            577@, 578@, 579@ = Char.GetCoordinates(500@($temp_int,3i))
+            576@ = Math.GetDistanceBetweenCoords3D(573@, 574@, 575@, 577@, 578@, 579@)
+            if
+                576@ > 700.0
+            then
+                589@ = 1
+            end
+        end
+        if
+            589@ == 1
+        then
+            if
+                527@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 527@($temp_int,3i) = 547@
+                527@($temp_int,3i) += 10000
+                Coop.PrintNowForNetworkPlayer('DES6_00', 5000, 1, 500@($temp_int,3i))
+            else
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 547@ >= 527@($temp_int,3i)
+                then
+                    gosub @DESERT6_COOP_RESTAGE_CURRENT_SUPPORT
+                end
+            end
+        else
+            527@($temp_int,3i) = 0
+        end
+    else
+        527@($temp_int,3i) = 0
+    end
+end
+return
+
+// Every relevant ped and aircraft gets a five-second, nonblocking network-ID
+// handshake. Polls happen at most four times per second and never stall the stock
+// mission loop. Cargo objects have no Coop network-ID primitive; they remain
+// attached to the registered canonical Rustler and are never peer-side deleted.
+:DESERT6_COOP_POLL_REGISTRATIONS
+if
+    539@ == 0
+then
+    return
+end
+547@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 545@ > 547@
+then
+    return
+end
+set_lvar_int_to_lvar_int 545@ = 547@
+545@ += 250
+if and
+    596@ == -1
+    597@ <> -1
+    not Char.IsDead($scplayer)
+then
+    if
+        597@ == 0
+    then
+        set_lvar_int_to_lvar_int 597@ = 547@
+        597@ += 5000
+    end
+    if
+        is_int_lvar_greater_or_equal_to_int_lvar 597@ >= 547@
+    then
+        596@ = Coop.GetPedNetworkId($scplayer)
+    else
+        597@ = -1
+        559@ = 1
+        594@ += 1
+    end
+end
+if and
+    555@ == -1
+    556@ <> -1
+    Car.DoesExist(125@)
+then
+    if
+        not Car.IsDead(125@)
+    then
+        if
+            556@ == 0
+        then
+            set_lvar_int_to_lvar_int 556@ = 547@
+            556@ += 5000
+        end
+        if
+            is_int_lvar_greater_or_equal_to_int_lvar 556@ >= 547@
+        then
+            555@ = Coop.GetVehicleNetworkId(125@)
+        else
+            556@ = -1
+            559@ = 1
+            594@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        530@($temp_int,3i) == -1
+        533@($temp_int,3i) <> -1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        if
+            533@($temp_int,3i) == 0
+        then
+            set_lvar_int_to_lvar_int 533@($temp_int,3i) = 547@
+            533@($temp_int,3i) += 5000
+        end
+        if
+            is_int_lvar_greater_or_equal_to_int_lvar 533@($temp_int,3i) >= 547@
+        then
+            530@($temp_int,3i) = Coop.GetPedNetworkId(500@($temp_int,3i))
+        else
+            533@($temp_int,3i) = -1
+            559@ = 1
+            594@ += 1
+        end
+    end
+    if and
+        518@($temp_int,3i) == -1
+        521@($temp_int,3i) <> -1
+        Car.DoesExist(515@($temp_int,3i))
+    then
+        if
+            not Car.IsDead(515@($temp_int,3i))
+        then
+            if
+                521@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 521@($temp_int,3i) = 547@
+                521@($temp_int,3i) += 5000
+            end
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 521@($temp_int,3i) >= 547@
+            then
+                518@($temp_int,3i) = Coop.GetVehicleNetworkId(515@($temp_int,3i))
+            else
+                521@($temp_int,3i) = -1
+                559@ = 1
+                594@ += 1
+            end
+        end
+    end
+end
+for $temp_int = 0 to 1
+    if and
+        560@($temp_int,2i) == -1
+        562@($temp_int,2i) <> -1
+        Car.DoesExist(126@($temp_int,2i))
+    then
+        if
+            not Car.IsDead(126@($temp_int,2i))
+        then
+            if
+                562@($temp_int,2i) == 0
+            then
+                set_lvar_int_to_lvar_int 562@($temp_int,2i) = 547@
+                562@($temp_int,2i) += 5000
+            end
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 562@($temp_int,2i) >= 547@
+            then
+                560@($temp_int,2i) = Coop.GetVehicleNetworkId(126@($temp_int,2i))
+            else
+                562@($temp_int,2i) = -1
+                559@ = 1
+                594@ += 1
+            end
+        end
+    end
+    if and
+        564@($temp_int,2i) == -1
+        566@($temp_int,2i) <> -1
+        Char.DoesExist(123@($temp_int,2i))
+    then
+        if
+            not Char.IsDead(123@($temp_int,2i))
+        then
+            if
+                566@($temp_int,2i) == 0
+            then
+                set_lvar_int_to_lvar_int 566@($temp_int,2i) = 547@
+                566@($temp_int,2i) += 5000
+            end
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 566@($temp_int,2i) >= 547@
+            then
+                564@($temp_int,2i) = Coop.GetPedNetworkId(123@($temp_int,2i))
+            else
+                566@($temp_int,2i) = -1
+                559@ = 1
+                594@ += 1
+            end
+        end
+    end
+end
+return
+
+// The canonical Rustler and support craft remain vulnerable to stock enemies,
+// terrain, water, and pilot error. Only damage explicitly attributed to the host
+// or a current network peer is repaired from previous-frame ledgers, so escorts
+// or late spectators cannot grief one another or the route.
+:DESERT6_COOP_PROTECT_FRIENDLIES
+if
+    539@ == 0
+then
+    return
+end
+if
+    not Car.DoesExist(125@)
+then
+    return
+end
+if
+    Car.IsDead(125@)
+then
+    return
+end
+583@ = Car.GetHealth(125@)
+558@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 549@ = 600@($temp_int,3i)
+    if
+        Coop.IsNetworkPlayerActorValid(549@)
+    then
+        if
+            Car.HasBeenDamagedByChar(125@, 549@)
+        then
+            558@ = 1
+        end
+    end
+end
+if
+    558@ == 1
+then
+    if
+        is_int_lvar_greater_than_int_lvar 557@ > 583@
+    then
+        Car.SetHealth(125@, 557@)
+    end
+    Car.ClearLastDamageEntity(125@)
+    583@ = Car.GetHealth(125@)
+end
+set_lvar_int_to_lvar_int 557@ = 583@
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Car.DoesExist(515@($temp_int,3i))
+    then
+        if
+            not Car.IsDead(515@($temp_int,3i))
+        then
+            583@ = Car.GetHealth(515@($temp_int,3i))
+            558@ = 0
+            if
+                Car.HasBeenDamagedByChar(515@($temp_int,3i), $scplayer)
+            then
+                558@ = 1
+            end
+            for 584@ = 0 to 2
+                set_lvar_int_to_lvar_int 549@ = 600@(584@,3i)
+                if
+                    Coop.IsNetworkPlayerActorValid(549@)
+                then
+                    if
+                        Car.HasBeenDamagedByChar(515@($temp_int,3i), 549@)
+                    then
+                        558@ = 1
+                    end
+                end
+            end
+            if
+                558@ == 1
+            then
+                if
+                    is_int_lvar_greater_than_int_lvar 536@($temp_int,3i) > 583@
+                then
+                    Car.SetHealth(515@($temp_int,3i), 536@($temp_int,3i))
+                end
+                Car.ClearLastDamageEntity(515@($temp_int,3i))
+                583@ = Car.GetHealth(515@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 536@($temp_int,3i) = 583@
+        end
+    end
+end
+return
+
+// Remote HUD state describes an escort bubble around the Rustler, not the host's
+// destination route. Registered host/support aircraft are friendly, registered
+// Hydras are threats, and coordinate checkpoints remain a registration fallback.
+:DESERT6_COOP_UPDATE_OBJECTIVES
+if or
+    539@ == 0
+    543@ == 1
+then
+    return
+end
+580@ = 0
+if
+    not is_int_lvar_equal_to_int_lvar 551@ == 34@
+then
+    set_lvar_int_to_lvar_int 551@ = 34@
+    580@ = 1
+end
+547@ = Clock.GetGameTimer()
+if and
+    580@ == 0
+    is_int_lvar_greater_than_int_lvar 544@ > 547@
+then
+    return
+end
+set_lvar_int_to_lvar_int 544@ = 547@
+544@ += 3000
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        589@ = 0
+        if
+            not is_int_lvar_equal_to_int_lvar 512@($temp_int,3i) == 551@
+        then
+            589@ = 1
+        end
+        set_lvar_int_to_lvar_int 512@($temp_int,3i) = 551@
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        if and
+            555@ <> -1
+            Car.DoesExist(125@)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 125@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+        end
+        if and
+            518@($temp_int,3i) <> -1
+            Car.DoesExist(515@($temp_int,3i))
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 515@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        for 584@ = 0 to 1
+            if and
+                560@(584@,2i) <> -1
+                Car.DoesExist(126@(584@,2i))
+            then
+                if
+                    not Car.IsDead(126@(584@,2i))
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 126@(584@,2i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+        end
+        if and
+            4 > 551@
+            Car.DoesExist(125@)
+        then
+            573@, 574@, 575@ = Car.GetCoordinates(125@)
+            Coop.UpdateCheckpointForNetworkPlayer(573@, 574@, 575@, 180.0, 180.0, 80.0, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+:DESERT6_COOP_UPDATE
+if
+    539@ == 0
+then
+    return
+end
+gosub @DESERT6_COOP_UPDATE_ROSTER
+if
+    550@ == 1
+then
+    gosub @DESERT6_COOP_REGROUP_RECONNECTED
+end
+if
+    540@ == 1
+then
+    return
+end
+gosub @DESERT6_COOP_UPDATE_SUPPORT
+gosub @DESERT6_COOP_POLL_REGISTRATIONS
+gosub @DESERT6_COOP_PROTECT_FRIENDLIES
+gosub @DESERT6_COOP_UPDATE_REGROUP
+gosub @DESERT6_COOP_UPDATE_OBJECTIVES
+set_lvar_int_to_lvar_int 581@ = 34@
+return
+
+:DESERT6_COOP_BEGIN_FINAL_STAGING
+if
+    595@ == 1
+then
+    return
+end
+595@ = 1
+gosub @DESERT6_COOP_FREEZE_REMOTES
+return
+
+:DESERT6_COOP_NOTIFY_OUTCOME
+if
+    554@ == 1
+then
+    return
+end
+554@ = 1
+gosub @DESERT6_COOP_UPDATE_ROSTER
+gosub @DESERT6_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            542@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+            if
+                45@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('DES6_99', 5000, 1, 500@($temp_int,3i))
+            end
+            if
+                45@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('DES6_98', 5000, 1, 500@($temp_int,3i))
+            end
+            if
+                45@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('DES6_97', 5000, 1, 500@($temp_int,3i))
+            end
+        end
+        if
+            542@ == 2
+        then
+            // Presentation only: score, mission stats, story progress, and the
+            // $15,000 reward remain exclusively in the original host pass block.
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+// Cleanup is safe after pass, any stock failure, participant death, disconnect,
+// or death/arrest. No temporary ped loadout is granted; all role firepower belongs
+// to support aircraft. Proofs, tasks, blips, checkpoints, IDs, and support craft
+// are restored/removed exactly once.
+:DESERT6_COOP_CLEANUP
+if
+    541@ == 1
+then
+    return
+end
+541@ = 1
+if
+    539@ == 0
+then
+    return
+end
+gosub @DESERT6_COOP_UPDATE_ROSTER
+gosub @DESERT6_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            573@, 574@, 575@ = Char.GetCoordinates(500@($temp_int,3i))
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 573@, 574@, 575@)
+        end
+    end
+end
+gosub @DESERT6_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(570@, 571@, 572@)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), 0)
+        Char.ClearLastDamageEntity(500@($temp_int,3i))
+    end
+    if
+        Car.DoesExist(515@($temp_int,3i))
+    then
+        Car.SetCanBurstTires(515@($temp_int,3i), True)
+        Car.SetProofs(515@($temp_int,3i), False, False, False, False, False)
+        Car.FreezePosition(515@($temp_int,3i), False)
+        Car.Delete(515@($temp_int,3i))
+    end
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = 0
+    512@($temp_int,3i) = -1
+    515@($temp_int,3i) = -1
+    518@($temp_int,3i) = -1
+    521@($temp_int,3i) = 0
+    524@($temp_int,3i) = 0
+    527@($temp_int,3i) = 0
+    530@($temp_int,3i) = -1
+    533@($temp_int,3i) = 0
+    536@($temp_int,3i) = 0
+end
+if
+    not Char.IsDead($scplayer)
+then
+    Char.SetProofs($scplayer, False, False, False, False, False)
+    Char.ClearLastDamageEntity($scplayer)
+end
+if
+    Car.DoesExist(125@)
+then
+    Car.ClearLastDamageEntity(125@)
+end
+543@ = 0
+Streaming.MarkModelAsNoLongerNeeded(447)
+return
 
