@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "CMissionSessionClient.h"
+#include "CCutsceneVoteManager.h"
 
 #include <CNetworkCheckpoint.h>
 #include <CNetworkEntityBlip.h>
@@ -131,6 +132,7 @@ void CMissionSessionClient::HandleLegacyMissionFlag(bool bOnMission)
 
 void CMissionSessionClient::Reset()
 {
+    CCutsceneVoteManager::Reset();
     ApplyLocalMissionFlag(false);
     CancelPendingMissionMedia();
     m_State = MissionSessionState{};
@@ -370,6 +372,7 @@ void CMissionSessionClient::ApplyState(const MissionSessionState& state)
 
     if (!state.IsActive())
     {
+        CCutsceneVoteManager::HandleMissionSessionReset();
         CancelPendingMissionMedia();
         m_ObservedScmMissionResult = eMissionSessionResult::NONE;
         m_nObservedScmMissionResultSessionId = 0;

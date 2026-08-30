@@ -1,5 +1,6 @@
 #include "CNetworkPlayerManager.h"
 #include "CMissionSessionServer.h"
+#include "CCutsceneVoteManager.h"
 #include "CRTTBroadcastManager.h"
 #include "CPacketFactory.h"
 #include "logger.h"
@@ -508,6 +509,7 @@ void CNetwork::CompletePlayerConnection(
     // Enqueue authoritative mission classification before considering cached mission-world state. Active-session
     // spectators never receive the cached EnEx packet, so cross-channel delivery cannot expose it to them first.
     CMissionSessionServer::SendSnapshot(pNewNetworkPlayer);
+    CCutsceneVoteManager::SendSnapshot(pNewNetworkPlayer);
 
     const bool mayReceiveCachedEnEx = !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
     if (mayReceiveCachedEnEx && Packets::Scripts::g_pLastEnExPlayerOwner)

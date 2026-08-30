@@ -39,6 +39,7 @@
 #include <CTaskSequenceSync.h>
 #include <CNetworkAnimQueue.h>
 #include <CMissionSessionClient.h>
+#include <CCutsceneVoteManager.h>
 
 // Keep sorted!
 const SSyncedOpCode syncedOpcodes[] =
@@ -462,6 +463,17 @@ void BuildAndSendOpcode()
     packet.size = dataSize;
     memcpy(packet.buffer, buffer.data(), dataSize);
     GetPacketFactory().Send(packet);
+
+    // The opcode remains the sole cutscene playback signal. These callbacks only establish/retire the
+    // authoritative vote epoch after the host has synchronized the corresponding SCM command.
+    if (lastOpCodeProcessed == 0x02E7) // start_cutscene
+    {
+        CCutsceneVoteManager::NotifySynchronizedCutsceneStarted();
+    }
+    else if (lastOpCodeProcessed == 0x02EA) // clear_cutscene
+    {
+        CCutsceneVoteManager::NotifySynchronizedCutsceneEnded();
+    }
 
     ResetCollectedOpcodeParameters();
 }

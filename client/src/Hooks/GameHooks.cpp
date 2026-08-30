@@ -2,6 +2,7 @@
 #include "GameHooks.h"
 #include "CKeySync.h"
 #include <CCutsceneMgr.h>
+#include <CCutsceneVoteManager.h>
 #include <CWeatherSync.h>
 #include <CCoronas.h>
 
@@ -114,29 +115,10 @@ static void __cdecl CTheZones__Update_Hook()
     GetPacketFactory().Send(keyPressed);
 }
 
-void CCutsceneMgr__StartCutscene_Hook()
-{
-    CCutsceneMgr::StartCutscene();
-    if (CLocalPlayer::m_bIsHost)
-    {
-        Packets::Scripts::StartCutscene packet{};
-        packet.currArea = static_cast<eVisibleArea>(CGame::currArea);
-        strncpy_s(packet.name, CCutsceneMgr::ms_cutsceneName, 8);
-        GetPacketFactory().Send(packet);
-    }
-}
-
 bool CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook()
 {
-    bool result = plugin::CallAndReturn<bool, 0x4D5D10>();
-
-    if (result)
-    {
-        Packets::Scripts::SkipCutscene packet{};
-        GetPacketFactory().Send(packet);
-    }
-
-    return result;
+    const bool result = plugin::CallAndReturn<bool, 0x4D5D10>();
+    return CCutsceneVoteManager::HandleSkipButton(result);
 }
 
 int __purecall_Hook()
@@ -207,11 +189,11 @@ void GameHooks::InjectHooks()
     CTheZones__Update_Dest = injector::GetBranchDestination(0x53BF49).as_int();
     patch::RedirectCall(0x53BF49, CTheZones__Update_Hook);
 
-    // patch::RedirectCall(0x48072B, CCutsceneMgr__StartCutscene_Hook);
+    patch::RedirectCall(0x5B1947, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
+    patch::RedirectCall(0x469F0E, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
+    patch::RedirectCall(0x475459, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
 
-    // patch::RedirectCall(0x5B1947, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
-    // patch::RedirectCall(0x469F0E, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
-    // patch::RedirectCall(0x475459, CCutsceneMgr__IsCutsceneSkipButtonBeingPressed_Hook);
+    Events::gameProcessEvent += [] { CCutsceneVoteManager::Process(); };
 
     patch::RedirectJump(PURECALL, __purecall_Hook);
 

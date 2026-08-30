@@ -2,6 +2,7 @@
 #include "network/packet_types.h"
 #include "stdafx.h"
 #include "CMissionSessionServer.h"
+#include "CCutsceneVoteManager.h"
 
 namespace
 {
@@ -42,6 +43,30 @@ PACKET_HANDLER(ePacketType::MISSION_SESSION_STATE,
     Packets::Scripts::MissionSessionState*, CNetworkPlayer* pNetworkPlayer)
 {
     logger::warn("%s tried to send server-owned mission-session state", pNetworkPlayer->GetName().c_str());
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_START_REQUEST,
+    Packets::Scripts::CutsceneStartRequest* pRequest, CNetworkPlayer* pNetworkPlayer)
+{
+    CCutsceneVoteManager::HandleStartRequest(pNetworkPlayer, *pRequest);
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_VOTE_REQUEST,
+    Packets::Scripts::CutsceneVoteRequest* pRequest, CNetworkPlayer* pNetworkPlayer)
+{
+    CCutsceneVoteManager::HandleVoteRequest(pNetworkPlayer, *pRequest);
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_END_REQUEST,
+    Packets::Scripts::CutsceneEndRequest* pRequest, CNetworkPlayer* pNetworkPlayer)
+{
+    CCutsceneVoteManager::HandleEndRequest(pNetworkPlayer, *pRequest);
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_VOTE_STATE,
+    Packets::Scripts::CutsceneVoteState*, CNetworkPlayer* pNetworkPlayer)
+{
+    logger::warn("%s tried to send server-owned cutscene vote state", pNetworkPlayer->GetName().c_str());
 }
 
 PACKET_HANDLER(ePacketType::ON_MISSION_FLAG_SYNC, Packets::Scripts::OnMissionFlagSync* pOnMissionFlagSync,

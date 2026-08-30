@@ -457,6 +457,162 @@ private:
     }
 };
 
+// Cutscene playback itself remains synchronized by the SCM opcode stream. These packets carry only the
+// server-authoritative vote lifecycle and can never execute a cutscene start on a client.
+enum class eCutsceneVoteLifecycle
+{
+    ACTIVE = 0,
+    SKIPPED,
+    ENDED
+};
+
+class CutsceneStartRequest : public Packet
+{
+    DEFINE_PACKET_TYPE(CutsceneStartRequest, ePacketType::CUTSCENE_START_REQUEST, ePacketChannel::SCRIPT);
+
+public:
+    uint64_t sessionId = 0;
+    uint32_t missionEpoch = 0;
+    uint32_t requestId = 0;
+    char name[8]{};
+    eVisibleArea currArea = AREA_MAIN_MAP;
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint64(stream, sessionId);
+        serialize_uint32(stream, missionEpoch);
+        serialize_uint32(stream, requestId);
+        serialize_string(stream, name, ARRAY_SIZE(name));
+        name[ARRAY_SIZE(name) - 1] = '\0';
+        int serializedArea = static_cast<int>(currArea);
+        serialize_int(stream, serializedArea, AREA_MAIN_MAP, MAX_VISIBLE_AREAS - 1);
+        if (Stream::IsReading)
+        {
+            currArea = static_cast<eVisibleArea>(serializedArea);
+        }
+        return sessionId != 0 && missionEpoch != 0 && requestId != 0;
+    }
+};
+
+class CutsceneVoteRequest : public Packet
+{
+    DEFINE_PACKET_TYPE(CutsceneVoteRequest, ePacketType::CUTSCENE_VOTE_REQUEST, ePacketChannel::SCRIPT);
+
+public:
+    uint64_t sessionId = 0;
+    uint32_t missionEpoch = 0;
+    uint32_t cutsceneEpoch = 0;
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint64(stream, sessionId);
+        serialize_uint32(stream, missionEpoch);
+        serialize_uint32(stream, cutsceneEpoch);
+        return sessionId != 0 && missionEpoch != 0 && cutsceneEpoch != 0;
+    }
+};
+
+class CutsceneEndRequest : public Packet
+{
+    DEFINE_PACKET_TYPE(CutsceneEndRequest, ePacketType::CUTSCENE_END_REQUEST, ePacketChannel::SCRIPT);
+
+public:
+    uint64_t sessionId = 0;
+    uint32_t missionEpoch = 0;
+    uint32_t cutsceneEpoch = 0;
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint64(stream, sessionId);
+        serialize_uint32(stream, missionEpoch);
+        serialize_uint32(stream, cutsceneEpoch);
+        return sessionId != 0 && missionEpoch != 0 && cutsceneEpoch != 0;
+    }
+};
+
+class CutsceneVoteState : public Packet
+{
+    DEFINE_PACKET_TYPE(CutsceneVoteState, ePacketType::CUTSCENE_VOTE_STATE, ePacketChannel::SCRIPT);
+
+public:
+    uint64_t sessionId = 0;
+    uint32_t missionEpoch = 0;
+    uint32_t cutsceneEpoch = 0;
+    uint32_t startRequestId = 0;
+    uint8_t hostId = MISSION_PLAYER_ID_INVALID;
+    uint8_t eligibleCount = 0;
+    uint8_t voteCount = 0;
+    uint8_t requiredVotes = 0;
+    eCutsceneVoteLifecycle lifecycle = eCutsceneVoteLifecycle::ACTIVE;
+    char name[8]{};
+    eVisibleArea currArea = AREA_MAIN_MAP;
+
+    bool HasValidVoteState() const
+    {
+        if (sessionId == 0 || missionEpoch == 0 || cutsceneEpoch == 0 || startRequestId == 0 ||
+            hostId >= Config::MAX_SERVER_PLAYERS || eligibleCount == 0 ||
+            eligibleCount > MISSION_SCM_GAMEPLAY_PLAYER_CAP || voteCount > eligibleCount ||
+            requiredVotes != static_cast<uint8_t>(eligibleCount / 2 + 1))
+        {
+            return false;
+        }
+
+        if (lifecycle == eCutsceneVoteLifecycle::ACTIVE)
+        {
+            return voteCount < requiredVotes;
+        }
+        if (lifecycle == eCutsceneVoteLifecycle::SKIPPED)
+        {
+            return voteCount >= requiredVotes;
+        }
+        return lifecycle == eCutsceneVoteLifecycle::ENDED;
+    }
+
+private:
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint64(stream, sessionId);
+        serialize_uint32(stream, missionEpoch);
+        serialize_uint32(stream, cutsceneEpoch);
+        serialize_uint32(stream, startRequestId);
+
+        int serializedHostId = hostId;
+        serialize_int(stream, serializedHostId, 0, Config::MAX_SERVER_PLAYERS - 1);
+        int serializedEligibleCount = eligibleCount;
+        serialize_int(stream, serializedEligibleCount, 1, MISSION_SCM_GAMEPLAY_PLAYER_CAP);
+        int serializedVoteCount = voteCount;
+        serialize_int(stream, serializedVoteCount, 0, MISSION_SCM_GAMEPLAY_PLAYER_CAP);
+        int serializedRequiredVotes = requiredVotes;
+        serialize_int(stream, serializedRequiredVotes, 1, MISSION_SCM_GAMEPLAY_PLAYER_CAP);
+
+        int serializedLifecycle = static_cast<int>(lifecycle);
+        serialize_int(stream, serializedLifecycle, static_cast<int>(eCutsceneVoteLifecycle::ACTIVE),
+            static_cast<int>(eCutsceneVoteLifecycle::ENDED));
+        serialize_string(stream, name, ARRAY_SIZE(name));
+        name[ARRAY_SIZE(name) - 1] = '\0';
+        int serializedArea = static_cast<int>(currArea);
+        serialize_int(stream, serializedArea, AREA_MAIN_MAP, MAX_VISIBLE_AREAS - 1);
+
+        if (Stream::IsReading)
+        {
+            hostId = static_cast<uint8_t>(serializedHostId);
+            eligibleCount = static_cast<uint8_t>(serializedEligibleCount);
+            voteCount = static_cast<uint8_t>(serializedVoteCount);
+            requiredVotes = static_cast<uint8_t>(serializedRequiredVotes);
+            lifecycle = static_cast<eCutsceneVoteLifecycle>(serializedLifecycle);
+            currArea = static_cast<eVisibleArea>(serializedArea);
+        }
+        return HasValidVoteState();
+    }
+};
+
 class PlayMissionAudio : public Packet
 {
     DEFINE_PACKET_TYPE(PlayMissionAudio, ePacketType::PLAY_MISSION_AUDIO, ePacketChannel::SCRIPT);

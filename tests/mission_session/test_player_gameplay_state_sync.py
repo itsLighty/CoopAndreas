@@ -41,7 +41,9 @@ class PlayerGameplayStateSyncTests(unittest.TestCase):
         cls.client_network = (ROOT / "client/src/CNetwork.cpp").read_text(encoding="utf-8")
 
     def test_wire_schema_is_bounded_registered_and_version_gated(self):
-        self.assertIn("PLAYER_GAMEPLAY_STATE,\n    PACKET_ID_MAX", self.packet_types)
+        gameplay_state_index = self.packet_types.index("PLAYER_GAMEPLAY_STATE")
+        packet_id_max_index = self.packet_types.index("PACKET_ID_MAX", gameplay_state_index)
+        self.assertLess(gameplay_state_index, packet_id_max_index)
         self.assertIn('"PLAYER_GAMEPLAY_STATE"', self.packet_types)
         self.assertIn(
             "DEFINE_PACKET_TYPE(PlayerGameplayState, ePacketType::PLAYER_GAMEPLAY_STATE, ePacketChannel::EVENT)",
@@ -56,7 +58,7 @@ class PlayerGameplayStateSyncTests(unittest.TestCase):
         self.assertIn("serialize_int(stream, money, MIN_MONEY, MAX_MONEY)", gameplay_packet)
         self.assertIn("serialize_compressed_float(stream, breath", gameplay_packet)
         self.assertIn("serialize_compressed_float(stream, maximumHealth", gameplay_packet)
-        self.assertIn('COOPANDREAS_VERSION "0.3.2-alpha"',
+        self.assertIn('COOPANDREAS_VERSION "0.3.3-alpha"',
             (ROOT / "shared/config.h").read_text(encoding="utf-8"))
 
         client_pch = (ROOT / "client/src/stdafx.h").read_text(encoding="utf-8")

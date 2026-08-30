@@ -7,6 +7,7 @@
 #include <COpCodeSync.h>
 #include <CTaskSequenceSync.h>
 #include <CMissionSessionClient.h>
+#include <CCutsceneVoteManager.h>
 
 namespace
 {
@@ -20,6 +21,27 @@ PACKET_HANDLER(ePacketType::MISSION_SESSION_STATE,
     Packets::Scripts::MissionSessionState* pMissionSessionState)
 {
 	CMissionSessionClient::HandleState(*pMissionSessionState);
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_VOTE_STATE,
+    Packets::Scripts::CutsceneVoteState* pCutsceneVoteState)
+{
+	CCutsceneVoteManager::HandleState(*pCutsceneVoteState);
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_START_REQUEST, Packets::Scripts::CutsceneStartRequest*)
+{
+	logger::warn("Ignored server-sent cutscene start request");
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_VOTE_REQUEST, Packets::Scripts::CutsceneVoteRequest*)
+{
+	logger::warn("Ignored server-sent cutscene vote request");
+}
+
+PACKET_HANDLER(ePacketType::CUTSCENE_END_REQUEST, Packets::Scripts::CutsceneEndRequest*)
+{
+	logger::warn("Ignored server-sent cutscene end request");
 }
 
 PACKET_HANDLER(ePacketType::ON_MISSION_FLAG_SYNC, Packets::Scripts::OnMissionFlagSync* pOnMissionFlagSync)

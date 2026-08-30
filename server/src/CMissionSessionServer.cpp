@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "CMissionSessionServer.h"
+#include "CCutsceneVoteManager.h"
 
 using namespace Packets::Scripts;
 
@@ -170,6 +171,7 @@ bool CMissionSessionServer::BeginSession(CNetworkPlayer* pNetworkPlayer, const M
     }
 
     m_State = state;
+    CCutsceneVoteManager::ResetForMissionSession();
     return true;
 }
 
@@ -197,6 +199,7 @@ bool CMissionSessionServer::EndSession(CNetworkPlayer*, const MissionSessionRequ
     m_State.lifecycle = eMissionSessionLifecycle::ENDED;
     m_State.result = request.result;
     m_State.epoch = NextEpoch();
+    CCutsceneVoteManager::ResetForMissionSession();
     return true;
 }
 
@@ -211,6 +214,7 @@ bool CMissionSessionServer::AbortSession(eMissionSessionResult result)
     m_State.lifecycle = eMissionSessionLifecycle::ABORTED;
     m_State.result = result;
     m_State.epoch = NextEpoch();
+    CCutsceneVoteManager::ResetForMissionSession();
     return true;
 }
 
