@@ -3,6 +3,81 @@
 
 :RIOT2
 script_name 'RIOT2'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Los Desperados keeps Cesar, the Varrios allies, gang territories, rewards,
+// and canonical mission progression host-owned. Frozen participants travel in
+// support cars, share the two approach gates, and fight every assault wave.
+271@ = 0 // frozen remote-roster size
+272@ = 0 // deterministic participant failure
+273@ = 0 // idempotent cooperative cleanup guard
+274@ = 0 // cooperative play has begun
+275@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+276@ = 0 // result notification guard
+277@ = 1 // cinematic transition/freeze guard
+278@ = 0 // next bounded registration poll
+279@ = 0 // next objective refresh
+280@ = 0 // connected frozen participants
+281@ = 1 // cooperative phase: 1 travel, 2 approach, 3-5 assaults
+282@ = 0 // previous cooperative phase
+283@ = 0 // internal id/time/index scratch
+284@ = 0 // actor/entity scratch
+285@ = 0 // previous connection scratch
+286@ = 0.0 // coordinate scratch X
+287@ = 0.0 // coordinate scratch Y
+288@ = 0.0 // coordinate scratch Z
+289@ = 0.0 // heading scratch
+290@ = 0 // next hostile retarget scan
+291@ = 0 // shared first rendezvous trigger
+292@ = 0 // shared alley approach trigger
+293@ = 0 // current objective code scratch
+294@ = 0.0 // support-car offset scratch
+300@, 301@, 302@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 310@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    313@($temp_int,3i) = -1 // immutable internal network identity
+    316@($temp_int,3i) = 0 // currently connected participant
+    319@($temp_int,3i) = 0 // reconnect requires restaging
+    322@($temp_int,3i) = -1 // support Greenwood
+    325@($temp_int,3i) = -1 // support Greenwood network id
+    328@($temp_int,3i) = 0 // bounded support registration attempts
+    331@($temp_int,3i) = 0 // pre-mission Tec9 ammo
+    334@($temp_int,3i) = 0 // pre-mission selected weapon
+    337@($temp_int,3i) = 0 // participant originally owned a Tec9
+    340@($temp_int,3i) = 0 // temporary Tec9 granted
+    343@($temp_int,3i) = 100 // previous participant health
+    346@($temp_int,3i) = -1 // last objective code sent
+    if
+        Coop.IsNetworkPlayerActorValid(310@($temp_int,3i))
+    then
+        313@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(310@($temp_int,3i))
+        if
+            313@($temp_int,3i) <> -1
+        then
+            316@($temp_int,3i) = 1
+            271@ += 1
+            set_lvar_int_to_lvar_int 284@ = 310@($temp_int,3i)
+            331@($temp_int,3i) = Char.GetAmmoInWeapon(284@, 32)
+            334@($temp_int,3i) = Char.GetCurrentWeapon(284@)
+            343@($temp_int,3i) = Char.GetHealth(284@)
+            if
+                Char.HasGotWeapon(284@, 32)
+            then
+                337@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+for $temp_int = 0 to 3
+    354@($temp_int,4i) = -1 // friendly network id
+    358@($temp_int,4i) = 0 // bounded friendly registration attempts
+    362@($temp_int,4i) = 100 // previous friendly health
+end
+for $temp_int = 0 to 15
+    386@($temp_int,16i) = -1 // hostile network id
+    402@($temp_int,16i) = 0 // bounded hostile registration attempts
+end
+gosub @RIOT2_COOP_FREEZE_REMOTES
 gosub @RIOT2_47
 if 
   has_deatharrest_been_executed 
@@ -202,6 +277,12 @@ Game.EnableAmbientCrime(False)
 
 :RIOT2_1585
 wait 0
+gosub @RIOT2_COOP_UPDATE
+if
+  272@ == 1
+then
+    goto @RIOT2_30241
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @RIOT2_1611
@@ -357,6 +438,8 @@ Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
 Text.PrintNow('R2_01', 60000, 1)
+281@ = 1
+gosub @RIOT2_COOP_START_PLAY
 if 
   144@ == 1
 goto_if_false @RIOT2_2600
@@ -483,8 +566,9 @@ Text.PrintNow('R2_13', 7000, 1)
 if 
   178@ == 0
 goto_if_false @RIOT2_3308
-if 
+if or
   Char.LocateAnyMeans3D($scplayer, 1, 1774.9, -1974.9, 13.1, 4.0, 4.0, 4.0)
+  291@ == 1
 goto_if_false @RIOT2_3308
 Char.ShutUpForScriptedSpeech($scplayer, False)
 Char.ShutUpForScriptedSpeech($cesar, False)
@@ -523,6 +607,7 @@ goto @RIOT2_30241
 World.ClearArea(1, 1781.1, -1974.8, 13.1, 30.0)
 Game.ShutAllCharsUp(True)
 World.SetPedDensityMultiplier(0.0)
+gosub @RIOT2_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
@@ -958,6 +1043,8 @@ Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
 Text.PrintNow('R2_03', 7000, 1)
+281@ = 2
+gosub @RIOT2_COOP_STAGE_PHASE
 if 
   144@ == 1
 goto_if_false @RIOT2_6776
@@ -2266,8 +2353,9 @@ Text.PrintNow('R2_04', 11000, 1)
 187@ = 1
 
 :RIOT2_13800
-if 
+if or
   Char.LocateOnFoot3D($scplayer, 1, 1922.8, -2075.0, 12.5, 1.2, 1.2, 2.0)
+  292@ == 1
 goto_if_false @RIOT2_13879
 Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
@@ -2304,6 +2392,7 @@ goto_if_false @RIOT2_13995
 goto @RIOT2_30241
 
 :RIOT2_13995
+gosub @RIOT2_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
@@ -2832,6 +2921,8 @@ Player.SetControl($player1, True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Text.PrintNow('R2_05', 7000, 1)
+281@ = 3
+gosub @RIOT2_COOP_STAGE_PHASE
 if 
   144@ == 1
 goto_if_false @RIOT2_19269
@@ -3167,6 +3258,7 @@ Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 185@ = 0
+gosub @RIOT2_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
@@ -3473,6 +3565,8 @@ Player.SetControl($player1, True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Text.PrintNow('R2_06', 4000, 1)
+281@ = 4
+gosub @RIOT2_COOP_STAGE_PHASE
 if 
   144@ == 1
 goto_if_false @RIOT2_24520
@@ -3791,6 +3885,7 @@ Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 185@ = 0
+gosub @RIOT2_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
@@ -4136,6 +4231,8 @@ Player.SetControl($player1, True)
 Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Text.PrintNow('R2_07', 4000, 1)
+281@ = 5
+gosub @RIOT2_COOP_STAGE_PHASE
 if 
   144@ == 1
 goto_if_false @RIOT2_28969
@@ -4251,6 +4348,7 @@ Text.ClearPrints
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 185@ = 0
+gosub @RIOT2_COOP_BEGIN_TRANSITION
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
@@ -4372,10 +4470,14 @@ gosub @RIOT2_39478
 goto @RIOT2_1585
 
 :RIOT2_30241
+275@ = 1
+gosub @RIOT2_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :RIOT2_30259
+275@ = 2
+gosub @RIOT2_COOP_NOTIFY_RESULT
 $flag_riot_mission_counter += 1
 Text.PrintWithNumberBig('M_PASSR', 60, 5000, TextStyle.Middle)
 Stat.AwardPlayerMissionRespect(60)
@@ -4399,6 +4501,7 @@ Stat.PlayerMadeProgress(1)
 return 
 
 :RIOT2_30499
+gosub @RIOT2_COOP_CLEANUP
 if 
   is_var_text_label_empty s$shop_name
 goto_if_false @RIOT2_30517
@@ -4506,6 +4609,730 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+:RIOT2_COOP_UPDATE_ROSTER
+280@ = 0
+300@, 301@, 302@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 285@ = 316@($temp_int,3i)
+    316@($temp_int,3i) = 0
+    if and
+        313@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(310@($temp_int,3i))
+    then
+        283@ = Coop.GetNetworkPlayerInternalId(310@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 283@ == 313@($temp_int,3i)
+        then
+            316@($temp_int,3i) = 1
+        end
+    end
+    if and
+        313@($temp_int,3i) <> -1
+        316@($temp_int,3i) == 0
+    then
+        for 284@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(300@(284@,3i))
+            then
+                283@ = Coop.GetNetworkPlayerInternalId(300@(284@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 283@ == 313@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 310@($temp_int,3i) = 300@(284@,3i)
+                    316@($temp_int,3i) = 1
+                    if and
+                        274@ == 1
+                        285@ == 0
+                    then
+                        319@($temp_int,3i) = 1
+                        346@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        316@($temp_int,3i) == 1
+    then
+        280@ += 1
+        if and
+            275@ == 0
+            Char.IsDead(310@($temp_int,3i))
+        then
+            272@ = 1
+        end
+    end
+end
+return
+
+:RIOT2_COOP_BUILD_ACTIVE_ARGS
+295@ = -1
+296@ = -1
+297@ = -1
+for $temp_int = 0 to 2
+    if
+        316@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 295@($temp_int,3i) = 310@($temp_int,3i)
+    end
+end
+return
+
+:RIOT2_COOP_FREEZE_REMOTES
+if
+    271@ == 0
+then
+    return
+end
+286@, 287@, 288@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        316@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(310@($temp_int,3i))
+        if
+            Char.IsInAnyCar(310@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(310@($temp_int,3i), 286@, 287@, 288@)
+        else
+            Char.SetCoordinates(310@($temp_int,3i), 286@, 287@, 288@)
+        end
+        Char.SetVisible(310@($temp_int,3i), False)
+        Char.SetCollision(310@($temp_int,3i), False)
+        Char.SetProofs(310@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(310@($temp_int,3i), -1)
+        Char.FreezePosition(310@($temp_int,3i), True)
+    end
+end
+return
+
+:RIOT2_COOP_DELETE_SUPPORT
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(322@($temp_int,3i))
+    then
+        Car.Delete(322@($temp_int,3i))
+    end
+    322@($temp_int,3i) = -1
+    325@($temp_int,3i) = -1
+    328@($temp_int,3i) = 0
+end
+return
+
+:RIOT2_COOP_RELEASE_REMOTES
+277@ = 0
+gosub @RIOT2_COOP_UPDATE_ROSTER
+gosub @RIOT2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(295@, 296@, 297@)
+for $temp_int = 0 to 2
+    if and
+        316@($temp_int,3i) == 1
+        not Char.IsDead(310@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 284@ = 310@($temp_int,3i)
+        Char.SetAreaVisible(284@, 0)
+        Char.SetVisible(284@, True)
+        Char.SetCollision(284@, True)
+        Char.SetProofs(284@, False, False, False, False, False)
+        Char.FreezePosition(284@, False)
+        Task.StandStill(284@, 0)
+        Char.ClearLastDamageEntity(284@)
+        if
+            340@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(284@, WeaponType.Tec9, 600)
+            Char.SetCurrentWeapon(284@, WeaponType.Tec9)
+            340@($temp_int,3i) = 1
+        end
+        343@($temp_int,3i) = Char.GetHealth(284@)
+        319@($temp_int,3i) = 0
+        346@($temp_int,3i) = -1
+    end
+end
+279@ = 0
+return
+
+:RIOT2_COOP_ENSURE_SUPPORT
+if or
+    277@ == 1
+    281@ > 2
+then
+    return
+end
+Streaming.RequestModel(492)
+if
+    not Streaming.HasModelLoaded(492)
+then
+    return
+end
+286@, 287@, 288@ = Char.GetCoordinates($scplayer)
+289@ = Char.GetHeading($scplayer)
+for $temp_int = 0 to 2
+    if and
+        316@($temp_int,3i) == 1
+        not Char.IsDead(310@($temp_int,3i))
+    then
+        if
+            Car.IsDead(322@($temp_int,3i))
+        then
+            if
+                Car.DoesExist(322@($temp_int,3i))
+            then
+                Car.Delete(322@($temp_int,3i))
+            end
+            322@($temp_int,3i) = -1
+            325@($temp_int,3i) = -1
+            328@($temp_int,3i) = 0
+        end
+        if
+            322@($temp_int,3i) == -1
+        then
+            294@ = 4.0
+            if
+                $temp_int == 1
+            then
+                294@ = 8.0
+            end
+            if
+                $temp_int == 2
+            then
+                294@ = 12.0
+            end
+            add_float_lvar_to_float_lvar 286@ += 294@
+            322@($temp_int,3i) = Car.Create(492, 286@, 287@, 288@)
+            sub_float_lvar_from_float_lvar 286@ -= 294@
+            if
+                Car.DoesExist(322@($temp_int,3i))
+            then
+                Car.SetHeading(322@($temp_int,3i), 289@)
+                Car.ChangeColor(322@($temp_int,3i), 53, 53)
+                Car.SetHealth(322@($temp_int,3i), 1000)
+                Car.LockDoors(322@($temp_int,3i), CarLock.Unlocked)
+                Char.ClearTasksImmediately(310@($temp_int,3i))
+                if
+                    Char.IsInAnyCar(310@($temp_int,3i))
+                then
+                    Char.WarpFromCarToCoord(310@($temp_int,3i), 286@, 287@, 288@)
+                end
+                Char.WarpIntoCar(310@($temp_int,3i), 322@($temp_int,3i))
+            end
+        end
+    end
+end
+return
+
+:RIOT2_COOP_RESET_REGISTRATIONS
+for $temp_int = 0 to 3
+    354@($temp_int,4i) = -1
+    358@($temp_int,4i) = 0
+end
+for $temp_int = 0 to 15
+    386@($temp_int,16i) = -1
+    402@($temp_int,16i) = 0
+end
+278@ = 0
+return
+
+:RIOT2_COOP_STAGE_PHASE
+gosub @RIOT2_COOP_UPDATE_ROSTER
+gosub @RIOT2_COOP_DELETE_SUPPORT
+gosub @RIOT2_COOP_RELEASE_REMOTES
+if
+    281@ <= 2
+then
+    gosub @RIOT2_COOP_ENSURE_SUPPORT
+end
+set_lvar_int_to_lvar_int 282@ = 281@
+if
+    281@ == 1
+then
+    291@ = 0
+end
+if
+    281@ == 2
+then
+    292@ = 0
+end
+gosub @RIOT2_COOP_RESET_REGISTRATIONS
+279@ = 0
+gosub @RIOT2_COOP_POLL_REGISTRATIONS
+gosub @RIOT2_COOP_UPDATE_OBJECTIVES
+return
+
+:RIOT2_COOP_START_PLAY
+if
+    274@ == 1
+then
+    return
+end
+274@ = 1
+gosub @RIOT2_COOP_STAGE_PHASE
+return
+
+:RIOT2_COOP_BEGIN_TRANSITION
+if
+    277@ == 1
+then
+    return
+end
+277@ = 1
+gosub @RIOT2_COOP_UPDATE_ROSTER
+gosub @RIOT2_COOP_CLEAR_OBJECTIVES
+gosub @RIOT2_COOP_FREEZE_REMOTES
+gosub @RIOT2_COOP_DELETE_SUPPORT
+return
+
+:RIOT2_COOP_MAP_FRIENDLIES
+set_lvar_int_to_var_int 350@ = $cesar
+set_lvar_int_to_lvar_int 351@ = 34@
+set_lvar_int_to_lvar_int 352@ = 35@
+set_lvar_int_to_lvar_int 353@ = 36@
+return
+
+:RIOT2_COOP_MAP_HOSTILES
+set_lvar_int_to_lvar_int 370@ = 69@
+set_lvar_int_to_lvar_int 371@ = 70@
+set_lvar_int_to_lvar_int 372@ = 71@
+set_lvar_int_to_lvar_int 373@ = 72@
+set_lvar_int_to_lvar_int 374@ = 73@
+set_lvar_int_to_lvar_int 375@ = 74@
+set_lvar_int_to_lvar_int 376@ = 75@
+set_lvar_int_to_lvar_int 377@ = 76@
+set_lvar_int_to_lvar_int 378@ = 77@
+set_lvar_int_to_lvar_int 379@ = 78@
+set_lvar_int_to_lvar_int 380@ = 79@
+set_lvar_int_to_lvar_int 381@ = 80@
+set_lvar_int_to_lvar_int 382@ = 81@
+set_lvar_int_to_lvar_int 383@ = 82@
+set_lvar_int_to_lvar_int 384@ = 83@
+set_lvar_int_to_lvar_int 385@ = 84@
+return
+
+:RIOT2_COOP_POLL_REGISTRATIONS
+if
+    274@ == 0
+then
+    return
+end
+283@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 278@ > 283@
+then
+    return
+end
+278@ = Clock.GetGameTimer()
+278@ += 500
+gosub @RIOT2_COOP_MAP_FRIENDLIES
+for $temp_int = 0 to 3
+    if and
+        354@($temp_int,4i) == -1
+        358@($temp_int,4i) < 10
+        Char.DoesExist(350@($temp_int,4i))
+    then
+        354@($temp_int,4i) = Coop.GetPedNetworkId(350@($temp_int,4i))
+        358@($temp_int,4i) += 1
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        325@($temp_int,3i) == -1
+        328@($temp_int,3i) < 10
+        Car.DoesExist(322@($temp_int,3i))
+    then
+        325@($temp_int,3i) = Coop.GetVehicleNetworkId(322@($temp_int,3i))
+        328@($temp_int,3i) += 1
+    end
+end
+if
+    281@ >= 3
+then
+    gosub @RIOT2_COOP_MAP_HOSTILES
+    for $temp_int = 0 to 15
+        if and
+            386@($temp_int,16i) == -1
+            402@($temp_int,16i) < 10
+            Char.DoesExist(370@($temp_int,16i))
+        then
+            386@($temp_int,16i) = Coop.GetPedNetworkId(370@($temp_int,16i))
+            402@($temp_int,16i) += 1
+        end
+    end
+end
+return
+
+:RIOT2_COOP_PROTECT_FRIENDLIES
+gosub @RIOT2_COOP_MAP_FRIENDLIES
+for 283@ = 0 to 3
+    if and
+        Char.DoesExist(350@(283@,4i))
+        not Char.IsDead(350@(283@,4i))
+    then
+        for $temp_int = 0 to 2
+            if and
+                316@($temp_int,3i) == 1
+                Char.HasBeenDamagedByChar(350@(283@,4i), 310@($temp_int,3i))
+            then
+                Char.SetHealth(350@(283@,4i), 362@(283@,4i))
+                Char.ClearLastDamageEntity(350@(283@,4i))
+            end
+        end
+        362@(283@,4i) = Char.GetHealth(350@(283@,4i))
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        316@($temp_int,3i) == 1
+        not Char.IsDead(310@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 284@ = 310@($temp_int,3i)
+        for 283@ = 0 to 2
+            if and
+                316@(283@,3i) == 1
+                Char.HasBeenDamagedByChar(284@, 310@(283@,3i))
+            then
+                Char.SetHealth(284@, 343@($temp_int,3i))
+                Char.ClearLastDamageEntity(284@)
+            end
+        end
+        343@($temp_int,3i) = Char.GetHealth(284@)
+    end
+end
+return
+
+:RIOT2_COOP_RETARGET_HOSTILES
+if
+    281@ < 3
+then
+    return
+end
+283@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 290@ > 283@
+then
+    return
+end
+290@ = Clock.GetGameTimer()
+290@ += 500
+gosub @RIOT2_COOP_MAP_HOSTILES
+for 283@ = 0 to 15
+    if
+        Char.DoesExist(370@(283@,16i))
+    then
+        if
+            not Char.IsDead(370@(283@,16i))
+        then
+            for $temp_int = 0 to 2
+                if and
+                    316@($temp_int,3i) == 1
+                    Char.HasBeenDamagedByChar(370@(283@,16i), 310@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(370@(283@,16i), 310@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+:RIOT2_COOP_UPDATE_SHARED_GATES
+if
+    281@ == 1
+then
+    for $temp_int = 0 to 2
+        if and
+            316@($temp_int,3i) == 1
+            Char.LocateAnyMeans3D(310@($temp_int,3i), 1, 1774.9, -1974.9, 13.1, 4.0, 4.0, 4.0)
+        then
+            291@ = 1
+        end
+    end
+end
+if
+    281@ == 2
+then
+    for $temp_int = 0 to 2
+        if and
+            316@($temp_int,3i) == 1
+            Char.LocateOnFoot3D(310@($temp_int,3i), 1, 1922.8, -2075.0, 12.5, 1.2, 1.2, 2.0)
+        then
+            292@ = 1
+        end
+    end
+end
+return
+
+:RIOT2_COOP_UPDATE_OBJECTIVES
+if or
+    271@ == 0
+    274@ == 0
+    277@ == 1
+then
+    return
+end
+283@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 279@ > 283@
+then
+    return
+end
+279@ = Clock.GetGameTimer()
+279@ += 750
+set_lvar_int_to_lvar_int 293@ = 281@
+if
+    281@ >= 3
+then
+    293@ += 1
+end
+if and
+    281@ == 2
+    165@ == 6
+then
+    293@ = 3
+end
+gosub @RIOT2_COOP_MAP_FRIENDLIES
+if
+    281@ >= 3
+then
+    gosub @RIOT2_COOP_MAP_HOSTILES
+end
+for $temp_int = 0 to 2
+    if
+        316@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 284@ = 310@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(284@)
+        Coop.RemoveCheckpointForNetworkPlayer(284@)
+        if
+            not is_int_lvar_equal_to_int_lvar 346@($temp_int,3i) == 293@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('R2_01', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_03', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_04', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_05', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_06', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_07', 284@)
+            if
+                293@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('R2_01', 8000, 1, 284@)
+            end
+            if
+                293@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('R2_03', 7000, 1, 284@)
+            end
+            if
+                293@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('R2_04', 8000, 1, 284@)
+            end
+            if
+                293@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('R2_05', 7000, 1, 284@)
+            end
+            if
+                293@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('R2_06', 6000, 1, 284@)
+            end
+            if
+                293@ == 6
+            then
+                Coop.PrintNowForNetworkPlayer('R2_07', 6000, 1, 284@)
+            end
+            set_lvar_int_to_lvar_int 346@($temp_int,3i) = 293@
+        end
+        if
+            281@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1774.9, -1974.9, 13.1, 5.0, 5.0, 5.0, 284@)
+        end
+        if
+            281@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1922.8, -2075.0, 12.5, 5.0, 5.0, 5.0, 284@)
+        end
+        if
+            281@ >= 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1855.5, -2101.8, 12.5, 14.0, 14.0, 7.0, 284@)
+            for 283@ = 0 to 15
+                if and
+                    386@(283@,16i) <> -1
+                    Char.DoesExist(370@(283@,16i))
+                then
+                    if
+                        not Char.IsDead(370@(283@,16i))
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(284@, 370@(283@,16i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+        end
+        for 283@ = 0 to 3
+            if and
+                354@(283@,4i) <> -1
+                Char.DoesExist(350@(283@,4i))
+            then
+                if
+                    not Char.IsDead(350@(283@,4i))
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(284@, 350@(283@,4i), True, BlipDisplay.Both, BlipColor.Green, 2)
+                end
+            end
+        end
+    end
+end
+return
+
+:RIOT2_COOP_UPDATE
+if or
+    271@ == 0
+    275@ <> 0
+then
+    return
+end
+gosub @RIOT2_COOP_UPDATE_ROSTER
+if
+    272@ == 1
+then
+    return
+end
+if
+    277@ == 1
+then
+    return
+end
+if
+    not is_int_lvar_equal_to_int_lvar 281@ == 282@
+then
+    gosub @RIOT2_COOP_STAGE_PHASE
+end
+for $temp_int = 0 to 2
+    if and
+        316@($temp_int,3i) == 1
+        319@($temp_int,3i) == 1
+    then
+        gosub @RIOT2_COOP_RELEASE_REMOTES
+        gosub @RIOT2_COOP_ENSURE_SUPPORT
+    end
+end
+gosub @RIOT2_COOP_ENSURE_SUPPORT
+gosub @RIOT2_COOP_POLL_REGISTRATIONS
+gosub @RIOT2_COOP_PROTECT_FRIENDLIES
+gosub @RIOT2_COOP_RETARGET_HOSTILES
+gosub @RIOT2_COOP_UPDATE_SHARED_GATES
+gosub @RIOT2_COOP_UPDATE_OBJECTIVES
+return
+
+:RIOT2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        313@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(310@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 284@ = 310@($temp_int,3i)
+        283@ = Coop.GetNetworkPlayerInternalId(284@)
+        if
+            is_int_lvar_equal_to_int_lvar 283@ == 313@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(284@)
+            Coop.RemoveCheckpointForNetworkPlayer(284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_01', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_03', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_04', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_05', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_06', 284@)
+            Coop.ClearThisPrintForNetworkPlayer('R2_07', 284@)
+        end
+    end
+    346@($temp_int,3i) = -1
+end
+return
+
+:RIOT2_COOP_NOTIFY_RESULT
+if or
+    271@ == 0
+    276@ == 1
+then
+    return
+end
+276@ = 1
+gosub @RIOT2_COOP_UPDATE_ROSTER
+gosub @RIOT2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        316@($temp_int,3i) == 1
+    then
+        if
+            275@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 310@($temp_int,3i))
+        end
+        if
+            275@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 310@($temp_int,3i))
+        end
+    end
+end
+return
+
+:RIOT2_COOP_CLEANUP
+if
+    273@ == 1
+then
+    return
+end
+273@ = 1
+gosub @RIOT2_COOP_UPDATE_ROSTER
+gosub @RIOT2_COOP_CLEAR_OBJECTIVES
+gosub @RIOT2_COOP_DELETE_SUPPORT
+286@, 287@, 288@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        316@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(310@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 284@ = 310@($temp_int,3i)
+        if
+            340@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(32, 284@)
+            if
+                337@($temp_int,3i) == 1
+            then
+                Char.GiveWeapon(284@, WeaponType.Tec9, 331@($temp_int,3i))
+            end
+        end
+        if
+            334@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(284@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(284@, 334@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(284@, 334@($temp_int,3i))
+            end
+        end
+        Char.FreezePosition(284@, False)
+        Char.SetProofs(284@, False, False, False, False, False)
+        Char.SetCollision(284@, True)
+        Char.SetVisible(284@, True)
+        Char.SetAreaVisible(284@, 0)
+        if and
+            277@ == 1
+            not Char.IsDead(284@)
+        then
+            Char.SetCoordinates(284@, 286@, 287@, 288@)
+        end
+    end
+end
+Streaming.MarkModelAsNoLongerNeeded(492)
+return
 
 :RIOT2_31066
 if 
