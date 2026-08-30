@@ -41,6 +41,12 @@ jobs:
         shell: pwsh
         run: ./scripts/validate-scm.ps1
 
+      - name: Validate mission co-op protocol
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests/mission_session -p 'test_*.py'
+          ./scripts/audit-story-missions.ps1 -RequireReady -SummaryOnly
+
       - name: Build client
         run: xmake build client
 
