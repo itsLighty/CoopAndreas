@@ -3,6 +3,7 @@
 
 :DECON
 script_name 'DECON'
+Coop.EnableSyncingThisScript()
 gosub @DECON_47
 if 
   has_deatharrest_been_executed 
@@ -16,6 +17,33 @@ terminate_this_script
 :DECON_47
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+520@ = 0 // frozen cooperative roster size
+521@ = 0 // cooperative cleanup guard
+522@ = 0 // a connected participant died
+523@ = 0 // remote participants are frozen for a host cinematic
+524@ = 0 // next remote objective refresh
+525@ = 0 // next entity registration retry
+526@ = 0 // cooperative combat refresh
+527@ = 0 // registration pass had an unresolved entity
+528@ = 0 // timer/internal-id scratch
+529@ = -1 // entity network-id scratch
+530@ = 0 // entity scratch
+548@ = -1 // last cooperative mission phase
+549@ = 0 // cooperative abort reason
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    503@($temp_int,3i) = -1 // immutable internal network identity
+    506@($temp_int,3i) = 0 // currently connected frozen participant
+    509@($temp_int,3i) = -1 // last objective phase shown to this participant
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        506@($temp_int,3i) = 1
+        520@ += 1
+    end
+end
 34@ = 0
 35@ = 0
 36@ = 0
@@ -30,6 +58,12 @@ TIMERB = 0
 
 :DECON_133
 wait 0
+gosub @DECON_COOP_UPDATE
+if
+    522@ == 1
+then
+    37@ = 1
+end
 if 
 is_ps2_keyboard_key_just_pressed 83
 goto_if_false @DECON_159
@@ -3276,6 +3310,7 @@ TIMERB = 0
 return 
 
 :DECON_20868
+gosub @DECON_COOP_NOTIFY_FAILURE
 if 
   Player.IsPlaying($player1)
 goto_if_false @DECON_20962
@@ -3291,6 +3326,7 @@ Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :DECON_21008
+gosub @DECON_COOP_NOTIFY_SUCCESS
 if 
   Object.DoesExist(81@)
 goto_if_false @DECON_21029
@@ -3311,6 +3347,7 @@ $flag_garage_mission_counter += 1
 return 
 
 :DECON_21143
+gosub @DECON_COOP_CLEANUP
 start_new_script @CLEANAU 
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
@@ -3345,4 +3382,425 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative mission layer. The three remote actor handles and their immutable
+// internal identities are captured once. A disconnected slot may reconnect with
+// the same identity, but can never be replaced by a late joiner.
+:DECON_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    506@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                522@ = 1
+                549@ = 1
+            end
+        end
+    end
+end
+return
+
+:DECON_COOP_BUILD_ACTIVE_ARGS
+553@ = -1
+554@ = -1
+555@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 553@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:DECON_COOP_TELEPORT_ACTIVE
+if
+    520@ == 0
+then
+    return
+end
+gosub @DECON_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(553@, 554@, 555@)
+return
+
+// Host cameras and cutscenes are local-only. During phases 0, 1, 3, and 5 the
+// peers are safely staged at the host, made invulnerable, and frozen. Gameplay
+// phases 2 and 4 release them into the construction site.
+:DECON_COOP_FREEZE_REMOTES
+if
+    523@ == 1
+then
+    return
+end
+535@, 536@, 537@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(500@($temp_int,3i))
+        if
+            Char.IsInAnyCar(500@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(500@($temp_int,3i), 535@, 536@, 537@)
+        end
+        Char.SetProofs(500@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(500@($temp_int,3i), -1)
+        Char.FreezePosition(500@($temp_int,3i), True)
+    end
+end
+523@ = 1
+return
+
+:DECON_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(500@($temp_int,3i), False)
+        Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(500@($temp_int,3i), True)
+        Char.SetVisible(500@($temp_int,3i), True)
+        Task.StandStill(500@($temp_int,3i), 0)
+    end
+end
+523@ = 0
+return
+
+:DECON_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('GAR2_19', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('GAR2_10', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('GAR2_36', 500@($temp_int,3i))
+    end
+    509@($temp_int,3i) = -1
+end
+return
+
+:DECON_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        if
+            509@($temp_int,3i) <> 34@
+        then
+            if
+                34@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('GAR2_19', 7000, 1, 500@($temp_int,3i))
+            end
+            if
+                34@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('GAR2_10', 7000, 1, 500@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 509@($temp_int,3i) = 34@
+        end
+        if
+            34@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-2090.0, 231.0, 34.0, 18.0, 18.0, 8.0, 500@($temp_int,3i))
+            if
+                Car.DoesExist(83@)
+            then
+                529@ = Coop.GetVehicleNetworkId(83@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 83@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                Car.DoesExist(84@)
+            then
+                529@ = Coop.GetVehicleNetworkId(84@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 84@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+        if
+            34@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-2049.707, 240.5694, 34.762, 5.0, 5.0, 4.0, 500@($temp_int,3i))
+            if
+                Car.DoesExist(85@)
+            then
+                529@ = Coop.GetVehicleNetworkId(85@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 85@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                Car.DoesExist(89@)
+            then
+                529@ = Coop.GetVehicleNetworkId(89@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 89@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+    end
+end
+return
+
+// Get*NetworkId is the registration handshake. Missing or late-streamed entities
+// are retried on later frames and merely lose entity-specific blips; mission
+// progression is never blocked by an unbounded registration wait.
+:DECON_COOP_REGISTER_PED
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        529@ = Coop.GetPedNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:DECON_COOP_REGISTER_VEHICLE
+if
+    Car.DoesExist(530@)
+then
+    if
+        not Car.IsDead(530@)
+    then
+        529@ = Coop.GetVehicleNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:DECON_COOP_SYNC_WORLD_PASS
+527@ = 0
+for 560@ = 0 to 4
+    set_lvar_int_to_lvar_int 530@ = 83@(560@,5i)
+    gosub @DECON_COOP_REGISTER_VEHICLE
+end
+if
+    Car.DoesExist(89@)
+then
+    set_lvar_int_to_lvar_int 530@ = 89@
+    gosub @DECON_COOP_REGISTER_VEHICLE
+end
+for 560@ = 0 to 5
+    set_lvar_int_to_lvar_int 530@ = 98@(560@,6i)
+    gosub @DECON_COOP_REGISTER_PED
+end
+set_lvar_int_to_lvar_int 530@ = 115@
+gosub @DECON_COOP_REGISTER_PED
+set_lvar_int_to_lvar_int 530@ = 117@
+gosub @DECON_COOP_REGISTER_PED
+return
+
+// Remote damage wakes the construction crew just as host damage does and directs
+// the affected worker at that participant. This makes the site's combat phase
+// genuinely shared while the unsupported cabin/portable-toilet object state stays
+// canonical on the host.
+:DECON_COOP_UPDATE_COMBAT
+if
+    34@ <> 2
+then
+    return
+end
+for 560@ = 0 to 5
+    if
+        Char.DoesExist(98@(560@,6i))
+    then
+        if
+            not Char.IsDead(98@(560@,6i))
+        then
+            for $temp_int = 0 to 2
+                if
+                    506@($temp_int,3i) == 1
+                then
+                    if
+                        Char.HasBeenDamagedByChar(98@(560@,6i), 500@($temp_int,3i))
+                    then
+                        141@ = 1
+                        Task.KillCharOnFoot(98@(560@,6i), 500@($temp_int,3i))
+                    end
+                end
+            end
+        end
+    end
+end
+if
+    Char.DoesExist(117@)
+then
+    if
+        not Char.IsDead(117@)
+    then
+        for $temp_int = 0 to 2
+            if
+                506@($temp_int,3i) == 1
+            then
+                if
+                    Char.HasBeenDamagedByChar(117@, 500@($temp_int,3i))
+                then
+                    141@ = 1
+                    Task.KillCharOnFoot(117@, 500@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+:DECON_COOP_PHASE_CHANGED
+gosub @DECON_COOP_CLEAR_OBJECTIVES
+gosub @DECON_COOP_TELEPORT_ACTIVE
+if or
+    34@ == 2
+    34@ == 4
+then
+    gosub @DECON_COOP_RELEASE_REMOTES
+    gosub @DECON_COOP_REFRESH_OBJECTIVES
+else
+    gosub @DECON_COOP_FREEZE_REMOTES
+end
+set_lvar_int_to_lvar_int 548@ = 34@
+return
+
+:DECON_COOP_UPDATE
+if
+    520@ == 0
+then
+    return
+end
+gosub @DECON_COOP_UPDATE_ROSTER
+if
+    548@ <> 34@
+then
+    gosub @DECON_COOP_PHASE_CHANGED
+end
+528@ = Clock.GetGameTimer()
+if
+    528@ > 524@
+then
+    gosub @DECON_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 524@ = 528@
+    524@ += 3000
+end
+if
+    528@ > 525@
+then
+    gosub @DECON_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 525@ = 528@
+    if
+        527@ == 1
+    then
+        525@ += 750
+    else
+        525@ += 5000
+    end
+end
+if and
+    34@ == 2
+    528@ > 526@
+then
+    gosub @DECON_COOP_UPDATE_COMBAT
+    set_lvar_int_to_lvar_int 526@ = 528@
+    526@ += 750
+end
+return
+
+:DECON_COOP_NOTIFY_FAILURE
+if
+    520@ == 0
+then
+    return
+end
+gosub @DECON_COOP_UPDATE_ROSTER
+gosub @DECON_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:DECON_COOP_NOTIFY_SUCCESS
+if
+    520@ == 0
+then
+    return
+end
+gosub @DECON_COOP_UPDATE_ROSTER
+gosub @DECON_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:DECON_COOP_CLEANUP
+if
+    521@ == 1
+then
+    return
+end
+521@ = 1
+gosub @DECON_COOP_UPDATE_ROSTER
+gosub @DECON_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+        503@($temp_int,3i) <> -1
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            Char.ClearTasksImmediately(500@($temp_int,3i))
+            Char.FreezePosition(500@($temp_int,3i), False)
+            Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+            Char.SetCollision(500@($temp_int,3i), True)
+            Char.SetVisible(500@($temp_int,3i), True)
+            Task.StandStill(500@($temp_int,3i), 0)
+        end
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+end
+523@ = 0
+return
 
