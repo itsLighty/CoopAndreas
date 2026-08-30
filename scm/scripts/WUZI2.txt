@@ -3,6 +3,7 @@
 
 :WUZI2
 script_name 'WUZI2'
+Coop.EnableSyncingThisScript()
 gosub @WUZI2_47
 if 
   has_deatharrest_been_executed 
@@ -16,6 +17,35 @@ terminate_this_script
 :WUZI2_47
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+620@ = 0 // frozen cooperative roster size
+621@ = 0 // cooperative cleanup guard
+622@ = 0 // a connected participant died
+623@ = 0 // remotes are staged for a host-only cinematic
+624@ = 0 // next objective refresh
+625@ = 0 // next registration retry
+626@ = 0 // next combat retarget pass
+627@ = 0 // registration pass saw an unresolved entity
+628@ = 0 // timer/internal-id scratch
+629@ = -1 // entity network-id scratch
+630@ = 0 // entity scratch
+640@ = 0 // cooperative phase
+648@ = -1 // last cooperative phase
+649@ = 0 // cooperative abort reason
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 600@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    603@($temp_int,3i) = -1 // immutable internal identity
+    606@($temp_int,3i) = 0 // connected frozen-roster participant
+    609@($temp_int,3i) = -1 // last objective phase shown
+    if
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+    then
+        603@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
+        606@($temp_int,3i) = 1
+        620@ += 1
+    end
+end
+gosub @WUZI2_COOP_FREEZE_REMOTES
 257@ = Game.GetMaxWantedLevel()
 Text.LoadMissionText('WUZI2')
 $swim_stamina_check = Stat.GetInt(225)
@@ -147,6 +177,10 @@ Camera.SetBehindPlayer
 Player.SetControl($player1, True)
 Char.SetCoordinates($scplayer, -2153.611, 645.31, 51.3516)
 Char.SetHeading($scplayer, 270.0)
+640@ = 1
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_TELEPORT_ACTIVE
+gosub @WUZI2_COOP_RELEASE_REMOTES
 Camera.DoFade(1, 1500)
 36@ = Blip.AddForCoord(-1641.995, 1309.217, 6.1764)
 Text.PrintNow('WZI2_1', 8000, 1)
@@ -298,6 +332,12 @@ set_lvar_int_to_constant 120@ = 44103
 
 :WUZI2_2454
 wait 0
+gosub @WUZI2_COOP_UPDATE
+if
+    622@ == 1
+then
+    goto @WUZI2_26542
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @WUZI2_2480
@@ -307,6 +347,9 @@ goto @WUZI2_26588
 if 
   Char.LocateStoppedOnFoot3D($scplayer, -1641.995, 1309.217, 6.1764, 1.2, 1.2, 2.0, True)
 goto_if_false @WUZI2_2547
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_TELEPORT_ACTIVE
+gosub @WUZI2_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Blip.Remove(36@)
 goto @WUZI2_2554
@@ -535,6 +578,18 @@ goto @WUZI2_4020
 Camera.Restore
 
 :WUZI2_4020
+640@ = 2
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        Char.GiveWeapon(600@($temp_int,3i), WeaponType.Knife, 1)
+        Char.GiveWeapon(600@($temp_int,3i), WeaponType.SilencedPistol, 120)
+    end
+end
+gosub @WUZI2_COOP_RELEASE_REMOTES
 Streaming.RemoveAnimation("DAM_JUMP")
 47@ = 0
 Text.ClearPrints
@@ -560,6 +615,12 @@ TIMERB = 0
 
 :WUZI2_4255
 wait 0
+gosub @WUZI2_COOP_UPDATE
+if
+    622@ == 1
+then
+    goto @WUZI2_26542
+end
 gosub @WUZI2_16055
 if 
   373@ == 2
@@ -856,6 +917,9 @@ goto_if_false @WUZI2_6217
 goto @WUZI2_5983
 
 :WUZI2_6224
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_TELEPORT_ACTIVE
+gosub @WUZI2_COOP_FREEZE_REMOTES
 $player_status_W2 = -2
 Text.ClearHelp
 Text.ClearPrints
@@ -1032,6 +1096,7 @@ goto_if_false @WUZI2_7212
 Blip.ChangeDisplay(416@, BlipDisplay.BlipOnly)
 
 :WUZI2_7212
+640@ = 3
 Text.PrintNow('WZI2_8', 6000, 1)
 $player_breath_W2 = 1
 288@ = 0
@@ -1042,10 +1107,19 @@ Camera.SetBehindPlayer
 Char.ClearTasks($scplayer)
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_TELEPORT_ACTIVE
+gosub @WUZI2_COOP_RELEASE_REMOTES
 283@ = 0
 
 :WUZI2_7278
 wait 0
+gosub @WUZI2_COOP_UPDATE
+if
+    622@ == 1
+then
+    goto @WUZI2_26542
+end
 37@ = Clock.GetGameTimer()
 set_lvar_int_to_lvar_int 38@ = 37@
 sub_int_lvar_from_int_lvar 38@ -= 39@
@@ -1147,6 +1221,7 @@ Text.PrintNow('WZI2_32', 6000, 1)
 Blip.Remove(36@)
 36@ = Blip.AddForCoord(-1508.558, 1296.067, 0.397)
 48@ = 1
+640@ = 4
 gosub @WUZI2_18207
 
 :WUZI2_7918
@@ -4174,6 +4249,7 @@ goto @WUZI2_26477
 return 
 
 :WUZI2_26542
+gosub @WUZI2_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 if 
   40@ == 1
@@ -4184,6 +4260,7 @@ Text.PrintNow(41@s, 5000, 1)
 return 
 
 :WUZI2_26588
+gosub @WUZI2_COOP_NOTIFY_SUCCESS
 $flag_wuzi_mission_counter += 1
 Stat.RegisterMissionPassed('WUZI_2')
 Stat.PlayerMadeProgress(1)
@@ -4195,6 +4272,7 @@ Audio.PlayMissionPassedTune(1)
 return 
 
 :WUZI2_26652
+gosub @WUZI2_COOP_CLEANUP
 if 
   $swim_stamina_check == 0
 goto_if_false @WUZI2_27103
@@ -4312,4 +4390,403 @@ Text.PrintNow('WZI2_60', 8000, 1)
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative mission layer. Actor handles are paired with immutable internal
+// identities at mission start, so late joiners remain spectators and recycled
+// network slots cannot silently replace a disconnected participant.
+:WUZI2_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    606@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+    then
+        628@ = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 628@ == 603@($temp_int,3i)
+        then
+            606@($temp_int,3i) = 1
+            if
+                Char.IsDead(600@($temp_int,3i))
+            then
+                622@ = 1
+                649@ = 1
+            end
+        end
+    end
+end
+return
+
+:WUZI2_COOP_BUILD_ACTIVE_ARGS
+653@ = -1
+654@ = -1
+655@ = -1
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 653@($temp_int,3i) = 600@($temp_int,3i)
+    end
+end
+return
+
+:WUZI2_COOP_TELEPORT_ACTIVE
+if
+    620@ == 0
+then
+    return
+end
+gosub @WUZI2_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(653@, 654@, 655@)
+return
+
+// Cameras and scripted time-scale transitions exist only on the host. Peers are
+// frozen, proofed, and staged during those sequences, then safely regrouped.
+:WUZI2_COOP_FREEZE_REMOTES
+if
+    623@ == 1
+then
+    return
+end
+650@, 651@, 652@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(600@($temp_int,3i))
+        if
+            Char.IsInAnyCar(600@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(600@($temp_int,3i), 650@, 651@, 652@)
+        end
+        Char.SetProofs(600@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(600@($temp_int,3i), -1)
+        Char.FreezePosition(600@($temp_int,3i), True)
+    end
+end
+623@ = 1
+return
+
+:WUZI2_COOP_RELEASE_REMOTES
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(600@($temp_int,3i), False)
+        Char.SetProofs(600@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(600@($temp_int,3i), True)
+        Char.SetVisible(600@($temp_int,3i), True)
+        Task.StandStill(600@($temp_int,3i), 0)
+    end
+end
+623@ = 0
+return
+
+:WUZI2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        606@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(600@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(600@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('WZI2_1', 600@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('WZI2_8', 600@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('WZI2_32', 600@($temp_int,3i))
+    end
+    609@($temp_int,3i) = -1
+end
+return
+
+:WUZI2_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        606@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+    then
+        if
+            609@($temp_int,3i) <> 640@
+        then
+            if
+                640@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('WZI2_1', 8000, 1, 600@($temp_int,3i))
+            end
+            if or
+                640@ == 2
+                640@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('WZI2_8', 6000, 1, 600@($temp_int,3i))
+            end
+            if
+                640@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('WZI2_32', 6000, 1, 600@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 609@($temp_int,3i) = 640@
+        end
+        if
+            640@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1641.995, 1309.217, 6.1764, 4.0, 4.0, 4.0, 600@($temp_int,3i))
+        end
+        if
+            640@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1449.642, 1501.135, 0.7366, 8.0, 8.0, 6.0, 600@($temp_int,3i))
+        end
+        if
+            640@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1372.733, 1495.55, 0.8578, 5.0, 5.0, 4.0, 600@($temp_int,3i))
+        end
+        if
+            640@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1508.558, 1296.067, 0.397, 6.0, 6.0, 5.0, 600@($temp_int,3i))
+        end
+        if
+            640@ >= 2
+        then
+            for 660@ = 0 to 1
+                if
+                    Car.DoesExist(290@(660@,2i))
+                then
+                    629@ = Coop.GetVehicleNetworkId(290@(660@,2i))
+                    if
+                        629@ <> -1
+                    then
+                        Coop.UpdateCarBlipForNetworkPlayer(600@($temp_int,3i), 290@(660@,2i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                    end
+                end
+            end
+            for 660@ = 0 to 5
+                if
+                    Char.DoesExist(308@(660@,6i))
+                then
+                    if
+                        not Char.IsDead(308@(660@,6i))
+                    then
+                        629@ = Coop.GetPedNetworkId(308@(660@,6i))
+                        if
+                            629@ <> -1
+                        then
+                            Coop.UpdateCharBlipForNetworkPlayer(600@($temp_int,3i), 308@(660@,6i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+// Network-ID requests are non-blocking registration handshakes. Missing entities
+// are retried on later gameplay frames; mission progression never waits for them.
+:WUZI2_COOP_REGISTER_PED
+if
+    Char.DoesExist(630@)
+then
+    if
+        not Char.IsDead(630@)
+    then
+        629@ = Coop.GetPedNetworkId(630@)
+        if
+            629@ == -1
+        then
+            627@ = 1
+        end
+    end
+end
+return
+
+:WUZI2_COOP_REGISTER_VEHICLE
+if
+    Car.DoesExist(630@)
+then
+    if
+        not Car.IsDead(630@)
+    then
+        629@ = Coop.GetVehicleNetworkId(630@)
+        if
+            629@ == -1
+        then
+            627@ = 1
+        end
+    end
+end
+return
+
+:WUZI2_COOP_SYNC_WORLD_PASS
+627@ = 0
+for 660@ = 0 to 1
+    set_lvar_int_to_lvar_int 630@ = 290@(660@,2i)
+    gosub @WUZI2_COOP_REGISTER_VEHICLE
+    set_lvar_int_to_lvar_int 630@ = 413@(660@,2i)
+    gosub @WUZI2_COOP_REGISTER_VEHICLE
+    set_lvar_int_to_lvar_int 630@ = 300@(660@,2i)
+    gosub @WUZI2_COOP_REGISTER_PED
+end
+for 660@ = 0 to 5
+    set_lvar_int_to_lvar_int 630@ = 308@(660@,6i)
+    gosub @WUZI2_COOP_REGISTER_PED
+    set_lvar_int_to_lvar_int 630@ = 417@(660@,6i)
+    gosub @WUZI2_COOP_REGISTER_PED
+end
+for 660@ = 0 to 6
+    set_lvar_int_to_lvar_int 630@ = 436@(660@,7i)
+    gosub @WUZI2_COOP_REGISTER_PED
+end
+return
+
+:WUZI2_COOP_RETARGET_PED
+if
+    Char.DoesExist(630@)
+then
+    if
+        not Char.IsDead(630@)
+    then
+        for $temp_int = 0 to 2
+            if
+                606@($temp_int,3i) == 1
+            then
+                if
+                    Char.HasBeenDamagedByChar(630@, 600@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(630@, 600@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+:WUZI2_COOP_UPDATE_COMBAT
+for 660@ = 0 to 5
+    set_lvar_int_to_lvar_int 630@ = 308@(660@,6i)
+    gosub @WUZI2_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 630@ = 417@(660@,6i)
+    gosub @WUZI2_COOP_RETARGET_PED
+end
+for 660@ = 0 to 6
+    set_lvar_int_to_lvar_int 630@ = 436@(660@,7i)
+    gosub @WUZI2_COOP_RETARGET_PED
+end
+return
+
+:WUZI2_COOP_PHASE_CHANGED
+gosub @WUZI2_COOP_CLEAR_OBJECTIVES
+gosub @WUZI2_COOP_REFRESH_OBJECTIVES
+set_lvar_int_to_lvar_int 648@ = 640@
+return
+
+:WUZI2_COOP_UPDATE
+if
+    620@ == 0
+then
+    return
+end
+gosub @WUZI2_COOP_UPDATE_ROSTER
+if
+    648@ <> 640@
+then
+    gosub @WUZI2_COOP_PHASE_CHANGED
+end
+628@ = Clock.GetGameTimer()
+if
+    628@ > 624@
+then
+    gosub @WUZI2_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 624@ = 628@
+    624@ += 3000
+end
+if
+    628@ > 625@
+then
+    gosub @WUZI2_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 625@ = 628@
+    if
+        627@ == 1
+    then
+        625@ += 750
+    else
+        625@ += 5000
+    end
+end
+if and
+    640@ >= 2
+    628@ > 626@
+then
+    gosub @WUZI2_COOP_UPDATE_COMBAT
+    set_lvar_int_to_lvar_int 626@ = 628@
+    626@ += 750
+end
+return
+
+:WUZI2_COOP_NOTIFY_FAILURE
+if
+    620@ == 0
+then
+    return
+end
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 600@($temp_int,3i))
+    end
+end
+return
+
+:WUZI2_COOP_NOTIFY_SUCCESS
+if
+    620@ == 0
+then
+    return
+end
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 6000, TextStyle.Middle, 600@($temp_int,3i))
+    end
+end
+return
+
+:WUZI2_COOP_CLEANUP
+if
+    621@ == 1
+then
+    return
+end
+621@ = 1
+gosub @WUZI2_COOP_UPDATE_ROSTER
+gosub @WUZI2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+        603@($temp_int,3i) <> -1
+    then
+        628@ = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 628@ == 603@($temp_int,3i)
+        then
+            Char.ClearTasksImmediately(600@($temp_int,3i))
+            Char.FreezePosition(600@($temp_int,3i), False)
+            Char.SetProofs(600@($temp_int,3i), False, False, False, False, False)
+            Char.SetCollision(600@($temp_int,3i), True)
+            Char.SetVisible(600@($temp_int,3i), True)
+            Task.StandStill(600@($temp_int,3i), 0)
+        end
+    end
+    600@($temp_int,3i) = 0
+    603@($temp_int,3i) = -1
+    606@($temp_int,3i) = 0
+    609@($temp_int,3i) = -1
+end
+623@ = 0
+return
 
