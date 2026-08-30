@@ -3,6 +3,7 @@
 
 :CAT4
 script_name 'CAT4'
+Coop.EnableSyncingThisScript()
 gosub @CAT4_47
 if 
   has_deatharrest_been_executed 
@@ -15,6 +16,63 @@ terminate_this_script
 
 :CAT4_47
 $onmission = 1
+// Capture the cooperative roster exactly once. Stored actor handles plus stable
+// internal identities prevent a late joiner from inheriting a departed slot.
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+600@ = 0 // frozen remote roster size
+601@ = 0 // cooperative cleanup guard
+602@ = 0 // participant death failure
+603@ = 0 // cooperative result: 0 active, 1 passed, 2 failed
+604@ = -1 // current cooperative objective phase
+605@ = 0 // next objective refresh
+606@ = 0 // regroup fallback timer
+607@ = 0 // timer/internal-id scratch
+608@ = 0 // elapsed-time scratch
+609@ = -1 // actor/entity scratch
+610@ = -1 // entity network id
+611@ = 0 // entity registration deadline
+612@ = 0 // remotes are frozen for a host cinematic
+613@ = 0 // remote vault interaction: 0 waiting, 1 armed, 2 opened
+614@ = 0 // remote vault host-fallback deadline
+615@ = -1 // objective phase scratch
+616@ = 0 // currently connected frozen participants
+617@ = 1 // all active participants satisfy the final regroup gate
+618@ = 0 // next cooperative combat retarget
+619@ = -1 // selected combat target
+620@ = 99999.0 // selected combat target distance
+621@ = 0.0 // entity X scratch
+622@ = 0.0 // entity Y scratch
+623@ = 0.0 // entity Z scratch
+624@ = 0.0 // candidate target distance
+625@ = 0 // degraded entity registration was observed
+626@ = 0 // result notification guard
+627@ = 0 // host-authoritative remote explosive fallback used
+628@ = 0 // temporary weapon/ammo value
+629@ = 0 // current remote satchel ammo
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 630@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    633@($temp_int,3i) = -1 // frozen internal network identity
+    636@($temp_int,3i) = 0 // currently connected frozen participant
+    639@($temp_int,3i) = -1 // last displayed objective phase
+    642@($temp_int,3i) = 0 // pre-mission satchel ammo
+    645@($temp_int,3i) = 0 // pre-mission selected weapon
+    648@($temp_int,3i) = 0 // last synchronized satchel ammo
+    651@($temp_int,3i) = 0 // reversible mission satchel loadout granted
+    660@($temp_int,3i) = 0 // pre-mission detonator ammo
+    if
+        Coop.IsNetworkPlayerActorValid(630@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 609@ = 630@($temp_int,3i)
+        633@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(609@)
+        636@($temp_int,3i) = 1
+        645@($temp_int,3i) = Char.GetCurrentWeapon(609@)
+        642@($temp_int,3i) = Char.GetAmmoInWeapon(609@, 39)
+        660@($temp_int,3i) = Char.GetAmmoInWeapon(609@, 40)
+        set_lvar_int_to_lvar_int 648@($temp_int,3i) = 642@($temp_int,3i)
+        600@ += 1
+    end
+end
+gosub @CAT4_COOP_FREEZE_REMOTES
 World.SwitchEntryExit('GENOTB', False)
 if 
   Player.IsPlaying($player1)
@@ -266,6 +324,7 @@ Blip.Remove($spray_shop4)
 Game.EnableEntryExitPlayerGroupWarping(833.0, 9.0, 10.0, False)
 Game.EnableEntryExitPlayerGroupWarping(1291.0, 271.0, 10.0, True)
 wait 0
+gosub @CAT4_COOP_UPDATE
 if 
   88@ == 1
 goto_if_false @CAT4_2068
@@ -728,6 +787,9 @@ Char.SetCoordinates($scplayer, 1291.575, 269.5648, 18.5469)
 
 :CAT4_4426
 Char.SetHeading($scplayer, 60.0)
+gosub @CAT4_COOP_FREEZE_REMOTES
+gosub @CAT4_COOP_TELEPORT_ACTIVE
+gosub @CAT4_COOP_MOVE_REMOTES_OUTSIDE
 57@ = Object.Create(363, 1288.141, 267.9079, 18.5469)
 if 
   not Char.IsDead($catalina)
@@ -746,6 +808,8 @@ goto @CAT4_4493
 
 :CAT4_4519
 $catalina = Char.Create(23, 294, 1288.277, 268.9509, 18.9469)
+set_lvar_int_to_var_int 609@ = $catalina
+gosub @CAT4_COOP_REGISTER_PED
 Char.SetGetOutUpsideDownCar($catalina, False)
 Char.SetHeading($catalina, 321.0)
 Char.SetOnlyDamagedByPlayer($catalina, True)
@@ -762,6 +826,8 @@ if
 goto_if_false @CAT4_4652
 Car.SetCoordinates(41@, 1297.0, 278.0, 18.0)
 Car.SetHeading(41@, 150.0)
+set_lvar_int_to_lvar_int 609@ = 41@
+gosub @CAT4_COOP_REGISTER_VEHICLE
 
 :CAT4_4652
 276@ = DecisionMakerGroup.Load(0)
@@ -1034,6 +1100,7 @@ goto @CAT4_5151
 
 :CAT4_6251
 Player.SetControl($player1, True)
+gosub @CAT4_COOP_RELEASE_REMOTES
 Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -1102,6 +1169,7 @@ if
   38@ <> 1
 goto_if_false @CAT4_6833
 wait 0
+gosub @CAT4_COOP_UPDATE
 gosub @CAT4_2145
 if 
   not Char.LocateAnyMeans3D($scplayer, 0, 64@, 65@, 66@, 50.0, 50.0, 50.0)
@@ -1155,6 +1223,8 @@ goto_if_false @CAT4_9015
 Streaming.RemoveAnimation("MISC")
 Text.ClearSmallPrints
 Player.SetControl($player1, False)
+gosub @CAT4_COOP_FREEZE_REMOTES
+gosub @CAT4_COOP_MOVE_REMOTES_INSIDE
 Hud.SwitchWidescreen(True)
 Text.ClearPrints
 Camera.SetFixedPosition(833.5528, 9.9425, 1003.91, 0.0, 0.0, 0.0)
@@ -1167,6 +1237,8 @@ if
   6 > 53@
 goto_if_false @CAT4_7024
 46@(53@,6i) = Char.CreateRandom(70@(53@,6f), 76@(53@,6f), 82@(53@,6f))
+set_lvar_int_to_lvar_int 609@ = 46@(53@,6i)
+gosub @CAT4_COOP_REGISTER_PED
 53@ += 1
 goto @CAT4_6962
 
@@ -1497,6 +1569,8 @@ if
   Player.IsPlaying($player1)
 goto_if_false @CAT4_9015
 Player.SetControl($player1, True)
+gosub @CAT4_COOP_GIVE_SATCHELS
+gosub @CAT4_COOP_RELEASE_REMOTES
 Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -1522,6 +1596,12 @@ if
   117@ <> 1
 goto_if_false @CAT4_13666
 wait 0
+gosub @CAT4_COOP_UPDATE
+if
+  91@ == 1
+then
+    return
+end
 58@ = Char.GetAmmoInWeapon($scplayer, 39)
 59@ = Char.GetAmmoInWeapon($scplayer, 40)
 if and
@@ -2010,6 +2090,8 @@ Char.ClearRelationship($catalina, RelationshipType.Hate, PedType.Cop)
 
 :CAT4_11643
 Player.SetControl($player1, False)
+gosub @CAT4_COOP_FREEZE_REMOTES
+gosub @CAT4_COOP_MOVE_REMOTES_INSIDE
 Hud.SwitchWidescreen(True)
 Player.MakeGangDisappear
 World.ClearArea(1, 824.8268, 10.0672, 1003.187, 1000.0)
@@ -2082,14 +2164,26 @@ goto @CAT4_12024
 34@ = Car.Create(599, 1296.038, 251.8959, 18.4002)
 35@ = Car.Create(599, 1301.326, 265.0127, 18.4007)
 36@ = Car.Create(599, 1308.398, 278.7967, 18.546)
+set_lvar_int_to_lvar_int 609@ = 34@
+gosub @CAT4_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 609@ = 35@
+gosub @CAT4_COOP_REGISTER_VEHICLE
+set_lvar_int_to_lvar_int 609@ = 36@
+gosub @CAT4_COOP_REGISTER_VEHICLE
 Car.SetHeading(34@, 11.7173)
 Car.SetHeading(35@, 70.3422)
 Car.SetHeading(36@, 119.5617)
 43@ = Char.CreateInsideCar(PedType.Cop, 283, 34@)
+set_lvar_int_to_lvar_int 609@ = 43@
+gosub @CAT4_COOP_REGISTER_PED
 Char.GiveWeapon(43@, WeaponType.Pistol, 1000)
 44@ = Char.CreateInsideCar(PedType.Cop, 283, 35@)
+set_lvar_int_to_lvar_int 609@ = 44@
+gosub @CAT4_COOP_REGISTER_PED
 Char.GiveWeapon(44@, WeaponType.Pistol, 1000)
 45@ = Char.CreateInsideCar(PedType.Cop, 283, 36@)
+set_lvar_int_to_lvar_int 609@ = 45@
+gosub @CAT4_COOP_REGISTER_PED
 Char.GiveWeapon(45@, WeaponType.Pistol, 1000)
 TIMERA = 0
 
@@ -2334,6 +2428,8 @@ Group.SetFollowStatus($Players_Group, True)
 
 :CAT4_13566
 Player.SetControl($player1, True)
+gosub @CAT4_COOP_MOVE_REMOTES_OUTSIDE
+gosub @CAT4_COOP_RELEASE_REMOTES
 Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -2372,6 +2468,12 @@ if
   90@ <> 1
 goto_if_false @CAT4_16144
 wait 0
+gosub @CAT4_COOP_UPDATE
+if
+  91@ == 1
+then
+    return
+end
 gosub @CAT4_2145
 if 
   98@ == 0
@@ -2704,7 +2806,9 @@ gosub @CAT4_16800
 if 
   not Char.IsDead($catalina)
 goto_if_false @CAT4_16137
+gosub @CAT4_COOP_CHECK_FINAL_REGROUP
 if and
+  617@ == 1
   Char.LocateAnyMeans3D($scplayer, 0, 277@, 278@, 279@, 4.0, 4.0, 4.0)
   Char.LocateAnyMeans3D($catalina, 0, 277@, 278@, 279@, 10.0, 10.0, 10.0)
 goto_if_false @CAT4_16137
@@ -2719,6 +2823,15 @@ Task.CarTempAction($scplayer, $car, TempAction.HandbrakeStraight, 2000000)
 
 :CAT4_15544
 Player.SetControl($player1, False)
+gosub @CAT4_COOP_FREEZE_REMOTES
+if
+  602@ == 1
+then
+    90@ = 0
+    91@ = 1
+    return
+end
+gosub @CAT4_COOP_TELEPORT_ACTIVE
 Hud.SwitchWidescreen(True)
 TIMERA = 0
 TIMERB = 0
@@ -3328,12 +3441,20 @@ Text.ClearThisPrint('CATX_TQ')
 return 
 
 :CAT4_18296
+603@ = 2
+gosub @CAT4_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
-Char.Delete($catalina)
+if
+    Char.DoesExist($catalina)
+then
+    Char.Delete($catalina)
+end
 103@ = 0
 return 
 
 :CAT4_18326
+603@ = 1
+gosub @CAT4_COOP_NOTIFY_RESULT
 Text.PrintWithNumberBig('M_PASS', 2000, 5000, TextStyle.Middle)
 Player.AddScore($player1, 2000)
 Player.ClearWantedLevel($player1)
@@ -3352,6 +3473,7 @@ $flag_cat_mission4_passed = 1
 return 
 
 :CAT4_18425
+gosub @CAT4_COOP_CLEANUP
 Text.ClearHelp
 $onmission = 0
 Hud.DisplayRadar(True)
@@ -3462,4 +3584,871 @@ $flag_otb_robbing_peds_panic = 0
 117@ = 0
 $counter_robbery_cat4 = 0
 return 
+
+// Cooperative Against All Odds layer. Story state, rewards, wanted level,
+// cameras, mission objects, explosions, and script-fire cleanup remain owned by
+// the host. The Coop API has no remote camera/wanted/object/fire primitives, so
+// remotes are safely frozen around host cinematics, moved across interior 3 by
+// explicit actor staging, and their vault interaction is converted into the
+// same host-side door/safe state transition used by the original script.
+:CAT4_COOP_UPDATE
+gosub @CAT4_COOP_UPDATE_ROSTER
+if
+  602@ == 1
+then
+    88@ = 0
+    89@ = 0
+    90@ = 0
+    91@ = 1
+    return
+end
+if
+  612@ == 0
+then
+    gosub @CAT4_COOP_UPDATE_EXPLOSIVES
+    gosub @CAT4_COOP_UPDATE_COMBAT
+    gosub @CAT4_COOP_UPDATE_REGROUP
+end
+gosub @CAT4_COOP_UPDATE_OBJECTIVES
+return
+
+:CAT4_COOP_UPDATE_ROSTER
+616@ = 0
+for $temp_int = 0 to 2
+    636@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(630@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 609@ = 630@($temp_int,3i)
+        607@ = Coop.GetNetworkPlayerInternalId(609@)
+        if
+            is_int_lvar_equal_to_int_lvar 607@ == 633@($temp_int,3i)
+        then
+            636@($temp_int,3i) = 1
+            616@ += 1
+            if
+                Char.IsDead(609@)
+            then
+                602@ = 1
+            end
+        end
+    end
+    if
+      636@($temp_int,3i) == 0
+    then
+        639@($temp_int,3i) = -1
+    end
+end
+return
+
+:CAT4_COOP_BUILD_ACTIVE_ARGS
+654@ = -1
+655@ = -1
+656@ = -1
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 654@($temp_int,3i) = 630@($temp_int,3i)
+    end
+end
+return
+
+:CAT4_COOP_TELEPORT_ACTIVE
+if
+  600@ == 0
+then
+    return
+end
+gosub @CAT4_COOP_UPDATE_ROSTER
+gosub @CAT4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(654@, 655@, 656@)
+return
+
+:CAT4_COOP_FREEZE_REMOTES
+if
+  612@ == 1
+then
+    return
+end
+gosub @CAT4_COOP_UPDATE_ROSTER
+gosub @CAT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(630@($temp_int,3i))
+        Char.FreezePosition(630@($temp_int,3i), True)
+        Char.SetProofs(630@($temp_int,3i), True, True, True, True, True)
+        Char.SetCollision(630@($temp_int,3i), True)
+        Char.SetVisible(630@($temp_int,3i), True)
+        Task.StandStill(630@($temp_int,3i), -1)
+    end
+end
+612@ = 1
+return
+
+:CAT4_COOP_RELEASE_REMOTES
+gosub @CAT4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        Char.FreezePosition(630@($temp_int,3i), False)
+        Char.ClearTasksImmediately(630@($temp_int,3i))
+        Char.SetProofs(630@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(630@($temp_int,3i), True)
+        Char.SetVisible(630@($temp_int,3i), True)
+        Task.StandStill(630@($temp_int,3i), 0)
+    end
+end
+612@ = 0
+605@ = 0
+return
+
+:CAT4_COOP_MOVE_REMOTES_INSIDE
+gosub @CAT4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        621@ = 830.5
+        622@ = 7.0
+        if
+          $temp_int == 1
+        then
+            621@ = 830.5
+            622@ = 9.0
+        end
+        if
+          $temp_int == 2
+        then
+            621@ = 828.5
+            622@ = 7.0
+        end
+        Char.ClearTasksImmediately(630@($temp_int,3i))
+        if
+            Char.IsInAnyCar(630@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(630@($temp_int,3i), 621@, 622@, 1003.187)
+        else
+            Char.SetCoordinates(630@($temp_int,3i), 621@, 622@, 1003.187)
+        end
+        Char.SetAreaVisible(630@($temp_int,3i), 3)
+        Char.SetHeading(630@($temp_int,3i), 100.0)
+    end
+end
+return
+
+:CAT4_COOP_MOVE_REMOTES_OUTSIDE
+gosub @CAT4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        621@ = 1290.5
+        622@ = 272.0
+        if
+          $temp_int == 1
+        then
+            621@ = 1291.5
+            622@ = 274.0
+        end
+        if
+          $temp_int == 2
+        then
+            621@ = 1294.0
+            622@ = 272.0
+        end
+        Char.ClearTasksImmediately(630@($temp_int,3i))
+        if
+            Char.IsInAnyCar(630@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(630@($temp_int,3i), 621@, 622@, 18.5469)
+        else
+            Char.SetCoordinates(630@($temp_int,3i), 621@, 622@, 18.5469)
+        end
+        Char.SetAreaVisible(630@($temp_int,3i), 0)
+        Char.SetHeading(630@($temp_int,3i), 333.0)
+    end
+end
+return
+
+:CAT4_COOP_GIVE_SATCHELS
+gosub @CAT4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+      636@($temp_int,3i) == 1
+      651@($temp_int,3i) == 0
+    then
+        Char.GiveWeapon(630@($temp_int,3i), WeaponType.Satchel, 10)
+        Char.SetCurrentWeapon(630@($temp_int,3i), WeaponType.Satchel)
+        set_lvar_int_to_lvar_int 609@ = 630@($temp_int,3i)
+        648@($temp_int,3i) = Char.GetAmmoInWeapon(609@, 39)
+        651@($temp_int,3i) = 1
+    end
+end
+return
+
+// Remote projectiles and detonations are not network entities. A satchel-ammo
+// drop beside the vault arms the host-owned fallback; a nearby detonator press
+// completes it, with a five-second host timeout so packet loss cannot deadlock.
+:CAT4_COOP_UPDATE_EXPLOSIVES
+if
+  $flag_has_safe_been_robbed_cat4 == 1
+then
+    613@ = 2
+    return
+end
+if or
+  96@ <> 1
+  117@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+      636@($temp_int,3i) == 1
+      651@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 609@ = 630@($temp_int,3i)
+        629@ = Char.GetAmmoInWeapon(609@, 39)
+        if and
+          613@ == 0
+          is_int_lvar_greater_than_int_lvar 648@($temp_int,3i) > 629@
+          Char.LocateAnyMeans3D(609@, False, 822.0, 8.5, 1003.2, 18.0, 18.0, 8.0)
+        then
+            gosub @CAT4_COOP_ARM_VAULT
+        end
+        if and
+          613@ == 1
+          Char.IsCurrentWeapon(609@, WeaponType.Detonator)
+          Char.IsShooting(609@)
+          Char.LocateAnyMeans3D(609@, False, 822.0, 8.5, 1003.2, 22.0, 22.0, 8.0)
+        then
+            gosub @CAT4_COOP_OPEN_VAULT
+        end
+        set_lvar_int_to_lvar_int 648@($temp_int,3i) = 629@
+    end
+end
+if
+  613@ == 1
+then
+    607@ = Clock.GetGameTimer()
+    if
+      607@ >= 614@
+    then
+        gosub @CAT4_COOP_OPEN_VAULT
+    end
+end
+return
+
+:CAT4_COOP_ARM_VAULT
+if
+  613@ <> 0
+then
+    return
+end
+if
+    Object.DoesExist(39@)
+then
+    Object.SetCollisionDamageEffect(39@, True)
+    Object.FreezePosition(39@, False)
+    Object.Break(39@, 1)
+    Object.SetHealth(39@, 0)
+end
+103@ = 1
+613@ = 1
+614@ = Clock.GetGameTimer()
+614@ += 5000
+627@ = 1
+Fx.AddExplosion(0, 824.4, 10.8, 1003.2)
+Text.ClearHelp
+Text.ClearSmallPrints
+return
+
+:CAT4_COOP_OPEN_VAULT
+if
+  613@ == 2
+then
+    return
+end
+103@ = 1
+613@ = 2
+$flag_has_safe_been_robbed_cat4 = 1
+World.SwitchEntryExit('GENOTB', False)
+275@ = 1
+TIMERA = 0
+if
+    Object.DoesExist(39@)
+then
+    Object.SetCollisionDamageEffect(39@, True)
+    Object.FreezePosition(39@, False)
+    Object.Break(39@, 1)
+    Object.SetHealth(39@, 0)
+end
+if
+    Object.DoesExist(40@)
+then
+    Object.Delete(40@)
+end
+40@ = Object.Create(#MAN_SAFENEW, 820.5, 9.7, 1003.216)
+Object.SetHeading(40@, 90.0)
+Fx.AddExplosion(0, 820.5, 9.7, 1003.216)
+if
+    not Char.IsDead($catalina)
+then
+    Char.FreezePositionAndDontLoadCollision($catalina, False)
+end
+Text.ClearHelp
+Text.ClearPrints
+return
+
+// The three host-created officers periodically target the nearest live mission
+// participant. Their original host target remains the fallback if no remote is
+// currently valid, preserving solo combat behavior exactly.
+:CAT4_COOP_UPDATE_COMBAT
+if or
+  89@ <> 1
+  98@ < 1
+then
+    return
+end
+607@ = Clock.GetGameTimer()
+if
+  618@ > 607@
+then
+    return
+end
+618@ = Clock.GetGameTimer()
+618@ += 750
+for 628@ = 0 to 2
+    set_lvar_int_to_lvar_int 609@ = 43@(628@,3i)
+    if
+        Char.DoesExist(609@)
+    then
+        if
+            not Char.IsDead(609@)
+        then
+            621@, 622@, 623@ = Char.GetCoordinates(609@)
+            619@ = -1
+            620@ = 99999.0
+            if
+                not Char.IsDead($scplayer)
+            then
+                657@, 658@, 659@ = Char.GetCoordinates($scplayer)
+                620@ = Math.GetDistanceBetweenCoords2D(621@, 622@, 657@, 658@)
+                set_lvar_int_to_var_int 619@ = $scplayer
+            end
+            for $temp_int = 0 to 2
+                if
+                  636@($temp_int,3i) == 1
+                then
+                    657@, 658@, 659@ = Char.GetCoordinates(630@($temp_int,3i))
+                    624@ = Math.GetDistanceBetweenCoords2D(621@, 622@, 657@, 658@)
+                    if
+                        is_float_lvar_greater_than_float_lvar 620@ > 624@
+                    then
+                        set_lvar_int_to_lvar_int 619@ = 630@($temp_int,3i)
+                        set_lvar_float_to_lvar_float 620@ = 624@
+                    end
+                end
+            end
+            if
+              619@ <> -1
+            then
+                Task.KillCharOnFoot(609@, 619@)
+            end
+        end
+    end
+end
+return
+
+// Active participants are expected to escort the escape. A live straggler is
+// prompted and, after twenty seconds, safely caught up to the host. Death fails;
+// disconnect retires only that frozen slot and never blocks the remaining team.
+:CAT4_COOP_UPDATE_REGROUP
+if or
+  89@ <> 1
+  98@ < 2
+then
+    606@ = 0
+    return
+end
+617@ = 1
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(630@($temp_int,3i), $scplayer, 120.0, 120.0, 45.0, False)
+        then
+            617@ = 0
+        end
+    end
+end
+if
+  617@ == 0
+then
+    if
+      606@ == 0
+    then
+        606@ = Clock.GetGameTimer()
+        for $temp_int = 0 to 2
+            if
+              636@($temp_int,3i) == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CAT4_13', 7000, 1, 630@($temp_int,3i))
+            end
+        end
+    end
+    607@ = Clock.GetGameTimer()
+    607@ -= 606@
+    if
+      607@ > 20000
+    then
+        gosub @CAT4_COOP_TELEPORT_ACTIVE
+        for $temp_int = 0 to 2
+            if
+              636@($temp_int,3i) == 1
+            then
+                Char.SetAreaVisible(630@($temp_int,3i), 0)
+            end
+        end
+        606@ = 0
+        617@ = 1
+    end
+else
+    606@ = 0
+end
+return
+
+:CAT4_COOP_CHECK_FINAL_REGROUP
+gosub @CAT4_COOP_UPDATE_ROSTER
+617@ = 1
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        if
+            not Char.LocateAnyMeans3D(630@($temp_int,3i), False, 872.9051, -30.3161, 62.1893, 30.0, 30.0, 15.0)
+        then
+            617@ = 0
+        end
+    end
+end
+if
+  617@ == 0
+then
+    if
+      606@ == 0
+    then
+        606@ = Clock.GetGameTimer()
+    end
+    607@ = Clock.GetGameTimer()
+    607@ -= 606@
+    if
+      607@ > 15000
+    then
+        gosub @CAT4_COOP_TELEPORT_ACTIVE
+        606@ = 0
+        617@ = 1
+    end
+else
+    606@ = 0
+end
+return
+
+:CAT4_COOP_UPDATE_OBJECTIVES
+if
+  600@ == 0
+then
+    return
+end
+615@ = -1
+if and
+  88@ == 1
+  38@ == 0
+then
+    615@ = 1
+end
+if and
+  117@ == 0
+  38@ == 1
+then
+    615@ = 2
+end
+if
+  89@ == 1
+then
+    615@ = 3
+    if
+      98@ >= 2
+    then
+        615@ = 4
+    end
+    if
+      93@ == 1
+    then
+        615@ = 5
+    end
+end
+if
+  612@ == 1
+then
+    615@ = -1
+end
+set_lvar_int_to_lvar_int 604@ = 615@
+607@ = Clock.GetGameTimer()
+if
+  605@ > 607@
+then
+    return
+end
+605@ = Clock.GetGameTimer()
+605@ += 1000
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(630@($temp_int,3i))
+        if
+            not is_int_lvar_equal_to_int_lvar 639@($temp_int,3i) == 615@
+        then
+            Coop.RemoveCheckpointForNetworkPlayer(630@($temp_int,3i))
+            if
+              615@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CAT4_01', 8000, 1, 630@($temp_int,3i))
+            end
+            if
+              615@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('CAT4_46', 8000, 1, 630@($temp_int,3i))
+            end
+            if
+              615@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('CAT4_16', 6000, 1, 630@($temp_int,3i))
+            end
+            if
+              615@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('CAT4_13', 8000, 1, 630@($temp_int,3i))
+            end
+            if
+              615@ == 5
+            then
+                Coop.PrintNowForNetworkPlayer('CAT4_32', 6000, 1, 630@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 639@($temp_int,3i) = 615@
+        end
+        if
+          615@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1291.0, 271.0, 18.5, 8.0, 8.0, 6.0, 630@($temp_int,3i))
+        end
+        if
+          615@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(820.5, 9.7, 1003.216, 9.0, 9.0, 6.0, 630@($temp_int,3i))
+            if
+                Char.DoesExist($catalina)
+            then
+                if
+                    not Char.IsDead($catalina)
+                then
+                    610@ = Coop.GetPedNetworkId($catalina)
+                    if
+                      610@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(630@($temp_int,3i), $catalina, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                end
+            end
+        end
+        if
+          615@ == 3
+        then
+            for 628@ = 0 to 2
+                set_lvar_int_to_lvar_int 609@ = 43@(628@,3i)
+                if
+                    Char.DoesExist(609@)
+                then
+                    if
+                        not Char.IsDead(609@)
+                    then
+                        610@ = Coop.GetPedNetworkId(609@)
+                        if
+                          610@ <> -1
+                        then
+                            Coop.UpdateCharBlipForNetworkPlayer(630@($temp_int,3i), 609@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                        end
+                    end
+                end
+            end
+            if
+                Car.DoesExist(41@)
+            then
+                if
+                    not Car.IsDead(41@)
+                then
+                    610@ = Coop.GetVehicleNetworkId(41@)
+                    if
+                      610@ <> -1
+                    then
+                        Coop.UpdateCarBlipForNetworkPlayer(630@($temp_int,3i), 41@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                end
+            end
+        end
+        if
+          615@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(872.9051, -30.3161, 62.1893, 12.0, 12.0, 8.0, 630@($temp_int,3i))
+        end
+        if
+          615@ == 5
+        then
+            // Remote wanted state cannot be authored by the Coop API. The host's
+            // four-star chase remains canonical while remotes escort to this shop.
+            Coop.UpdateCheckpointForNetworkPlayer(719.17, -457.68, 16.92, 18.0, 18.0, 10.0, 630@($temp_int,3i))
+        end
+        if or
+          615@ == 4
+          615@ == 5
+        then
+            if
+                Char.DoesExist($catalina)
+            then
+                if
+                    not Char.IsDead($catalina)
+                then
+                    610@ = Coop.GetPedNetworkId($catalina)
+                    if
+                      610@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(630@($temp_int,3i), $catalina, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:CAT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid(630@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(630@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(630@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAT4_01', 630@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAT4_13', 630@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAT4_16', 630@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAT4_32', 630@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('CAT4_46', 630@($temp_int,3i))
+    end
+    639@($temp_int,3i) = -1
+end
+return
+
+:CAT4_COOP_NOTIFY_RESULT
+if
+  626@ == 1
+then
+    return
+end
+626@ = 1
+gosub @CAT4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        if
+          603@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 630@($temp_int,3i))
+        end
+        if
+          603@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 630@($temp_int,3i))
+        end
+    end
+end
+return
+
+:CAT4_COOP_CLEANUP
+if
+  601@ == 1
+then
+    return
+end
+601@ = 1
+gosub @CAT4_COOP_UPDATE_ROSTER
+gosub @CAT4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+      636@($temp_int,3i) == 1
+    then
+        if
+          651@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(39, 630@($temp_int,3i))
+            if
+                Char.HasGotWeapon(630@($temp_int,3i), WeaponType.Detonator)
+            then
+                Char.RemoveWeapon(40, 630@($temp_int,3i))
+            end
+            if
+              642@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(630@($temp_int,3i), WeaponType.Satchel, 642@($temp_int,3i))
+            end
+            if
+              660@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(630@($temp_int,3i), WeaponType.Detonator, 660@($temp_int,3i))
+            end
+            if
+              645@($temp_int,3i) == 0
+            then
+                Char.SetCurrentWeapon(630@($temp_int,3i), WeaponType.Unarmed)
+            else
+                if
+                    Char.HasGotWeapon(630@($temp_int,3i), 645@($temp_int,3i))
+                then
+                    Char.SetCurrentWeapon(630@($temp_int,3i), 645@($temp_int,3i))
+                end
+            end
+        end
+        Char.FreezePosition(630@($temp_int,3i), False)
+        Char.ClearTasksImmediately(630@($temp_int,3i))
+        Char.SetProofs(630@($temp_int,3i), False, False, False, False, False)
+        Char.SetCollision(630@($temp_int,3i), True)
+        Char.SetVisible(630@($temp_int,3i), True)
+        621@ = 1290.5
+        622@ = 272.0
+        if
+          $temp_int == 1
+        then
+            621@ = 1291.5
+            622@ = 274.0
+        end
+        if
+          $temp_int == 2
+        then
+            621@ = 1294.0
+            622@ = 272.0
+        end
+        607@ = Char.GetAreaVisible(630@($temp_int,3i))
+        if
+          607@ <> 0
+        then
+            if
+                Char.IsInAnyCar(630@($temp_int,3i))
+            then
+                Char.WarpFromCarToCoord(630@($temp_int,3i), 621@, 622@, 18.5469)
+            else
+                Char.SetCoordinates(630@($temp_int,3i), 621@, 622@, 18.5469)
+            end
+            Char.SetAreaVisible(630@($temp_int,3i), 0)
+        end
+        Task.StandStill(630@($temp_int,3i), 0)
+    end
+    651@($temp_int,3i) = 0
+end
+Player.SetControl($player1, True)
+Char.FreezePosition($scplayer, False)
+Hud.SwitchWidescreen(False)
+Hud.DisplayRadar(True)
+Camera.ResetNewScriptables
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+Player.MakeGangReappear
+World.SetCarDensityMultiplier(1.0)
+World.SetPedDensityMultiplier(1.0)
+612@ = 0
+return
+
+// Synced-script entity identities are asynchronous. Each wait has a two-second
+// hard deadline (well below ten seconds) and checks existence/death every tick;
+// timeout only degrades entity-specific blips and never blocks story progress.
+:CAT4_COOP_REGISTER_PED
+610@ = -1
+if
+  600@ == 0
+then
+    return
+end
+611@ = Clock.GetGameTimer()
+611@ += 2000
+while 610@ == -1
+    if
+        not Char.DoesExist(609@)
+    then
+        625@ = 1
+        break
+    end
+    if
+        Char.IsDead(609@)
+    then
+        625@ = 1
+        break
+    end
+    610@ = Coop.GetPedNetworkId(609@)
+    if
+      610@ == -1
+    then
+        607@ = Clock.GetGameTimer()
+        if
+          607@ >= 611@
+        then
+            625@ = 1
+            break
+        end
+        wait 0
+    end
+end
+return
+
+:CAT4_COOP_REGISTER_VEHICLE
+610@ = -1
+if
+  600@ == 0
+then
+    return
+end
+611@ = Clock.GetGameTimer()
+611@ += 2000
+while 610@ == -1
+    if
+        not Car.DoesExist(609@)
+    then
+        625@ = 1
+        break
+    end
+    if
+        Car.IsDead(609@)
+    then
+        625@ = 1
+        break
+    end
+    610@ = Coop.GetVehicleNetworkId(609@)
+    if
+      610@ == -1
+    then
+        607@ = Clock.GetGameTimer()
+        if
+          607@ >= 611@
+        then
+            625@ = 1
+            break
+        end
+        wait 0
+    end
+end
+return
 
