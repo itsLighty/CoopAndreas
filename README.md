@@ -193,7 +193,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [ ] force hydraulics sync
   - [ ] trailer sync
 - [ ] passenger sync
-  - [ ] gamepad support
+  - [X] gamepad support
   - [X] proper seat sync
   - [ ] radio sync
   - [X] drive by shooting
