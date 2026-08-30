@@ -224,7 +224,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] radar icon?
   - [X] speech sync
 - [ ] player voice commands
-- [ ] chat reactions (see LD_CHAT.txd)
+- [X] chat reactions (see LD_CHAT.txd)
 - [ ] gang wars sync
 - [ ] parachute jump sync
 - [ ] stunt
