@@ -1605,7 +1605,7 @@ then
 end
 return
 
-// Connected participant death and friendly fire fail the shared attempt.
+// COOP_PARTICIPANT_DEATH_POLICY: connected participant death and friendly fire fail the shared attempt.
 // The target driver and vehicle are protected from remote damage because only
 // host actions may decide the canonical PIT, escape, and theft transitions.
 :STEAL1_COOP_CHECK_FAILURES

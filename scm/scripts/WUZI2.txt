@@ -4423,6 +4423,7 @@ for $temp_int = 0 to 2
             606@($temp_int,3i) = 1
         end
     end
+    // COOP_PARTICIPANT_DEATH_POLICY: a connected frozen participant death deterministically fails the shared attempt.
     if
         606@($temp_int,3i) == 1
     then

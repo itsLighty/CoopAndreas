@@ -2213,7 +2213,7 @@ then
 end
 return
 
-// Connected participant death fails the shared attempt. Shooting the protected
+// COOP_PARTICIPANT_DEATH_POLICY: connected participant death fails the shared attempt. Shooting the protected
 // lure vehicle or another participant is treated as mission-breaking friendly
 // fire; disconnecting a participant never fails or transfers their slot.
 :DRIV6_COOP_CHECK_FAILURES
