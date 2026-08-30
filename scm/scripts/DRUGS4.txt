@@ -3,6 +3,7 @@
 
 :DRUGS4
 script_name 'DRUGS4'
+Coop.EnableSyncingThisScript()
 gosub @DRUGS4_47
 if 
   has_deatharrest_been_executed 
@@ -16,7 +17,41 @@ terminate_this_script
 :DRUGS4_47
 Stat.RegisterMissionGiven
 Text.LoadMissionText('LAFIN1')
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+347@ = 0 // frozen cooperative roster size
+348@ = 0 // cooperative cleanup guard
+349@ = 0 // remote transition/freeze state
+350@ = 0 // remote participant death failure
+351@ = -1 // current cooperative objective phase
+352@ = 0 // next bounded entity registration retry
+353@ = 0 // next objective refresh
+354@ = 0 // next combat target refresh
+355@ = 0 // out-of-area regroup timer
+356@ = 0 // next regroup check
+357@ = 0 // most recent registration deadline expired
+358@ = -1 // last mission transition handled for remotes
+377@ = -1 // last world-registration stage
+380@ = 0 // round-robin remote combat role
+381@ = 0 // support vehicles initialized
+382@ = 0 // escape roles initialized
+383@ = 0 // authority-safe explosion fallback active
+set_lvar_text_label 398@s = 'LAF1_1'
+for $temp_int = 0 to 2
+    332@($temp_int,3i) = -1
+    335@($temp_int,3i) = -1
+    338@($temp_int,3i) = -1
+    341@($temp_int,3i) = 0
+    394@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        338@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        341@($temp_int,3i) = 1
+        347@ += 1
+    end
+end
 $onmission = 1
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 wait 0
 Streaming.SetAreaVisible(1)
 Cutscene.Load('FINAL1A')
@@ -252,6 +287,9 @@ Char.SetDecisionMaker($ryder, 55@)
 Char.SetNeverTargeted($ryder, True)
 Char.SetSuffersCriticalHits($ryder, False)
 Char.SetGetOutUpsideDownCar($ryder, False)
+gosub @DRUGS4_COOP_CREATE_APPROACH_CARS
+gosub @DRUGS4_COOP_SYNC_WORLD
+gosub @DRUGS4_COOP_DEPLOY_APPROACH
 Text.PrintNow('LAF1_1', 10000, 1)
 Char.ShutUp($scplayer, True)
 Game.SetWantedMultiplier(0.0)
@@ -263,6 +301,13 @@ Camera.DoFade(1, 500)
 
 :DRUGS4_1708
 wait 0
+gosub @DRUGS4_COOP_UPDATE
+if
+  350@ == 1
+then
+    Text.PrintNow('LAF1_71', 5000, 1)
+    goto @DRUGS4_67705
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @DRUGS4_1734
@@ -596,6 +641,7 @@ World.SetPedDensityMultiplier(0.0)
 Game.SetWantedMultiplier(0.0)
 Text.ClearPrints
 128@ = 2
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 
 :DRUGS4_3712
 if 
@@ -744,6 +790,10 @@ Task.PlayAnim($big_smoke, "CAR_SC1_FR", "CAR_CHAT", 6.0, False, False, False, Fa
 Task.PlayAnim($ryder, "CAR_SC1_BR", "CAR_CHAT", 6.0, False, False, False, False, -1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HA', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HA'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($sweet, 10000)
 
 :DRUGS4_5039
@@ -765,6 +815,10 @@ Char.StopFacialTalk($sweet)
 Audio.LoadMissionAudio(15850, 1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_HB', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HB'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($scplayer, 10000)
 
 :DRUGS4_5127
@@ -792,6 +846,10 @@ if
 goto_if_false @DRUGS4_5322
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HC', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HC'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($sweet, 10000)
 
 :DRUGS4_5248
@@ -913,6 +971,10 @@ Task.PlayAnim($big_smoke, "CAR_SC3_FR", "CAR_CHAT", 4.0, False, False, False, Fa
 Task.PlayAnim($ryder, "CAR_SC3_BR", "CAR_CHAT", 4.0, False, False, False, False, -1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HD', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HD'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($ryder)
 goto_if_false @DRUGS4_6153
@@ -955,6 +1017,10 @@ Camera.SetFixedPosition(2224.392, -1148.606, 25.9857, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2224.396, -1149.605, 25.955, SwitchType.JumpCut)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_HE', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HE'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($scplayer, 10000)
 
 :DRUGS4_6371
@@ -985,6 +1051,10 @@ if
 goto_if_false @DRUGS4_6693
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HG', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HG'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($big_smoke)
 goto_if_false @DRUGS4_6527
@@ -1062,6 +1132,10 @@ Camera.PointAtCar(40@, CameraMode.Fixed, SwitchType.JumpCut)
 Searchlight.MoveBetweenCoords(58@, 2228.36, -1171.48, 25.82, 2215.41, -1142.51, 25.5, 0.5)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_HH', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HH'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 
 :DRUGS4_7044
 if 
@@ -1129,6 +1203,10 @@ if
 goto_if_false @DRUGS4_7528
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HI', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HI'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Task.LeaveAnyCar($scplayer)
 if 
   not Char.IsDead($big_smoke)
@@ -1180,6 +1258,10 @@ Char.GiveWeapon(47@, WeaponType.Mp5, 9999)
 Char.SetAccuracy(47@, 30)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_CI', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_CI'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Audio.LoadMissionAudio(15857, 1)
 wait 100
 48@ = Char.CreateSwatRope(PedType.Mission4, 285, 2222.63, -1166.01, 32.25)
@@ -1238,6 +1320,10 @@ Camera.PointAtPoint(2223.403, -1150.139, 26.0591, SwitchType.JumpCut)
 TIMERA = 0
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HJ', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HJ'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($ryder)
 goto_if_false @DRUGS4_8329
@@ -1272,6 +1358,10 @@ goto @DRUGS4_8400
 :DRUGS4_8426
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_HK', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HK'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($big_smoke)
 goto_if_false @DRUGS4_8470
@@ -1408,6 +1498,10 @@ Streaming.RequestCarRecording(356)
 Task.ShuffleToNextCarSeat($big_smoke, $sweet_car)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_HL', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_HL'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($scplayer)
 goto_if_false @DRUGS4_9322
@@ -1448,6 +1542,10 @@ Car.StartPlayback($sweet_car, 356)
 :DRUGS4_9436
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_HM', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_HM'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($ryder)
 goto_if_false @DRUGS4_9480
@@ -1998,6 +2096,7 @@ Hud.SwitchWidescreen(False)
 Camera.SetBehindPlayer
 Player.SetControl($player1, True)
 Text.PrintNow('LAF1_17', 10000, 1)
+gosub @DRUGS4_COOP_DEPLOY_COMBATANTS
 128@ = 24
 
 :DRUGS4_13313
@@ -2222,6 +2321,8 @@ Text.PrintNow('LAF1_6', 5000, 1)
 179@ = 0
 128@ = 25
 146@ = 1
+gosub @DRUGS4_COOP_DEPLOY_INTERIOR
+gosub @DRUGS4_COOP_SYNC_WORLD
 
 :DRUGS4_15336
 if 
@@ -2649,6 +2750,7 @@ if
 goto_if_false @DRUGS4_19182
 World.ClearArea(0, 2248.35, -1159.683, 20.0, 20.0)
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 Game.SetEveryoneIgnorePlayer($player1, False)
 Hud.SwitchWidescreen(True)
 Camera.SetFixedPosition(2247.047, -1157.281, 1030.581, 0.0, 0.0, 0.0)
@@ -2678,6 +2780,10 @@ goto @DRUGS4_19017
 :DRUGS4_19043
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_DC', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_DC'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Task.PlayAnimNonInterruptable($scplayer, "PLAYA_KISS_03", "KISSING", 4.0, False, False, False, False, -1)
 if 
   not Char.IsDead(83@)
@@ -2718,6 +2824,7 @@ if
 goto_if_false @DRUGS4_19414
 Char.SetHealth(83@, 5)
 Player.SetControl($player1, True)
+gosub @DRUGS4_COOP_DEPLOY_INTERIOR
 Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -3166,6 +3273,7 @@ Char.MarkAsNoLongerNeeded(36@)
 
 :DRUGS4_22542
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 Game.SetEveryoneIgnorePlayer($player1, False)
 Hud.SwitchWidescreen(True)
 Camera.SetFixedPosition(2207.529, -1195.725, 1031.273, 0.0, 0.0, 0.0)
@@ -3195,6 +3303,10 @@ goto @DRUGS4_22719
 :DRUGS4_22745
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_DA', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_DA'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Task.PlayAnim($scplayer, "PLAYA_KISS_03", "KISSING", 4.0, False, False, False, False, -1)
 if 
   not Char.IsDead(82@)
@@ -3235,6 +3347,7 @@ if
 goto_if_false @DRUGS4_23116
 Char.SetHealth(82@, 5)
 Player.SetControl($player1, True)
+gosub @DRUGS4_COOP_DEPLOY_INTERIOR
 Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -3707,8 +3820,13 @@ goto_if_false @DRUGS4_26568
 if 
   not Char.IsDead($sweet)
 goto_if_false @DRUGS4_26568
-if 
-  Char.LocateAnyMeansChar3D($sweet, $scplayer, 3.5, 3.5, 3.5, False)
+385@ = $sweet
+373@ = 3.5
+374@ = 3.5
+375@ = 3.5
+gosub @DRUGS4_COOP_IS_ANY_PARTICIPANT_NEAR_PED
+if
+  393@ == 1
 goto_if_false @DRUGS4_26568
 if 
   Char.IsDead(80@)
@@ -3719,6 +3837,7 @@ goto_if_false @DRUGS4_26529
 63@ = Char.GetCurrentWeapon($scplayer)
 Camera.DoFade(0, 250)
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 Char.SetOnlyDamagedByPlayer($sweet, False)
 Streaming.RemoveAnimation("KISSING")
 Streaming.MarkModelAsNoLongerNeeded(107)
@@ -3817,6 +3936,10 @@ Char.SetHeading($scplayer, 269.764)
 Task.GoStraightToCoord($scplayer, 2201.188, -1156.93, 1028.844, MoveState.Walk, -1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_JH', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_JH'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($sweet, 10000)
 
 :DRUGS4_26881
@@ -3852,6 +3975,10 @@ TIMERA = 0
 :DRUGS4_27133
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_JI', 2000, 1)
+set_lvar_text_label 398@s = 'FIN1_JI'
+378@ = 2000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($scplayer, 2000)
 skip_cutscene_start_internal @DRUGS4_27696
 171@ = 3
@@ -3882,6 +4009,10 @@ Char.StartFacialTalk($sweet, 10000)
 
 :DRUGS4_27294
 Text.PrintNow('FIN1_JK', 2000, 1)
+set_lvar_text_label 398@s = 'FIN1_JK'
+378@ = 2000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 182@ = 1
 
 :DRUGS4_27317
@@ -4222,6 +4353,10 @@ Task.LookAtChar($sweet, 44@, 3000)
 :DRUGS4_29639
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_AA', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_AA'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 TIMERB = 0
 171@ = 7
 
@@ -4332,6 +4467,10 @@ Char.SetHeading($scplayer, 181.0915)
 Task.PlayAnim($scplayer, "SWT_WLLPK_L", "SWAT", 8.0, False, False, False, True, -1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_JL', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_JL'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Car.SetCoordinates(40@, 2185.43, -1172.69, 37.05)
 Heli.GotoCoords(40@, 2194.97, -1182.27, 37.0, 7.0, 7.0)
 TIMERB = 0
@@ -4525,6 +4664,7 @@ DecisionMaker.Remove(56@)
 TIMERA = 0
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
+gosub @DRUGS4_COOP_DEPLOY_ROOFTOP
 if 
   not Char.IsDead($sweet)
 goto_if_false @DRUGS4_31962
@@ -4910,11 +5050,19 @@ goto_if_false @DRUGS4_34636
 if 
   not Char.IsDead($sweet)
 goto_if_false @DRUGS4_34636
-if 
-  Char.LocateOnFoot3D($scplayer, 0, 2197.78, -1194.0, 26.17, 5.0, 5.0, 3.5)
+370@ = 2197.78
+371@ = -1194.0
+372@ = 26.17
+373@ = 5.0
+374@ = 5.0
+375@ = 3.5
+gosub @DRUGS4_COOP_IS_ANY_PARTICIPANT_AT_COORD
+if
+  393@ == 1
 goto_if_false @DRUGS4_34499
 Camera.DoFade(0, 250)
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 Char.SetProofs($sweet, True, True, True, True, True)
 
 :DRUGS4_34396
@@ -4944,6 +5092,7 @@ Car.MarkAsNoLongerNeeded(40@)
 World.ClearArea(1, 2197.78, -1194.0, 100.0, 100.0)
 Camera.DoFade(0, 250)
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 Char.SetProofs($sweet, True, True, True, True, True)
 
 :DRUGS4_34605
@@ -5288,6 +5437,10 @@ Car.StartPlayback($sweet_car, 330)
 Task.PlayAnim($sweet, "PRTIAL_GNGTLKE", "GANGS", 1000.0, False, True, True, True, -1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_KA', 2500, 1)
+set_lvar_text_label 398@s = 'FIN1_KA'
+378@ = 2500
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($sweet, 2000)
 TIMERA = 0
 294@ = 3
@@ -5332,6 +5485,10 @@ Text.ClearPrints
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Char.StartFacialTalk($scplayer, 2000)
 Text.PrintNow('FIN1_KB', 3000, 1)
+set_lvar_text_label 398@s = 'FIN1_KB'
+378@ = 3000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StopFacialTalk($sweet)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.LoadMissionAudio(15878, 1)
@@ -5373,6 +5530,10 @@ Audio.LoadMissionAudio(15879, 2)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Char.StartFacialTalk($big_smoke, 1000)
 Text.PrintNow('FIN1_KC', 2000, 1)
+set_lvar_text_label 398@s = 'FIN1_KC'
+378@ = 2000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Camera.SetFixedPosition(2177.919, -1190.952, 24.4917, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2178.372, -1191.815, 24.2692, SwitchType.JumpCut)
 Task.LookAtChar($scplayer, $big_smoke, 5000)
@@ -5466,6 +5627,10 @@ Task.PlayAnim($sweet, "CAR_SC4_BL", "CAR_CHAT", 8.0, False, False, False, False,
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Char.StartFacialTalk($sweet, 1000)
 Text.PrintNow('FIN1_KE', 2000, 1)
+set_lvar_text_label 398@s = 'FIN1_KE'
+378@ = 2000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.LoadMissionAudio(15880, 1)
 if 
@@ -5588,6 +5753,7 @@ Camera.Restore
 Char.SetProofs($scplayer, False, True, True, False, False)
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
+gosub @DRUGS4_COOP_STAGE_ESCAPE_ROLES
 TIMERA = 0
 TIMERB = 0
 Char.Delete($sweet)
@@ -6321,6 +6487,7 @@ goto @DRUGS4_43371
 
 :DRUGS4_43395
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_FREEZE_REMOTES
 if 
   not Car.IsDead($sweet_car)
 goto_if_false @DRUGS4_43433
@@ -6901,6 +7068,10 @@ Object.PlayAnim(230@, "DONUTDROP", "MD_CHASE", 4.0, False, True)
 :DRUGS4_47304
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_LE', 2250, 1)
+set_lvar_text_label 398@s = 'FIN1_LE'
+378@ = 2250
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 295@ = 4
 
 :DRUGS4_47331
@@ -6915,6 +7086,10 @@ if
 goto_if_false @DRUGS4_47508
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_LF', 2000, 1)
+set_lvar_text_label 398@s = 'FIN1_LF'
+378@ = 2000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Car.GotoCoordinates(212@, 2604.02, -1256.38, 48.84)
 Car.SetCruiseSpeed(212@, 25.0)
 Car.SetDrivingStyle(212@, DrivingMode.AvoidCars)
@@ -6974,6 +7149,7 @@ Player.SetHeadingForAttached($player1, 75.0, 75.0)
 Camera.Restore
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
+gosub @DRUGS4_COOP_STAGE_ESCAPE_ROLES
 Car.SetProofs($sweet_car, False, True, True, True, True)
 Char.SetProofs($scplayer, False, True, True, False, False)
 Char.SetProofs($scplayer, True, True, True, True, True)
@@ -8329,6 +8505,7 @@ Hud.SwitchWidescreen(True)
 Char.DetachFromCar($scplayer)
 Char.SetCoordinates($scplayer, 2184.87, -1500.83, 23.55)
 Player.SetControl($player1, False)
+gosub @DRUGS4_COOP_SAFE_SETPIECE
 if 
   not Car.IsDead(40@)
 goto_if_false @DRUGS4_57647
@@ -9480,6 +9657,10 @@ Camera.SetFixedPosition(2171.519, -1521.437, 23.7949, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(2171.287, -1520.465, 23.8322, SwitchType.JumpCut)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_MU', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_MU'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Car.Delete(275@)
 Car.StopPlayback(273@)
 Car.StopPlayback(275@)
@@ -9511,6 +9692,10 @@ Char.StopFacialTalk($big_smoke)
 Audio.LoadMissionAudio(15945, 1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_MV', 4000, 1)
+set_lvar_text_label 398@s = 'FIN1_MV'
+378@ = 4000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 if 
   not Char.IsDead($sweet)
 goto_if_false @DRUGS4_65407
@@ -9539,6 +9724,10 @@ Text.ClearPrints
 Char.StopFacialTalk($sweet)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('FIN1_MW', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_MW'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Char.StartFacialTalk($ryder, 5000)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 Audio.LoadMissionAudio(15946, 2)
@@ -9564,6 +9753,10 @@ Char.StopFacialTalk($ryder)
 Char.StartFacialTalk($sweet, 5000)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('FIN1_MX', 5000, 1)
+set_lvar_text_label 398@s = 'FIN1_MX'
+378@ = 5000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 330@ = 4
 
 :DRUGS4_65667
@@ -9694,6 +9887,10 @@ if
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @DRUGS4_66733
 Text.PrintNow(104@s, 4000, 1)
+set_lvar_text_label 398@s = 104@s
+378@ = 4000
+379@ = 1
+gosub @DRUGS4_COOP_SUBTITLE
 Text.ClearThisPrint('FIN1_BD')
 Text.ClearThisPrint('FIN1_CK')
 Text.ClearThisPrint('FIN1_BE')
@@ -9843,6 +10040,7 @@ return
 
 :DRUGS4_67705
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @DRUGS4_COOP_NOTIFY_FAILURE
 Object.Delete($advert_f1)
 $advert_f1 = Object.CreateNoOffset(#MD_POSTER, 2167.82, -1518.193, 20.237)
 Object.SetHeading($advert_f1, 0.0)
@@ -9858,9 +10056,11 @@ Audio.PlayMissionPassedTune(1)
 Player.ClearWantedLevel($player1)
 Stat.PlayerMadeProgress(1)
 $flag_la1fin1_mission_counter += 1
+gosub @DRUGS4_COOP_NOTIFY_SUCCESS
 return 
 
 :DRUGS4_67827
+gosub @DRUGS4_COOP_RESTORE_AND_CLEANUP
 $onmission = 0
 Hud.ClearCounter($carhealth_f1)
 Game.SetScriptLimitToGangSize(99)
@@ -9964,4 +10164,1120 @@ Weather.Release
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// Cooperative mission layer.  The participant roster is frozen by network identity
+// at mission start.  Disconnected or late-streamed slots are skipped and are never
+// replaced by a late joiner.
+:DRUGS4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    341@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        359@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 359@ == 338@($temp_int,3i)
+        then
+            341@($temp_int,3i) = 1
+            if
+              351@ == 3
+            then
+                Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 15)
+            end
+            if and
+              351@ >= 0
+              351@ <> 3
+            then
+                Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+            end
+            if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                350@ = 1
+            end
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_BUILD_ACTIVE_ARGS
+364@ = -1
+365@ = -1
+366@ = -1
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_var_int 364@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    end
+end
+return
+
+:DRUGS4_COOP_TELEPORT_ACTIVE
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(364@, 365@, 366@)
+return
+
+:DRUGS4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        341@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_1', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_3', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_17', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_6', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_5', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_4', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer('LAF1_69', $NETWORK_PLAYER[$temp_int])
+        Coop.ClearThisPrintForNetworkPlayer(398@s, $NETWORK_PLAYER[$temp_int])
+    end
+    335@($temp_int,3i) = -1
+end
+return
+
+:DRUGS4_COOP_SUBTITLE
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        341@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(398@s, 378@, 379@, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS4_COOP_FREEZE_REMOTES
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+    end
+end
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+349@ = 1
+return
+
+:DRUGS4_COOP_CREATE_APPROACH_CARS
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        if
+            $temp_int == 0
+        then
+            332@($temp_int,3i) = Car.Create(492, 2501.0, -1679.0, 12.1)
+        end
+        if
+            $temp_int == 1
+        then
+            332@($temp_int,3i) = Car.Create(492, 2497.0, -1679.0, 12.1)
+        end
+        if
+            $temp_int == 2
+        then
+            332@($temp_int,3i) = Car.Create(492, 2493.0, -1679.0, 12.1)
+        end
+        Car.SetHeading(332@($temp_int,3i), 90.0)
+        Car.ChangeColor(332@($temp_int,3i), 59, 34)
+        Car.SetCanBurstTires(332@($temp_int,3i), False)
+        Car.SetHealth(332@($temp_int,3i), 1800)
+        Car.SetPetrolTankWeakpoint(332@($temp_int,3i), False)
+    end
+end
+381@ = 1
+return
+
+:DRUGS4_COOP_DEPLOY_APPROACH
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        set_lvar_int_to_lvar_int 385@ = 332@($temp_int,3i)
+        gosub @DRUGS4_COOP_IS_VEHICLE_REGISTERED
+        if
+          388@ == 1
+        then
+            Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 332@($temp_int,3i))
+        end
+    end
+end
+349@ = 0
+358@ = -1
+return
+
+:DRUGS4_COOP_DEPLOY_COMBATANTS
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+349@ = 0
+355@ = 0
+return
+
+:DRUGS4_COOP_DEPLOY_INTERIOR
+gosub @DRUGS4_COOP_DEPLOY_COMBATANTS
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 15)
+        Char.SetHasUsedEntryExit($NETWORK_PLAYER[$temp_int], 2232.41, -1160.04, 20.0)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Mp5, 450)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Shotgun, 40)
+        Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Mp5)
+    end
+end
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+349@ = 0
+return
+
+:DRUGS4_COOP_DEPLOY_ROOFTOP
+gosub @DRUGS4_COOP_DEPLOY_COMBATANTS
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Char.SetHasUsedEntryExit($NETWORK_PLAYER[$temp_int], 2214.38, -1150.45, 1.0)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Ak47, 500)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Mp5, 500)
+        Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Ak47)
+    end
+end
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+gosub @DRUGS4_COOP_SYNC_WORLD
+349@ = 0
+return
+
+:DRUGS4_COOP_RELOCATE_SUPPORT_CARS
+if
+  347@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        359@ = 0
+        if
+            Car.DoesExist(332@($temp_int,3i))
+        then
+            if
+                not Car.IsDead(332@($temp_int,3i))
+            then
+                359@ = 1
+            end
+        end
+        if
+            359@ == 0
+        then
+            332@($temp_int,3i) = Car.Create(492, 2197.0, -1224.0, 23.5)
+        end
+        if
+            $temp_int == 0
+        then
+            Car.SetCoordinates(332@($temp_int,3i), 2197.0, -1224.0, 23.5)
+        end
+        if
+            $temp_int == 1
+        then
+            Car.SetCoordinates(332@($temp_int,3i), 2193.0, -1227.0, 23.5)
+        end
+        if
+            $temp_int == 2
+        then
+            Car.SetCoordinates(332@($temp_int,3i), 2189.0, -1230.0, 23.5)
+        end
+        Car.SetHeading(332@($temp_int,3i), 90.0)
+        Car.ChangeColor(332@($temp_int,3i), 59, 34)
+        Car.SetHealth(332@($temp_int,3i), 2200)
+        Car.SetCanBurstTires(332@($temp_int,3i), False)
+        Car.SetPetrolTankWeakpoint(332@($temp_int,3i), False)
+    end
+end
+return
+
+:DRUGS4_COOP_STAGE_ESCAPE_ROLES
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_RELOCATE_SUPPORT_CARS
+for $temp_int = 0 to 2
+    394@($temp_int,3i) = 0
+end
+gosub @DRUGS4_COOP_SYNC_WORLD
+gosub @DRUGS4_COOP_REPAIR_ESCAPE_ROLES
+349@ = 0
+355@ = 0
+382@ = 1
+return
+
+:DRUGS4_COOP_REPAIR_ESCAPE_ROLES
+for $temp_int = 0 to 2
+    if and
+        341@($temp_int,3i) == 1
+        394@($temp_int,3i) == 0
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.MicroUzi, 600)
+        Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], WeaponType.MicroUzi)
+        if
+          $temp_int == 0
+        then
+            set_lvar_int_to_var_int 385@ = $sweet_car
+            gosub @DRUGS4_COOP_IS_VEHICLE_REGISTERED
+            if
+              388@ == 1
+            then
+                Char.WarpIntoCarAsPassenger($NETWORK_PLAYER[$temp_int], $sweet_car, 2)
+                394@($temp_int,3i) = 1
+            else
+                set_lvar_int_to_lvar_int 385@ = 332@($temp_int,3i)
+                gosub @DRUGS4_COOP_IS_VEHICLE_REGISTERED
+                if
+                  388@ == 1
+                then
+                    Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 332@($temp_int,3i))
+                    394@($temp_int,3i) = 1
+                end
+            end
+        end
+        if
+          $temp_int > 0
+        then
+            set_lvar_int_to_lvar_int 385@ = 332@($temp_int,3i)
+            gosub @DRUGS4_COOP_IS_VEHICLE_REGISTERED
+            if
+              388@ == 1
+            then
+                Char.WarpIntoCar($NETWORK_PLAYER[$temp_int], 332@($temp_int,3i))
+                394@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+return
+
+// The chase's scripted helicopter/object/explosion finale is host-authoritative.
+// Remotes are regrouped, frozen, and proofed so an unsynchronised set-piece cannot
+// strand or kill them; all preceding police/SWAT combat remains fully interactive.
+:DRUGS4_COOP_SAFE_SETPIECE
+383@ = 1
+gosub @DRUGS4_COOP_FREEZE_REMOTES
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+    end
+end
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+return
+
+:DRUGS4_COOP_SYNC_PED
+if
+    Char.DoesExist(385@)
+then
+    if
+        386@ == 1
+    then
+        Char.SetOnlyDamagedByPlayer(385@, False)
+    end
+    362@ = Coop.GetPedNetworkId(385@)
+    if
+      362@ == -1
+    then
+        361@ = 1
+    end
+end
+return
+
+:DRUGS4_COOP_SYNC_VEHICLE
+if
+    Car.DoesExist(385@)
+then
+    if
+        386@ == 1
+    then
+        Car.SetOnlyDamagedByPlayer(385@, False)
+    end
+    362@ = Coop.GetVehicleNetworkId(385@)
+    if
+      362@ == -1
+    then
+        361@ = 1
+    end
+end
+return
+
+:DRUGS4_COOP_IS_VEHICLE_REGISTERED
+388@ = 0
+if
+    Car.DoesExist(385@)
+then
+    if
+        not Car.IsDead(385@)
+    then
+        362@ = Coop.GetVehicleNetworkId(385@)
+        if
+          362@ <> -1
+        then
+            388@ = 1
+        end
+    end
+end
+return
+
+// Every pass shares one 750 ms deadline.  Timeout only enables the local-authority
+// fallback; five-second retries repair entities that stream in later.
+:DRUGS4_COOP_SYNC_WORLD
+if
+  347@ == 0
+then
+    return
+end
+360@ = Clock.GetGameTimer()
+360@ += 750
+357@ = 0
+
+:DRUGS4_COOP_SYNC_WORLD_PASS
+361@ = 0
+386@ = 0
+set_lvar_int_to_var_int 385@ = $sweet
+gosub @DRUGS4_COOP_SYNC_PED
+set_lvar_int_to_var_int 385@ = $big_smoke
+gosub @DRUGS4_COOP_SYNC_PED
+set_lvar_int_to_var_int 385@ = $ryder
+gosub @DRUGS4_COOP_SYNC_PED
+set_lvar_int_to_var_int 385@ = $sweet_car
+gosub @DRUGS4_COOP_SYNC_VEHICLE
+if
+  351@ >= 4
+then
+    386@ = 1
+end
+385@ = 40@
+gosub @DRUGS4_COOP_SYNC_VEHICLE
+386@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 385@ = 332@($temp_int,3i)
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+end
+if
+  351@ == 3
+then
+    386@ = 1
+    385@ = 47@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 48@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 51@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 52@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 53@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 54@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 68@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 69@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 70@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 71@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 72@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 73@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 74@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 75@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 76@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 77@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 78@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 79@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 80@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 81@
+    gosub @DRUGS4_COOP_SYNC_PED
+end
+if
+  351@ == 4
+then
+    386@ = 1
+    385@ = 44@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 51@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 52@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 53@
+    gosub @DRUGS4_COOP_SYNC_PED
+    385@ = 54@
+    gosub @DRUGS4_COOP_SYNC_PED
+end
+if and
+  351@ >= 5
+  7 >= 351@
+then
+    386@ = 1
+    385@ = 186@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 187@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 188@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 189@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 190@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 191@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 192@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+    385@ = 193@
+    gosub @DRUGS4_COOP_SYNC_VEHICLE
+end
+if
+  361@ == 0
+then
+    return
+end
+363@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 363@ >= 360@
+then
+    357@ = 1
+    return
+end
+wait 0
+goto @DRUGS4_COOP_SYNC_WORLD_PASS
+
+:DRUGS4_COOP_GET_OBJECTIVE_PHASE
+351@ = -1
+if
+  128@ == 0
+then
+    351@ = 0
+end
+if or
+  128@ == 1
+  128@ == 100
+then
+    351@ = 1
+end
+if
+  128@ == 24
+then
+    351@ = 2
+end
+if
+  128@ == 25
+then
+    if
+      171@ == 0
+    then
+        351@ = 3
+    end
+    if and
+      171@ >= 6
+      22 >= 171@
+    then
+        351@ = 4
+    end
+    if
+      171@ == 23
+    then
+        if and
+          294@ >= 13
+          1 >= 295@
+        then
+            351@ = 5
+        end
+        if
+          295@ == 7
+        then
+            351@ = 6
+        end
+        if and
+          325@ >= 5
+          7 > 325@
+        then
+            351@ = 7
+        end
+        if
+          325@ >= 7
+        then
+            351@ = -1
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_ADD_CAR_BLIP
+if
+    Car.DoesExist(385@)
+then
+    if
+        not Car.IsDead(385@)
+    then
+        362@ = Coop.GetVehicleNetworkId(385@)
+        if
+          362@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(359@, 385@, False, BlipDisplay.Both, BlipColor.Red, 3)
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_UPDATE_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        341@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        set_lvar_int_to_var_int 359@ = $NETWORK_PLAYER[$temp_int]
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            not is_int_lvar_equal_to_int_lvar 335@($temp_int,3i) == 351@
+        then
+            Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+            if
+              351@ == 0
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_1', 10000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              351@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_3', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              351@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_17', 10000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              351@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_6', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              351@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_5', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if or
+              351@ == 5
+              351@ == 6
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_4', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+              351@ == 7
+            then
+                Coop.PrintNowForNetworkPlayer('LAF1_69', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            set_lvar_int_to_lvar_int 335@($temp_int,3i) = 351@
+        end
+        if
+          351@ == 0
+        then
+            if
+                Car.DoesExist(332@($temp_int,3i))
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 332@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+            else
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet_car, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+          351@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2256.239, -1146.909, 25.121, 6.0, 6.0, 5.0, $NETWORK_PLAYER[$temp_int])
+            if
+                Car.DoesExist($sweet_car)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet_car, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+          351@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2235.3, -1159.67, 25.94, 3.0, 3.0, 4.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+          351@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2202.23, -1156.914, 1029.852, 8.0, 8.0, 4.0, $NETWORK_PLAYER[$temp_int])
+            if
+                Char.DoesExist($sweet)
+            then
+                if
+                    not Char.IsDead($sweet)
+                then
+                    362@ = Coop.GetPedNetworkId($sweet)
+                    if
+                      362@ <> -1
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                end
+            end
+        end
+        if
+          351@ == 4
+        then
+            if
+                Car.DoesExist(40@)
+            then
+                362@ = Coop.GetVehicleNetworkId(40@)
+                if
+                  362@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 40@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+            if
+                Char.DoesExist($sweet)
+            then
+                Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if and
+          351@ >= 5
+          7 >= 351@
+        then
+            if
+                Car.DoesExist($sweet_car)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $sweet_car, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+            385@ = 186@
+            gosub @DRUGS4_COOP_ADD_CAR_BLIP
+            385@ = 187@
+            gosub @DRUGS4_COOP_ADD_CAR_BLIP
+            385@ = 188@
+            gosub @DRUGS4_COOP_ADD_CAR_BLIP
+            385@ = 189@
+            gosub @DRUGS4_COOP_ADD_CAR_BLIP
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_IS_ANY_PARTICIPANT_NEAR_PED
+393@ = 0
+if
+    Char.DoesExist(385@)
+then
+    if
+        Char.LocateAnyMeansChar3D(385@, $scplayer, 373@, 374@, 375@, False)
+    then
+        393@ = 1
+    end
+    for $temp_int = 0 to 2
+        if
+            341@($temp_int,3i) == 1
+        then
+            if
+                Char.LocateAnyMeansChar3D(385@, $NETWORK_PLAYER[$temp_int], 373@, 374@, 375@, False)
+            then
+                393@ = 1
+            end
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_IS_ANY_PARTICIPANT_AT_COORD
+393@ = 0
+if
+    Char.LocateAnyMeans3D($scplayer, False, 370@, 371@, 372@, 373@, 374@, 375@)
+then
+    393@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        if
+            Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 370@, 371@, 372@, 373@, 374@, 375@)
+        then
+            393@ = 1
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_RETARGET_PED
+if
+    Char.DoesExist(385@)
+then
+    if
+        not Char.IsDead(385@)
+    then
+        368@ = -1
+        for $temp_int = 0 to 2
+            if
+                341@($temp_int,3i) == 1
+            then
+                if
+                    Char.HasBeenDamagedByChar(385@, $NETWORK_PLAYER[$temp_int])
+                then
+                    set_lvar_int_to_var_int 368@ = $NETWORK_PLAYER[$temp_int]
+                end
+            end
+        end
+        if
+          368@ <> -1
+        then
+            Char.SetOnlyDamagedByPlayer(385@, False)
+            Task.KillCharOnFoot(385@, 368@)
+            Char.ClearLastDamageEntity(385@)
+        end
+    end
+end
+return
+
+:DRUGS4_COOP_COMBAT_TARGETS
+if or
+  349@ <> 0
+  351@ <> 3
+then
+    return
+end
+385@ = 47@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 48@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 51@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 52@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 53@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 54@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 68@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 69@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 70@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 71@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 72@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 73@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 74@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 78@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 79@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 80@
+gosub @DRUGS4_COOP_RETARGET_PED
+385@ = 81@
+gosub @DRUGS4_COOP_RETARGET_PED
+return
+
+:DRUGS4_COOP_REGROUP
+if
+  349@ <> 0
+then
+    355@ = 0
+    return
+end
+361@ = 0
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        if
+            not Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], $scplayer, 300.0, 300.0, False)
+        then
+            361@ = 1
+        end
+    end
+end
+if
+  361@ == 0
+then
+    355@ = 0
+    return
+end
+363@ = Clock.GetGameTimer()
+if
+  355@ == 0
+then
+    set_lvar_int_to_lvar_int 355@ = 363@
+    return
+end
+359@ = 363@
+359@ -= 355@
+if
+  359@ > 12000
+then
+    if or
+      351@ == 5
+      351@ == 6
+    then
+        gosub @DRUGS4_COOP_STAGE_ESCAPE_ROLES
+    else
+        gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+    end
+    355@ = 0
+end
+return
+
+:DRUGS4_COOP_HANDLE_TRANSITION
+if
+  is_int_lvar_equal_to_int_lvar 358@ == 351@
+then
+    return
+end
+set_lvar_int_to_lvar_int 358@ = 351@
+if
+  351@ == 2
+then
+    gosub @DRUGS4_COOP_DEPLOY_COMBATANTS
+end
+if
+  351@ == 3
+then
+    gosub @DRUGS4_COOP_DEPLOY_INTERIOR
+end
+if
+  351@ == 4
+then
+    gosub @DRUGS4_COOP_DEPLOY_ROOFTOP
+end
+if or
+  351@ == 5
+  351@ == 6
+then
+    gosub @DRUGS4_COOP_STAGE_ESCAPE_ROLES
+end
+if
+  351@ == 7
+then
+    gosub @DRUGS4_COOP_SAFE_SETPIECE
+end
+return
+
+:DRUGS4_COOP_UPDATE
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_GET_OBJECTIVE_PHASE
+gosub @DRUGS4_COOP_HANDLE_TRANSITION
+363@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 363@ >= 352@
+then
+    set_lvar_int_to_lvar_int 352@ = 363@
+    352@ += 5000
+    gosub @DRUGS4_COOP_SYNC_WORLD
+    if or
+      351@ == 5
+      351@ == 6
+    then
+        gosub @DRUGS4_COOP_REPAIR_ESCAPE_ROLES
+    end
+end
+363@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 363@ >= 353@
+then
+    set_lvar_int_to_lvar_int 353@ = 363@
+    353@ += 1500
+    if
+      351@ >= 0
+    then
+        gosub @DRUGS4_COOP_UPDATE_OBJECTIVES
+    end
+end
+363@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 363@ >= 354@
+then
+    set_lvar_int_to_lvar_int 354@ = 363@
+    354@ += 1200
+    gosub @DRUGS4_COOP_COMBAT_TARGETS
+end
+363@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_or_equal_to_int_lvar 363@ >= 356@
+then
+    set_lvar_int_to_lvar_int 356@ = 363@
+    356@ += 2000
+    gosub @DRUGS4_COOP_REGROUP
+end
+return
+
+:DRUGS4_COOP_NOTIFY_FAILURE
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS4_COOP_NOTIFY_SUCCESS
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS4_COOP_RESTORE_AND_CLEANUP
+if
+  348@ == 1
+then
+    return
+end
+348@ = 1
+if
+  347@ == 0
+then
+    return
+end
+gosub @DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_CLEAR_OBJECTIVES
+Player.SetControl($player1, True)
+Char.FreezePosition($scplayer, False)
+Char.SetProofs($scplayer, False, False, False, False, False)
+Char.SetCollision($scplayer, True)
+Char.SetVisible($scplayer, True)
+Char.SetAreaVisible($scplayer, 0)
+Char.HideWeaponForScriptedCutscene($scplayer, False)
+Hud.SwitchWidescreen(False)
+Hud.Display(True)
+Hud.DisplayRadar(True)
+Camera.ResetNewScriptables
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+Streaming.SetAreaVisible(0)
+for $temp_int = 0 to 2
+    if
+        341@($temp_int,3i) == 1
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+gosub @DRUGS4_COOP_TELEPORT_ACTIVE
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(332@($temp_int,3i))
+    then
+        Car.SetProofs(332@($temp_int,3i), False, False, False, False, False)
+        Car.SetCanBurstTires(332@($temp_int,3i), True)
+        Car.MarkAsNoLongerNeeded(332@($temp_int,3i))
+    end
+    332@($temp_int,3i) = -1
+    335@($temp_int,3i) = -1
+    338@($temp_int,3i) = -1
+    341@($temp_int,3i) = 0
+    394@($temp_int,3i) = 0
+    $NETWORK_PLAYER[$temp_int] = 0
+end
+349@ = 0
+382@ = 0
+383@ = 0
+return
 
