@@ -2,6 +2,10 @@
 
 :CRANE2
 script_name 'CRANE2'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @CRANE2_COOP_REJECT_NON_HOST
 0@ = 0
 if 
   0@ == 1
@@ -20,6 +24,9 @@ $magno_camera_type = 0
 
 :CRANE2_150
 wait 0
+if
+  Coop.IsHost()
+goto_if_false @CRANE2_COOP_AUTHORITY_LOST
 if 
   Object.DoesExist($magno_base)
 goto_if_false @CRANE2_4700
@@ -915,5 +922,28 @@ div_float_var_by_float_lvar $cam_vec_z /= 4@
 
 :CRANE2_5730
 return 
+
+:CRANE2_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:CRANE2_COOP_AUTHORITY_LOST
+Text.ClearHelp
+if
+  $player_is_in_crane == 2
+then
+  Crane.PlayerLeftCrane
+  Game.SetMinigameInProgress(False)
+  Char.DetachFromCar($scplayer)
+  Char.FreezePosition($scplayer, False)
+  Char.SetVisible($scplayer, True)
+  Char.SetCollision($scplayer, True)
+  Char.SetProofs($scplayer, False, False, False, False, False)
+  Player.SetControl($player1, True)
+  Camera.SetBehindPlayer
+  Camera.RestoreJumpcut
+  $player_is_in_crane = 0
+  $remove_player_from_crane = 0
+end
+terminate_this_script
 terminate_this_script 
 

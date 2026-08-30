@@ -1,5 +1,12 @@
 :IMPEXPM
 script_name 'IMPEXPM'
+Coop.EnableSyncingThisScript()
+
+:IMPEXPM_COOP_AUTHORITY_START
+if
+  Coop.IsHost()
+goto_if_false @IMPEXPM_COOP_OBSERVER
+gosub @IMPEXPM_COOP_RESET_ALL
 if 
   $impexp_has_been_initialised <> 99
 goto_if_false @IMPEXPM_484
@@ -60,6 +67,9 @@ $impexp_has_been_initialised = 99
 
 :IMPEXPM_484
 wait 0
+if
+  Coop.IsHost()
+goto_if_false @IMPEXPM_COOP_AUTHORITY_LOST
 if 
   Player.IsPlaying($player1)
 goto_if_false @IMPEXPM_563
@@ -75,6 +85,34 @@ goto @IMPEXPM_484
 26@ = 0
 
 :IMPEXPM_577
+if
+  Coop.IsHost()
+goto_if_false @IMPEXPM_COOP_AUTHORITY_LOST
+if and
+  $COOP_IMPEXP_SESSION_ACTIVE == 0
+  $player_is_in_crane == 2
+then
+  $COOP_IMPEXP_KIND = 3
+  gosub @IMPEXPM_COOP_INIT
+end
+if and
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+  $COOP_IMPEXP_KIND == 3
+  $player_is_in_crane <> 2
+then
+  gosub @IMPEXPM_COOP_NOTIFY_PASS
+  gosub @IMPEXPM_COOP_CLEANUP
+end
+if
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+then
+  gosub @IMPEXPM_COOP_UPDATE
+  if
+    $COOP_IMPEXP_DEATH == 1
+  then
+    goto @IMPEXPM_COOP_FAIL_TRANSACTION
+  end
+end
 if 
   $import_export_is_active == 1
 goto_if_false @IMPEXPM_627
@@ -358,6 +396,14 @@ Char.WarpIntoCarAsPassenger(18@, $car, 0)
 Char.SetVisible(18@, False)
 
 :IMPEXPM_2483
+if
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+then
+  gosub @IMPEXPM_COOP_NOTIFY_PASS
+  gosub @IMPEXPM_COOP_CLEANUP
+end
+$COOP_IMPEXP_KIND = 1
+gosub @IMPEXPM_COOP_INIT
 16@ += 1
 TIMERA = 0
 goto @IMPEXPM_2533
@@ -410,6 +456,14 @@ if
 goto_if_false @IMPEXPM_2776
 
 :IMPEXPM_2776
+if
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+then
+  gosub @IMPEXPM_COOP_NOTIFY_PASS
+  gosub @IMPEXPM_COOP_CLEANUP
+end
+$COOP_IMPEXP_KIND = 1
+gosub @IMPEXPM_COOP_INIT
 16@ += 1
 TIMERA = 0
 goto @IMPEXPM_2826
@@ -584,6 +638,7 @@ Char.SetHeading($scplayer, 0.8)
 
 :IMPEXPM_3764
 IMPEXPM_9397()
+$COOP_IMPEXP_COMMITTED = 1
 Car.Delete(22@)
 if 
   Char.DoesExist(18@)
@@ -633,6 +688,8 @@ Player.AddScore($player1, 29@)
 :IMPEXPM_3974
 Text.PrintWithNumberBig('IE30', 29@, 5000, TextStyle.Middle)
 Audio.ReportMissionAudioEventAtPosition(-1000.0, -1000.0, -1000.0, 1058)
+gosub @IMPEXPM_COOP_NOTIFY_PASS
+gosub @IMPEXPM_COOP_CLEANUP
 TIMERB = 0
 goto @IMPEXPM_577
 
@@ -955,6 +1012,9 @@ mult_float_lvar_by_float_var 12@ *= $import_price_multiplier
 cset_var_int_to_lvar_float $current_vehicle_cost = float 12@
 set_lvar_int_to_var_int 4@ = $current_vehicle_cost
 4@ *= -1
+$COOP_IMPEXP_KIND = 2
+gosub @IMPEXPM_COOP_INIT
+set_var_int_to_var_int $COOP_IMPEXP_IMPORT_REFUND = $current_vehicle_cost
 Player.AddScore($player1, 4@)
 16@ += 1
 
@@ -971,6 +1031,12 @@ Streaming.RequestModel($current_import_car_list($impexp_selected_car,6i))
 if 
   not Streaming.HasModelLoaded($current_import_car_list($impexp_selected_car,6i))
 goto_if_false @IMPEXPM_6153
+gosub @IMPEXPM_COOP_UPDATE
+if
+  $COOP_IMPEXP_DEATH == 1
+then
+  goto @IMPEXPM_COOP_FAIL_TRANSACTION
+end
 wait 0
 goto @IMPEXPM_6122
 
@@ -1012,6 +1078,7 @@ Camera.SetFixedPosition(-1567.597, 63.2567, 17.7586, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(-1568.576, 63.0585, 17.7094, SwitchType.JumpCut)
 Text.PrintNow('IE08', 5000, 1)
 Stat.IncrementInt(StatId.TotalProgress, 214)
+$COOP_IMPEXP_COMMITTED = 1
 TIMERA = 0
 16@ += 1
 
@@ -1060,6 +1127,8 @@ Player.SetControl($player1, True)
 Pad.SetPlayerEnterCarButton($player1, True)
 Hud.DisplayRadar(True)
 Text.ClearHelp
+gosub @IMPEXPM_COOP_NOTIFY_PASS
+gosub @IMPEXPM_COOP_CLEANUP
 16@ += 1
 
 :IMPEXPM_6743
@@ -1120,12 +1189,24 @@ goto_if_false @IMPEXPM_7098
 goto @IMPEXPM_7112
 
 :IMPEXPM_7105
+if
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+then
+  gosub @IMPEXPM_COOP_NOTIFY_FAILURE
+  gosub @IMPEXPM_COOP_CLEANUP
+end
 goto @IMPEXPM_9043
 
 :IMPEXPM_7112
 goto @IMPEXPM_7126
 
 :IMPEXPM_7119
+if
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+then
+  gosub @IMPEXPM_COOP_NOTIFY_FAILURE
+  gosub @IMPEXPM_COOP_CLEANUP
+end
 goto @IMPEXPM_9043
 
 :IMPEXPM_7126
@@ -2195,3 +2276,496 @@ goto @IMPEXPM_14909
 :IMPEXPM_14909
 return 
 
+:IMPEXPM_COOP_OBSERVER
+wait 250
+if
+  Coop.IsHost()
+goto_if_false @IMPEXPM_COOP_OBSERVER
+goto @IMPEXPM_COOP_AUTHORITY_START
+
+// A player may begin unauthenticated with stock authority before joining as a
+// peer. Clear only local presentation plus the uniquely namespaced session block;
+// authenticated non-hosts never touch lists, money, progress, unlocks or spawns.
+:IMPEXPM_COOP_AUTHORITY_LOST
+if
+  $COOP_IMPEXP_SESSION_ACTIVE == 1
+then
+  gosub @IMPEXPM_COOP_CLEANUP
+end
+gosub @IMPEXPM_COOP_RESET_ALL
+Text.ClearHelp
+Text.ClearPrints
+Camera.SetBehindPlayer
+Camera.RestoreJumpcut
+Hud.SwitchWidescreen(False)
+Hud.DisplayRadar(True)
+if
+  Player.IsPlaying($player1)
+then
+  Player.SetControl($player1, True)
+  Pad.SetPlayerEnterCarButton($player1, True)
+end
+15@ = 0
+16@ = 0
+goto @IMPEXPM_COOP_OBSERVER
+
+// Co-op policy for all three Easter Basin activities:
+// - one host owns the exact crane, wanted lists, delivered/imported state, money,
+//   progress, unlocks, ship objects, spawned imports and stock cutscenes;
+// - each crane run, accepted export or paid import freezes three immutable ids;
+//   disconnect is a nonblocking DNF and only the same identity reclaims its slot;
+// - connected participant death before stock commit cancels the transaction.
+//   Paid imports are refunded before spawn; committed stock transactions pass;
+// - supporters receive the held/transaction vehicle and loading-zone objective.
+// IMPEXPM is ABI-capped at 33 locals: only proven-free 32@/33@ are introduced.
+// The host gate and stock single ambient instance make this namespace single-owner.
+:IMPEXPM_COOP_RESET_ALL
+for 32@ = 0 to 2
+    $COOP_IMPEXP_PLAYER(32@,3i) = 0
+    $COOP_IMPEXP_PLAYER_ID(32@,3i) = -1
+    $COOP_IMPEXP_OBJECTIVE(32@,3i) = -1
+    $COOP_IMPEXP_REFRESH(32@,3i) = 0
+end
+$COOP_IMPEXP_SESSION_ACTIVE = 0
+$COOP_IMPEXP_KIND = 0
+$COOP_IMPEXP_DEATH = 0
+$COOP_IMPEXP_RESULT = 0
+$COOP_IMPEXP_CLEANUP = 0
+$COOP_IMPEXP_PLAYER_COUNT = 0
+$COOP_IMPEXP_VALID = 0
+$COOP_IMPEXP_CURRENT_ID = -1
+$COOP_IMPEXP_OLD_HANDLE = 0
+$COOP_IMPEXP_TARGET_HANDLE = -1
+$COOP_IMPEXP_VEHICLE_HANDLE = -1
+$COOP_IMPEXP_VEHICLE_NETWORK_ID = -1
+$COOP_IMPEXP_REGISTRATION_START = 0
+$COOP_IMPEXP_REGISTRATION_TIMEOUT = 0
+$COOP_IMPEXP_REGROUP_START = 0
+$COOP_IMPEXP_OBJECTIVE_TOKEN = -1
+$COOP_IMPEXP_REGROUP_NEEDED = 0
+$COOP_IMPEXP_TEMP_TIMER = 0
+$COOP_IMPEXP_COMMITTED = 0
+$COOP_IMPEXP_IMPORT_REFUND = 0
+$COOP_IMPEXP_GRAB_AUX_1 = 0
+$COOP_IMPEXP_GRAB_AUX_2 = 0
+return
+
+:IMPEXPM_COOP_INIT
+$COOP_IMPEXP_PLAYER[0], $COOP_IMPEXP_PLAYER[1], $COOP_IMPEXP_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+$COOP_IMPEXP_PLAYER_COUNT = 0
+for 32@ = 0 to 2
+    $COOP_IMPEXP_PLAYER_ID(32@,3i) = -1
+    $COOP_IMPEXP_OBJECTIVE(32@,3i) = -1
+    $COOP_IMPEXP_REFRESH(32@,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($COOP_IMPEXP_PLAYER(32@,3i))
+    then
+        $COOP_IMPEXP_PLAYER_ID(32@,3i) = Coop.GetNetworkPlayerInternalId($COOP_IMPEXP_PLAYER(32@,3i))
+        if
+            $COOP_IMPEXP_PLAYER_ID(32@,3i) >= 0
+        then
+            $COOP_IMPEXP_PLAYER_COUNT += 1
+        end
+    end
+end
+$COOP_IMPEXP_SESSION_ACTIVE = 1
+$COOP_IMPEXP_DEATH = 0
+$COOP_IMPEXP_RESULT = 0
+$COOP_IMPEXP_CLEANUP = 0
+$COOP_IMPEXP_VALID = 0
+$COOP_IMPEXP_CURRENT_ID = -1
+$COOP_IMPEXP_OLD_HANDLE = 0
+$COOP_IMPEXP_TARGET_HANDLE = -1
+$COOP_IMPEXP_VEHICLE_HANDLE = -1
+$COOP_IMPEXP_VEHICLE_NETWORK_ID = -1
+$COOP_IMPEXP_REGISTRATION_START = 0
+$COOP_IMPEXP_REGISTRATION_TIMEOUT = 0
+$COOP_IMPEXP_REGROUP_START = 0
+$COOP_IMPEXP_OBJECTIVE_TOKEN = -1
+$COOP_IMPEXP_REGROUP_NEEDED = 0
+$COOP_IMPEXP_TEMP_TIMER = 0
+$COOP_IMPEXP_COMMITTED = 0
+$COOP_IMPEXP_IMPORT_REFUND = 0
+$COOP_IMPEXP_GRAB_AUX_1 = 0
+$COOP_IMPEXP_GRAB_AUX_2 = 0
+if
+    $COOP_IMPEXP_PLAYER_COUNT > 0
+then
+    Coop.TeleportPlayersToHostSafely($COOP_IMPEXP_PLAYER[0], $COOP_IMPEXP_PLAYER[1], $COOP_IMPEXP_PLAYER[2])
+end
+return
+
+:IMPEXPM_COOP_REFRESH_ROSTER
+$COOP_IMPEXP_REFRESH[0], $COOP_IMPEXP_REFRESH[1], $COOP_IMPEXP_REFRESH[2] = Coop.CollectNetworkPlayersForTheMission()
+for 32@ = 0 to 2
+    set_var_int_to_var_int $COOP_IMPEXP_OLD_HANDLE = $COOP_IMPEXP_PLAYER(32@,3i)
+    $COOP_IMPEXP_PLAYER(32@,3i) = 0
+    if
+        $COOP_IMPEXP_PLAYER_ID(32@,3i) >= 0
+    then
+        for 33@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid($COOP_IMPEXP_REFRESH(33@,3i))
+            then
+                $COOP_IMPEXP_CURRENT_ID = Coop.GetNetworkPlayerInternalId($COOP_IMPEXP_REFRESH(33@,3i))
+                if
+                    is_int_var_equal_to_int_var $COOP_IMPEXP_CURRENT_ID == $COOP_IMPEXP_PLAYER_ID(32@,3i)
+                then
+                    set_var_int_to_var_int $COOP_IMPEXP_PLAYER(32@,3i) = $COOP_IMPEXP_REFRESH(33@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_var_equal_to_int_var $COOP_IMPEXP_OLD_HANDLE == $COOP_IMPEXP_PLAYER(32@,3i)
+    then
+        $COOP_IMPEXP_OBJECTIVE(32@,3i) = -1
+    end
+end
+return
+
+:IMPEXPM_COOP_VALIDATE_SLOT
+$COOP_IMPEXP_VALID = 0
+if
+    Coop.IsNetworkPlayerActorValid($COOP_IMPEXP_PLAYER(32@,3i))
+then
+    $COOP_IMPEXP_CURRENT_ID = Coop.GetNetworkPlayerInternalId($COOP_IMPEXP_PLAYER(32@,3i))
+    if
+        is_int_var_equal_to_int_var $COOP_IMPEXP_CURRENT_ID == $COOP_IMPEXP_PLAYER_ID(32@,3i)
+    then
+        $COOP_IMPEXP_VALID = 1
+    end
+end
+return
+
+:IMPEXPM_COOP_UPDATE
+if
+    $COOP_IMPEXP_CLEANUP == 1
+then
+    return
+end
+gosub @IMPEXPM_COOP_REFRESH_ROSTER
+if
+    $COOP_IMPEXP_COMMITTED == 0
+then
+    for 32@ = 0 to 2
+        gosub @IMPEXPM_COOP_VALIDATE_SLOT
+        if
+            $COOP_IMPEXP_VALID == 1
+        then
+            if
+                Char.IsDead($COOP_IMPEXP_PLAYER(32@,3i))
+            then
+                // COOP_PARTICIPANT_DEATH; disconnected frozen slots remain DNF.
+                $COOP_IMPEXP_DEATH = 1
+            end
+        end
+    end
+end
+if
+    $COOP_IMPEXP_DEATH == 1
+then
+    return
+end
+$COOP_IMPEXP_TARGET_HANDLE = -1
+if and
+    $COOP_IMPEXP_KIND == 1
+    Car.DoesExist(22@)
+then
+    set_var_int_to_lvar_int $COOP_IMPEXP_TARGET_HANDLE = 22@
+end
+if and
+    $COOP_IMPEXP_KIND == 2
+    Car.DoesExist($imported_car)
+then
+    set_var_int_to_var_int $COOP_IMPEXP_TARGET_HANDLE = $imported_car
+end
+if and
+    $COOP_IMPEXP_KIND == 3
+    Object.DoesExist($magno_arm)
+then
+    $COOP_IMPEXP_TARGET_HANDLE, $COOP_IMPEXP_GRAB_AUX_1, $COOP_IMPEXP_GRAB_AUX_2 = Object.GrabEntityOnRope($magno_arm)
+    if
+        not Car.DoesExist($COOP_IMPEXP_TARGET_HANDLE)
+    then
+        $COOP_IMPEXP_TARGET_HANDLE = -1
+    end
+end
+if
+    not is_int_var_equal_to_int_var $COOP_IMPEXP_TARGET_HANDLE == $COOP_IMPEXP_VEHICLE_HANDLE
+then
+    set_var_int_to_var_int $COOP_IMPEXP_VEHICLE_HANDLE = $COOP_IMPEXP_TARGET_HANDLE
+    $COOP_IMPEXP_VEHICLE_NETWORK_ID = -1
+    $COOP_IMPEXP_REGISTRATION_START = 0
+    $COOP_IMPEXP_REGISTRATION_TIMEOUT = 0
+    for 32@ = 0 to 2
+        $COOP_IMPEXP_OBJECTIVE(32@,3i) = -1
+    end
+end
+gosub @IMPEXPM_COOP_POLL_VEHICLE_REGISTRATION
+gosub @IMPEXPM_COOP_UPDATE_REGROUP
+gosub @IMPEXPM_COOP_UPDATE_OBJECTIVES
+return
+
+// Registration is incremental and bounded; no stock timer, model load, crane or
+// transaction state waits for a network id.
+:IMPEXPM_COOP_POLL_VEHICLE_REGISTRATION
+if and
+    $COOP_IMPEXP_VEHICLE_NETWORK_ID == -1
+    $COOP_IMPEXP_REGISTRATION_TIMEOUT == 0
+    Car.DoesExist($COOP_IMPEXP_VEHICLE_HANDLE)
+then
+    if
+        $COOP_IMPEXP_REGISTRATION_START == 0
+    then
+        $COOP_IMPEXP_REGISTRATION_START = Clock.GetGameTimer()
+    end
+    $COOP_IMPEXP_VEHICLE_NETWORK_ID = Coop.GetVehicleNetworkId($COOP_IMPEXP_VEHICLE_HANDLE)
+    if
+        $COOP_IMPEXP_VEHICLE_NETWORK_ID <> -1
+    then
+        for 32@ = 0 to 2
+            $COOP_IMPEXP_OBJECTIVE(32@,3i) = -1
+        end
+    else
+        $COOP_IMPEXP_TEMP_TIMER = Clock.GetGameTimer()
+        sub_int_var_from_int_var $COOP_IMPEXP_TEMP_TIMER -= $COOP_IMPEXP_REGISTRATION_START
+        if
+            $COOP_IMPEXP_TEMP_TIMER > 5000
+        then
+            $COOP_IMPEXP_REGISTRATION_TIMEOUT = 1
+        end
+    end
+end
+return
+
+:IMPEXPM_COOP_UPDATE_REGROUP
+$COOP_IMPEXP_REGROUP_NEEDED = 0
+for 32@ = 0 to 2
+    gosub @IMPEXPM_COOP_VALIDATE_SLOT
+    if
+        $COOP_IMPEXP_VALID == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D($COOP_IMPEXP_PLAYER(32@,3i), $scplayer, 150.0, 150.0, 40.0, False)
+        then
+            $COOP_IMPEXP_REGROUP_NEEDED = 1
+        end
+    end
+end
+if
+    $COOP_IMPEXP_REGROUP_NEEDED == 0
+then
+    $COOP_IMPEXP_REGROUP_START = 0
+    return
+end
+if
+    $COOP_IMPEXP_REGROUP_START == 0
+then
+    $COOP_IMPEXP_REGROUP_START = Clock.GetGameTimer()
+    return
+end
+$COOP_IMPEXP_TEMP_TIMER = Clock.GetGameTimer()
+sub_int_var_from_int_var $COOP_IMPEXP_TEMP_TIMER -= $COOP_IMPEXP_REGROUP_START
+if
+    $COOP_IMPEXP_TEMP_TIMER > 20000
+then
+    Coop.TeleportPlayersToHostSafely($COOP_IMPEXP_PLAYER[0], $COOP_IMPEXP_PLAYER[1], $COOP_IMPEXP_PLAYER[2])
+    $COOP_IMPEXP_REGROUP_START = 0
+end
+return
+
+:IMPEXPM_COOP_UPDATE_OBJECTIVES
+set_var_int_to_lvar_int $COOP_IMPEXP_OBJECTIVE_TOKEN = 16@
+if
+    $COOP_IMPEXP_KIND == 2
+then
+    $COOP_IMPEXP_OBJECTIVE_TOKEN += 100
+end
+if
+    $COOP_IMPEXP_KIND == 3
+then
+    $COOP_IMPEXP_OBJECTIVE_TOKEN += 200
+end
+for 32@ = 0 to 2
+    gosub @IMPEXPM_COOP_VALIDATE_SLOT
+    if and
+        $COOP_IMPEXP_VALID == 1
+        not is_int_var_equal_to_int_var $COOP_IMPEXP_OBJECTIVE(32@,3i) == $COOP_IMPEXP_OBJECTIVE_TOKEN
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_IMPEXP_PLAYER(32@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer($COOP_IMPEXP_PLAYER(32@,3i))
+        if and
+            $COOP_IMPEXP_VEHICLE_NETWORK_ID <> -1
+            Car.DoesExist($COOP_IMPEXP_VEHICLE_HANDLE)
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($COOP_IMPEXP_PLAYER(32@,3i), $COOP_IMPEXP_VEHICLE_HANDLE, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if or
+            $COOP_IMPEXP_KIND == 1
+            $COOP_IMPEXP_KIND == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1577.942, 52.6333, 16.3281, 8.0, 8.0, 6.0, $COOP_IMPEXP_PLAYER(32@,3i))
+            Coop.PrintNowForNetworkPlayer('IE22', 5000, 1, $COOP_IMPEXP_PLAYER(32@,3i))
+        else
+            Coop.UpdateCheckpointForNetworkPlayer(-1572.168, 63.2853, 16.3281, 8.0, 8.0, 6.0, $COOP_IMPEXP_PLAYER(32@,3i))
+            if
+                Car.DoesExist($imported_car)
+            then
+                Coop.PrintNowForNetworkPlayer('IE08', 5000, 1, $COOP_IMPEXP_PLAYER(32@,3i))
+            end
+        end
+        set_var_int_to_var_int $COOP_IMPEXP_OBJECTIVE(32@,3i) = $COOP_IMPEXP_OBJECTIVE_TOKEN
+    end
+end
+return
+
+:IMPEXPM_COOP_NOTIFY_FAILURE
+if
+    $COOP_IMPEXP_RESULT <> 0
+then
+    return
+end
+$COOP_IMPEXP_RESULT = 1
+gosub @IMPEXPM_COOP_REFRESH_ROSTER
+for 32@ = 0 to 2
+    gosub @IMPEXPM_COOP_VALIDATE_SLOT
+    if
+        $COOP_IMPEXP_VALID == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $COOP_IMPEXP_PLAYER(32@,3i))
+    end
+end
+return
+
+:IMPEXPM_COOP_NOTIFY_PASS
+if
+    $COOP_IMPEXP_RESULT <> 0
+then
+    return
+end
+$COOP_IMPEXP_RESULT = 2
+gosub @IMPEXPM_COOP_REFRESH_ROSTER
+for 32@ = 0 to 2
+    gosub @IMPEXPM_COOP_VALIDATE_SLOT
+    if
+        $COOP_IMPEXP_VALID == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $COOP_IMPEXP_PLAYER(32@,3i))
+    end
+end
+return
+
+:IMPEXPM_COOP_ABORT_TRANSACTION
+Text.ClearHelp
+Text.ClearPrints
+Menu.Delete($impexp_menu)
+Menu.Delete($impexp_panel)
+if and
+    $COOP_IMPEXP_KIND == 1
+    Car.DoesExist(22@)
+then
+    Car.FreezePosition(22@, False)
+    Car.MarkAsNoLongerNeeded(22@)
+end
+if and
+    $COOP_IMPEXP_KIND == 2
+    Car.DoesExist($imported_car)
+then
+    Car.MarkAsNoLongerNeeded($imported_car)
+end
+if
+    Char.DoesExist(18@)
+then
+    Char.Delete(18@)
+end
+$disable_crane = 0
+if
+    $player_is_in_crane == 2
+then
+    $reset_crane_camera = 1
+end
+if
+    $COOP_IMPEXP_KIND == 3
+then
+    $remove_player_from_crane = 1
+end
+Camera.SetBehindPlayer
+Camera.RestoreJumpcut
+Hud.SwitchWidescreen(False)
+Hud.DisplayRadar(True)
+if
+    Player.IsPlaying($player1)
+then
+    Player.SetControl($player1, True)
+    Pad.SetPlayerEnterCarButton($player1, True)
+end
+15@ = 0
+16@ = 0
+return
+
+:IMPEXPM_COOP_FAIL_TRANSACTION
+gosub @IMPEXPM_COOP_NOTIFY_FAILURE
+if and
+    $COOP_IMPEXP_KIND == 2
+    $COOP_IMPEXP_COMMITTED == 0
+    $COOP_IMPEXP_IMPORT_REFUND > 0
+then
+    Player.AddScore($player1, $COOP_IMPEXP_IMPORT_REFUND)
+    $COOP_IMPEXP_IMPORT_REFUND = 0
+end
+gosub @IMPEXPM_COOP_ABORT_TRANSACTION
+gosub @IMPEXPM_COOP_CLEANUP
+goto @IMPEXPM_577
+
+:IMPEXPM_COOP_CLEANUP
+if
+    $COOP_IMPEXP_CLEANUP == 1
+then
+    return
+end
+$COOP_IMPEXP_CLEANUP = 1
+gosub @IMPEXPM_COOP_REFRESH_ROSTER
+for 32@ = 0 to 2
+    gosub @IMPEXPM_COOP_VALIDATE_SLOT
+    if
+        $COOP_IMPEXP_VALID == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_IMPEXP_PLAYER(32@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer($COOP_IMPEXP_PLAYER(32@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('IE22', $COOP_IMPEXP_PLAYER(32@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('IE08', $COOP_IMPEXP_PLAYER(32@,3i))
+        Char.FreezePosition($COOP_IMPEXP_PLAYER(32@,3i), False)
+        Char.SetProofs($COOP_IMPEXP_PLAYER(32@,3i), False, False, False, False, False)
+    end
+end
+// Import/export never changes participant weapons; preserving each loadout is
+// the deterministic restore policy.
+for 32@ = 0 to 2
+    $COOP_IMPEXP_PLAYER(32@,3i) = 0
+    $COOP_IMPEXP_PLAYER_ID(32@,3i) = -1
+    $COOP_IMPEXP_OBJECTIVE(32@,3i) = -1
+    $COOP_IMPEXP_REFRESH(32@,3i) = 0
+end
+$COOP_IMPEXP_SESSION_ACTIVE = 0
+$COOP_IMPEXP_KIND = 0
+$COOP_IMPEXP_DEATH = 0
+$COOP_IMPEXP_RESULT = 0
+$COOP_IMPEXP_PLAYER_COUNT = 0
+$COOP_IMPEXP_VALID = 0
+$COOP_IMPEXP_CURRENT_ID = -1
+$COOP_IMPEXP_OLD_HANDLE = 0
+$COOP_IMPEXP_TARGET_HANDLE = -1
+$COOP_IMPEXP_VEHICLE_HANDLE = -1
+$COOP_IMPEXP_VEHICLE_NETWORK_ID = -1
+$COOP_IMPEXP_REGISTRATION_START = 0
+$COOP_IMPEXP_REGISTRATION_TIMEOUT = 0
+$COOP_IMPEXP_REGROUP_START = 0
+$COOP_IMPEXP_OBJECTIVE_TOKEN = -1
+$COOP_IMPEXP_REGROUP_NEEDED = 0
+$COOP_IMPEXP_TEMP_TIMER = 0
+$COOP_IMPEXP_COMMITTED = 0
+$COOP_IMPEXP_IMPORT_REFUND = 0
+$COOP_IMPEXP_GRAB_AUX_1 = 0
+$COOP_IMPEXP_GRAB_AUX_2 = 0
+return

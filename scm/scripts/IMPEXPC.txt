@@ -3,6 +3,9 @@ script_name 'IMPEXPC'
 
 :IMPEXPC_11
 wait 5000
+if
+  Coop.IsHost()
+goto_if_false @IMPEXPC_306
 if 
   Player.IsPlaying($player1)
 goto_if_false @IMPEXPC_306

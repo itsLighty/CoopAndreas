@@ -5,6 +5,9 @@ $magno_base = Object.Create(#WOODENBOX, 0.0, 0.0, 0.0)
 
 :CRANES_40
 wait 100
+if
+  Coop.IsHost()
+goto_if_false @CRANES_507
 if 
   Player.IsPlaying($player1)
 goto_if_false @CRANES_507
