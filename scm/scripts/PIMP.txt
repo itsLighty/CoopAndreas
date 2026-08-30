@@ -2,7 +2,18 @@
 // Originally: Pimping Sub-Mission
 
 :PIMP
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @PIMP_COOP_REJECT_NON_HOST
+goto @PIMP_COOP_HOST_START
+
+:PIMP_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:PIMP_COOP_HOST_START
 script_name 'PIMP'
+gosub @PIMP_COOP_INIT
 gosub @PIMP_47
 if 
   has_deatharrest_been_executed 
@@ -430,6 +441,13 @@ set_lvar_int_to_constant 531@ = 3
 
 :PIMP_3765
 wait 0
+gosub @PIMP_COOP_UPDATE
+if
+  560@ == 1
+goto_if_false @PIMP_COOP_CONTINUE_STOCK
+goto @PIMP_37455
+
+:PIMP_COOP_CONTINUE_STOCK
 if 
   541@ == 1
 goto_if_false @PIMP_3805
@@ -5486,6 +5504,7 @@ goto @PIMP_37397
 goto @PIMP_37455
 
 :PIMP_37455
+gosub @PIMP_COOP_NOTIFY_FAILURE
 if 
   49@ == 0
 goto_if_false @PIMP_37489
@@ -5549,6 +5568,7 @@ Text.PrintBig('PIMP_49', 5000, TextStyle.Middle)
 return 
 
 :PIMP_37797
+gosub @PIMP_COOP_NOTIFY_PASS
 Text.PrintWithNumberBig('PIMP_50', 1000, 5000, TextStyle.Middle)
 Audio.PlayMissionPassedTune(2)
 Player.AddScore($player1, 1000)
@@ -5565,6 +5585,7 @@ $pimp_passed_once = 1
 return 
 
 :PIMP_37870
+gosub @PIMP_COOP_CLEANUP
 Audio.ClearMissionAudio(MissionAudioSlot.Slot4)
 Hud.ClearTimer($pimp_runtimer)
 Streaming.MarkModelAsNoLongerNeeded(50)
@@ -5613,4 +5634,412 @@ $flag_player_on_pimp_mission = 0
 $onmission = 0
 Mission.Finish
 return 
+
+// Co-op policy for Pimping:
+// - one host owns every stock worker/client spawn, timer, level, payout and
+//   the persistent level-10 pimping reward;
+// - frozen identities may disconnect as a nonblocking DNF and reclaim only
+//   their original slot on reconnect; no replacement player can take it;
+// - death of a connected identity-matched participant deterministically uses
+//   the stock submission failure/result/cleanup path.
+:PIMP_COOP_INIT
+542@, 543@, 544@ = Coop.CollectNetworkPlayersForTheMission()
+559@ = 0 // number of frozen remote gameplay participants
+for 554@ = 0 to 2
+    545@(554@,3i) = -1 // immutable internal network identity
+    548@(554@,3i) = -1 // last support objective sent
+    if
+        Coop.IsNetworkPlayerActorValid(542@(554@,3i))
+    then
+        545@(554@,3i) = Coop.GetNetworkPlayerInternalId(542@(554@,3i))
+        if
+            545@(554@,3i) >= 0
+        then
+            559@ += 1
+        end
+    end
+end
+560@ = 0 // connected participant death failure latch
+561@ = 0 // exactly-once result: 0 pending, 1 failed, 2 passed
+562@ = 0 // idempotent cooperative cleanup latch
+564@ = -1 // active support-target ped handle
+565@ = -1 // active support-target ped network id
+566@ = 0 // ped registration start time
+567@ = 0 // ped registration timeout latch
+568@ = -1 // handle associated with ped registration state
+569@ = -1 // pimp vehicle network id
+570@ = 0 // vehicle registration start time
+571@ = 0 // vehicle registration timeout latch
+576@ = 0 // separated-participant regroup timer
+if
+    559@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(542@, 543@, 544@)
+end
+return
+
+// Recollect handles every frame, but bind them to the immutable identities
+// captured at mission start. Disconnect clears only the actor handle; a later
+// reconnect by that same identity invalidates its cached objective and safely
+// rejoins it to the host-owned activity.
+:PIMP_COOP_REFRESH_ROSTER
+551@, 552@, 553@ = Coop.CollectNetworkPlayersForTheMission()
+577@ = 0
+for 554@ = 0 to 2
+    set_lvar_int_to_lvar_int 558@ = 542@(554@,3i)
+    542@(554@,3i) = 0
+    if
+        545@(554@,3i) >= 0
+    then
+        for 555@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(551@(555@,3i))
+            then
+                557@ = Coop.GetNetworkPlayerInternalId(551@(555@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 557@ == 545@(554@,3i)
+                then
+                    set_lvar_int_to_lvar_int 542@(554@,3i) = 551@(555@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 558@ == 542@(554@,3i)
+    then
+        548@(554@,3i) = -1
+        if
+            Coop.IsNetworkPlayerActorValid(542@(554@,3i))
+        then
+            577@ = 1
+        end
+    end
+end
+if
+    577@ == 1
+then
+    Coop.TeleportPlayersToHostSafely(542@, 543@, 544@)
+end
+return
+
+:PIMP_COOP_VALIDATE_SLOT
+556@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(542@(554@,3i))
+then
+    557@ = Coop.GetNetworkPlayerInternalId(542@(554@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 557@ == 545@(554@,3i)
+    then
+        556@ = 1
+    end
+end
+return
+
+:PIMP_COOP_UPDATE
+if
+    562@ == 1
+then
+    return
+end
+gosub @PIMP_COOP_REFRESH_ROSTER
+for 554@ = 0 to 2
+    gosub @PIMP_COOP_VALIDATE_SLOT
+    if
+        556@ == 1
+    then
+        if
+            Char.IsDead(542@(554@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH is the single shared-failure policy.
+            560@ = 1
+        end
+    end
+end
+if
+    560@ == 1
+then
+    return
+end
+gosub @PIMP_COOP_SELECT_OBJECTIVE
+gosub @PIMP_COOP_POLL_ENTITY_REGISTRATION
+gosub @PIMP_COOP_UPDATE_REGROUP
+gosub @PIMP_COOP_UPDATE_OBJECTIVES
+return
+
+// Prefer the client during stock rescue/combat states; otherwise support the
+// active sex worker. If neither exists yet, the host's pimp vehicle remains a
+// stable regroup objective while the stock script searches/spawns normally.
+:PIMP_COOP_SELECT_OBJECTIVE
+563@ = 1 // worker support
+564@ = -1
+if
+    Char.DoesExist(35@(37@,2i))
+then
+    set_lvar_int_to_lvar_int 564@ = 35@(37@,2i)
+end
+if and
+    47@ >= 30
+    47@ <= 45
+then
+    if
+        37@ == 0
+    then
+        if
+            Char.DoesExist(91@(511@,28i))
+        then
+            563@ = 2 // protect worker from current client
+            set_lvar_int_to_lvar_int 564@ = 91@(511@,28i)
+        end
+    end
+    if
+        37@ == 1
+    then
+        if
+            Char.DoesExist(91@(512@,28i))
+        then
+            563@ = 2
+            set_lvar_int_to_lvar_int 564@ = 91@(512@,28i)
+        end
+    end
+end
+set_lvar_int_to_lvar_int 578@ = 49@
+578@ *= 100
+add_int_lvar_to_int_lvar 578@ += 47@
+578@ *= 4
+add_int_lvar_to_int_lvar 578@ += 563@
+return
+
+// Registration is opportunistic and bounded. A target-handle change resets
+// the five-second budget; timeout never waits, loops, or blocks stock progress.
+:PIMP_COOP_POLL_ENTITY_REGISTRATION
+if
+    not is_int_lvar_equal_to_int_lvar 568@ == 564@
+then
+    set_lvar_int_to_lvar_int 568@ = 564@
+    565@ = -1
+    566@ = 0
+    567@ = 0
+    for 554@ = 0 to 2
+        548@(554@,3i) = -1
+    end
+end
+if and
+    564@ <> -1
+    565@ == -1
+    567@ == 0
+then
+    if
+        Char.DoesExist(564@)
+    then
+        if
+            566@ == 0
+        then
+            566@ = Clock.GetGameTimer()
+        end
+        565@ = Coop.GetPedNetworkId(564@)
+        if
+            565@ <> -1
+        then
+            for 554@ = 0 to 2
+                548@(554@,3i) = -1
+            end
+        end
+        if
+            565@ == -1
+        then
+            575@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 575@ -= 566@
+            if
+                575@ > 5000
+            then
+                567@ = 1
+            end
+        end
+    end
+end
+if and
+    569@ == -1
+    571@ == 0
+then
+    if
+        Car.DoesExist(40@)
+    then
+        if
+            570@ == 0
+        then
+            570@ = Clock.GetGameTimer()
+        end
+        569@ = Coop.GetVehicleNetworkId(40@)
+        if
+            569@ <> -1
+        then
+            for 554@ = 0 to 2
+                548@(554@,3i) = -1
+            end
+        end
+        if
+            569@ == -1
+        then
+            575@ = Clock.GetGameTimer()
+            sub_int_lvar_from_int_lvar 575@ -= 570@
+            if
+                575@ > 5000
+            then
+                571@ = 1
+            end
+        end
+    end
+end
+return
+
+// A connected frozen supporter separated from the host for twenty seconds is
+// safely regrouped. Disconnected identities remain DNF and never block play.
+:PIMP_COOP_UPDATE_REGROUP
+577@ = 0
+for 554@ = 0 to 2
+    gosub @PIMP_COOP_VALIDATE_SLOT
+    if
+        556@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(542@(554@,3i), $scplayer, 160.0, 160.0, 45.0, False)
+        then
+            577@ = 1
+        end
+    end
+end
+if
+    577@ == 0
+then
+    576@ = 0
+    return
+end
+if
+    576@ == 0
+then
+    576@ = Clock.GetGameTimer()
+end
+575@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 575@ -= 576@
+if
+    575@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(542@, 543@, 544@)
+    576@ = 0
+end
+return
+
+// Each connected frozen participant receives the same host-owned worker or
+// hostile-client objective. The targeted checkpoint is useful even when entity
+// registration times out; a synchronized entity blip is added when available.
+:PIMP_COOP_UPDATE_OBJECTIVES
+for 554@ = 0 to 2
+    gosub @PIMP_COOP_VALIDATE_SLOT
+    if and
+        556@ == 1
+        not is_int_lvar_equal_to_int_lvar 548@(554@,3i) == 578@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(542@(554@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(542@(554@,3i))
+        if and
+            564@ <> -1
+            Char.DoesExist(564@)
+        then
+            572@, 573@, 574@ = Char.GetCoordinates(564@)
+            Coop.UpdateCheckpointForNetworkPlayer(572@, 573@, 574@, 8.0, 8.0, 6.0, 542@(554@,3i))
+            if
+                565@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(542@(554@,3i), 564@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+            Coop.PrintNowForNetworkPlayer('PIMP_55', 5000, 1, 542@(554@,3i))
+        end
+        if and
+            564@ == -1
+            Car.DoesExist(40@)
+        then
+            572@, 573@, 574@ = Car.GetCoordinates(40@)
+            Coop.UpdateCheckpointForNetworkPlayer(572@, 573@, 574@, 10.0, 10.0, 6.0, 542@(554@,3i))
+            if
+                569@ <> -1
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(542@(554@,3i), 40@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+            end
+            Coop.PrintNowForNetworkPlayer('PIMP_2', 5000, 1, 542@(554@,3i))
+        end
+        set_lvar_int_to_lvar_int 548@(554@,3i) = 578@
+    end
+end
+return
+
+:PIMP_COOP_NOTIFY_FAILURE
+if
+    561@ <> 0
+then
+    return
+end
+561@ = 1
+gosub @PIMP_COOP_REFRESH_ROSTER
+for 554@ = 0 to 2
+    gosub @PIMP_COOP_VALIDATE_SLOT
+    if
+        556@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 542@(554@,3i))
+    end
+end
+return
+
+:PIMP_COOP_NOTIFY_PASS
+if
+    561@ <> 0
+then
+    return
+end
+561@ = 2
+gosub @PIMP_COOP_REFRESH_ROSTER
+for 554@ = 0 to 2
+    gosub @PIMP_COOP_VALIDATE_SLOT
+    if
+        556@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 542@(554@,3i))
+    end
+end
+return
+
+:PIMP_COOP_CLEANUP
+if
+    562@ == 1
+then
+    return
+end
+562@ = 1
+gosub @PIMP_COOP_REFRESH_ROSTER
+for 554@ = 0 to 2
+    gosub @PIMP_COOP_VALIDATE_SLOT
+    if
+        556@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(542@(554@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(542@(554@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('PIMP_55', 542@(554@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('PIMP_2', 542@(554@,3i))
+        Char.FreezePosition(542@(554@,3i), False)
+        Char.SetProofs(542@(554@,3i), False, False, False, False, False)
+    end
+end
+// Pimping never changes participant weapons, so preserving each immutable
+// identity's loadout is the deterministic weapon-restore policy.
+Player.SetControl($player1, True)
+for 554@ = 0 to 2
+    542@(554@,3i) = 0
+    545@(554@,3i) = -1
+    548@(554@,3i) = -1
+end
+564@ = -1
+565@ = -1
+569@ = -1
+return
 
