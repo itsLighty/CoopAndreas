@@ -3,6 +3,9 @@ script_name 'VALET_L'
 
 :VALET_L_11
 wait 0
+if
+  Coop.IsHost()
+goto_if_false @VALET_L_197
 if 
   $valet_unlocked == 1
 goto_if_false @VALET_L_197

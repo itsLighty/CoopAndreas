@@ -3,6 +3,16 @@
 
 :TRUCK
 script_name 'TRUCK'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @TRUCK_COOP_REJECT_NON_HOST
+goto @TRUCK_COOP_HOST_START
+
+:TRUCK_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:TRUCK_COOP_HOST_START
 gosub @TRUCK_47
 if 
   has_deatharrest_been_executed 
@@ -38,6 +48,7 @@ TIMERB = 0
 105@ = 0
 106@ = 0
 114@ = 0
+gosub @TRUCK_COOP_INIT
 if 
   36@ == -99
 goto_if_false @TRUCK_324
@@ -102,6 +113,13 @@ wait 100
 
 :TRUCK_619
 wait 0
+gosub @TRUCK_COOP_UPDATE
+if
+  212@ == 1
+then
+  39@ = 1
+  goto @TRUCK_896
+end
 gosub @TRUCK_12403
 gosub @TRUCK_12776
 if or
@@ -2640,6 +2658,7 @@ return
 return 
 
 :TRUCK_16344
+gosub @TRUCK_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 switch_start 89@ total_jumps 5 default_jump 0 @TRUCK_16538 jumps 1 @TRUCK_16423 2 @TRUCK_16446 3 @TRUCK_16469 4 @TRUCK_16492 5 @TRUCK_16515 -1 @TRUCK_16538 -1 @TRUCK_16538
 
@@ -2667,6 +2686,7 @@ goto @TRUCK_16538
 return 
 
 :TRUCK_16540
+gosub @TRUCK_COOP_NOTIFY_PASS
 gosub @TRUCK_7500
 Text.PrintWithNumberBig('M_PASS', 83@, 5000, TextStyle.Middle)
 Player.AddScore($player1, 83@)
@@ -2708,6 +2728,7 @@ Player.ClearWantedLevel($player1)
 return 
 
 :TRUCK_16753
+gosub @TRUCK_COOP_CLEANUP
 Car.MarkAsNoLongerNeeded(74@)
 Car.MarkAsNoLongerNeeded(75@)
 Blip.Remove(77@)
@@ -2733,4 +2754,326 @@ $flag_player_on_oddjob = 0
 $onmission = 0
 Mission.Finish
 return 
+
+// Co-op policy for all eight Trucker deliveries (mission 117):
+// - the host alone owns the stock 8-way selector, truck/trailer state machine,
+//   cargo damage, deadlines, payouts, statistics, unlocks, and save mutations;
+// - the frozen three-slot participant roster is bound to immutable network ids;
+//   disconnect is a nonblocking DNF and only that identity may resume its slot;
+// - connected participant death deterministically enters the stock failure path;
+// - the tractor is the host's shared mission vehicle. Supporters escort it in
+//   synchronized vehicles; they are never warped into its single driver seat.
+:TRUCK_COOP_INIT
+200@, 201@, 202@ = Coop.CollectNetworkPlayersForTheMission()
+215@ = 0
+for 216@ = 0 to 2
+    203@(216@,3i) = -1
+    206@(216@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+    then
+        203@(216@,3i) = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+        if
+            203@(216@,3i) >= 0
+        then
+            215@ += 1
+        end
+    end
+end
+212@ = 0 // connected participant death latch
+213@ = 0 // exactly-once result latch: 1 fail, 2 pass
+214@ = 0 // idempotent cleanup latch
+220@ = -1 // tractor network id
+221@ = -1 // trailer network id
+222@ = 0 // tractor registration start
+223@ = 0 // tractor coordinate-fallback latch
+225@ = 0 // regroup timer
+226@ = -1 // current stock stage snapshot
+228@ = 0 // trailer registration start
+229@ = 0 // trailer coordinate-fallback latch
+if
+    215@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+end
+return
+
+:TRUCK_COOP_REFRESH_ROSTER
+209@, 210@, 211@ = Coop.CollectNetworkPlayersForTheMission()
+for 216@ = 0 to 2
+    set_lvar_int_to_lvar_int 224@ = 200@(216@,3i)
+    200@(216@,3i) = 0
+    if
+        203@(216@,3i) >= 0
+    then
+        for 217@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(209@(217@,3i))
+            then
+                219@ = Coop.GetNetworkPlayerInternalId(209@(217@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@(216@,3i) = 209@(217@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 224@ == 200@(216@,3i)
+    then
+        206@(216@,3i) = -1
+    end
+end
+return
+
+:TRUCK_COOP_VALIDATE_SLOT
+218@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(200@(216@,3i))
+then
+    219@ = Coop.GetNetworkPlayerInternalId(200@(216@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 219@ == 203@(216@,3i)
+    then
+        218@ = 1
+    end
+end
+return
+
+:TRUCK_COOP_UPDATE
+if
+    214@ == 1
+then
+    return
+end
+gosub @TRUCK_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TRUCK_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            Char.IsDead(200@(216@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH: fail through TRUCK_16344, never mutate
+            // progress/rewards here.
+            212@ = 1
+        end
+    end
+end
+if
+    212@ == 1
+then
+    return
+end
+set_lvar_int_to_lvar_int 226@ = 36@
+if
+    Car.DoesExist(74@)
+then
+    Car.LockDoors(74@, CarLock.Unlocked)
+end
+gosub @TRUCK_COOP_POLL_VEHICLE_REGISTRATION
+gosub @TRUCK_COOP_UPDATE_REGROUP
+gosub @TRUCK_COOP_UPDATE_OBJECTIVES
+return
+
+// Both handshakes are incremental and bounded. A missing network id falls back
+// to targeted coordinate checkpoints without stalling the stock deadline.
+:TRUCK_COOP_POLL_VEHICLE_REGISTRATION
+if and
+    220@ == -1
+    223@ == 0
+    Car.DoesExist(74@)
+then
+    if
+        222@ == 0
+    then
+        222@ = Clock.GetGameTimer()
+    end
+    220@ = Coop.GetVehicleNetworkId(74@)
+    if
+        220@ == -1
+    then
+        224@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 224@ -= 222@
+        if
+            224@ > 5000
+        then
+            223@ = 1
+        end
+    end
+end
+if and
+    221@ == -1
+    229@ == 0
+    Car.DoesExist(75@)
+then
+    if
+        228@ == 0
+    then
+        228@ = Clock.GetGameTimer()
+    end
+    221@ = Coop.GetVehicleNetworkId(75@)
+    if
+        221@ == -1
+    then
+        224@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 224@ -= 228@
+        if
+            224@ > 5000
+        then
+            229@ = 1
+        end
+    end
+end
+return
+
+:TRUCK_COOP_UPDATE_REGROUP
+224@ = 0
+for 216@ = 0 to 2
+    gosub @TRUCK_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(200@(216@,3i), $scplayer, 150.0, 150.0, 40.0, False)
+        then
+            224@ = 1
+        end
+    end
+end
+if
+    224@ == 0
+then
+    225@ = 0
+    return
+end
+if
+    225@ == 0
+then
+    225@ = Clock.GetGameTimer()
+    return
+end
+224@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 224@ -= 225@
+if
+    224@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(200@, 201@, 202@)
+    225@ = 0
+end
+return
+
+:TRUCK_COOP_UPDATE_OBJECTIVES
+230@ = 0.0
+231@ = 0.0
+232@ = 0.0
+if
+    Car.DoesExist(74@)
+then
+    230@, 231@, 232@ = Car.GetCoordinates(74@)
+end
+for 216@ = 0 to 2
+    gosub @TRUCK_COOP_VALIDATE_SLOT
+    if and
+        218@ == 1
+        not is_int_lvar_equal_to_int_lvar 206@(216@,3i) == 226@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        if and
+            Car.DoesExist(74@)
+            220@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(200@(216@,3i), 74@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if and
+            Car.DoesExist(75@)
+            221@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(200@(216@,3i), 75@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if
+            226@ == 1
+        then
+            if
+                220@ == -1
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(230@, 231@, 232@, 8.0, 8.0, 5.0, 200@(216@,3i))
+            end
+            Coop.PrintNowForNetworkPlayer('TRK_H6', 5000, 1, 200@(216@,3i))
+        end
+        if
+            226@ >= 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(102@, 103@, 104@, 12.0, 12.0, 8.0, 200@(216@,3i))
+            Coop.PrintNowForNetworkPlayer('TRK_H7', 5000, 1, 200@(216@,3i))
+        end
+        set_lvar_int_to_lvar_int 206@(216@,3i) = 226@
+    end
+end
+return
+
+:TRUCK_COOP_NOTIFY_FAILURE
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 1
+gosub @TRUCK_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TRUCK_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:TRUCK_COOP_NOTIFY_PASS
+if
+    213@ <> 0
+then
+    return
+end
+213@ = 2
+gosub @TRUCK_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TRUCK_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@(216@,3i))
+    end
+end
+return
+
+:TRUCK_COOP_CLEANUP
+if
+    214@ == 1
+then
+    return
+end
+214@ = 1
+gosub @TRUCK_COOP_REFRESH_ROSTER
+for 216@ = 0 to 2
+    gosub @TRUCK_COOP_VALIDATE_SLOT
+    if
+        218@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(200@(216@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TRK_H6', 200@(216@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('TRK_H7', 200@(216@,3i))
+        Char.FreezePosition(200@(216@,3i), False)
+        Char.SetProofs(200@(216@,3i), False, False, False, False, False)
+    end
+end
+// Trucker never grants/removes participant weapons; preserving each loadout is
+// the deterministic restore policy. Restore synchronized local control once.
+Player.SetControl($player1, True)
+return
 

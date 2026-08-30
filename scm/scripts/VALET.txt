@@ -2,6 +2,17 @@
 
 :VALET
 script_name 'VALET'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @VALET_COOP_REJECT_NON_HOST
+goto @VALET_COOP_HOST_START
+
+:VALET_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:VALET_COOP_HOST_START
+gosub @VALET_COOP_RESET_NAMESPACE
 8@ = 0
 5@ = 1
 $can_script_be_cleaned = 1
@@ -230,6 +241,11 @@ goto_if_false @VALET_2127
 5@ = 1
 
 :VALET_2127
+if
+  $player_on_valet_mission == 1
+then
+  gosub @VALET_COOP_UPDATE
+end
 gosub @VALET_2371
 if 
   $valet_scene_running == 1
@@ -268,6 +284,8 @@ goto_if_false @VALET_2364
 if 
   $player_on_valet_mission == 1
 goto_if_false @VALET_2357
+gosub @VALET_COOP_NOTIFY_FAILURE
+gosub @VALET_COOP_CLEANUP
 $player_on_valet_mission = 0
 $onmission = 0
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
@@ -314,6 +332,8 @@ goto_if_false @VALET_2663
 if 
   $player_on_valet_mission == 1
 goto_if_false @VALET_2649
+gosub @VALET_COOP_NOTIFY_FAILURE
+gosub @VALET_COOP_CLEANUP
 $player_on_valet_mission = 0
 $onmission = 0
 Text.Print('VAL_A9', 4000, 1)
@@ -525,6 +545,7 @@ goto_if_false @VALET_3813
 Text.PrintNow('VAL_A7', 5000, 1)
 $player_on_valet_mission = 1
 $onmission = 1
+gosub @VALET_COOP_INIT
 goto @VALET_3829
 
 :VALET_3813
@@ -1163,6 +1184,8 @@ $mission_drop_off_car = 0
 if 
   $valet_mission_flag == 8
 goto_if_false @VALET_7840
+gosub @VALET_COOP_NOTIFY_FAILURE
+gosub @VALET_COOP_CLEANUP
 Blip.Remove(19@)
 Blip.Remove(20@)
 Hud.ClearCounter($valet_time_bonus)
@@ -2410,6 +2433,7 @@ $steal_this_car = 0
 return 
 
 :VALET_16442
+gosub @VALET_COOP_NOTIFY_PASS
 if 
   $valet_mission_completed == 0
 goto_if_false @VALET_16829
@@ -2478,6 +2502,8 @@ $valet_mission_flag = 8
 return 
 
 :VALET_16854
+gosub @VALET_COOP_NOTIFY_FAILURE
+gosub @VALET_COOP_CLEANUP
 Streaming.MarkModelAsNoLongerNeeded(189)
 Char.MarkAsNoLongerNeeded($valet[0])
 Char.MarkAsNoLongerNeeded($valet[1])
@@ -2608,3 +2634,452 @@ terminate_this_script
 return 
 terminate_this_script 
 
+// Co-op policy for all five Valet rounds in streamed script 72. VALET_L proves
+// a single host-only script-72 instance, while the stock onmission/run guards
+// prove one active Valet submission. The streamed ABI permits only 0@..33@;
+// stock owns 0@..30@, so co-op uses exactly 31@..33@ as transient candidates.
+// Immutable ids, current matched handles, result/cleanup latches, registration,
+// and regroup state live in a unique namespace initialized and reset on exits.
+:VALET_COOP_RESET_NAMESPACE
+$COOP_VALET_ACTIVE = 0
+$COOP_VALET_ID_0 = -1
+$COOP_VALET_ID_1 = -1
+$COOP_VALET_ID_2 = -1
+$COOP_VALET_PLAYER_0 = 0
+$COOP_VALET_PLAYER_1 = 0
+$COOP_VALET_PLAYER_2 = 0
+$COOP_VALET_CANDIDATE_ID = -1
+$COOP_VALET_RESULT = 0
+$COOP_VALET_CLEANED = 0
+$COOP_VALET_LAST_VEHICLE = 0
+$COOP_VALET_VEHICLE_NET_ID = -1
+$COOP_VALET_REG_START = 0
+$COOP_VALET_REG_NOW = 0
+$COOP_VALET_REG_FALLBACK = 0
+$COOP_VALET_REGROUP_START = 0
+$COOP_VALET_REGROUP_NOW = 0
+$COOP_VALET_FAR = 0
+return
+
+:VALET_COOP_INIT
+gosub @VALET_COOP_RESET_NAMESPACE
+$COOP_VALET_ACTIVE = 1
+31@, 32@, 33@ = Coop.CollectNetworkPlayersForTheMission()
+if
+    Coop.IsNetworkPlayerActorValid(31@)
+then
+    $COOP_VALET_ID_0 = Coop.GetNetworkPlayerInternalId(31@)
+    set_var_int_to_lvar_int $COOP_VALET_PLAYER_0 = 31@
+end
+if
+    Coop.IsNetworkPlayerActorValid(32@)
+then
+    $COOP_VALET_ID_1 = Coop.GetNetworkPlayerInternalId(32@)
+    set_var_int_to_lvar_int $COOP_VALET_PLAYER_1 = 32@
+end
+if
+    Coop.IsNetworkPlayerActorValid(33@)
+then
+    $COOP_VALET_ID_2 = Coop.GetNetworkPlayerInternalId(33@)
+    set_var_int_to_lvar_int $COOP_VALET_PLAYER_2 = 33@
+end
+Coop.TeleportPlayersToHostSafely(31@, 32@, 33@)
+return
+
+// Recollect transient candidates, but only frozen internal ids may populate a
+// current slot. Disconnect clears the handle (nonblocking DNF), the same-id
+// reconnect rematches, and replacement/late-join ids are never admitted.
+:VALET_COOP_REFRESH_ROSTER
+$COOP_VALET_PLAYER_0 = 0
+$COOP_VALET_PLAYER_1 = 0
+$COOP_VALET_PLAYER_2 = 0
+31@, 32@, 33@ = Coop.CollectNetworkPlayersForTheMission()
+if
+    Coop.IsNetworkPlayerActorValid(31@)
+then
+    $COOP_VALET_CANDIDATE_ID = Coop.GetNetworkPlayerInternalId(31@)
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_0
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_0 = 31@
+    end
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_1
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_1 = 31@
+    end
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_2
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_2 = 31@
+    end
+end
+if
+    Coop.IsNetworkPlayerActorValid(32@)
+then
+    $COOP_VALET_CANDIDATE_ID = Coop.GetNetworkPlayerInternalId(32@)
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_0
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_0 = 32@
+    end
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_1
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_1 = 32@
+    end
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_2
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_2 = 32@
+    end
+end
+if
+    Coop.IsNetworkPlayerActorValid(33@)
+then
+    $COOP_VALET_CANDIDATE_ID = Coop.GetNetworkPlayerInternalId(33@)
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_0
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_0 = 33@
+    end
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_1
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_1 = 33@
+    end
+    if
+        is_int_var_equal_to_int_var $COOP_VALET_CANDIDATE_ID == $COOP_VALET_ID_2
+    then
+        set_var_int_to_lvar_int $COOP_VALET_PLAYER_2 = 33@
+    end
+end
+return
+
+:VALET_COOP_UPDATE
+if
+    $COOP_VALET_ACTIVE == 0
+then
+    return
+end
+gosub @VALET_COOP_REFRESH_ROSTER
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_0)
+then
+    if
+        Char.IsDead($COOP_VALET_PLAYER_0)
+    then
+        // COOP_PARTICIPANT_DEATH: stock state 8 owns failure and teardown.
+        $valet_mission_flag = 8
+    end
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_1)
+then
+    if
+        Char.IsDead($COOP_VALET_PLAYER_1)
+    then
+        $valet_mission_flag = 8
+    end
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_2)
+then
+    if
+        Char.IsDead($COOP_VALET_PLAYER_2)
+    then
+        $valet_mission_flag = 8
+    end
+end
+if
+    $valet_mission_flag == 8
+then
+    return
+end
+// Piggyback stock's read-only 16@ one-second cadence. It is never assigned by
+// co-op, so exact offline timing and the five stock deadlines remain unchanged.
+if
+    not is_int_lvar_greater_than_int_lvar TIMERA > 16@
+then
+    return
+end
+gosub @VALET_COOP_POLL_VEHICLE_REGISTRATION
+gosub @VALET_COOP_UPDATE_REGROUP
+gosub @VALET_COOP_UPDATE_OBJECTIVES
+return
+
+// The customer-car handshake is incremental and capped at five seconds. A
+// targeted parking/drop-off checkpoint remains available as the fallback.
+:VALET_COOP_POLL_VEHICLE_REGISTRATION
+if
+    not is_int_var_equal_to_int_var $COOP_VALET_LAST_VEHICLE == $valet_mission_car
+then
+    set_var_int_to_var_int $COOP_VALET_LAST_VEHICLE = $valet_mission_car
+    $COOP_VALET_VEHICLE_NET_ID = -1
+    $COOP_VALET_REG_START = 0
+    $COOP_VALET_REG_FALLBACK = 0
+end
+if and
+    $COOP_VALET_VEHICLE_NET_ID == -1
+    $COOP_VALET_REG_FALLBACK == 0
+    Car.DoesExist($valet_mission_car)
+then
+    if
+        $COOP_VALET_REG_START == 0
+    then
+        $COOP_VALET_REG_START = Clock.GetGameTimer()
+    end
+    $COOP_VALET_VEHICLE_NET_ID = Coop.GetVehicleNetworkId($valet_mission_car)
+    if
+        $COOP_VALET_VEHICLE_NET_ID == -1
+    then
+        $COOP_VALET_REG_NOW = Clock.GetGameTimer()
+        sub_int_var_from_int_var $COOP_VALET_REG_NOW -= $COOP_VALET_REG_START
+        if
+            $COOP_VALET_REG_NOW > 5000
+        then
+            $COOP_VALET_REG_FALLBACK = 1
+        end
+    end
+end
+return
+
+:VALET_COOP_UPDATE_REGROUP
+$COOP_VALET_FAR = 0
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_0)
+then
+    if
+        not Char.LocateAnyMeansChar3D($COOP_VALET_PLAYER_0, $scplayer, 120.0, 120.0, 35.0, False)
+    then
+        $COOP_VALET_FAR = 1
+    end
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_1)
+then
+    if
+        not Char.LocateAnyMeansChar3D($COOP_VALET_PLAYER_1, $scplayer, 120.0, 120.0, 35.0, False)
+    then
+        $COOP_VALET_FAR = 1
+    end
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_2)
+then
+    if
+        not Char.LocateAnyMeansChar3D($COOP_VALET_PLAYER_2, $scplayer, 120.0, 120.0, 35.0, False)
+    then
+        $COOP_VALET_FAR = 1
+    end
+end
+if
+    $COOP_VALET_FAR == 0
+then
+    $COOP_VALET_REGROUP_START = 0
+    return
+end
+if
+    $COOP_VALET_REGROUP_START == 0
+then
+    $COOP_VALET_REGROUP_START = Clock.GetGameTimer()
+    return
+end
+$COOP_VALET_REGROUP_NOW = Clock.GetGameTimer()
+sub_int_var_from_int_var $COOP_VALET_REGROUP_NOW -= $COOP_VALET_REGROUP_START
+if
+    $COOP_VALET_REGROUP_NOW > 20000
+then
+    Coop.TeleportPlayersToHostSafely($COOP_VALET_PLAYER_0, $COOP_VALET_PLAYER_1, $COOP_VALET_PLAYER_2)
+    $COOP_VALET_REGROUP_START = 0
+end
+return
+
+:VALET_COOP_UPDATE_OBJECTIVES
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_0)
+then
+    gosub @VALET_COOP_OBJECTIVE_0
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_1)
+then
+    gosub @VALET_COOP_OBJECTIVE_1
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_2)
+then
+    gosub @VALET_COOP_OBJECTIVE_2
+end
+return
+
+:VALET_COOP_OBJECTIVE_0
+Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_VALET_PLAYER_0)
+Coop.RemoveCheckpointForNetworkPlayer($COOP_VALET_PLAYER_0)
+if
+    Car.DoesExist($valet_mission_car)
+then
+    Coop.UpdateCarBlipForNetworkPlayer($COOP_VALET_PLAYER_0, $valet_mission_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+else
+    if
+        Car.DoesExist($mission_drop_off_car)
+    then
+        Coop.UpdateCarBlipForNetworkPlayer($COOP_VALET_PLAYER_0, $mission_drop_off_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+    end
+end
+if
+    $valet_mission_flag == 6
+then
+    Coop.UpdateCheckpointForNetworkPlayer(21@, 22@, 23@, 5.0, 5.0, 4.0, $COOP_VALET_PLAYER_0)
+    Coop.PrintNowForNetworkPlayer('VAL_A18', 1500, 1, $COOP_VALET_PLAYER_0)
+else
+    Coop.UpdateCheckpointForNetworkPlayer($drop_off_point_x($val_Area,4f), $drop_off_point_y($val_Area,4f), $drop_off_point_z($val_Area,4f), 8.0, 8.0, 5.0, $COOP_VALET_PLAYER_0)
+    Coop.PrintNowForNetworkPlayer('VAL_A7', 1500, 1, $COOP_VALET_PLAYER_0)
+end
+return
+
+:VALET_COOP_OBJECTIVE_1
+Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_VALET_PLAYER_1)
+Coop.RemoveCheckpointForNetworkPlayer($COOP_VALET_PLAYER_1)
+if
+    Car.DoesExist($valet_mission_car)
+then
+    Coop.UpdateCarBlipForNetworkPlayer($COOP_VALET_PLAYER_1, $valet_mission_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+else
+    if
+        Car.DoesExist($mission_drop_off_car)
+    then
+        Coop.UpdateCarBlipForNetworkPlayer($COOP_VALET_PLAYER_1, $mission_drop_off_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+    end
+end
+if
+    $valet_mission_flag == 6
+then
+    Coop.UpdateCheckpointForNetworkPlayer(21@, 22@, 23@, 5.0, 5.0, 4.0, $COOP_VALET_PLAYER_1)
+    Coop.PrintNowForNetworkPlayer('VAL_A18', 1500, 1, $COOP_VALET_PLAYER_1)
+else
+    Coop.UpdateCheckpointForNetworkPlayer($drop_off_point_x($val_Area,4f), $drop_off_point_y($val_Area,4f), $drop_off_point_z($val_Area,4f), 8.0, 8.0, 5.0, $COOP_VALET_PLAYER_1)
+    Coop.PrintNowForNetworkPlayer('VAL_A7', 1500, 1, $COOP_VALET_PLAYER_1)
+end
+return
+
+:VALET_COOP_OBJECTIVE_2
+Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_VALET_PLAYER_2)
+Coop.RemoveCheckpointForNetworkPlayer($COOP_VALET_PLAYER_2)
+if
+    Car.DoesExist($valet_mission_car)
+then
+    Coop.UpdateCarBlipForNetworkPlayer($COOP_VALET_PLAYER_2, $valet_mission_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+else
+    if
+        Car.DoesExist($mission_drop_off_car)
+    then
+        Coop.UpdateCarBlipForNetworkPlayer($COOP_VALET_PLAYER_2, $mission_drop_off_car, True, BlipDisplay.Both, BlipColor.Purple, 3)
+    end
+end
+if
+    $valet_mission_flag == 6
+then
+    Coop.UpdateCheckpointForNetworkPlayer(21@, 22@, 23@, 5.0, 5.0, 4.0, $COOP_VALET_PLAYER_2)
+    Coop.PrintNowForNetworkPlayer('VAL_A18', 1500, 1, $COOP_VALET_PLAYER_2)
+else
+    Coop.UpdateCheckpointForNetworkPlayer($drop_off_point_x($val_Area,4f), $drop_off_point_y($val_Area,4f), $drop_off_point_z($val_Area,4f), 8.0, 8.0, 5.0, $COOP_VALET_PLAYER_2)
+    Coop.PrintNowForNetworkPlayer('VAL_A7', 1500, 1, $COOP_VALET_PLAYER_2)
+end
+return
+
+:VALET_COOP_NOTIFY_FAILURE
+if or
+    $COOP_VALET_ACTIVE == 0
+    $COOP_VALET_RESULT <> 0
+then
+    return
+end
+$COOP_VALET_RESULT = 1
+gosub @VALET_COOP_REFRESH_ROSTER
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_0)
+then
+    Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $COOP_VALET_PLAYER_0)
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_1)
+then
+    Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $COOP_VALET_PLAYER_1)
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_2)
+then
+    Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $COOP_VALET_PLAYER_2)
+end
+return
+
+:VALET_COOP_NOTIFY_PASS
+if or
+    $COOP_VALET_ACTIVE == 0
+    $COOP_VALET_RESULT <> 0
+then
+    return
+end
+$COOP_VALET_RESULT = 2
+gosub @VALET_COOP_REFRESH_ROSTER
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_0)
+then
+    Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $COOP_VALET_PLAYER_0)
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_1)
+then
+    Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $COOP_VALET_PLAYER_1)
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_2)
+then
+    Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $COOP_VALET_PLAYER_2)
+end
+return
+
+:VALET_COOP_CLEANUP
+if or
+    $COOP_VALET_ACTIVE == 0
+    $COOP_VALET_CLEANED == 1
+then
+    return
+end
+$COOP_VALET_CLEANED = 1
+gosub @VALET_COOP_REFRESH_ROSTER
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_0)
+then
+    Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_VALET_PLAYER_0)
+    Coop.RemoveCheckpointForNetworkPlayer($COOP_VALET_PLAYER_0)
+    Coop.ClearThisPrintForNetworkPlayer('VAL_A7', $COOP_VALET_PLAYER_0)
+    Coop.ClearThisPrintForNetworkPlayer('VAL_A18', $COOP_VALET_PLAYER_0)
+    Char.FreezePosition($COOP_VALET_PLAYER_0, False)
+    Char.SetProofs($COOP_VALET_PLAYER_0, False, False, False, False, False)
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_1)
+then
+    Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_VALET_PLAYER_1)
+    Coop.RemoveCheckpointForNetworkPlayer($COOP_VALET_PLAYER_1)
+    Coop.ClearThisPrintForNetworkPlayer('VAL_A7', $COOP_VALET_PLAYER_1)
+    Coop.ClearThisPrintForNetworkPlayer('VAL_A18', $COOP_VALET_PLAYER_1)
+    Char.FreezePosition($COOP_VALET_PLAYER_1, False)
+    Char.SetProofs($COOP_VALET_PLAYER_1, False, False, False, False, False)
+end
+if
+    Coop.IsNetworkPlayerActorValid($COOP_VALET_PLAYER_2)
+then
+    Coop.ClearAllEntityBlipsForNetworkPlayer($COOP_VALET_PLAYER_2)
+    Coop.RemoveCheckpointForNetworkPlayer($COOP_VALET_PLAYER_2)
+    Coop.ClearThisPrintForNetworkPlayer('VAL_A7', $COOP_VALET_PLAYER_2)
+    Coop.ClearThisPrintForNetworkPlayer('VAL_A18', $COOP_VALET_PLAYER_2)
+    Char.FreezePosition($COOP_VALET_PLAYER_2, False)
+    Char.SetProofs($COOP_VALET_PLAYER_2, False, False, False, False, False)
+end
+// Valet never changes participant weapons; preserving each loadout is the
+// deterministic restore policy. Reset the entire unique namespace after use.
+gosub @VALET_COOP_RESET_NAMESPACE
+return

@@ -3,6 +3,16 @@
 
 :QUARRY
 script_name 'QUARRY'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @QUARRY_COOP_REJECT_NON_HOST
+goto @QUARRY_COOP_HOST_START
+
+:QUARRY_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:QUARRY_COOP_HOST_START
 gosub @QUARRY_47
 if 
   has_deatharrest_been_executed 
@@ -68,6 +78,7 @@ TIMERB = 0
 293@ = 0
 294@ = 0
 295@ = 0
+gosub @QUARRY_COOP_INIT
 if 
   34@ == -99
 goto_if_false @QUARRY_1311
@@ -173,6 +184,13 @@ gosub @QUARRY_21090
 
 :QUARRY_1431
 wait 0
+gosub @QUARRY_COOP_UPDATE
+if
+  312@ == 1
+then
+  37@ = 1
+  goto @QUARRY_2224
+end
 if and
   34@ <> 18
   34@ <> 19
@@ -3705,6 +3723,7 @@ Game.SwitchEmergencyServices(False)
 return 
 
 :QUARRY_25912
+gosub @QUARRY_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Text.ClearSmallPrints
 switch_start 45@ total_jumps 14 default_jump 0 @QUARRY_26380 jumps 1 @QUARRY_26081 2 @QUARRY_26104 3 @QUARRY_26127 4 @QUARRY_26150 5 @QUARRY_26173 6 @QUARRY_26196 7 @QUARRY_26219
@@ -3770,6 +3789,7 @@ goto @QUARRY_26380
 return 
 
 :QUARRY_26382
+gosub @QUARRY_COOP_NOTIFY_PASS
 if 
   207@ == 0
 goto_if_false @QUARRY_26423
@@ -3981,6 +4001,7 @@ CarGenerator.Switch($gen_car2, 101)
 return 
 
 :QUARRY_27546
+gosub @QUARRY_COOP_CLEANUP
 Car.MarkAsNoLongerNeeded(86@)
 Car.MarkAsNoLongerNeeded(87@)
 Car.MarkAsNoLongerNeeded(88@)
@@ -4107,4 +4128,346 @@ $onmission = 0
 $flag_player_on_oddjob = 0
 Mission.Finish
 return 
+
+// Co-op policy for all seven Quarry jobs (mission 118):
+// - the host alone owns the stock 7-way selector, machinery, stage/deadline
+//   transitions, scoring, results, statistics, unlocks, and save mutations;
+// - the frozen roster is immutable-id bound. Disconnect is a nonblocking DNF,
+//   reconnect resumes only the same slot, and connected death fails the run;
+// - Quarry machines remain host-operated shared objectives. Supporters escort
+//   and protect them; no participant is warped into a single operator seat.
+:QUARRY_COOP_INIT
+300@, 301@, 302@ = Coop.CollectNetworkPlayersForTheMission()
+315@ = 0
+for 316@ = 0 to 2
+    303@(316@,3i) = -1
+    306@(316@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(300@(316@,3i))
+    then
+        303@(316@,3i) = Coop.GetNetworkPlayerInternalId(300@(316@,3i))
+        if
+            303@(316@,3i) >= 0
+        then
+            315@ += 1
+        end
+    end
+end
+312@ = 0 // connected participant death latch
+313@ = 0 // exactly-once result latch: 1 fail, 2 pass
+314@ = 0 // idempotent cleanup latch
+320@ = -1 // selected machinery network id
+321@ = 0 // registration start
+322@ = 0 // coordinate-fallback latch
+324@ = 0 // regroup timer
+325@ = -1 // selector+stage objective snapshot
+326@ = 0 // selected stock machine
+330@ = 0 // previous selected machine
+if
+    315@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(300@, 301@, 302@)
+end
+return
+
+:QUARRY_COOP_REFRESH_ROSTER
+309@, 310@, 311@ = Coop.CollectNetworkPlayersForTheMission()
+for 316@ = 0 to 2
+    set_lvar_int_to_lvar_int 323@ = 300@(316@,3i)
+    300@(316@,3i) = 0
+    if
+        303@(316@,3i) >= 0
+    then
+        for 317@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(309@(317@,3i))
+            then
+                319@ = Coop.GetNetworkPlayerInternalId(309@(317@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 319@ == 303@(316@,3i)
+                then
+                    set_lvar_int_to_lvar_int 300@(316@,3i) = 309@(317@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 323@ == 300@(316@,3i)
+    then
+        306@(316@,3i) = -1
+    end
+end
+return
+
+:QUARRY_COOP_VALIDATE_SLOT
+318@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(300@(316@,3i))
+then
+    319@ = Coop.GetNetworkPlayerInternalId(300@(316@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 319@ == 303@(316@,3i)
+    then
+        318@ = 1
+    end
+end
+return
+
+:QUARRY_COOP_UPDATE
+if
+    314@ == 1
+then
+    return
+end
+gosub @QUARRY_COOP_REFRESH_ROSTER
+for 316@ = 0 to 2
+    gosub @QUARRY_COOP_VALIDATE_SLOT
+    if
+        318@ == 1
+    then
+        if
+            Char.IsDead(300@(316@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH: QUARRY_25912 remains the only failure
+            // result and the only owner of stock state cleanup.
+            312@ = 1
+        end
+    end
+end
+if
+    312@ == 1
+then
+    return
+end
+gosub @QUARRY_COOP_SELECT_VEHICLE
+set_lvar_int_to_lvar_int 325@ = 198@
+325@ *= 100
+add_int_lvar_to_int_lvar 325@ += 34@
+if
+    Car.DoesExist(326@)
+then
+    Car.LockDoors(326@, CarLock.Unlocked)
+end
+gosub @QUARRY_COOP_POLL_VEHICLE_REGISTRATION
+gosub @QUARRY_COOP_UPDATE_REGROUP
+gosub @QUARRY_COOP_UPDATE_OBJECTIVES
+return
+
+// Exact stock selector-to-primary-machine map:
+// 1 bulldozer, 2 bulldozer, 3 bulldozer, 4 dumper, 5 bulldozer,
+// 6 dumper, 7 dumper (the level-7 rival dumper 91@ remains an AI target).
+:QUARRY_COOP_SELECT_VEHICLE
+326@ = 0
+switch_start 198@ total_jumps 7 default_jump 1 @QUARRY_COOP_SELECT_DONE jumps 1 @QUARRY_COOP_SELECT_1 2 @QUARRY_COOP_SELECT_2 3 @QUARRY_COOP_SELECT_3 4 @QUARRY_COOP_SELECT_4 5 @QUARRY_COOP_SELECT_5 6 @QUARRY_COOP_SELECT_6 7 @QUARRY_COOP_SELECT_7
+
+:QUARRY_COOP_SELECT_1
+set_lvar_int_to_lvar_int 326@ = 87@
+goto @QUARRY_COOP_SELECT_DONE
+
+:QUARRY_COOP_SELECT_2
+set_lvar_int_to_lvar_int 326@ = 87@
+goto @QUARRY_COOP_SELECT_DONE
+
+:QUARRY_COOP_SELECT_3
+set_lvar_int_to_lvar_int 326@ = 87@
+goto @QUARRY_COOP_SELECT_DONE
+
+:QUARRY_COOP_SELECT_4
+set_lvar_int_to_lvar_int 326@ = 88@
+goto @QUARRY_COOP_SELECT_DONE
+
+:QUARRY_COOP_SELECT_5
+set_lvar_int_to_lvar_int 326@ = 87@
+goto @QUARRY_COOP_SELECT_DONE
+
+:QUARRY_COOP_SELECT_6
+set_lvar_int_to_lvar_int 326@ = 88@
+goto @QUARRY_COOP_SELECT_DONE
+
+:QUARRY_COOP_SELECT_7
+set_lvar_int_to_lvar_int 326@ = 88@
+
+:QUARRY_COOP_SELECT_DONE
+if
+    not is_int_lvar_equal_to_int_lvar 330@ == 326@
+then
+    set_lvar_int_to_lvar_int 330@ = 326@
+    320@ = -1
+    321@ = 0
+    322@ = 0
+    for 316@ = 0 to 2
+        306@(316@,3i) = -1
+    end
+end
+return
+
+// Registration is incremental and bounded; coordinate checkpoints remain the
+// deterministic fallback and do not pause the stock Quarry deadline.
+:QUARRY_COOP_POLL_VEHICLE_REGISTRATION
+if and
+    320@ == -1
+    322@ == 0
+    Car.DoesExist(326@)
+then
+    if
+        321@ == 0
+    then
+        321@ = Clock.GetGameTimer()
+    end
+    320@ = Coop.GetVehicleNetworkId(326@)
+    if
+        320@ == -1
+    then
+        323@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 323@ -= 321@
+        if
+            323@ > 5000
+        then
+            322@ = 1
+        end
+    end
+end
+return
+
+:QUARRY_COOP_UPDATE_REGROUP
+323@ = 0
+for 316@ = 0 to 2
+    gosub @QUARRY_COOP_VALIDATE_SLOT
+    if
+        318@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(300@(316@,3i), $scplayer, 150.0, 150.0, 50.0, False)
+        then
+            323@ = 1
+        end
+    end
+end
+if
+    323@ == 0
+then
+    324@ = 0
+    return
+end
+if
+    324@ == 0
+then
+    324@ = Clock.GetGameTimer()
+    return
+end
+323@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 323@ -= 324@
+if
+    323@ > 20000
+then
+    Coop.TeleportPlayersToHostSafely(300@, 301@, 302@)
+    324@ = 0
+end
+return
+
+:QUARRY_COOP_UPDATE_OBJECTIVES
+327@ = 0.0
+328@ = 0.0
+329@ = 0.0
+if
+    Car.DoesExist(326@)
+then
+    327@, 328@, 329@ = Car.GetCoordinates(326@)
+end
+for 316@ = 0 to 2
+    gosub @QUARRY_COOP_VALIDATE_SLOT
+    if and
+        318@ == 1
+        not is_int_lvar_equal_to_int_lvar 306@(316@,3i) == 325@
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(300@(316@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(300@(316@,3i))
+        if and
+            Car.DoesExist(326@)
+            320@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(300@(316@,3i), 326@, True, BlipDisplay.Both, BlipColor.Purple, 3)
+        end
+        if
+            320@ == -1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(327@, 328@, 329@, 8.0, 8.0, 6.0, 300@(316@,3i))
+        end
+        if
+            34@ == 1
+        then
+            Coop.PrintNowForNetworkPlayer('QUAR_35', 5000, 1, 300@(316@,3i))
+        end
+        if
+            34@ >= 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(212@, 213@, 214@, 10.0, 10.0, 7.0, 300@(316@,3i))
+            Coop.PrintNowForNetworkPlayer('QUAR_36', 5000, 1, 300@(316@,3i))
+        end
+        set_lvar_int_to_lvar_int 306@(316@,3i) = 325@
+    end
+end
+return
+
+:QUARRY_COOP_NOTIFY_FAILURE
+if
+    313@ <> 0
+then
+    return
+end
+313@ = 1
+gosub @QUARRY_COOP_REFRESH_ROSTER
+for 316@ = 0 to 2
+    gosub @QUARRY_COOP_VALIDATE_SLOT
+    if
+        318@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 300@(316@,3i))
+    end
+end
+return
+
+:QUARRY_COOP_NOTIFY_PASS
+if
+    313@ <> 0
+then
+    return
+end
+313@ = 2
+gosub @QUARRY_COOP_REFRESH_ROSTER
+for 316@ = 0 to 2
+    gosub @QUARRY_COOP_VALIDATE_SLOT
+    if
+        318@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 300@(316@,3i))
+    end
+end
+return
+
+:QUARRY_COOP_CLEANUP
+if
+    314@ == 1
+then
+    return
+end
+314@ = 1
+gosub @QUARRY_COOP_REFRESH_ROSTER
+for 316@ = 0 to 2
+    gosub @QUARRY_COOP_VALIDATE_SLOT
+    if
+        318@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(300@(316@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(300@(316@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('QUAR_35', 300@(316@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('QUAR_36', 300@(316@,3i))
+        Char.FreezePosition(300@(316@,3i), False)
+        Char.SetProofs(300@(316@,3i), False, False, False, False, False)
+    end
+end
+// Quarry never changes participant weapons; preserving each loadout is the
+// deterministic restore policy. Restore synchronized local control once.
+Player.SetControl($player1, True)
+return
 

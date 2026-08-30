@@ -3,6 +3,9 @@ script_name 'TRUCKS'
 
 :TRUCKS_11
 wait $mission_trigger_wait_time
+if
+  Coop.IsHost()
+goto_if_false @TRUCKS_146
 if 
   $onmission == 0
 goto_if_false @TRUCKS_146
