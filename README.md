@@ -349,11 +349,11 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] BMX
   - [X] NRG-500
   - [X] The Chiliad Challenge 
-- [ ] Stadions
-  - [ ] 8-Track
-  - [ ] Blood Bowl
-  - [ ] Dirt Track
-  - [ ] Kick Start
+- [X] Stadions
+  - [X] 8-Track
+  - [X] Blood Bowl
+  - [X] Dirt Track
+  - [X] Kick Start
 - [X] Ammu-nation challenge
 - [X] Schools
   - [X] Driving school
