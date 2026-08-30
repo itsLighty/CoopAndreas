@@ -3,6 +3,7 @@
 
 :MAF4
 script_name 'MAF4'
+Coop.EnableSyncingThisScript()
 gosub @MAF4_47
 if 
   has_deatharrest_been_executed 
@@ -15,6 +16,133 @@ terminate_this_script
 
 :MAF4_47
 Stat.RegisterMissionGiven
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Cooperative Black Project is additive around the original host state machine.
+// Mission-entry network identities are immutable: a matching reconnect can take
+// back its slot, while a different identity using the same actor handle remains a
+// spectator. The host alone owns alarms, doors, pickups, mission stages, rewards,
+// stats, and story writes; peers contribute only physical trigger evidence.
+560@ = 0 // immutable launch-roster size
+561@ = 0 // connected frozen participant died
+562@ = 0 // idempotent cooperative cleanup guard
+563@ = 1 // peers are frozen for a host cinematic/transition
+564@ = 0 // outcome: 0 active, 1 failed, 2 passed
+565@ = 0 // outcome fan-out guard
+566@ = 0 // next objective refresh
+567@ = 0 // next enemy retarget
+568@ = 0 // next separation/regroup poll
+569@ = 0 // next nonblocking network-id poll
+570@ = 0 // current time scratch
+571@ = -1 // network identity/id scratch
+572@ = -1 // actor/entity scratch
+573@ = 0 // nested participant/entity iterator
+574@ = 10 // derived cooperative phase
+575@ = 0 // boolean/phase-change scratch
+576@ = 0 // host visible-area scratch
+577@ = Char.GetHealth($scplayer) // host health ledger
+578@ = Char.GetArmor($scplayer) // host armor ledger
+579@ = 0 // health/damage scratch
+580@ = 0 // armor/delta scratch
+581@ = 0 // remote reached perimeter door switch
+582@ = 0 // remote detected by a searchlight
+583@ = 0 // remote reached the vent
+584@ = 0 // remote reached the interior transition
+585@ = 0 // remote reached the lower interior room
+586@ = 0 // remote reached the deep corridor
+587@ = 0 // remote reached the SAM controls
+588@ = 0 // remote reached the keycard scientist
+589@ = 0 // remote threatened the keycard scientist
+590@ = 0 // remote collected the canonical keycard
+591@ = 0 // remote reached the lab-door reader
+592@ = 0 // remote collected the canonical jetpack
+593@ = 0 // remote escaped the launch shaft
+594@ = 0 // remote cleared the Area 69 launch radius
+595@ = 0 // remote reached Truth at the airstrip
+596@ = -1 // active actor argument 1
+597@ = -1 // active actor argument 2
+598@ = -1 // active actor argument 3
+599@ = 0.0 // coordinate scratch X
+600@ = 0.0 // coordinate scratch Y
+601@ = 0.0 // coordinate scratch Z
+602@ = 0 // previous connected state scratch
+603@ = -1 // previous actor handle scratch
+604@ = -1 // selected combat target
+605@ = -1 // selected combat slot
+606@ = 0 // bounded network-registration timeout count
+607@ = 0 // transition/regroup kind
+608@ = 0 // jetpack escape loadout active
+614@ = 0 // at least one frozen identity reconnected
+731@ = -1 // host-player ped network id
+732@ = 0 // host-player ped registration deadline
+737@ = -1 // interior-cutscene guard last handle
+738@ = -1 // interior-cutscene guard network id
+739@ = 0 // interior-cutscene guard registration deadline
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int] // current actor for immutable identity
+    503@($temp_int,3i) = -1 // immutable mission-entry network identity
+    506@($temp_int,3i) = 0 // currently connected frozen participant
+    509@($temp_int,3i) = 0 // previous connected state
+    512@($temp_int,3i) = 0 // reconnect requires safe staging
+    515@($temp_int,3i) = -1 // last objective phase published
+    518@($temp_int,3i) = 0 // pre-mission visible area
+    521@($temp_int,3i) = 0 // pre-mission selected weapon
+    524@($temp_int,3i) = 0 // pre-mission knife ammo
+    527@($temp_int,3i) = 0 // pre-mission silenced-pistol ammo
+    530@($temp_int,3i) = 0 // pre-mission infrared-goggle ammo
+    533@($temp_int,3i) = 0 // pre-mission sniper ammo
+    536@($temp_int,3i) = 0 // pre-mission Micro Uzi ammo
+    539@($temp_int,3i) = 0 // temporary infiltration loadout applied
+    542@($temp_int,3i) = 0 // temporary jetpack applied
+    545@($temp_int,3i) = 0 // participant health ledger
+    548@($temp_int,3i) = 0 // participant armor ledger
+    551@($temp_int,3i) = 0 // separation regroup deadline
+    554@($temp_int,3i) = -1 // participant ped network id
+    557@($temp_int,3i) = 0 // participant ped-id handshake deadline
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(572@)
+        if
+            503@($temp_int,3i) <> -1
+        then
+            506@($temp_int,3i) = 1
+            509@($temp_int,3i) = 1
+            518@($temp_int,3i) = Char.GetAreaVisible(572@)
+            521@($temp_int,3i) = Char.GetCurrentWeapon(572@)
+            524@($temp_int,3i) = Char.GetAmmoInWeapon(572@, 4)
+            527@($temp_int,3i) = Char.GetAmmoInWeapon(572@, 23)
+            530@($temp_int,3i) = Char.GetAmmoInWeapon(572@, 45)
+            533@($temp_int,3i) = Char.GetAmmoInWeapon(572@, 34)
+            536@($temp_int,3i) = Char.GetAmmoInWeapon(572@, 28)
+            545@($temp_int,3i) = Char.GetHealth(572@)
+            548@($temp_int,3i) = Char.GetArmor(572@)
+            Char.ClearLastDamageEntity(572@)
+            560@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 21
+    650@($temp_int,22i) = -1 // last synchronized guard handle
+    672@($temp_int,22i) = -1 // guard ped network id
+    694@($temp_int,22i) = 0 // guard registration deadline
+end
+716@ = -1 // Truth ped last handle
+717@ = -1 // Truth ped network id
+718@ = 0 // Truth ped registration deadline
+719@ = -1 // scientist last handle
+720@ = -1 // scientist network id
+721@ = 0 // scientist registration deadline
+722@ = -1 // Truth plane last handle
+723@ = -1 // Truth plane network id
+724@ = 0 // Truth plane registration deadline
+725@ = -1 // extraction bike last handle
+726@ = -1 // extraction bike network id
+727@ = 0 // extraction bike registration deadline
+728@ = -1 // interior utility vehicle last handle
+729@ = -1 // interior utility vehicle network id
+730@ = 0 // interior utility vehicle registration deadline
+gosub @MAF4_COOP_FREEZE_REMOTES
 wait 0
 Text.LoadMissionText('DSERT8')
 Weather.ForceNow(WeatherType.SunnyDesert)
@@ -282,6 +410,7 @@ TIMERA = 0
 Hud.SwitchWidescreen(True)
 Player.SetControl($player1, False)
 Char.ShutUp($scplayer, True)
+gosub @MAF4_COOP_FREEZE_REMOTES
 Camera.DoFade(1, 1000)
 146@ = Pickup.Create(#BODYARMOUR, 3, 108.48, 1919.29, 18.56)
 147@ = Pickup.Create(#HEALTH, 3, 228.91, 1858.65, 14.8)
@@ -296,6 +425,12 @@ Player.ClearWantedLevel($player1)
 
 :MAF4_1996
 wait 0
+gosub @MAF4_COOP_UPDATE
+if
+  561@ == 1
+then
+    goto @MAF4_29854
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @MAF4_2022
@@ -355,6 +490,10 @@ if
 goto_if_false @MAF4_2442
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('DES8_LA', 3000, 1)
+set_lvar_text_label 610@s = 'DES8_LA'
+612@ = 3000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_2325
 if 
@@ -367,6 +506,10 @@ goto @MAF4_2325
 Audio.LoadMissionAudio(13643, 1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('TRUX_AS', 2500, 1)
+set_lvar_text_label 610@s = 'TRUX_AS'
+612@ = 2500
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_2378
 if 
@@ -418,6 +561,10 @@ Task.LookAtVehicle($scplayer, 107@, 5000)
 :MAF4_2595
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('DES8_LC', 2000, 1)
+set_lvar_text_label 610@s = 'DES8_LC'
+612@ = 2000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_2615
 if 
@@ -715,6 +862,10 @@ Camera.PointAtPoint(311.7959, 1807.022, 26.2183, SwitchType.JumpCut)
 Streaming.LoadSceneInDirection(312.659, 1806.521, 26.272, 60.2)
 Camera.DoFade(1, 100)
 Text.PrintNow('DST8_1', 7000, 1)
+set_lvar_text_label 610@s = 'DST8_1'
+612@ = 7000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Char.SetCoordinates($scplayer, 69.91, 1916.007, 16.648)
 Char.SetHeading($scplayer, 273.363)
 TIMERA = 0
@@ -728,6 +879,10 @@ goto @MAF4_6898
 
 :MAF4_6928
 Text.PrintNow('DST8_18', 8000, 1)
+set_lvar_text_label 610@s = 'DST8_18'
+612@ = 8000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Camera.SetFixedPosition(232.5476, 1911.022, 34.7955, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(231.9904, 1910.261, 34.4617, SwitchType.JumpCut)
 TIMERA = 0
@@ -755,8 +910,20 @@ goto @MAF4_7090
 Camera.SetFixedPosition(120.4534, 1943.522, 29.8174, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(120.5729, 1942.533, 29.7278, SwitchType.JumpCut)
 Text.PrintNow('DST8_19', 4000, 1)
+set_lvar_text_label 610@s = 'DST8_19'
+612@ = 4000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Text.Print('DST8_47', 4000, 1)
+set_lvar_text_label 610@s = 'DST8_47'
+612@ = 4000
+613@ = 1
+gosub @MAF4_COOP_BROADCAST_TEXT
 Text.Print('DST8_48', 4000, 1)
+set_lvar_text_label 610@s = 'DST8_48'
+612@ = 4000
+613@ = 1
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERA = 0
 
 :MAF4_7226
@@ -840,6 +1007,10 @@ Char.SetDecisionMaker(130@, 162@)
 Camera.SetFixedPosition(113.0058, 1934.089, 18.245, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(113.0995, 1933.112, 18.4334, SwitchType.JumpCut)
 Text.PrintNow('DST8_21', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_21'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERA = 0
 
 :MAF4_8009
@@ -856,6 +1027,10 @@ Camera.ResetNewScriptables
 Camera.PersistPos(True)
 Camera.SetVectorMove(112.0028, 1893.846, 19.5192, 112.0028, 1893.846, 35.5192, 6000, True)
 Text.PrintNow('DST8_22', 6500, 1)
+set_lvar_text_label 610@s = 'DST8_22'
+612@ = 6500
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERA = 0
 
 :MAF4_8156
@@ -1295,10 +1470,20 @@ Streaming.UnloadSpecialCharacter(1)
 Streaming.MarkModelAsNoLongerNeeded(483)
 227@ = Blip.AddForCoord(211.604, 1811.091, 20.8)
 Text.PrintNow('DST8_38', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_38'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Text.Print('DST8_7', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_7'
+612@ = 5000
+613@ = 1
+gosub @MAF4_COOP_BROADCAST_TEXT
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
 Audio.LoadMissionAudio(13600, 2)
 164@ = 5
+607@ = 1
+gosub @MAF4_COOP_RELEASE_REMOTES
 
 :MAF4_13441
 if 
@@ -1311,6 +1496,9 @@ if
   Char.IsCurrentWeapon($scplayer, WeaponType.Infrared)
 goto_if_false @MAF4_13513
 Text.PrintHelp('DST8_37')
+set_lvar_text_label 610@s = 'DST8_37'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 192@ = 1
 
 :MAF4_13513
@@ -1340,6 +1528,10 @@ Char.SetHeading($scplayer, 359.722)
 Camera.SetBehindPlayer
 Camera.DoFade(1, 500)
 Text.PrintNow('DST8_41', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_41'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_13668
 if 
@@ -1363,6 +1555,10 @@ if
   not Char.IsInArea2D($scplayer, 0, 52.5, 1952.11, 295.92, 1775.93)
 goto_if_false @MAF4_13803
 Text.PrintNow('DST8_39', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_39'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 194@ = 1
 
 :MAF4_13803
@@ -1394,6 +1590,10 @@ Char.SetHeading($scplayer, 359.722)
 Camera.SetBehindPlayer
 Camera.DoFade(1, 500)
 Text.PrintNow('DST8_40', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_40'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_13997
 if 
@@ -1416,8 +1616,9 @@ goto_if_false @MAF4_14871
 if 
   182@ == 0
 goto_if_false @MAF4_14144
-if 
+if or
   Char.LocateStoppedOnFoot3D($scplayer, 211.604, 1811.091, 20.8, 3.0, 3.0, 3.0, True)
+  581@ == 1
 goto_if_false @MAF4_14144
 182@ = 1
 
@@ -1431,6 +1632,10 @@ goto_if_false @MAF4_14255
 Blip.Remove(227@)
 227@ = Blip.AddForCoord(214.0, 1872.0, 12.14)
 Text.PrintNow('DST8_8', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_8'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 Audio.ReportMissionAudioEventAtPosition(213.85, 1874.68, 14.12, 1007)
 179@ = 1
@@ -1514,6 +1719,10 @@ Audio.ReportMissionAudioEventAtPosition(213.85, 1874.68, 14.12, 1008)
 Blip.Remove(227@)
 227@ = Blip.AddForCoord(211.604, 1811.091, 20.8)
 Text.PrintNow('DST8_9', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_9'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 179@ = 0
 180@ = 0
 180@ = 0
@@ -1633,8 +1842,9 @@ goto_if_false @MAF4_15620
 if 
   Searchlight.DoesExist(35@(165@,7i))
 goto_if_false @MAF4_15606
-if 
+if or
   Searchlight.IsCharIn(35@(165@,7i), $scplayer)
+  582@ == 1
 goto_if_false @MAF4_15606
 198@ = 1
 199@ = 0
@@ -1663,8 +1873,9 @@ goto_if_false @MAF4_15753
 if 
   Searchlight.DoesExist(35@(165@,7i))
 goto_if_false @MAF4_15739
-if 
+if or
   Searchlight.IsCharIn(35@(165@,7i), $scplayer)
+  582@ == 1
 goto_if_false @MAF4_15739
 175@ = 2
 
@@ -1741,10 +1952,14 @@ goto @MAF4_15994
 if 
   175@ == 3
 goto_if_false @MAF4_16183
-if 
+if or
   Char.LocateAnyMeans2D($scplayer, 0, 246.0, 1862.64, 5.0, 5.0)
+  583@ == 1
 goto_if_false @MAF4_16183
 Text.PrintHelp('DST8_10')
+set_lvar_text_label 610@s = 'DST8_10'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 Blip.Remove(227@)
 227@ = Blip.AddForCoord(224.99, 1859.18, 12.31)
 175@ = 4
@@ -1861,6 +2076,10 @@ if
   196@ == 3
 goto_if_false @MAF4_16862
 Text.PrintNow('DST8_14', 7000, 1)
+set_lvar_text_label 610@s = 'DST8_14'
+612@ = 7000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 196@ = 4
 
 :MAF4_16862
@@ -1872,7 +2091,10 @@ if or
   Char.LocateOnFoot3D($scplayer, 0, 224.99, 1859.18, 12.31, 8.0, 8.0, 2.0)
   Char.IsInArea3D($scplayer, 0, 201.99, 1874.7, 12.3, 225.47, 1851.43, 14.31)
   Char.LocateOnFoot3D($scplayer, 0, 226.38, 1872.33, 12.93, 4.0, 4.0, 3.5)
+  584@ == 1
 goto_if_false @MAF4_19124
+607@ = 2
+gosub @MAF4_COOP_FREEZE_REMOTES
 Camera.DoFade(0, 250)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Text.ClearPrints
@@ -2046,6 +2268,10 @@ skip_cutscene_start_internal @MAF4_19024
 Camera.SetFixedPosition(278.6251, 1812.837, 4.8301, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(279.2745, 1813.558, 5.0711, SwitchType.JumpCut)
 Text.PrintNow('DST8_42', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_42'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERA = 0
 
 :MAF4_18632
@@ -2060,6 +2286,10 @@ Streaming.LoadSceneInDirection(255.93, 1838.05, 7.73, 142.0)
 Camera.SetFixedPosition(252.5037, 1836.242, 8.5554, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(252.0391, 1835.363, 8.4453, SwitchType.JumpCut)
 Text.PrintNow('DST8_43', 8000, 1)
+set_lvar_text_label 610@s = 'DST8_43'
+612@ = 8000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERA = 0
 
 :MAF4_18758
@@ -2088,6 +2318,10 @@ Camera.SetFixedPosition(217.0121, 1822.658, 6.4205, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(216.015, 1822.672, 6.4959, SwitchType.JumpCut)
 Char.Delete(131@)
 Text.PrintNow('DST8_44', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_44'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERA = 0
 
 :MAF4_18994
@@ -2104,7 +2338,12 @@ Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
+gosub @MAF4_COOP_RELEASE_REMOTES
 Text.PrintNow('DST8_45', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_45'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Audio.ReportMissionAudioEventAtPosition(0.0, 0.0, 0.0, 1005)
 TIMERB = 0
 203@ = 1
@@ -2382,8 +2621,9 @@ gosub @MAF4_29431
 if 
   184@ == 0
 goto_if_false @MAF4_21878
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 266.53, 1849.53, 8.0, 237.01, 1837.55, 10.52)
+  585@ == 1
 goto_if_false @MAF4_21878
 115@ = Char.Create(24, 287, 248.5208, 1806.681, 6.5619)
 Char.SetDecisionMaker(115@, 160@)
@@ -2467,8 +2707,9 @@ Task.PlayAnim(123@, "ATM", "PED", 4.0, True, False, False, False, -1)
 if 
   184@ == 1
 goto_if_false @MAF4_22763
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 301.6813, 1821.801, 7.1396, 272.5243, 1826.948, 10.3607)
+  586@ == 1
 goto_if_false @MAF4_22763
 124@ = Char.Create(24, 287, 280.7216, 1840.162, 6.7266)
 Char.SetDecisionMaker(124@, 160@)
@@ -2540,10 +2781,13 @@ Object.SetProofs(143@, True, True, True, True, True)
 if 
   185@ == 0
 goto_if_false @MAF4_22891
-if 
+if or
   Char.LocateStoppedOnFoot3D($scplayer, 212.93, 1822.82, 5.41, 1.0, 1.0, 3.0, True)
+  587@ == 1
 goto_if_false @MAF4_22891
 TIMERA = 0
+607@ = 3
+gosub @MAF4_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Char.SetHeading($scplayer, 92.24)
 Task.PlayAnim($scplayer, "ATM", "PED", 8.0, False, False, False, False, 500)
@@ -2558,8 +2802,13 @@ if
 goto_if_false @MAF4_22967
 Char.ClearTasks($scplayer)
 Text.PrintNow('DES8_21', 4000, 1)
+set_lvar_text_label 610@s = 'DES8_21'
+612@ = 4000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Game.SetArea51SamSite(False)
 Player.SetControl($player1, True)
+gosub @MAF4_COOP_RELEASE_REMOTES
 185@ = 2
 
 :MAF4_22967
@@ -2586,10 +2835,15 @@ goto @MAF4_22974
 if 
   184@ == 2
 goto_if_false @MAF4_23247
-if 
+if or
   Char.LocateAnyMeans3D($scplayer, 0, 287.0, 1870.0, 9.0, 6.0, 6.0, 6.0)
+  588@ == 1
 goto_if_false @MAF4_23247
 Text.PrintNow('DST8_46', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_46'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 133@ = Char.Create(24, 70, 276.57, 1854.53, 7.75)
 Char.SetHeading(133@, 175.15)
 Char.SetDecisionMaker(133@, 159@)
@@ -2611,6 +2865,7 @@ if or
   Player.IsTargetingChar($player1, 133@)
   Char.IsShootingInArea($scplayer, 0, 282.25, 1852.36, 264.28, 1863.69)
   Char.IsInArea2D($scplayer, 0, 282.25, 1852.36, 264.28, 1863.69)
+  589@ == 1
 goto_if_false @MAF4_23475
 Task.HandsUp(133@, 20000)
 if 
@@ -2619,12 +2874,20 @@ goto_if_false @MAF4_23412
 Audio.AttachMissionAudioToChar(MissionAudioSlot.Slot2, 133@)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('DES8_AA', 2000, 1)
+set_lvar_text_label 610@s = 'DES8_AA'
+612@ = 2000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_23412
 145@ = Pickup.Create(#KEYCARD, 3, 276.57, 1854.53, 8.75)
 Char.SetDecisionMaker(133@, 161@)
 229@ = Blip.AddForPickup(145@)
 Text.Print('DST8_25', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_25'
+612@ = 5000
+613@ = 1
+gosub @MAF4_COOP_BROADCAST_TEXT
 186@ = 2
 
 :MAF4_23475
@@ -2634,6 +2897,10 @@ goto @MAF4_23537
 145@ = Pickup.Create(#KEYCARD, 3, 276.57, 1854.53, 8.75)
 229@ = Blip.AddForPickup(145@)
 Text.PrintNow('DST8_25', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_25'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 186@ = 2
 
 :MAF4_23537
@@ -2651,9 +2918,11 @@ Text.ClearThisPrint('DST8_25')
 204@ = 1
 
 :MAF4_23611
-if 
+if or
   Pickup.HasBeenCollected(145@)
+  590@ == 1
 goto_if_false @MAF4_23639
+Pickup.Remove(145@)
 Blip.Remove(229@)
 186@ = 3
 
@@ -2661,14 +2930,17 @@ Blip.Remove(229@)
 if 
   184@ == 3
 goto_if_false @MAF4_23808
-if 
+if or
   Char.LocateStoppedOnFoot3D($scplayer, 267.015, 1862.51, 7.76, 1.0, 1.0, 5.0, True)
+  591@ == 1
 goto_if_false @MAF4_23808
 if 
   186@ == 3
 goto_if_false @MAF4_23792
 Char.SetHeading($scplayer, 6.3)
 TIMERA = 0
+607@ = 4
+gosub @MAF4_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Task.PlayAnim($scplayer, "ATM", "PED", 8.0, False, False, False, False, 500)
 184@ = 4
@@ -2676,6 +2948,10 @@ goto @MAF4_23808
 
 :MAF4_23792
 Text.PrintNow('DST8_24', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_24'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_23808
 if 
@@ -2706,6 +2982,7 @@ Char.Delete(113@)
 Char.Delete(114@)
 Char.ClearTasks($scplayer)
 Player.SetControl($player1, True)
+gosub @MAF4_COOP_RELEASE_REMOTES
 115@ = Char.Create(24, 287, 261.5664, 1891.85, 7.4446)
 Char.SetDecisionMaker(115@, 159@)
 Char.SetHeading(115@, 212.7731)
@@ -2822,6 +3099,10 @@ Blip.Remove(228@)
 Blip.SetAlwaysDisplayOnZoomedRadar(228@, True)
 Text.ClearPrints
 Text.PrintNow('DST8_34', 5000, 1)
+set_lvar_text_label 610@s = 'DST8_34'
+612@ = 5000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 184@ = 5
 
 :MAF4_25042
@@ -2844,10 +3125,14 @@ TIMERB = 0
 if 
   184@ == 5
 goto_if_false @MAF4_26071
-if 
+if or
   Pickup.HasBeenCollected(144@)
+  592@ == 1
 goto_if_false @MAF4_26071
+Pickup.Remove(144@)
 Blip.Remove(228@)
+607@ = 5
+gosub @MAF4_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Clock.SetTimeOfDay(9, 0)
@@ -2861,6 +3146,10 @@ Streaming.RequestModel(352)
 Streaming.RequestModel(483)
 Streaming.LoadSpecialCharacter('TRUTH', 1)
 Text.PrintNow('DST8_26', 7000, 1)
+set_lvar_text_label 610@s = 'DST8_26'
+612@ = 7000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_25351
 if or
@@ -3018,6 +3307,8 @@ gosub @MAF4_29816
 183@ = 2
 188@ = 1
 184@ = 8
+608@ = 1
+gosub @MAF4_COOP_RELEASE_REMOTES
 
 :MAF4_26649
 if 
@@ -3067,6 +3358,9 @@ if
   188@ == 1
 goto_if_false @MAF4_26948
 Text.PrintHelp('DST8_27')
+set_lvar_text_label 610@s = 'DST8_27'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 188@ = 2
 
@@ -3078,6 +3372,9 @@ if
   TIMERB > 6000
 goto_if_false @MAF4_27010
 Text.PrintHelp('DST8_28')
+set_lvar_text_label 610@s = 'DST8_28'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 188@ = 3
 
@@ -3089,6 +3386,9 @@ if
   TIMERB > 6000
 goto_if_false @MAF4_27072
 Text.PrintHelp('DST8_29')
+set_lvar_text_label 610@s = 'DST8_29'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 188@ = 4
 
@@ -3100,6 +3400,9 @@ if
   TIMERB > 6000
 goto_if_false @MAF4_27134
 Text.PrintHelp('DST8_30')
+set_lvar_text_label 610@s = 'DST8_30'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 188@ = 5
 
@@ -3111,6 +3414,9 @@ if
   TIMERB > 6000
 goto_if_false @MAF4_27196
 Text.PrintHelp('DST8_31')
+set_lvar_text_label 610@s = 'DST8_31'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 188@ = 6
 
@@ -3122,6 +3428,9 @@ if
   TIMERB > 6000
 goto_if_false @MAF4_27258
 Text.PrintHelp('DST8_33')
+set_lvar_text_label 610@s = 'DST8_33'
+613@ = 2
+gosub @MAF4_COOP_BROADCAST_TEXT
 TIMERB = 0
 188@ = 7
 
@@ -3139,8 +3448,9 @@ TIMERB = 0
 if 
   184@ == 8
 goto_if_false @MAF4_28264
-if 
+if or
   Char.LocateAnyMeans3D($scplayer, 0, 268.73, 1883.96, 17.85, 30.0, 30.0, 10.0)
+  593@ == 1
 goto_if_false @MAF4_28264
 Audio.ReportMissionAudioEventAtPosition(0.0, 0.0, 0.0, 1006)
 187@ = 3
@@ -3201,6 +3511,10 @@ goto @MAF4_28031
 Blip.Remove(228@)
 228@ = Blip.AddForCoord(-794.8, 2425.184, 156.124)
 Text.PrintNow('DST8_35', 7000, 1)
+set_lvar_text_label 610@s = 'DST8_35'
+612@ = 7000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 107@ = Car.Create(483, -783.169, 2430.03, 156.23)
 Car.FreezePositionAndDontLoadCollision(107@, True)
 Car.SetHeading(107@, 171.04)
@@ -3218,8 +3532,9 @@ Car.SetIsConsideredByPlayer(107@, False)
 if 
   184@ == 9
 goto_if_false @MAF4_28385
-if 
+if or
   not Char.LocateAnyMeans2D($scplayer, 0, 276.14, 1884.06, 100.0, 100.0)
+  594@ == 1
 goto_if_false @MAF4_28385
 165@ = 0
 
@@ -3243,8 +3558,9 @@ goto_if_false @MAF4_28533
 if 
   not Char.IsDead(106@)
 goto_if_false @MAF4_28533
-if 
+if or
   Char.LocateAnyMeansChar2D(106@, $scplayer, 200.0, 200.0, False)
+  595@ == 1
 goto_if_false @MAF4_28533
 Audio.ReportMissionAudioEventAtPosition(268.73, 1883.96, 17.85, 1006)
 if 
@@ -3261,10 +3577,13 @@ Car.SetHeading(108@, 175.776)
 if 
   190@ == 2
 goto_if_false @MAF4_28761
-if 
+if or
   Char.LocateAnyMeans3D($scplayer, 1, -791.14, 2425.33, 156.2, 3.0, 3.0, 3.0)
+  595@ == 1
 goto_if_false @MAF4_28761
 World.ClearArea(1, -810.94, 2360.42, 150.81, 200.0)
+607@ = 6
+gosub @MAF4_COOP_FREEZE_REMOTES
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Camera.DoFade(0, 500)
@@ -3304,6 +3623,10 @@ Char.SetCurrentWeapon($scplayer, WeaponType.Unarmed)
 Camera.DoFade(1, 250)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('TRUX_BH', 2000, 1)
+set_lvar_text_label 610@s = 'TRUX_BH'
+612@ = 2000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_28864
 if 
@@ -3318,6 +3641,10 @@ Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.LoadMissionAudio(41432, 1)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('DES8_MB', 3000, 1)
+set_lvar_text_label 610@s = 'DES8_MB'
+612@ = 3000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 Task.PlayAnim($scplayer, "IDLE_CHAT", "PED", 4.0, False, False, False, False, -1)
 
 :MAF4_28961
@@ -3342,6 +3669,10 @@ goto @MAF4_29003
 :MAF4_29029
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('DES8_MC', 3000, 1)
+set_lvar_text_label 610@s = 'DES8_MC'
+612@ = 3000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_29049
 if 
@@ -3376,6 +3707,10 @@ goto @MAF4_29163
 :MAF4_29189
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('DES8_MD', 2000, 1)
+set_lvar_text_label 610@s = 'DES8_MD'
+612@ = 2000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_29209
 if 
@@ -3394,6 +3729,10 @@ goto @MAF4_29235
 :MAF4_29261
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Text.PrintNow('DES8_ME', 2000, 1)
+set_lvar_text_label 610@s = 'DES8_ME'
+612@ = 2000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_29281
 if 
@@ -3426,6 +3765,7 @@ Camera.RestoreJumpcut
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
 Camera.DoFade(1, 500)
+gosub @MAF4_COOP_RELEASE_REMOTES
 goto @MAF4_29924
 190@ = 5
 
@@ -3454,6 +3794,10 @@ if
   not is_lvar_text_label_equal_to_text_label 154@s == 'DUMMY'
 goto_if_false @MAF4_29541
 Text.PrintNow(154@s, 4000, 1)
+set_lvar_text_label 610@s = 154@s
+612@ = 4000
+613@ = 0
+gosub @MAF4_COOP_BROADCAST_TEXT
 
 :MAF4_29541
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
@@ -3524,6 +3868,8 @@ Sequence.Clear(152@)
 return 
 
 :MAF4_29854
+564@ = 1
+gosub @MAF4_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 Object.Delete($a51ventcover)
 $a51ventcover = Object.Create(#A51_VENTCOVERB, 245.968, 1862.843, 19.49)
@@ -3532,6 +3878,8 @@ Object.DontRemove($a51ventcover)
 return 
 
 :MAF4_29924
+564@ = 2
+gosub @MAF4_COOP_NOTIFY_OUTCOME
 $flag_desert_mission_counter += 1
 Stat.SetInt(StatId.PassedDesert8, 1)
 $3242 = Pickup.CreateWithAmmo(351, 15, 30, 297.8289, 1846.623, 6.7266)
@@ -3551,6 +3899,7 @@ Blip.Remove($desert2_contact_blip)
 return 
 
 :MAF4_30178
+gosub @MAF4_COOP_CLEANUP
 $onmission = 0
 Streaming.MarkModelAsNoLongerNeeded(287)
 Streaming.MarkModelAsNoLongerNeeded(356)
@@ -3654,6 +4003,1373 @@ Weather.Release
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// Frozen-roster lifecycle. Current actor handles are rediscovered from immutable
+// launch identities, so recycled handles and late joiners cannot inherit a slot.
+:MAF4_COOP_DERIVE_PHASE
+574@ = 10
+if
+    164@ >= 5
+then
+    574@ = 20
+end
+if and
+    175@ >= 2
+    183@ == 0
+then
+    574@ = 25
+end
+if
+    183@ == 1
+then
+    574@ = 40
+end
+if and
+    183@ == 1
+    184@ >= 4
+then
+    574@ = 50
+end
+if and
+    184@ >= 6
+    7 >= 184@
+then
+    574@ = 60
+end
+if
+    183@ == 2
+then
+    574@ = 70
+end
+if
+    190@ >= 2
+then
+    574@ = 80
+end
+return
+
+:MAF4_COOP_UPDATE_ROSTER
+740@, 741@, 742@ = Coop.CollectNetworkPlayersForTheMission()
+614@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 602@ = 506@($temp_int,3i)
+    set_lvar_int_to_lvar_int 603@ = 500@($temp_int,3i)
+    506@($temp_int,3i) = 0
+    if
+        503@($temp_int,3i) <> -1
+    then
+        for 573@ = 0 to 2
+            set_lvar_int_to_lvar_int 572@ = 740@(573@,3i)
+            if
+                Coop.IsNetworkPlayerActorValid(572@)
+            then
+                571@ = Coop.GetNetworkPlayerInternalId(572@)
+                if
+                    is_int_lvar_equal_to_int_lvar 571@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 572@
+                    506@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            602@ == 0
+        then
+            512@($temp_int,3i) = 1
+            515@($temp_int,3i) = -1
+            554@($temp_int,3i) = -1
+            557@($temp_int,3i) = 0
+            614@ = 1
+            set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+            545@($temp_int,3i) = Char.GetHealth(572@)
+            548@($temp_int,3i) = Char.GetArmor(572@)
+        end
+        if
+            not is_int_lvar_equal_to_int_lvar 603@ == 500@($temp_int,3i)
+        then
+            554@($temp_int,3i) = -1
+            557@($temp_int,3i) = 0
+        end
+        if
+            Char.IsDead(500@($temp_int,3i))
+        then
+            561@ = 1
+        end
+        if and
+            563@ == 1
+            not Char.IsDead(500@($temp_int,3i))
+        then
+            set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+            Char.ClearTasksImmediately(572@)
+            542@($temp_int,3i) = 0
+            Char.FreezePosition(572@, True)
+            Char.SetProofs(572@, True, True, True, True, True)
+            Char.SetCollision(572@, False)
+            Char.SetVisible(572@, False)
+            Task.StandStill(572@, -1)
+        end
+    end
+    set_lvar_int_to_lvar_int 509@($temp_int,3i) = 506@($temp_int,3i)
+end
+return
+
+:MAF4_COOP_BUILD_ACTIVE_ARGS
+596@ = -1
+597@ = -1
+598@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 596@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:MAF4_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(500@, -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 501@, -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 502@)
+end
+return
+
+:MAF4_COOP_APPLY_LOADOUT_CURRENT
+if
+    539@($temp_int,3i) == 0
+then
+    Char.GiveWeapon(500@($temp_int,3i), WeaponType.Knife, 1)
+    Char.GiveWeapon(500@($temp_int,3i), WeaponType.PistolSilenced, 70)
+    Char.GiveWeapon(500@($temp_int,3i), WeaponType.Infrared, 1)
+    Char.GiveWeapon(500@($temp_int,3i), WeaponType.Sniper, 35)
+    539@($temp_int,3i) = 1
+end
+if and
+    574@ == 70
+    608@ == 1
+then
+    if
+        542@($temp_int,3i) == 0
+    then
+        Task.Jetpack(500@($temp_int,3i))
+        Char.GiveWeapon(500@($temp_int,3i), WeaponType.MicroUzi, 200)
+        542@($temp_int,3i) = 1
+    end
+end
+return
+
+:MAF4_COOP_STAGE_CURRENT
+gosub @MAF4_COOP_TELEPORT_CURRENT
+576@ = Char.GetAreaVisible($scplayer)
+set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+Char.ClearTasksImmediately(572@)
+542@($temp_int,3i) = 0
+Char.SetAreaVisible(572@, 576@)
+Char.FreezePosition(572@, False)
+Char.SetProofs(572@, False, False, False, False, False)
+Char.SetCollision(572@, True)
+Char.SetVisible(572@, True)
+Task.StandStill(572@, 0)
+if
+    574@ >= 20
+then
+    gosub @MAF4_COOP_APPLY_LOADOUT_CURRENT
+end
+545@($temp_int,3i) = Char.GetHealth(572@)
+548@($temp_int,3i) = Char.GetArmor(572@)
+551@($temp_int,3i) = 0
+512@($temp_int,3i) = 0
+return
+
+:MAF4_COOP_REGROUP_RECONNECTED
+gosub @MAF4_COOP_DERIVE_PHASE
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        512@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        gosub @MAF4_COOP_STAGE_CURRENT
+    end
+end
+return
+
+// Cinematic and interior-boundary staging is idempotent. Safe host-relative
+// teleporting supplies collision-aware offsets; area, tasks, proofs, visibility,
+// and the temporary jetpack are re-established on every release.
+:MAF4_COOP_FREEZE_REMOTES
+563@ = 1
+gosub @MAF4_COOP_UPDATE_ROSTER
+gosub @MAF4_COOP_CLEAR_OBJECTIVES
+576@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        if
+            Char.IsInAnyCar(572@)
+        then
+            599@, 600@, 601@ = Char.GetCoordinates(572@)
+            Char.WarpFromCarToCoord(572@, 599@, 600@, 601@)
+        end
+        Char.ClearTasksImmediately(572@)
+        542@($temp_int,3i) = 0
+        Char.SetAreaVisible(572@, 576@)
+        Char.SetProofs(572@, True, True, True, True, True)
+        Char.SetCollision(572@, False)
+        Char.SetVisible(572@, False)
+        Task.StandStill(572@, -1)
+        Char.FreezePosition(572@, True)
+    end
+end
+gosub @MAF4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(596@, 597@, 598@)
+return
+
+:MAF4_COOP_RELEASE_REMOTES
+563@ = 0
+gosub @MAF4_COOP_UPDATE_ROSTER
+gosub @MAF4_COOP_DERIVE_PHASE
+gosub @MAF4_COOP_POLL_REGISTRATIONS
+gosub @MAF4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(596@, 597@, 598@)
+576@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        Char.ClearTasksImmediately(572@)
+        542@($temp_int,3i) = 0
+        Char.SetAreaVisible(572@, 576@)
+        Char.FreezePosition(572@, False)
+        Char.SetProofs(572@, False, False, False, False, False)
+        Char.SetCollision(572@, True)
+        Char.SetVisible(572@, True)
+        Task.StandStill(572@, 0)
+        if
+            574@ >= 20
+        then
+            gosub @MAF4_COOP_APPLY_LOADOUT_CURRENT
+        end
+        545@($temp_int,3i) = Char.GetHealth(572@)
+        548@($temp_int,3i) = Char.GetArmor(572@)
+        551@($temp_int,3i) = 0
+        512@($temp_int,3i) = 0
+    end
+end
+return
+
+// One canonical host pickup/state transition is retained for keycard and jetpack.
+// These flags are only physical evidence from a connected immutable participant.
+:MAF4_COOP_UPDATE_TRIGGERS
+581@ = 0
+582@ = 0
+583@ = 0
+584@ = 0
+585@ = 0
+586@ = 0
+587@ = 0
+588@ = 0
+589@ = 0
+590@ = 0
+591@ = 0
+592@ = 0
+593@ = 0
+594@ = 0
+595@ = 0
+if
+    563@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        if
+            Char.LocateStoppedOnFoot3D(572@, 211.604, 1811.091, 20.8, 3.0, 3.0, 3.0, True)
+        then
+            581@ = 1
+        end
+        if
+            Char.LocateAnyMeans2D(572@, False, 246.0, 1862.64, 5.0, 5.0)
+        then
+            583@ = 1
+        end
+        if
+            Char.LocateAnyMeans3D(572@, False, 224.99, 1859.18, 12.31, 15.0, 15.0, 6.0)
+        then
+            584@ = 1
+        end
+        if
+            Char.IsInArea3D(572@, False, 266.53, 1849.53, 8.0, 237.01, 1837.55, 10.52)
+        then
+            585@ = 1
+        end
+        if
+            Char.IsInArea3D(572@, False, 301.6813, 1821.801, 7.1396, 272.5243, 1826.948, 10.3607)
+        then
+            586@ = 1
+        end
+        if
+            Char.LocateStoppedOnFoot3D(572@, 212.93, 1822.82, 5.41, 1.0, 1.0, 3.0, True)
+        then
+            587@ = 1
+        end
+        if
+            Char.LocateAnyMeans3D(572@, False, 287.0, 1870.0, 9.0, 6.0, 6.0, 6.0)
+        then
+            588@ = 1
+        end
+        if and
+            186@ == 2
+            Char.LocateAnyMeans3D(572@, False, 276.57, 1854.53, 8.75, 1.5, 1.5, 2.5)
+        then
+            590@ = 1
+        end
+        if
+            Char.LocateStoppedOnFoot3D(572@, 267.015, 1862.51, 7.76, 1.0, 1.0, 5.0, True)
+        then
+            591@ = 1
+        end
+        if and
+            184@ == 5
+            Char.LocateAnyMeans3D(572@, False, 268.7, 1884.1, -30.085, 2.0, 2.0, 3.0)
+        then
+            592@ = 1
+        end
+        if
+            Char.LocateAnyMeans3D(572@, False, 268.73, 1883.96, 17.85, 30.0, 30.0, 10.0)
+        then
+            593@ = 1
+        end
+        if and
+            184@ == 9
+            not Char.LocateAnyMeans2D(572@, False, 276.14, 1884.06, 100.0, 100.0)
+        then
+            594@ = 1
+        end
+        if
+            Char.LocateAnyMeans3D(572@, False, -791.14, 2425.33, 156.2, 3.0, 3.0, 3.0)
+        then
+            595@ = 1
+        end
+        if and
+            Char.DoesExist(133@)
+            not Char.IsDead(133@)
+        then
+            if
+                Char.HasBeenDamagedByChar(133@, 572@)
+            then
+                589@ = 1
+            end
+            if
+                Char.IsShootingInArea(572@, False, 282.25, 1852.36, 264.28, 1863.69)
+            then
+                589@ = 1
+            end
+            if
+                Char.IsInArea2D(572@, False, 282.25, 1852.36, 264.28, 1863.69)
+            then
+                589@ = 1
+            end
+        end
+        if and
+            175@ < 2
+            183@ == 0
+        then
+            for 573@ = 0 to 6
+                if
+                    Searchlight.DoesExist(35@(573@,7i))
+                then
+                    if
+                        Searchlight.IsCharIn(35@(573@,7i), 572@)
+                    then
+                        582@ = 1
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+// Damage ledgers reverse only damage explicitly attributed to a frozen peer.
+// Enemy fire, falls, drowning, and scripted hazards retain their stock semantics.
+:MAF4_COOP_PROTECT_FRIENDLY_FIRE
+if
+    Char.IsDead($scplayer)
+then
+    return
+end
+575@ = 0
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        if
+            Char.HasBeenDamagedByChar($scplayer, 500@($temp_int,3i))
+        then
+            575@ = 1
+        end
+    end
+end
+579@ = Char.GetHealth($scplayer)
+580@ = Char.GetArmor($scplayer)
+if
+    575@ == 1
+then
+    if
+        is_int_lvar_greater_than_int_lvar 577@ > 579@
+    then
+        Char.SetHealth($scplayer, 577@)
+    end
+    if
+        is_int_lvar_greater_than_int_lvar 578@ > 580@
+    then
+        set_lvar_int_to_lvar_int 575@ = 578@
+        sub_int_lvar_from_int_lvar 575@ -= 580@
+        Char.AddArmor($scplayer, 575@)
+    end
+    Char.ClearLastDamageEntity($scplayer)
+end
+577@ = Char.GetHealth($scplayer)
+578@ = Char.GetArmor($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        575@ = 0
+        if
+            Char.HasBeenDamagedByChar(572@, $scplayer)
+        then
+            575@ = 1
+        end
+        for 573@ = 0 to 2
+            if and
+                506@(573@,3i) == 1
+                not is_int_lvar_equal_to_int_lvar 572@ == 500@(573@,3i)
+            then
+                if
+                    Char.HasBeenDamagedByChar(572@, 500@(573@,3i))
+                then
+                    575@ = 1
+                end
+            end
+        end
+        579@ = Char.GetHealth(572@)
+        580@ = Char.GetArmor(572@)
+        if
+            575@ == 1
+        then
+            if
+                is_int_lvar_greater_than_int_lvar 545@($temp_int,3i) > 579@
+            then
+                Char.SetHealth(572@, 545@($temp_int,3i))
+            end
+            if
+                is_int_lvar_greater_than_int_lvar 548@($temp_int,3i) > 580@
+            then
+                set_lvar_int_to_lvar_int 575@ = 548@($temp_int,3i)
+                sub_int_lvar_from_int_lvar 575@ -= 580@
+                Char.AddArmor(572@, 575@)
+            end
+        end
+        Char.ClearLastDamageEntity(572@)
+        545@($temp_int,3i) = Char.GetHealth(572@)
+        548@($temp_int,3i) = Char.GetArmor(572@)
+    end
+end
+// Truth and his transport are canonical mission state and never valid peer-fire
+// targets. Their stock finale already proofs them; this also covers the intro.
+if
+    Char.DoesExist(106@)
+then
+    Char.SetProofs(106@, True, True, True, True, True)
+    Char.ClearLastDamageEntity(106@)
+end
+if
+    Car.DoesExist(107@)
+then
+    Car.SetProofs(107@, True, True, True, True, True)
+    Car.ClearLastDamageEntity(107@)
+end
+return
+
+// Once stealth has broken, synchronized soldiers distribute deterministic targets
+// across living peers. Scientist models are excluded from combat retargeting.
+:MAF4_COOP_RETARGET_ENEMIES
+if or
+    563@ == 1
+    25 > 574@
+then
+    return
+end
+570@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 567@ > 570@
+then
+    return
+end
+set_lvar_int_to_lvar_int 567@ = 570@
+567@ += 1500
+605@ = 0
+for $temp_int = 0 to 21
+    set_lvar_int_to_lvar_int 572@ = 109@($temp_int,22i)
+    if and
+        Char.DoesExist(572@)
+        not Char.IsDead(572@)
+    then
+        736@ = Char.GetModel(572@)
+        if
+            736@ == 287
+        then
+            604@ = -1
+            if and
+                506@(605@,3i) == 1
+                not Char.IsDead(500@(605@,3i))
+            then
+                set_lvar_int_to_lvar_int 604@ = 500@(605@,3i)
+            end
+            if
+                604@ == -1
+            then
+                for 573@ = 0 to 2
+                    if and
+                        506@(573@,3i) == 1
+                        not Char.IsDead(500@(573@,3i))
+                    then
+                        set_lvar_int_to_lvar_int 604@ = 500@(573@,3i)
+                    end
+                end
+            end
+            if
+                604@ == -1
+            then
+                Task.KillCharOnFoot(572@, $scplayer)
+            else
+                Task.KillCharOnFoot(572@, 604@)
+            end
+        end
+    end
+    605@ += 1
+    if
+        605@ >= 3
+    then
+        605@ = 0
+    end
+end
+return
+
+// Separation recovery is time-bounded outside cinematics. Interior-area mismatch,
+// water, and invalid shaft depth recover immediately; free jetpack escape is not
+// distance-leashed, so peers can meaningfully scout and lead the flight out.
+:MAF4_COOP_UPDATE_REGROUP
+if
+    563@ == 1
+then
+    return
+end
+570@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 568@ > 570@
+then
+    return
+end
+set_lvar_int_to_lvar_int 568@ = 570@
+568@ += 1000
+576@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        575@ = Char.GetAreaVisible(572@)
+        599@, 600@, 601@ = Char.GetCoordinates(572@)
+        603@ = 0
+        if
+            not is_int_lvar_equal_to_int_lvar 575@ == 576@
+        then
+            603@ = 1
+        end
+        if or
+            Char.IsInWater(572@)
+            -45.0 > 601@
+        then
+            603@ = 1
+        end
+        if
+            603@ == 0
+        then
+            if
+                574@ == 70
+            then
+                551@($temp_int,3i) = 0
+            else
+                if
+                    Char.LocateAnyMeansChar3D(572@, $scplayer, 275.0, 275.0, 80.0, False)
+                then
+                    551@($temp_int,3i) = 0
+                else
+                    if
+                        551@($temp_int,3i) == 0
+                    then
+                        set_lvar_int_to_lvar_int 551@($temp_int,3i) = 570@
+                        551@($temp_int,3i) += 15000
+                    end
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 551@($temp_int,3i)
+                    then
+                        603@ = 1
+                    end
+                end
+            end
+        end
+        if
+            603@ == 1
+        then
+            gosub @MAF4_COOP_STAGE_CURRENT
+            515@($temp_int,3i) = -1
+        end
+    end
+end
+return
+
+:MAF4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_7', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_8', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_10', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_24', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_25', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_34', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_35', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_38', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DST8_45', 500@($temp_int,3i))
+    end
+    515@($temp_int,3i) = -1
+end
+return
+
+:MAF4_COOP_UPDATE_OBJECTIVES
+if
+    563@ == 1
+then
+    return
+end
+570@ = Clock.GetGameTimer()
+575@ = 0
+if
+    is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 566@
+then
+    575@ = 1
+    set_lvar_int_to_lvar_int 566@ = 570@
+    566@ += 5000
+end
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        602@ = 0
+        if
+            not is_int_lvar_equal_to_int_lvar 515@($temp_int,3i) == 574@
+        then
+            602@ = 1
+        end
+        if or
+            602@ == 1
+            575@ == 1
+        then
+            set_lvar_int_to_lvar_int 515@($temp_int,3i) = 574@
+            Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+            Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+            if
+                731@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(500@($temp_int,3i), $scplayer, True, BlipDisplay.Both, BlipColor.Blue, 2)
+            end
+            if and
+                574@ >= 25
+                80 > 574@
+            then
+                for 573@ = 0 to 21
+                    if and
+                        672@(573@,22i) <> -1
+                        Char.DoesExist(109@(573@,22i))
+                        not Char.IsDead(109@(573@,22i))
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(500@($temp_int,3i), 109@(573@,22i), False, BlipDisplay.Both, BlipColor.Red, 2)
+                    end
+                end
+            end
+            if
+                574@ == 20
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(211.604, 1811.091, 20.8, 3.0, 3.0, 3.0, 500@($temp_int,3i))
+                if
+                    602@ == 1
+                then
+                    Coop.PrintNowForNetworkPlayer('DST8_38', 5000, 1, 500@($temp_int,3i))
+                end
+            end
+            if
+                574@ == 25
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(246.0, 1862.64, 19.89, 5.0, 5.0, 5.0, 500@($temp_int,3i))
+                if
+                    602@ == 1
+                then
+                    Coop.PrintHelpForNetworkPlayer('DST8_10', 500@($temp_int,3i))
+                end
+            end
+            if
+                574@ == 40
+            then
+                if
+                    184@ < 2
+                then
+                    Coop.UpdateCheckpointForNetworkPlayer(267.015, 1862.51, 7.76, 6.0, 6.0, 5.0, 500@($temp_int,3i))
+                end
+                if and
+                    184@ >= 2
+                    3 > 186@
+                then
+                    Coop.UpdateCheckpointForNetworkPlayer(276.57, 1854.53, 8.75, 5.0, 5.0, 4.0, 500@($temp_int,3i))
+                    if
+                        602@ == 1
+                    then
+                        Coop.PrintNowForNetworkPlayer('DST8_25', 5000, 1, 500@($temp_int,3i))
+                    end
+                end
+                if
+                    186@ == 3
+                then
+                    Coop.UpdateCheckpointForNetworkPlayer(267.015, 1862.51, 7.76, 2.0, 2.0, 5.0, 500@($temp_int,3i))
+                end
+            end
+            if or
+                574@ == 50
+                574@ == 60
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(268.7, 1884.1, -30.085, 4.0, 4.0, 5.0, 500@($temp_int,3i))
+                if
+                    602@ == 1
+                then
+                    Coop.PrintNowForNetworkPlayer('DST8_34', 5000, 1, 500@($temp_int,3i))
+                end
+            end
+            if
+                574@ == 70
+            then
+                if
+                    9 > 184@
+                then
+                    Coop.UpdateCheckpointForNetworkPlayer(268.9, 1884.33, 19.91, 30.0, 30.0, 10.0, 500@($temp_int,3i))
+                else
+                    Coop.UpdateCheckpointForNetworkPlayer(-794.8, 2425.184, 156.124, 8.0, 8.0, 8.0, 500@($temp_int,3i))
+                    if and
+                        717@ <> -1
+                        Char.DoesExist(106@)
+                    then
+                        Coop.UpdateCharBlipForNetworkPlayer(500@($temp_int,3i), 106@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                    end
+                end
+                if
+                    602@ == 1
+                then
+                    Coop.PrintNowForNetworkPlayer('DST8_35', 7000, 1, 500@($temp_int,3i))
+                end
+            end
+            if
+                574@ == 80
+            then
+                Coop.UpdateCheckpointForNetworkPlayer(-791.14, 2425.33, 156.2, 3.0, 3.0, 3.0, 500@($temp_int,3i))
+            end
+        end
+    end
+end
+return
+
+:MAF4_COOP_BROADCAST_TEXT
+gosub @MAF4_COOP_UPDATE_ROSTER
+gosub @MAF4_COOP_POLL_REGISTRATIONS
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            613@ == 0
+        then
+            Coop.PrintNowForNetworkPlayer(610@s, 612@, 1, 500@($temp_int,3i))
+        end
+        if
+            613@ == 1
+        then
+            Coop.PrintForNetworkPlayer(610@s, 612@, 1, 500@($temp_int,3i))
+        end
+        if
+            613@ == 2
+        then
+            Coop.PrintHelpForNetworkPlayer(610@s, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+// Ped and vehicle IDs arrive asynchronously. Every handshake has a three-second
+// deadline and then falls back to five-second nonblocking retries. Object/door IDs
+// have no Coop opcode; EnableSyncingThisScript covers those supported entities.
+:MAF4_COOP_POLL_REGISTRATIONS
+if
+    560@ == 0
+then
+    return
+end
+570@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 569@ > 570@
+then
+    return
+end
+set_lvar_int_to_lvar_int 569@ = 570@
+569@ += 500
+if
+    731@ == -1
+then
+    731@ = Coop.GetPedNetworkId($scplayer)
+    if
+        731@ == -1
+    then
+        if
+            732@ == 0
+        then
+            set_lvar_int_to_lvar_int 732@ = 570@
+            732@ += 3000
+        else
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 732@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 732@ = 570@
+                732@ += 5000
+            end
+        end
+    else
+        732@ = 0
+    end
+end
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        if
+            554@($temp_int,3i) == -1
+        then
+            554@($temp_int,3i) = Coop.GetPedNetworkId(572@)
+            if
+                554@($temp_int,3i) == -1
+            then
+                if
+                    557@($temp_int,3i) == 0
+                then
+                    set_lvar_int_to_lvar_int 557@($temp_int,3i) = 570@
+                    557@($temp_int,3i) += 3000
+                else
+                    if
+                        is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 557@($temp_int,3i)
+                    then
+                        606@ += 1
+                        set_lvar_int_to_lvar_int 557@($temp_int,3i) = 570@
+                        557@($temp_int,3i) += 5000
+                    end
+                end
+            else
+                557@($temp_int,3i) = 0
+            end
+        end
+    end
+end
+for $temp_int = 0 to 21
+    set_lvar_int_to_lvar_int 572@ = 109@($temp_int,22i)
+    if
+        Char.DoesExist(572@)
+    then
+        if
+            not is_int_lvar_equal_to_int_lvar 650@($temp_int,22i) == 572@
+        then
+            set_lvar_int_to_lvar_int 650@($temp_int,22i) = 572@
+            672@($temp_int,22i) = -1
+            set_lvar_int_to_lvar_int 694@($temp_int,22i) = 570@
+            694@($temp_int,22i) += 3000
+        end
+        if
+            672@($temp_int,22i) == -1
+        then
+            672@($temp_int,22i) = Coop.GetPedNetworkId(572@)
+            if
+                672@($temp_int,22i) == -1
+            then
+                if
+                    is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 694@($temp_int,22i)
+                then
+                    606@ += 1
+                    set_lvar_int_to_lvar_int 694@($temp_int,22i) = 570@
+                    694@($temp_int,22i) += 5000
+                end
+            else
+                694@($temp_int,22i) = 0
+            end
+        end
+    else
+        650@($temp_int,22i) = -1
+        672@($temp_int,22i) = -1
+        694@($temp_int,22i) = 0
+    end
+end
+if
+    Char.DoesExist(106@)
+then
+    set_lvar_int_to_lvar_int 572@ = 106@
+    if
+        not is_int_lvar_equal_to_int_lvar 716@ == 572@
+    then
+        set_lvar_int_to_lvar_int 716@ = 572@
+        717@ = -1
+        set_lvar_int_to_lvar_int 718@ = 570@
+        718@ += 3000
+    end
+    if
+        717@ == -1
+    then
+        717@ = Coop.GetPedNetworkId(572@)
+        if
+            717@ == -1
+        then
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 718@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 718@ = 570@
+                718@ += 5000
+            end
+        else
+            718@ = 0
+        end
+    end
+else
+    716@ = -1
+    717@ = -1
+    718@ = 0
+end
+if
+    Char.DoesExist(131@)
+then
+    set_lvar_int_to_lvar_int 572@ = 131@
+    if
+        not is_int_lvar_equal_to_int_lvar 737@ == 572@
+    then
+        set_lvar_int_to_lvar_int 737@ = 572@
+        738@ = -1
+        set_lvar_int_to_lvar_int 739@ = 570@
+        739@ += 3000
+    end
+    if
+        738@ == -1
+    then
+        738@ = Coop.GetPedNetworkId(572@)
+        if
+            738@ == -1
+        then
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 739@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 739@ = 570@
+                739@ += 5000
+            end
+        else
+            739@ = 0
+        end
+    end
+else
+    737@ = -1
+    738@ = -1
+    739@ = 0
+end
+if
+    Char.DoesExist(133@)
+then
+    set_lvar_int_to_lvar_int 572@ = 133@
+    if
+        not is_int_lvar_equal_to_int_lvar 719@ == 572@
+    then
+        set_lvar_int_to_lvar_int 719@ = 572@
+        720@ = -1
+        set_lvar_int_to_lvar_int 721@ = 570@
+        721@ += 3000
+    end
+    if
+        720@ == -1
+    then
+        720@ = Coop.GetPedNetworkId(572@)
+        if
+            720@ == -1
+        then
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 721@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 721@ = 570@
+                721@ += 5000
+            end
+        else
+            721@ = 0
+        end
+    end
+else
+    719@ = -1
+    720@ = -1
+    721@ = 0
+end
+if
+    Car.DoesExist(107@)
+then
+    set_lvar_int_to_lvar_int 572@ = 107@
+    if
+        not is_int_lvar_equal_to_int_lvar 722@ == 572@
+    then
+        set_lvar_int_to_lvar_int 722@ = 572@
+        723@ = -1
+        set_lvar_int_to_lvar_int 724@ = 570@
+        724@ += 3000
+    end
+    if
+        723@ == -1
+    then
+        723@ = Coop.GetVehicleNetworkId(572@)
+        if
+            723@ == -1
+        then
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 724@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 724@ = 570@
+                724@ += 5000
+            end
+        else
+            724@ = 0
+        end
+    end
+else
+    722@ = -1
+    723@ = -1
+    724@ = 0
+end
+if
+    Car.DoesExist(108@)
+then
+    set_lvar_int_to_lvar_int 572@ = 108@
+    if
+        not is_int_lvar_equal_to_int_lvar 725@ == 572@
+    then
+        set_lvar_int_to_lvar_int 725@ = 572@
+        726@ = -1
+        set_lvar_int_to_lvar_int 727@ = 570@
+        727@ += 3000
+    end
+    if
+        726@ == -1
+    then
+        726@ = Coop.GetVehicleNetworkId(572@)
+        if
+            726@ == -1
+        then
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 727@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 727@ = 570@
+                727@ += 5000
+            end
+        else
+            727@ = 0
+        end
+    end
+else
+    725@ = -1
+    726@ = -1
+    727@ = 0
+end
+if
+    Car.DoesExist(132@)
+then
+    set_lvar_int_to_lvar_int 572@ = 132@
+    if
+        not is_int_lvar_equal_to_int_lvar 728@ == 572@
+    then
+        set_lvar_int_to_lvar_int 728@ = 572@
+        729@ = -1
+        set_lvar_int_to_lvar_int 730@ = 570@
+        730@ += 3000
+    end
+    if
+        729@ == -1
+    then
+        729@ = Coop.GetVehicleNetworkId(572@)
+        if
+            729@ == -1
+        then
+            if
+                is_int_lvar_greater_or_equal_to_int_lvar 570@ >= 730@
+            then
+                606@ += 1
+                set_lvar_int_to_lvar_int 730@ = 570@
+                730@ += 5000
+            end
+        else
+            730@ = 0
+        end
+    end
+else
+    728@ = -1
+    729@ = -1
+    730@ = 0
+end
+if
+    Object.DoesExist($frontdoorr_a51)
+then
+    Object.SetProofs($frontdoorr_a51, True, True, True, True, True)
+end
+if
+    Object.DoesExist($frontdoorl_a51)
+then
+    Object.SetProofs($frontdoorl_a51, True, True, True, True, True)
+end
+if
+    Object.DoesExist(143@)
+then
+    Object.SetProofs(143@, True, True, True, True, True)
+end
+if
+    Object.DoesExist($launchdoor_a51)
+then
+    Object.SetProofs($launchdoor_a51, True, True, True, True, True)
+end
+return
+
+:MAF4_COOP_UPDATE
+if
+    560@ == 0
+then
+    return
+end
+gosub @MAF4_COOP_DERIVE_PHASE
+gosub @MAF4_COOP_UPDATE_ROSTER
+if and
+    614@ == 1
+    563@ == 0
+then
+    gosub @MAF4_COOP_REGROUP_RECONNECTED
+end
+if
+    561@ == 1
+then
+    return
+end
+gosub @MAF4_COOP_UPDATE_TRIGGERS
+gosub @MAF4_COOP_PROTECT_FRIENDLY_FIRE
+gosub @MAF4_COOP_RETARGET_ENEMIES
+gosub @MAF4_COOP_POLL_REGISTRATIONS
+gosub @MAF4_COOP_UPDATE_REGROUP
+gosub @MAF4_COOP_UPDATE_OBJECTIVES
+return
+
+:MAF4_COOP_NOTIFY_OUTCOME
+if
+    565@ == 1
+then
+    return
+end
+565@ = 1
+gosub @MAF4_COOP_UPDATE_ROSTER
+gosub @MAF4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        if
+            564@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+        if
+            564@ == 2
+        then
+            // Presentation only: all rewards, stats, pickups, progress, and story
+            // flags remain exclusively in the untouched canonical host pass block.
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@($temp_int,3i))
+        end
+    end
+end
+return
+
+// Restoration is exact for all temporary peer weapons and idempotent for area,
+// jetpack tasks, proofs, collision, visibility, checkpoints, blips, and freezes.
+:MAF4_COOP_CLEANUP
+if
+    562@ == 1
+then
+    return
+end
+562@ = 1
+if
+    560@ == 0
+then
+    return
+end
+563@ = 0
+gosub @MAF4_COOP_UPDATE_ROSTER
+gosub @MAF4_COOP_CLEAR_OBJECTIVES
+gosub @MAF4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(596@, 597@, 598@)
+576@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        not Char.IsDead(500@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 572@ = 500@($temp_int,3i)
+        Char.ClearTasksImmediately(572@)
+        if
+            539@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(4, 572@)
+            if
+                524@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(572@, WeaponType.Knife, 524@($temp_int,3i))
+            end
+            Char.RemoveWeapon(23, 572@)
+            if
+                527@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(572@, WeaponType.PistolSilenced, 527@($temp_int,3i))
+            end
+            Char.RemoveWeapon(45, 572@)
+            if
+                530@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(572@, WeaponType.Infrared, 530@($temp_int,3i))
+            end
+            Char.RemoveWeapon(34, 572@)
+            if
+                533@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(572@, WeaponType.Sniper, 533@($temp_int,3i))
+            end
+        end
+        if or
+            542@($temp_int,3i) == 1
+            608@ == 1
+        then
+            Char.RemoveWeapon(28, 572@)
+            if
+                536@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon(572@, WeaponType.MicroUzi, 536@($temp_int,3i))
+            end
+        end
+        if
+            521@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(572@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(572@, 521@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(572@, 521@($temp_int,3i))
+            end
+        end
+        Char.SetAreaVisible(572@, 576@)
+        Char.FreezePosition(572@, False)
+        Char.SetProofs(572@, False, False, False, False, False)
+        Char.SetCollision(572@, True)
+        Char.SetVisible(572@, True)
+        Task.StandStill(572@, 0)
+        Char.ClearLastDamageEntity(572@)
+    end
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = 0
+    512@($temp_int,3i) = 0
+    515@($temp_int,3i) = -1
+    539@($temp_int,3i) = 0
+    542@($temp_int,3i) = 0
+    551@($temp_int,3i) = 0
+    554@($temp_int,3i) = -1
+    557@($temp_int,3i) = 0
+end
+if
+    Object.DoesExist($frontdoorr_a51)
+then
+    Object.SetProofs($frontdoorr_a51, False, False, False, False, False)
+end
+if
+    Object.DoesExist($frontdoorl_a51)
+then
+    Object.SetProofs($frontdoorl_a51, False, False, False, False, False)
+end
+if
+    Object.DoesExist(143@)
+then
+    Object.SetProofs(143@, False, False, False, False, False)
+end
+if
+    Object.DoesExist($launchdoor_a51)
+then
+    Object.SetProofs($launchdoor_a51, False, False, False, False, False)
+end
+if
+    Car.DoesExist(107@)
+then
+    Car.SetProofs(107@, False, False, False, False, False)
+end
+if
+    not Char.IsDead($scplayer)
+then
+    Char.ClearLastDamageEntity($scplayer)
+end
+return
 
 //-------------Mission 82---------------
 // Originally: Green Goo
