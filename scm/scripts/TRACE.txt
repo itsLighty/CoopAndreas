@@ -25,6 +25,9 @@ goto_if_false @TRACE_263
 if 
   Player.CanStartMission($player1)
 goto_if_false @TRACE_263
+if
+  Coop.IsHost()
+goto_if_false @TRACE_263
 if 
   $flag_garage_mission_counter > 0
 goto_if_false @TRACE_263
@@ -44,6 +47,9 @@ if
 goto_if_false @TRACE_395
 if 
   Player.CanStartMission($player1)
+goto_if_false @TRACE_395
+if
+  Coop.IsHost()
 goto_if_false @TRACE_395
 if 
   $flag_garage_mission_counter > 0

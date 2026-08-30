@@ -3,6 +3,17 @@
 
 :DSKOOL
 script_name 'DSKOOL'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @DSKOOL_COOP_REJECT_NON_HOST
+goto @DSKOOL_COOP_HOST_START
+
+:DSKOOL_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:DSKOOL_COOP_HOST_START
+gosub @DSKOOL_COOP_INIT
 gosub @DSKOOL_47
 if 
   has_deatharrest_been_executed 
@@ -11,6 +22,7 @@ gosub @DSKOOL_24457
 
 :DSKOOL_38
 gosub @DSKOOL_24618
+gosub @DSKOOL_COOP_CLEANUP
 terminate_this_script 
 
 :DSKOOL_47
@@ -722,6 +734,7 @@ $perfect_heading = 180.0
 $car_timer = 11000
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(411, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, 180.0)
 gosub @DSKOOL_35490
 if 
@@ -937,6 +950,7 @@ $overall_score = 0
 :DSKOOL_5075
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_the360_best_score
 goto_if_false @DSKOOL_5145
@@ -1016,6 +1030,7 @@ $perfect_heading = 0.0
 $car_timer = 11000
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(496, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, 180.0)
 gosub @DSKOOL_35490
 if 
@@ -1173,6 +1188,7 @@ $overall_score = 0
 :DSKOOL_6394
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_the180_best_score
 goto_if_false @DSKOOL_6464
@@ -1265,6 +1281,7 @@ $perfect_positionx -= 20.0
 
 :DSKOOL_6823
 $instructor_car = Car.Create(429, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 gosub @DSKOOL_35490
 if 
@@ -1474,6 +1491,7 @@ $overall_score = 0
 :DSKOOL_8006
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_whiprightterminate_best_score
 goto_if_false @DSKOOL_8076
@@ -1553,6 +1571,7 @@ $perfect_heading = 180.0
 $car_timer = 6000
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(597, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 $perfect_positionx = Car.GetOffsetInWorldCoords($perfect_positiony, $perfect_positionz, $instructor_car, 2.0, 38.0, -0.5)
 $car_posx = Car.GetOffsetInWorldCoords($car_posy, $perfect_positionz, $instructor_car, -2.0, 40.0, -0.5)
@@ -1736,6 +1755,7 @@ $overall_score = 0
 :DSKOOL_9504
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_popcontrol_best_score
 goto_if_false @DSKOOL_9574
@@ -1817,6 +1837,7 @@ $perfect_heading = 180.0
 $car_timer = 0
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(429, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 gosub @DSKOOL_35490
 if 
@@ -2037,6 +2058,7 @@ $time_score = 100
 set_var_int_to_var_int $overall_score = $time_score
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_burnlapright_best_score
 goto_if_false @DSKOOL_11669
@@ -2129,6 +2151,7 @@ $perfect_heading = 180.0
 $car_timer = 11000
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(429, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 59@ = Object.Create(#AD_ROADMARK1, -2050.0, -172.5, 34.35)
 Object.SetHeading(59@, 180.0)
@@ -2305,6 +2328,7 @@ $overall_score = 0
 :DSKOOL_13102
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_conecoilright_best_score
 goto_if_false @DSKOOL_13172
@@ -2401,6 +2425,7 @@ Car.FreezePosition($dummy_car2, True)
 set_var_float_to_var_float $car_posx = $perfect_positionx
 set_var_float_to_var_float $car_posy = $perfect_positiony
 $instructor_car = Car.Create(429, $car_posx, $car_posy, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, 180.0)
 if 
   34@ == 0
@@ -2641,6 +2666,7 @@ set_var_int_to_var_int $total_car_damage = $player_car_damage
 add_int_var_to_int_var $total_car_damage += $other_car_damage
 sub_int_var_from_int_var $overall_score -= $total_car_damage
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_the90_best_score
 goto_if_false @DSKOOL_15072
@@ -2721,6 +2747,7 @@ $perfect_heading = 180.0
 $car_timer = 0
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(429, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 set_var_float_to_var_float $car_posx = $perfect_positionx
 $car_posx += 1.0
@@ -2916,6 +2943,7 @@ gosub @DSKOOL_31763
 set_var_int_to_var_int $total_car_damage = $player_car_damage
 sub_int_var_from_int_var $overall_score -= $total_car_damage
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_wheelieweave_best_score
 goto_if_false @DSKOOL_16681
@@ -2996,6 +3024,7 @@ $perfect_heading = 0.0
 $car_timer = 6000
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(420, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 Car.SetFreebies($instructor_car, False)
 gosub @DSKOOL_35490
@@ -3174,6 +3203,7 @@ $overall_score = 0
 :DSKOOL_18018
 gosub @DSKOOL_31853
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_spinrightgo_best_score
 goto_if_false @DSKOOL_18088
@@ -3253,6 +3283,7 @@ $perfect_heading = 180.0
 $car_timer = 0
 gosub @DSKOOL_30329
 $instructor_car = Car.Create(597, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 Car.SetFreebies($instructor_car, False)
 set_var_float_to_var_float $car_posx = $perfect_positionx
@@ -3464,6 +3495,7 @@ $player_car_damage = 0
 set_var_int_to_var_int $total_car_damage = $player_car_damage
 sub_int_var_from_int_var $overall_score -= $total_car_damage
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_pittechnique_best_score
 goto_if_false @DSKOOL_19782
@@ -3548,6 +3580,7 @@ gosub @DSKOOL_30329
 set_var_float_to_var_float $car_posy = $perfect_positiony
 $car_posy += 20.0
 $instructor_car = Car.Create(429, $perfect_positionx, $car_posy, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, $perfect_heading)
 Car.SetCanBeVisiblyDamaged($instructor_car, False)
 set_var_float_to_var_float $car_posx = $perfect_positionx
@@ -3951,6 +3984,7 @@ $player_car_damage = 0
 set_var_int_to_var_int $total_car_damage = $player_car_damage
 sub_int_var_from_int_var $overall_score -= $total_car_damage
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_alleyoop_best_score
 goto_if_false @DSKOOL_22439
@@ -4038,6 +4072,7 @@ $cone_coords_x = -1724.3
 $cone_coords_y = 1294.0
 $cone_coords_z = 6.0
 $instructor_car = Car.Create(506, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @DSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading($instructor_car, 0.0)
 Car.SetWatertight($instructor_car, True)
 if 
@@ -4216,6 +4251,7 @@ gosub @DSKOOL_31763
 set_var_int_to_var_int $total_car_damage = $player_car_damage
 sub_int_var_from_int_var $overall_score -= $total_car_damage
 gosub @DSKOOL_32476
+gosub @DSKOOL_COOP_NOTIFY_LESSON_RESULT
 if 
   is_int_var_greater_than_int_var $overall_score > $f1_cityslicking_best_score
 goto_if_false @DSKOOL_24009
@@ -4321,6 +4357,7 @@ goto @DSKOOL_22711
 goto @DSKOOL_23034
 
 :DSKOOL_24457
+gosub @DSKOOL_COOP_NOTIFY_FAILURE
 Text.ClearPrints
 if 
   $instructor_car_dead_flag == 1
@@ -5362,6 +5399,7 @@ Player.SetControl($player1, True)
 return 
 
 :DSKOOL_31109
+gosub @DSKOOL_COOP_UPDATE
 if 
   not Car.IsDead($instructor_car)
 goto_if_false @DSKOOL_31176
@@ -7246,6 +7284,455 @@ Text.ClearThisPrint(65@(62@,7s))
 
 :DSKOOL_46646
 return 
+
+// Co-op policy for all twelve Driving School lessons. The host retains sole
+// ownership of lesson selection, scoring, vehicles, unlock thresholds, awards
+// and save flags. Remote support slots are frozen by immutable internal id;
+// disconnect is DNF and only the same identity may reclaim a slot.
+:DSKOOL_COOP_INIT
+500@, 501@, 502@ = Coop.CollectNetworkPlayersForTheMission()
+515@ = 0
+for 520@ = 0 to 2
+    503@(520@,3i) = -1
+    506@(520@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(500@(520@,3i))
+    then
+        503@(520@,3i) = Coop.GetNetworkPlayerInternalId(500@(520@,3i))
+        if
+            503@(520@,3i) >= 0
+        then
+            515@ += 1
+        end
+    end
+end
+516@ = 0 // connected participant death failure latch
+517@ = 0 // lesson result: 0 pending, 1 failed, 2 passed
+518@ = 0 // idempotent cleanup latch
+519@ = 0 // active host-owned lesson
+523@ = -1 // observed lesson vehicle handle
+524@ = -1 // synchronized vehicle id
+525@ = 0 // registration start
+527@ = 0 // bounded registration timeout
+528@ = 0 // objective refresh timestamp
+535@ = 0 // separated-participant regroup timer
+if
+    515@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(500@, 501@, 502@)
+end
+return
+
+:DSKOOL_COOP_REFRESH_ROSTER
+509@, 510@, 511@ = Coop.CollectNetworkPlayersForTheMission()
+529@ = 0
+for 520@ = 0 to 2
+    set_lvar_int_to_lvar_int 534@ = 500@(520@,3i)
+    500@(520@,3i) = 0
+    if
+        503@(520@,3i) >= 0
+    then
+        for 521@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(509@(521@,3i))
+            then
+                522@ = Coop.GetNetworkPlayerInternalId(509@(521@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 522@ == 503@(520@,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@(520@,3i) = 509@(521@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 534@ == 500@(520@,3i)
+    then
+        506@(520@,3i) = -1
+        if
+            Coop.IsNetworkPlayerActorValid(500@(520@,3i))
+        then
+            529@ = 1
+        end
+    end
+end
+return
+
+:DSKOOL_COOP_VALIDATE_SLOT
+526@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(500@(520@,3i))
+then
+    522@ = Coop.GetNetworkPlayerInternalId(500@(520@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 522@ == 503@(520@,3i)
+    then
+        526@ = 1
+    end
+end
+return
+
+:DSKOOL_COOP_BEGIN_LESSON
+517@ = 0
+519@ = 1
+523@ = -1
+524@ = -1
+525@ = 0
+527@ = 0
+528@ = 0
+return
+
+:DSKOOL_COOP_UPDATE
+if
+    518@ == 1
+then
+    return
+end
+gosub @DSKOOL_COOP_REFRESH_ROSTER
+if
+    Car.DoesExist($instructor_car)
+then
+    if
+        not is_int_lvar_equal_to_int_lvar 523@ == $instructor_car
+    then
+        set_lvar_int_to_var_int 523@ = $instructor_car
+        524@ = -1
+        525@ = Clock.GetGameTimer()
+        527@ = 0
+        528@ = 0
+        gosub @DSKOOL_COOP_STAGE_PARTICIPANTS
+    end
+else
+    523@ = -1
+    524@ = -1
+    525@ = 0
+    527@ = 0
+end
+if
+    529@ == 1
+then
+    gosub @DSKOOL_COOP_STAGE_PARTICIPANTS
+end
+for 520@ = 0 to 2
+    gosub @DSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        if
+            Char.IsDead(500@(520@,3i))
+        then
+            // COOP_PARTICIPANT_DEATH deterministically uses stock failure.
+            516@ = 1
+        end
+    end
+end
+if and
+    516@ == 1
+    519@ == 1
+then
+    $instructor_car_dead_flag = 1
+    if
+        Car.DoesExist($instructor_car)
+    then
+        Car.SetHealth($instructor_car, 0)
+    end
+    return
+end
+gosub @DSKOOL_COOP_POLL_VEHICLE_REGISTRATION
+gosub @DSKOOL_COOP_UPDATE_REGROUP
+gosub @DSKOOL_COOP_UPDATE_OBJECTIVES
+return
+
+// On lesson start/reconnect, supporters occupy deterministic available seats;
+// single-seat lesson vehicles leave them safely regrouped beside the host.
+:DSKOOL_COOP_STAGE_PARTICIPANTS
+if
+    515@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(500@, 501@, 502@)
+end
+if
+    Car.DoesExist($instructor_car)
+then
+    530@ = Car.GetMaximumNumberOfPassengers($instructor_car)
+    for 520@ = 0 to 2
+        gosub @DSKOOL_COOP_VALIDATE_SLOT
+        if and
+            526@ == 1
+            is_int_lvar_greater_than_int_lvar 530@ > 520@
+        then
+            if and
+                not Char.IsInAnyCar(500@(520@,3i))
+                Car.IsPassengerSeatFree($instructor_car, 520@)
+            then
+                Char.WarpIntoCarAsPassenger(500@(520@,3i), $instructor_car, 520@)
+            end
+        end
+    end
+end
+return
+
+:DSKOOL_COOP_POLL_VEHICLE_REGISTRATION
+if and
+    519@ == 1
+    524@ == -1
+    527@ == 0
+then
+    524@ = Coop.GetVehicleNetworkId($instructor_car)
+    if
+        524@ == -1
+    then
+        531@ = Clock.GetGameTimer()
+        sub_int_lvar_from_int_lvar 531@ -= 525@
+        if
+            531@ > 5000
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:DSKOOL_COOP_UPDATE_REGROUP
+if
+    519@ == 0
+then
+    535@ = 0
+    return
+end
+536@ = 0
+for 520@ = 0 to 2
+    gosub @DSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        if
+            not Char.LocateAnyMeansChar3D(500@(520@,3i), $scplayer, 160.0, 160.0, 45.0, False)
+        then
+            536@ = 1
+        end
+    end
+end
+if
+    536@ == 0
+then
+    535@ = 0
+    return
+end
+if
+    535@ == 0
+then
+    535@ = Clock.GetGameTimer()
+end
+531@ = Clock.GetGameTimer()
+sub_int_lvar_from_int_lvar 531@ -= 535@
+if
+    531@ > 20000
+then
+    gosub @DSKOOL_COOP_STAGE_PARTICIPANTS
+    535@ = 0
+end
+return
+
+// The current host-owned vehicle is the common objective for every driving
+// lesson; stock lesson text keeps each participant aligned with the variant.
+:DSKOOL_COOP_UPDATE_OBJECTIVES
+if or
+    519@ == 0
+    not Car.DoesExist($instructor_car)
+then
+    return
+end
+531@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 528@ > 531@
+then
+    return
+end
+set_lvar_int_to_lvar_int 528@ = 531@
+528@ += 1000
+531@, 532@, 533@ = Car.GetCoordinates($instructor_car)
+for 520@ = 0 to 2
+    gosub @DSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.UpdateCheckpointForNetworkPlayer(531@, 532@, 533@, 10.0, 10.0, 6.0, 500@(520@,3i))
+        if
+            524@ <> -1
+        then
+            Coop.UpdateCarBlipForNetworkPlayer(500@(520@,3i), $instructor_car, True, BlipDisplay.Both, BlipColor.Blue, 3)
+        end
+        if
+            $mission_selection == 1
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_44', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 2
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_45', 5000, 4, 500@(520@,3i))
+        end
+        if or
+            $mission_selection == 3
+            $mission_selection == 4
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_32', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 5
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_30', 5000, 4, 500@(520@,3i))
+        end
+        if or
+            $mission_selection == 6
+            $mission_selection == 7
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_29', 5000, 4, 500@(520@,3i))
+        end
+        if or
+            $mission_selection == 8
+            $mission_selection == 9
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_36', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 10
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_1', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 11
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_34', 5000, 4, 500@(520@,3i))
+        end
+        if or
+            $mission_selection == 12
+            $mission_selection == 13
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_28', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 14
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_35', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 15
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_33', 5000, 4, 500@(520@,3i))
+        end
+        if
+            $mission_selection == 16
+        then
+            Coop.PrintNowForNetworkPlayer('DS1_31', 5000, 4, 500@(520@,3i))
+        end
+    end
+end
+return
+
+:DSKOOL_COOP_NOTIFY_LESSON_RESULT
+if
+    517@ <> 0
+then
+    return
+end
+gosub @DSKOOL_COOP_REFRESH_ROSTER
+for 520@ = 0 to 2
+    gosub @DSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@(520@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@(520@,3i))
+        if
+            $overall_score > 69
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 500@(520@,3i))
+        else
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@(520@,3i))
+        end
+    end
+end
+if
+    $overall_score > 69
+then
+    517@ = 2
+else
+    517@ = 1
+end
+519@ = 0
+return
+
+:DSKOOL_COOP_NOTIFY_FAILURE
+if
+    517@ <> 0
+then
+    return
+end
+if and
+    516@ == 0
+    $instructor_car_dead_flag <> 1
+then
+    return
+end
+517@ = 1
+gosub @DSKOOL_COOP_REFRESH_ROSTER
+for 520@ = 0 to 2
+    gosub @DSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@(520@,3i))
+    end
+end
+519@ = 0
+return
+
+:DSKOOL_COOP_CLEANUP
+if
+    518@ == 1
+then
+    return
+end
+518@ = 1
+if and
+    516@ == 1
+    517@ == 0
+then
+    gosub @DSKOOL_COOP_NOTIFY_FAILURE
+end
+gosub @DSKOOL_COOP_REFRESH_ROSTER
+for 520@ = 0 to 2
+    gosub @DSKOOL_COOP_VALIDATE_SLOT
+    if
+        526@ == 1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@(520@,3i))
+        Coop.RemoveCheckpointForNetworkPlayer(500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_44', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_45', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_32', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_30', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_29', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_36', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_1', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_34', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_28', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_35', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_33', 500@(520@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('DS1_31', 500@(520@,3i))
+        Char.FreezePosition(500@(520@,3i), False)
+        Char.SetProofs(500@(520@,3i), False, False, False, False, False)
+    end
+    500@(520@,3i) = 0
+    503@(520@,3i) = -1
+    506@(520@,3i) = -1
+end
+Player.SetControl($player1, True)
+523@ = -1
+524@ = -1
+return
 
 //-------------Mission 72---------------
 // Originally: Air Raid
