@@ -12,6 +12,74 @@ terminate_this_script
 :FINALEB_36
 $onmission = 1
 script_name 'FINALEB'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// End of the Line part two remains host-authoritative for escape stages,
+// timers and the handoff into part three. Frozen peers fight the same interior
+// waves, regroup on floor transitions and retain their pre-part inventory.
+190@ = 0 // frozen remote-roster size
+191@ = 0 // deterministic participant failure
+192@ = 0 // idempotent cooperative cleanup guard
+193@ = 0 // cooperative play has begun
+194@ = 0 // canonical result: 0 active, 1 failed, 2 continued
+195@ = 0 // result notification guard
+196@ = 1 // cinematic transition/freeze guard
+197@ = 0 // next bounded registration poll
+198@ = 0 // next objective refresh
+199@ = 0 // connected frozen participants
+200@ = 0 // internal id/time scratch
+201@ = 0 // actor/entity scratch
+202@ = 0 // previous connection scratch
+203@, 204@, 205@ = Coop.CollectNetworkPlayersForTheMission()
+206@ = 0.0 // coordinate scratch X
+207@ = 0.0 // coordinate scratch Y
+208@ = 0.0 // coordinate scratch Z
+209@ = -1 // active teleport argument 1
+210@ = -1 // active teleport argument 2
+211@ = -1 // active teleport argument 3
+212@ = 0 // current canonical escape phase
+213@ = -1 // previous canonical escape phase
+214@ = 2 // host visible area scratch
+215@ = 0 // next hostile-retarget scan
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 220@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    223@($temp_int,3i) = -1 // immutable internal network identity
+    226@($temp_int,3i) = 0 // currently connected participant
+    229@($temp_int,3i) = 0 // reconnect requires restaging
+    232@($temp_int,3i) = 0 // pre-part M4 ammo
+    235@($temp_int,3i) = 0 // pre-part selected weapon
+    238@($temp_int,3i) = 0 // participant originally owned an M4
+    241@($temp_int,3i) = 0 // temporary M4 granted
+    244@($temp_int,3i) = 100 // previous participant health
+    247@($temp_int,3i) = 0 // entry-time visible area
+    250@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(220@($temp_int,3i))
+    then
+        223@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(220@($temp_int,3i))
+        if
+            223@($temp_int,3i) <> -1
+        then
+            226@($temp_int,3i) = 1
+            190@ += 1
+            set_lvar_int_to_lvar_int 201@ = 220@($temp_int,3i)
+            232@($temp_int,3i) = Char.GetAmmoInWeapon(201@, 31)
+            235@($temp_int,3i) = Char.GetCurrentWeapon(201@)
+            244@($temp_int,3i) = Char.GetHealth(201@)
+            247@($temp_int,3i) = Char.GetAreaVisible(201@)
+            if
+                Char.HasGotWeapon(201@, 31)
+            then
+                238@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+for $temp_int = 0 to 14
+    260@($temp_int,15i) = -1 // current hostile network id
+    275@($temp_int,15i) = 0 // bounded hostile registration attempts
+end
+gosub @FINALEB_COOP_FREEZE_REMOTES
 wait 0
 Text.LoadMissionText('RIOT4')
 97@ = DecisionMakerChar.Load(DecisionMakerType.Empty)
@@ -145,6 +213,12 @@ Game.SwitchEmergencyServices(False)
 
 :FINALEB_720
 wait 0
+gosub @FINALEB_COOP_UPDATE
+if
+  191@ == 1
+then
+  goto @FINALEB_18415
+end
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @FINALEB_746
@@ -333,6 +407,7 @@ Blip.SetEntryExit(118@, 2540.83, -1304.05, 1.0)
 TIMERA = 0
 132@ = 1
 152@ = 3
+gosub @FINALEB_COOP_START_PLAY
 
 :FINALEB_2587
 if 
@@ -1799,6 +1874,7 @@ goto @FINALEB_14268
 if 
   132@ == 9
 goto_if_false @FINALEB_14945
+gosub @FINALEB_COOP_BEGIN_TRANSITION
 Blip.Remove(118@)
 Hud.SwitchWidescreen(True)
 Player.SetControl($player1, False)
@@ -2282,6 +2358,8 @@ Sequence.Clear(105@)
 return 
 
 :FINALEB_18415
+194@ = 1
+gosub @FINALEB_COOP_NOTIFY_RESULT
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 if 
   182@ == 1
@@ -2305,11 +2383,14 @@ return
 
 :FINALEB_18535
 156@ = 1
+194@ = 2
+gosub @FINALEB_COOP_NOTIFY_RESULT
 Player.ClearWantedLevel($player1)
 $flag_riot_mission_counter += 1
 return 
 
 :FINALEB_18556
+gosub @FINALEB_COOP_CLEANUP
 Weather.SetHeathazeEffect(False)
 Camera.SetDarknessEffect(False, -1)
 World.RemoveAllScriptFires
@@ -2381,6 +2462,484 @@ Camera.DoFade(0, Fade.Out)
 
 :FINALEB_18913
 return 
+
+:FINALEB_COOP_UPDATE_ROSTER
+199@ = 0
+203@, 204@, 205@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 202@ = 226@($temp_int,3i)
+    226@($temp_int,3i) = 0
+    if and
+        223@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(220@($temp_int,3i))
+    then
+        200@ = Coop.GetNetworkPlayerInternalId(220@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 200@ == 223@($temp_int,3i)
+        then
+            226@($temp_int,3i) = 1
+        end
+    end
+    if and
+        223@($temp_int,3i) <> -1
+        226@($temp_int,3i) == 0
+    then
+        for 201@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(203@(201@,3i))
+            then
+                200@ = Coop.GetNetworkPlayerInternalId(203@(201@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 200@ == 223@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 220@($temp_int,3i) = 203@(201@,3i)
+                    226@($temp_int,3i) = 1
+                    if and
+                        193@ == 1
+                        202@ == 0
+                    then
+                        229@($temp_int,3i) = 1
+                        250@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        226@($temp_int,3i) == 1
+    then
+        199@ += 1
+        if and
+            194@ == 0
+            Char.IsDead(220@($temp_int,3i))
+        then
+            191@ = 1
+        end
+    end
+end
+return
+
+:FINALEB_COOP_BUILD_ACTIVE_ARGS
+209@ = -1
+210@ = -1
+211@ = -1
+for $temp_int = 0 to 2
+    if
+        226@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 209@($temp_int,3i) = 220@($temp_int,3i)
+    end
+end
+return
+
+:FINALEB_COOP_FREEZE_REMOTES
+if
+    190@ == 0
+then
+    return
+end
+206@, 207@, 208@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        226@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(220@($temp_int,3i))
+        if
+            Char.IsInAnyCar(220@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(220@($temp_int,3i), 206@, 207@, 208@)
+        else
+            Char.SetCoordinates(220@($temp_int,3i), 206@, 207@, 208@)
+        end
+        Char.SetVisible(220@($temp_int,3i), False)
+        Char.SetCollision(220@($temp_int,3i), False)
+        Char.SetProofs(220@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(220@($temp_int,3i), -1)
+        Char.FreezePosition(220@($temp_int,3i), True)
+    end
+end
+return
+
+:FINALEB_COOP_RELEASE_REMOTES
+196@ = 0
+gosub @FINALEB_COOP_UPDATE_ROSTER
+gosub @FINALEB_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(209@, 210@, 211@)
+214@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    if and
+        226@($temp_int,3i) == 1
+        not Char.IsDead(220@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 201@ = 220@($temp_int,3i)
+        Char.SetAreaVisible(201@, 214@)
+        Char.SetVisible(201@, True)
+        Char.SetCollision(201@, True)
+        Char.SetProofs(201@, False, False, False, False, False)
+        Char.FreezePosition(201@, False)
+        Task.StandStill(201@, 0)
+        Char.ClearLastDamageEntity(201@)
+        if
+            241@($temp_int,3i) == 0
+        then
+            Char.GiveWeapon(201@, WeaponType.M4, 800)
+            Char.SetCurrentWeapon(201@, WeaponType.M4)
+            241@($temp_int,3i) = 1
+        end
+        244@($temp_int,3i) = Char.GetHealth(201@)
+        229@($temp_int,3i) = 0
+        250@($temp_int,3i) = -1
+    end
+end
+198@ = 0
+return
+
+:FINALEB_COOP_RESET_REGISTRATIONS
+for $temp_int = 0 to 14
+    260@($temp_int,15i) = -1
+    275@($temp_int,15i) = 0
+end
+197@ = 0
+return
+
+:FINALEB_COOP_STAGE_PHASE
+set_lvar_int_to_lvar_int 212@ = 132@
+gosub @FINALEB_COOP_RELEASE_REMOTES
+gosub @FINALEB_COOP_RESET_REGISTRATIONS
+set_lvar_int_to_lvar_int 213@ = 212@
+198@ = 0
+gosub @FINALEB_COOP_POLL_REGISTRATIONS
+gosub @FINALEB_COOP_UPDATE_OBJECTIVES
+return
+
+:FINALEB_COOP_START_PLAY
+if
+    193@ == 1
+then
+    return
+end
+193@ = 1
+set_lvar_int_to_lvar_int 212@ = 132@
+gosub @FINALEB_COOP_STAGE_PHASE
+return
+
+:FINALEB_COOP_BEGIN_TRANSITION
+if
+    196@ == 1
+then
+    return
+end
+196@ = 1
+gosub @FINALEB_COOP_UPDATE_ROSTER
+gosub @FINALEB_COOP_CLEAR_OBJECTIVES
+gosub @FINALEB_COOP_FREEZE_REMOTES
+return
+
+:FINALEB_COOP_POLL_REGISTRATIONS
+if
+    193@ == 0
+then
+    return
+end
+200@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 197@ > 200@
+then
+    return
+end
+197@ = Clock.GetGameTimer()
+197@ += 500
+for $temp_int = 0 to 14
+    if and
+        260@($temp_int,15i) == -1
+        275@($temp_int,15i) < 10
+        Char.DoesExist(34@($temp_int,15i))
+    then
+        260@($temp_int,15i) = Coop.GetPedNetworkId(34@($temp_int,15i))
+        275@($temp_int,15i) += 1
+    end
+end
+return
+
+:FINALEB_COOP_PROTECT_PARTICIPANTS
+for $temp_int = 0 to 2
+    if and
+        226@($temp_int,3i) == 1
+        not Char.IsDead(220@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 201@ = 220@($temp_int,3i)
+        for 200@ = 0 to 2
+            if and
+                226@(200@,3i) == 1
+                Char.HasBeenDamagedByChar(201@, 220@(200@,3i))
+            then
+                Char.SetHealth(201@, 244@($temp_int,3i))
+                Char.ClearLastDamageEntity(201@)
+            end
+        end
+        244@($temp_int,3i) = Char.GetHealth(201@)
+    end
+end
+return
+
+:FINALEB_COOP_RETARGET_HOSTILES
+200@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 215@ > 200@
+then
+    return
+end
+215@ = Clock.GetGameTimer()
+215@ += 500
+for 201@ = 0 to 14
+    if
+        Char.DoesExist(34@(201@,15i))
+    then
+        if
+            not Char.IsDead(34@(201@,15i))
+        then
+            for $temp_int = 0 to 2
+                if and
+                    226@($temp_int,3i) == 1
+                    Char.HasBeenDamagedByChar(34@(201@,15i), 220@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(34@(201@,15i), 220@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+:FINALEB_COOP_UPDATE_OBJECTIVES
+if or
+    190@ == 0
+    193@ == 0
+    196@ == 1
+then
+    return
+end
+200@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 198@ > 200@
+then
+    return
+end
+198@ = Clock.GetGameTimer()
+198@ += 750
+for $temp_int = 0 to 2
+    if
+        226@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 201@ = 220@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(201@)
+        Coop.RemoveCheckpointForNetworkPlayer(201@)
+        if
+            not is_int_lvar_equal_to_int_lvar 250@($temp_int,3i) == 212@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('RM4_33', 201@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_35', 201@)
+            if
+                212@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('RM4_33', 10000, 1, 201@)
+            else
+                Coop.PrintNowForNetworkPlayer('RM4_35', 7000, 1, 201@)
+            end
+            set_lvar_int_to_lvar_int 250@($temp_int,3i) = 212@
+        end
+        if
+            212@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2577.82, -1284.6, 1053.99, 6.0, 6.0, 5.0, 201@)
+        end
+        if
+            212@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2521.89, -1301.98, 1047.54, 6.0, 6.0, 5.0, 201@)
+        end
+        if
+            212@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2572.08, -1301.88, 1043.32, 6.0, 6.0, 5.0, 201@)
+        end
+        if
+            212@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2565.56, -1301.7, 1030.97, 6.0, 6.0, 5.0, 201@)
+        end
+        if
+            212@ == 5
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2528.78, -1293.94, 1030.86, 6.0, 6.0, 5.0, 201@)
+        end
+        if
+            212@ == 6
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2540.92, -1304.14, 1024.39, 6.0, 6.0, 5.0, 201@)
+        end
+        if
+            212@ == 7
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2522.82, -1272.52, 34.151, 7.0, 7.0, 5.0, 201@)
+        end
+        if
+            212@ == 8
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(2522.82, -1272.52, 34.151, 7.0, 7.0, 5.0, 201@)
+        end
+        for 200@ = 0 to 14
+            if and
+                260@(200@,15i) <> -1
+                Char.DoesExist(34@(200@,15i))
+            then
+                if
+                    not Char.IsDead(34@(200@,15i))
+                then
+                    Coop.UpdateCharBlipForNetworkPlayer(201@, 34@(200@,15i), False, BlipDisplay.Both, BlipColor.Red, 3)
+                end
+            end
+        end
+    end
+end
+return
+
+:FINALEB_COOP_UPDATE
+if or
+    190@ == 0
+    194@ <> 0
+then
+    return
+end
+gosub @FINALEB_COOP_UPDATE_ROSTER
+if
+    191@ == 1
+then
+    return
+end
+if or
+    193@ == 0
+    196@ == 1
+then
+    return
+end
+set_lvar_int_to_lvar_int 212@ = 132@
+if
+    not is_int_lvar_equal_to_int_lvar 212@ == 213@
+then
+    gosub @FINALEB_COOP_STAGE_PHASE
+end
+for $temp_int = 0 to 2
+    if and
+        226@($temp_int,3i) == 1
+        229@($temp_int,3i) == 1
+    then
+        gosub @FINALEB_COOP_RELEASE_REMOTES
+    end
+end
+gosub @FINALEB_COOP_POLL_REGISTRATIONS
+gosub @FINALEB_COOP_PROTECT_PARTICIPANTS
+gosub @FINALEB_COOP_RETARGET_HOSTILES
+gosub @FINALEB_COOP_UPDATE_OBJECTIVES
+return
+
+:FINALEB_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        223@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(220@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 201@ = 220@($temp_int,3i)
+        200@ = Coop.GetNetworkPlayerInternalId(201@)
+        if
+            is_int_lvar_equal_to_int_lvar 200@ == 223@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(201@)
+            Coop.RemoveCheckpointForNetworkPlayer(201@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_33', 201@)
+            Coop.ClearThisPrintForNetworkPlayer('RM4_35', 201@)
+        end
+    end
+    250@($temp_int,3i) = -1
+end
+return
+
+:FINALEB_COOP_NOTIFY_RESULT
+if or
+    190@ == 0
+    195@ == 1
+then
+    return
+end
+195@ = 1
+gosub @FINALEB_COOP_UPDATE_ROSTER
+gosub @FINALEB_COOP_CLEAR_OBJECTIVES
+if
+    194@ == 1
+then
+    for $temp_int = 0 to 2
+        if
+            226@($temp_int,3i) == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 220@($temp_int,3i))
+        end
+    end
+end
+return
+
+:FINALEB_COOP_CLEANUP
+if
+    192@ == 1
+then
+    return
+end
+192@ = 1
+gosub @FINALEB_COOP_UPDATE_ROSTER
+gosub @FINALEB_COOP_CLEAR_OBJECTIVES
+214@ = Char.GetAreaVisible($scplayer)
+206@, 207@, 208@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        226@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(220@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 201@ = 220@($temp_int,3i)
+        if
+            241@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(31, 201@)
+            if
+                238@($temp_int,3i) == 1
+            then
+                Char.GiveWeapon(201@, WeaponType.M4, 232@($temp_int,3i))
+            end
+        end
+        if
+            235@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(201@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(201@, 235@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(201@, 235@($temp_int,3i))
+            end
+        end
+        Char.SetAreaVisible(201@, 214@)
+        Char.SetVisible(201@, True)
+        Char.SetCollision(201@, True)
+        Char.SetProofs(201@, False, False, False, False, False)
+        Char.FreezePosition(201@, False)
+        Task.StandStill(201@, 0)
+        if and
+            196@ == 1
+            not Char.IsDead(201@)
+        then
+            Char.SetCoordinates(201@, 206@, 207@, 208@)
+        end
+    end
+end
+return
 
 //-------------Mission 112---------------
 // Originally: End Of The Line (3)
