@@ -3,6 +3,105 @@
 
 :CASINO3
 script_name 'CASINO3'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// You've Had Your Chips remains host-authoritative for story state, machine
+// progress, mission result and rewards. Entry-time network identities form an
+// immutable participant roster; late joiners remain spectators, while a
+// reconnect is admitted only when its internal identity matches that roster.
+285@ = 0 // frozen participant count
+286@ = 0 // deterministic cooperative failure: participant death
+287@ = 0 // idempotent cooperative cleanup guard
+288@ = 0 // result notification guard
+289@ = 0 // cooperative free-play phase started
+290@ = 0 // remote cinematic state: 0 free, 1 intro, 2 alarm, 3 warning, 4 finale
+291@ = 0 // canonical cooperative objective phase
+292@ = 0 // next objective refresh
+293@ = 0 // next bounded registration poll
+294@ = 0 // entity registration degraded to positional fallbacks
+295@ = 0 // currently connected frozen participants
+296@ = 0 // prior connection state scratch
+297@ = 0 // reconnect candidate iterator
+298@ = -1 // internal network identity scratch
+299@ = -1 // actor scratch
+300@ = 0 // clock scratch
+301@ = 0 // next combat retarget
+302@ = 0 // friendly-fire attribution scratch
+303@ = 0 // participant iterator scratch
+304@ = 0 // prior host health ledger
+305@ = 0 // current health scratch
+306@ = 0 // next regroup check
+307@ = 0 // reconnect/regroup scratch
+308@ = 0 // peer support transport prepared
+309@ = 0 // demolition loadouts activated
+310@ = -1 // safe teleport argument one
+311@ = -1 // safe teleport argument two
+312@ = -1 // safe teleport argument three
+313@ = 0 // a participant reached the factory
+314@ = 0 // a participant triggered the factory alarm
+315@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+316@ = 0 // objective phase scratch
+317@ = -1 // entity handle scratch
+318@ = 0 // entity kind scratch: 0 ped, 1 vehicle
+319@ = 0 // entity registration iterator
+320@ = -1 // entity network id scratch
+321@ = 0 // registration timeout count
+322@ = 0 // hostile retarget iterator
+323@ = 0 // remote objective actor scratch
+324@ = 0 // remote objective phase scratch
+325@ = 0 // reconnect staging requested
+326@ = 0 // dynamic subtitle fan-out guard scratch
+327@ = 0 // inventory scratch
+328@ = 0 // friendly-fire participant scratch
+329@ = 0 // co-op cinematic transition scratch
+372@, 373@, 374@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 330@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    333@($temp_int,3i) = -1 // immutable internal network identity
+    336@($temp_int,3i) = 0 // currently connected frozen participant
+    339@($temp_int,3i) = 0 // reconnect needs restaging
+    342@($temp_int,3i) = 0 // pre-mission SPAS-12 ammo
+    345@($temp_int,3i) = 0 // pre-mission selected weapon
+    348@($temp_int,3i) = 0 // participant originally owned a SPAS-12
+    351@($temp_int,3i) = 0 // temporary demolition weapon granted
+    354@($temp_int,3i) = 0 // prior participant health ledger
+    357@($temp_int,3i) = -1 // last objective phase sent
+    360@($temp_int,3i) = 0 // out-of-range regroup grace timer
+    363@($temp_int,3i) = -1 // peer support vehicle
+    366@($temp_int,3i) = -1 // peer support vehicle network id
+    369@($temp_int,3i) = 0 // bounded support registration attempts
+    if
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        333@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(330@($temp_int,3i))
+        if
+            333@($temp_int,3i) <> -1
+        then
+            336@($temp_int,3i) = 1
+            285@ += 1
+            set_lvar_int_to_lvar_int 299@ = 330@($temp_int,3i)
+            342@($temp_int,3i) = Char.GetAmmoInWeapon(299@, 27)
+            345@($temp_int,3i) = Char.GetCurrentWeapon(299@)
+            if
+                Char.HasGotWeapon(299@, 27)
+            then
+                348@($temp_int,3i) = 1
+            end
+            354@($temp_int,3i) = Char.GetHealth(299@)
+        end
+    end
+end
+for 319@ = 0 to 25
+    400@(319@,26i) = -1 // canonical entity network id
+    426@(319@,26i) = 0 // bounded canonical registration attempts
+end
+if
+    not Char.IsDead($scplayer)
+then
+    304@ = Char.GetHealth($scplayer)
+end
+gosub @CASINO3_COOP_FREEZE_REMOTES
+290@ = 1
 gosub @CASINO3_47
 if 
   has_deatharrest_been_executed 
@@ -189,6 +288,7 @@ Object.SetCollision($fourdragons_door, True)
 57@ = Car.Create(401, 2014.72, 1035.238, 9.8127)
 Car.SetHeading(57@, 1.0755)
 Car.ChangeColor(57@, 10, 2)
+gosub @CASINO3_COOP_PREPARE_SUPPORT_VEHICLES
 58@ = Car.Create(445, 1044.271, 2096.714, 9.813)
 Car.SetProofs(58@, False, False, True, False, False)
 Car.SetHeading(58@, 27.1148)
@@ -329,9 +429,17 @@ Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Player.SetControl($player1, True)
 Hud.DisplayZoneNames(True)
+gosub @CASINO3_COOP_BEGIN_PLAY
 
 :CASINO3_2921
 wait 0
+gosub @CASINO3_COOP_UPDATE
+if
+  286@ > 0
+then
+  gosub @CASINO3_14111
+  goto @CASINO3_38
+end
 if 
   Object.DoesExist($ca3_loadingbay)
 goto_if_false @CASINO3_2961
@@ -369,6 +477,7 @@ if
 goto_if_false @CASINO3_3129
 Audio.PlayMissionAudio(238@)
 Text.PrintNow(193@(240@,15s), 10000, 1)
+gosub @CASINO3_COOP_PRINT_CURRENT_SUBTITLE
 242@ = 3
 
 :CASINO3_3129
@@ -379,6 +488,7 @@ if
   Audio.HasMissionAudioFinished(238@)
 goto_if_false @CASINO3_3253
 Text.ClearThisPrint(193@(240@,15s))
+gosub @CASINO3_COOP_CLEAR_CURRENT_SUBTITLE
 if 
   238@ == 1
 goto_if_false @CASINO3_3211
@@ -557,6 +667,19 @@ Game.SetMaxWantedLevel(0)
 $ca3_driven_to_factory = 1
 
 :CASINO3_4053
+if and
+  53@ == 5
+  313@ == 1
+then
+  Skip.Clear
+  171@ = 0
+  Text.ClearPrints
+  Text.PrintNow('CA3_2', 6000, 1)
+  53@ = 10
+  34@ = Game.GetMaxWantedLevel()
+  Game.SetMaxWantedLevel(0)
+  $ca3_driven_to_factory = 1
+end
 if 
   Char.LocateAnyMeans3D($scplayer, 0, 1009.683, 1987.64, 9.6796, 25.0, 25.0, 5.0)
 goto_if_false @CASINO3_4110
@@ -657,6 +780,12 @@ goto_if_false @CASINO3_4729
 if 
   55@ == 1
 goto_if_false @CASINO3_6971
+if
+  290@ == 0
+then
+  gosub @CASINO3_COOP_FREEZE_REMOTES
+  290@ = 2
+end
 if 
   149@ == 0
 goto_if_false @CASINO3_5875
@@ -1150,6 +1279,12 @@ goto_if_false @CASINO3_7697
 if 
   55@ == 15
 goto_if_false @CASINO3_7989
+if
+  290@ == 0
+then
+  gosub @CASINO3_COOP_FREEZE_REMOTES
+  290@ = 4
+end
 Car.MarkAsNoLongerNeeded(179@)
 Car.MarkAsNoLongerNeeded(58@)
 Player.SetControl($player1, False)
@@ -1474,6 +1609,12 @@ gosub @CASINO3_12691
 if 
   150@ == 1
 goto_if_false @CASINO3_10247
+if
+  290@ == 0
+then
+  gosub @CASINO3_COOP_FREEZE_REMOTES
+  290@ = 3
+end
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Camera.SetFixedPosition(1039.3, 2100.435, 12.2503, 0.0, 0.0, 0.0)
@@ -1605,6 +1746,7 @@ Camera.SetBehindPlayer
 Camera.RestoreJumpcut
 Text.ClearPrints
 Text.PrintNow('CA3_8', 6000, 1)
+gosub @CASINO3_COOP_PRINT_CA3_8
 Player.SetControl($player1, True)
 150@ = 99
 149@ = 99
@@ -2140,9 +2282,13 @@ return
 
 :CASINO3_14111
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+315@ = 1
+gosub @CASINO3_COOP_NOTIFY_RESULT
 return 
 
 :CASINO3_14129
+315@ = 2
+gosub @CASINO3_COOP_NOTIFY_RESULT
 $flag_casino_mission_counter += 1
 Stat.RegisterMissionPassed('CASINO3')
 Stat.PlayerMadeProgress(1)
@@ -2156,6 +2302,7 @@ $casino_contact_blip = Blip.AddSpriteForContactPoint($casino_blip_icon, 2026.603
 return 
 
 :CASINO3_14221
+gosub @CASINO3_COOP_CLEANUP
 if 
   not Car.IsDead(58@)
 goto_if_false @CASINO3_14252
@@ -2222,4 +2369,1259 @@ World.RemoveAllScriptFires
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative mission layer. The host owns every original state transition and
+// reward. Peers provide transport, stealth scouting, guard suppression and
+// demolition support; all network-dependent presentation has positional
+// fallbacks and every entity registration attempt is bounded.
+:CASINO3_COOP_PREPARE_SUPPORT_VEHICLES
+if
+    308@ == 1
+then
+    return
+end
+if
+    not Streaming.HasModelLoaded(401)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        333@($temp_int,3i) <> -1
+        363@($temp_int,3i) == -1
+    then
+        375@ = 2010.0
+        376@ = 1041.0
+        if
+            $temp_int == 1
+        then
+            375@ = 2006.0
+            376@ = 1044.0
+        end
+        if
+            $temp_int == 2
+        then
+            375@ = 2002.0
+            376@ = 1047.0
+        end
+        363@($temp_int,3i) = Car.Create(401, 375@, 376@, 9.82)
+        if
+            Car.DoesExist(363@($temp_int,3i))
+        then
+            Car.SetHeading(363@($temp_int,3i), 180.0)
+            Car.SetHealth(363@($temp_int,3i), 1000)
+            Car.SetCanBurstTires(363@($temp_int,3i), False)
+            Car.LockDoors(363@($temp_int,3i), CarLock.Unlocked)
+            366@($temp_int,3i) = Coop.GetVehicleNetworkId(363@($temp_int,3i))
+            369@($temp_int,3i) += 1
+        end
+    end
+end
+308@ = 1
+return
+
+:CASINO3_COOP_BEGIN_PLAY
+if
+    289@ == 1
+then
+    return
+end
+289@ = 1
+290@ = 0
+gosub @CASINO3_COOP_UPDATE_ROSTER
+if
+    285@ == 0
+then
+    return
+end
+gosub @CASINO3_COOP_PREPARE_SUPPORT_VEHICLES
+gosub @CASINO3_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(310@, 311@, 312@)
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        if and
+            363@($temp_int,3i) == -1
+            Streaming.HasModelLoaded(401)
+        then
+            375@ = 2010.0
+            376@ = 1041.0
+            if
+                $temp_int == 1
+            then
+                375@ = 2006.0
+                376@ = 1044.0
+            end
+            if
+                $temp_int == 2
+            then
+                375@ = 2002.0
+                376@ = 1047.0
+            end
+            363@($temp_int,3i) = Car.Create(401, 375@, 376@, 9.82)
+            if
+                Car.DoesExist(363@($temp_int,3i))
+            then
+                Car.SetHeading(363@($temp_int,3i), 180.0)
+                Car.SetHealth(363@($temp_int,3i), 1000)
+                Car.SetCanBurstTires(363@($temp_int,3i), False)
+                Car.LockDoors(363@($temp_int,3i), CarLock.Unlocked)
+                366@($temp_int,3i) = Coop.GetVehicleNetworkId(363@($temp_int,3i))
+                369@($temp_int,3i) += 1
+            end
+        end
+        Char.ClearTasksImmediately(330@($temp_int,3i))
+        if and
+            Car.DoesExist(363@($temp_int,3i))
+            not Car.IsDead(363@($temp_int,3i))
+        then
+            Char.WarpIntoCar(330@($temp_int,3i), 363@($temp_int,3i))
+        else
+            Char.SetCoordinates(330@($temp_int,3i), 2010.0, 1041.0, 9.82)
+        end
+        Char.SetAreaVisible(330@($temp_int,3i), 0)
+        Char.SetVisible(330@($temp_int,3i), True)
+        Char.SetCollision(330@($temp_int,3i), True)
+        Char.SetProofs(330@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(330@($temp_int,3i), False)
+        Task.StandStill(330@($temp_int,3i), 0)
+        357@($temp_int,3i) = -1
+    end
+end
+308@ = 1
+292@ = 0
+293@ = 0
+gosub @CASINO3_COOP_UPDATE_OBJECTIVES
+return
+
+:CASINO3_COOP_UPDATE
+if or
+    289@ == 0
+    287@ == 1
+    315@ <> 0
+then
+    return
+end
+gosub @CASINO3_COOP_UPDATE_ROSTER
+gosub @CASINO3_COOP_STAGE_RECONNECTS
+gosub @CASINO3_COOP_PROTECT_PARTICIPANTS
+gosub @CASINO3_COOP_CHECK_PARTICIPANT_DEATHS
+if
+    286@ > 0
+then
+    return
+end
+gosub @CASINO3_COOP_SHARED_TRIGGERS
+if and
+    290@ == 0
+    150@ > 0
+    99 > 150@
+then
+    gosub @CASINO3_COOP_FREEZE_REMOTES
+    290@ = 3
+end
+if and
+    290@ == 3
+    150@ == 99
+then
+    gosub @CASINO3_COOP_RELEASE_REMOTES
+    290@ = 0
+end
+if and
+    290@ == 0
+    55@ == 1
+then
+    gosub @CASINO3_COOP_FREEZE_REMOTES
+    290@ = 2
+end
+if and
+    290@ == 2
+    55@ >= 2
+then
+    gosub @CASINO3_COOP_RELEASE_REMOTES
+    290@ = 0
+end
+if and
+    290@ == 0
+    55@ >= 15
+    45 > 55@
+then
+    gosub @CASINO3_COOP_FREEZE_REMOTES
+    290@ = 4
+end
+gosub @CASINO3_COOP_GRANT_DEMOLITION_GEAR
+gosub @CASINO3_COOP_POLL_REGISTRATIONS
+gosub @CASINO3_COOP_RETARGET_GUARDS
+gosub @CASINO3_COOP_REGROUP
+gosub @CASINO3_COOP_UPDATE_OBJECTIVES
+return
+
+// Rebuild actor handles only by matching the immutable entry-time identity.
+// Candidate slots with no matching identity are late-join spectators.
+:CASINO3_COOP_UPDATE_ROSTER
+295@ = 0
+372@, 373@, 374@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 296@ = 336@($temp_int,3i)
+    336@($temp_int,3i) = 0
+    if
+        333@($temp_int,3i) <> -1
+    then
+        if
+            Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        then
+            298@ = Coop.GetNetworkPlayerInternalId(330@($temp_int,3i))
+            if
+                is_int_lvar_equal_to_int_lvar 298@ == 333@($temp_int,3i)
+            then
+                336@($temp_int,3i) = 1
+            end
+        end
+        if
+            336@($temp_int,3i) == 0
+        then
+            for 297@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(372@(297@,3i))
+                then
+                    298@ = Coop.GetNetworkPlayerInternalId(372@(297@,3i))
+                    if
+                        is_int_lvar_equal_to_int_lvar 298@ == 333@($temp_int,3i)
+                    then
+                        set_lvar_int_to_lvar_int 330@($temp_int,3i) = 372@(297@,3i)
+                        336@($temp_int,3i) = 1
+                    end
+                end
+            end
+        end
+        if
+            336@($temp_int,3i) == 1
+        then
+            295@ += 1
+            if
+                296@ == 0
+            then
+                339@($temp_int,3i) = 1
+                357@($temp_int,3i) = -1
+            end
+        end
+    end
+end
+return
+
+:CASINO3_COOP_STAGE_RECONNECTS
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        339@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        gosub @CASINO3_COOP_TELEPORT_CURRENT
+        375@, 376@, 377@ = Char.GetCoordinates($scplayer)
+        if
+            $temp_int == 0
+        then
+            375@ += 1.5
+        end
+        if
+            $temp_int == 1
+        then
+            376@ += 1.5
+        end
+        if
+            $temp_int == 2
+        then
+            375@ -= 1.5
+        end
+        Char.ClearTasksImmediately(330@($temp_int,3i))
+        if
+            Char.IsInAnyCar(330@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(330@($temp_int,3i), 375@, 376@, 377@)
+        else
+            Char.SetCoordinates(330@($temp_int,3i), 375@, 376@, 377@)
+        end
+        Char.SetAreaVisible(330@($temp_int,3i), 0)
+        if
+            290@ > 0
+        then
+            Char.SetVisible(330@($temp_int,3i), False)
+            Char.SetCollision(330@($temp_int,3i), False)
+            Char.SetProofs(330@($temp_int,3i), True, True, True, True, True)
+            Char.FreezePosition(330@($temp_int,3i), True)
+            Task.StandStill(330@($temp_int,3i), -1)
+        else
+            Char.SetVisible(330@($temp_int,3i), True)
+            Char.SetCollision(330@($temp_int,3i), True)
+            Char.SetProofs(330@($temp_int,3i), False, False, False, False, False)
+            Char.FreezePosition(330@($temp_int,3i), False)
+            Task.StandStill(330@($temp_int,3i), 0)
+        end
+        if
+            309@ == 1
+        then
+            Char.GiveWeapon(330@($temp_int,3i), WeaponType.Spas12, 160)
+            Char.SetCurrentWeapon(330@($temp_int,3i), WeaponType.Spas12)
+            351@($temp_int,3i) = 1
+        end
+        354@($temp_int,3i) = Char.GetHealth(330@($temp_int,3i))
+        339@($temp_int,3i) = 0
+        360@($temp_int,3i) = 0
+        357@($temp_int,3i) = -1
+    end
+end
+return
+
+:CASINO3_COOP_BUILD_ACTIVE_ARGS
+310@ = -1
+311@ = -1
+312@ = -1
+for $temp_int = 0 to 2
+    if
+        336@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 310@($temp_int,3i) = 330@($temp_int,3i)
+    end
+end
+return
+
+:CASINO3_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(330@, -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 331@, -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 332@)
+end
+return
+
+:CASINO3_COOP_FREEZE_REMOTES
+if
+    285@ == 0
+then
+    return
+end
+gosub @CASINO3_COOP_UPDATE_ROSTER
+gosub @CASINO3_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(310@, 311@, 312@)
+375@, 376@, 377@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(330@($temp_int,3i))
+        if
+            Char.IsInAnyCar(330@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(330@($temp_int,3i), 375@, 376@, 377@)
+        else
+            Char.SetCoordinates(330@($temp_int,3i), 375@, 376@, 377@)
+        end
+        Char.SetVisible(330@($temp_int,3i), False)
+        Char.SetCollision(330@($temp_int,3i), False)
+        Char.SetProofs(330@($temp_int,3i), True, True, True, True, True)
+        Char.FreezePosition(330@($temp_int,3i), True)
+        Task.StandStill(330@($temp_int,3i), -1)
+    end
+end
+return
+
+:CASINO3_COOP_RELEASE_REMOTES
+if
+    285@ == 0
+then
+    return
+end
+gosub @CASINO3_COOP_UPDATE_ROSTER
+gosub @CASINO3_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(310@, 311@, 312@)
+375@, 376@, 377@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        set_lvar_float_to_lvar_float 378@ = 375@
+        set_lvar_float_to_lvar_float 379@ = 376@
+        if
+            $temp_int == 0
+        then
+            378@ += 1.5
+        end
+        if
+            $temp_int == 1
+        then
+            379@ += 1.5
+        end
+        if
+            $temp_int == 2
+        then
+            378@ -= 1.5
+        end
+        Char.ClearTasksImmediately(330@($temp_int,3i))
+        if
+            Char.IsInAnyCar(330@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(330@($temp_int,3i), 378@, 379@, 377@)
+        else
+            Char.SetCoordinates(330@($temp_int,3i), 378@, 379@, 377@)
+        end
+        Char.SetAreaVisible(330@($temp_int,3i), 0)
+        Char.SetVisible(330@($temp_int,3i), True)
+        Char.SetCollision(330@($temp_int,3i), True)
+        Char.SetProofs(330@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(330@($temp_int,3i), False)
+        Task.StandStill(330@($temp_int,3i), 0)
+        360@($temp_int,3i) = 0
+        357@($temp_int,3i) = -1
+    end
+end
+return
+
+// A peer may reach the factory, be spotted, damage a sentry/vehicle or open
+// fire. These are the only shared checks allowed to advance the original host
+// state, and they feed the same canonical states used by single-player.
+:CASINO3_COOP_SHARED_TRIGGERS
+313@ = 0
+314@ = 0
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 299@ = 330@($temp_int,3i)
+        if and
+            53@ == 5
+            Char.LocateAnyMeans3D(299@, False, 1057.636, 2089.694, 9.8203, 100.0, 100.0, 35.0)
+        then
+            313@ = 1
+        end
+        if and
+            53@ == 10
+            1 > 55@
+            Char.IsShootingInArea(299@, False, 1015.0, 2055.0, 1110.0, 2165.0)
+        then
+            314@ = 1
+        end
+        if and
+            53@ == 10
+            1 > 55@
+            Char.DoesExist(76@)
+            Char.HasBeenDamagedByChar(76@, 299@)
+        then
+            314@ = 1
+        end
+        if and
+            53@ == 10
+            1 > 55@
+            Car.DoesExist(58@)
+            Car.HasBeenDamagedByChar(58@, 299@)
+        then
+            314@ = 1
+        end
+        if and
+            1 > 55@
+            149@ == 0
+            Char.DoesExist(71@)
+            not Char.IsDead(71@)
+        then
+            if or
+                Char.HasSpottedCharInFront(71@, 299@)
+                Char.HasBeenDamagedByChar(71@, 299@)
+            then
+                149@ = 1
+                150@ = 1
+            end
+        end
+        if and
+            1 > 55@
+            149@ == 0
+            Char.DoesExist(72@)
+            not Char.IsDead(72@)
+        then
+            if or
+                Char.HasSpottedCharInFront(72@, 299@)
+                Char.HasBeenDamagedByChar(72@, 299@)
+            then
+                149@ = 1
+                150@ = 1
+            end
+        end
+        if and
+            149@ == 3
+            Char.DoesExist(71@)
+            Char.HasBeenDamagedByChar(71@, 299@)
+        then
+            149@ = 4
+            314@ = 1
+        end
+        if and
+            149@ == 3
+            Char.DoesExist(72@)
+            Char.HasBeenDamagedByChar(72@, 299@)
+        then
+            149@ = 4
+            314@ = 1
+        end
+    end
+end
+if
+    314@ == 1
+then
+    if
+        149@ == 4
+    then
+        gosub @CASINO3_12691
+    end
+    55@ = 1
+    53@ = 99
+end
+return
+
+// Repair only damage attributed to another participant. Hostile damage remains
+// authoritative, while accidental party fire cannot erode the shared attempt.
+:CASINO3_COOP_PROTECT_PARTICIPANTS
+if
+    not Char.IsDead($scplayer)
+then
+    302@ = 0
+    for $temp_int = 0 to 2
+        if and
+            336@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        then
+            if
+                Char.HasBeenDamagedByChar($scplayer, 330@($temp_int,3i))
+            then
+                302@ = 1
+            end
+        end
+    end
+    305@ = Char.GetHealth($scplayer)
+    if and
+        302@ == 1
+        304@ > 0
+        is_int_lvar_greater_than_int_lvar 304@ > 305@
+    then
+        Char.SetHealth($scplayer, 304@)
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    else
+        set_lvar_int_to_lvar_int 304@ = 305@
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 299@ = 330@($temp_int,3i)
+        302@ = 0
+        if
+            Char.HasBeenDamagedByChar(299@, $scplayer)
+        then
+            302@ = 1
+        end
+        for 303@ = 0 to 2
+            if and
+                not is_int_lvar_equal_to_int_var 303@ == $temp_int
+                336@(303@,3i) == 1
+            then
+                set_lvar_int_to_lvar_int 328@ = 330@(303@,3i)
+                if
+                    Char.HasBeenDamagedByChar(299@, 328@)
+                then
+                    302@ = 1
+                end
+            end
+        end
+        305@ = Char.GetHealth(299@)
+        if and
+            302@ == 1
+            354@($temp_int,3i) > 0
+            is_int_lvar_greater_than_int_lvar 354@($temp_int,3i) > 305@
+        then
+            Char.SetHealth(299@, 354@($temp_int,3i))
+            Char.ClearLastDamageEntity(299@)
+            Char.ClearLastWeaponDamage(299@)
+        else
+            set_lvar_int_to_lvar_int 354@($temp_int,3i) = 305@
+        end
+    end
+end
+return
+
+:CASINO3_COOP_CHECK_PARTICIPANT_DEATHS
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        Char.IsDead(330@($temp_int,3i))
+    then
+        286@ = 1
+    end
+end
+return
+
+// The assault turns every connected peer into a demolition specialist. The
+// exact pre-mission SPAS-12 ammo and selected weapon were captured at entry and
+// are restored by the idempotent cleanup path.
+:CASINO3_COOP_GRANT_DEMOLITION_GEAR
+if and
+    141@ == 1
+    9 > 117@
+then
+    309@ = 1
+end
+if
+    309@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        351@($temp_int,3i) == 0
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        Char.GiveWeapon(330@($temp_int,3i), WeaponType.Spas12, 160)
+        Char.SetCurrentWeapon(330@($temp_int,3i), WeaponType.Spas12)
+        351@($temp_int,3i) = 1
+    end
+end
+return
+
+// Entity IDs are asynchronous. Poll each existing canonical entity at most ten
+// times, once per half-second, and retain a coordinate/central-target fallback
+// when registration never resolves. No mission loop waits on a network ID.
+:CASINO3_COOP_POLL_REGISTRATIONS
+if
+    285@ == 0
+then
+    return
+end
+300@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 293@ > 300@
+then
+    return
+end
+set_lvar_int_to_lvar_int 293@ = 300@
+293@ += 500
+for 319@ = 0 to 25
+    if and
+        400@(319@,26i) == -1
+        10 > 426@(319@,26i)
+    then
+        gosub @CASINO3_COOP_LOAD_ENTITY
+        if
+            318@ == 0
+        then
+            if
+                Char.DoesExist(317@)
+            then
+                400@(319@,26i) = Coop.GetPedNetworkId(317@)
+                426@(319@,26i) += 1
+            end
+        else
+            if
+                Car.DoesExist(317@)
+            then
+                400@(319@,26i) = Coop.GetVehicleNetworkId(317@)
+                426@(319@,26i) += 1
+            end
+        end
+        if and
+            426@(319@,26i) >= 10
+            400@(319@,26i) == -1
+        then
+            294@ = 1
+            321@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        366@($temp_int,3i) == -1
+        10 > 369@($temp_int,3i)
+        Car.DoesExist(363@($temp_int,3i))
+    then
+        366@($temp_int,3i) = Coop.GetVehicleNetworkId(363@($temp_int,3i))
+        369@($temp_int,3i) += 1
+        if and
+            369@($temp_int,3i) >= 10
+            366@($temp_int,3i) == -1
+        then
+            294@ = 1
+            321@ += 1
+        end
+    end
+end
+return
+
+:CASINO3_COOP_LOAD_ENTITY
+317@ = -1
+318@ = 0
+if
+    319@ == 0
+then
+    set_lvar_int_to_lvar_int 317@ = 57@
+    318@ = 1
+end
+if
+    319@ == 1
+then
+    set_lvar_int_to_lvar_int 317@ = 58@
+    318@ = 1
+end
+if
+    319@ == 2
+then
+    set_lvar_int_to_lvar_int 317@ = 60@
+    318@ = 1
+end
+if
+    319@ == 3
+then
+    set_lvar_int_to_lvar_int 317@ = 61@
+    318@ = 1
+end
+if
+    319@ == 4
+then
+    set_lvar_int_to_lvar_int 317@ = 71@
+end
+if
+    319@ == 5
+then
+    set_lvar_int_to_lvar_int 317@ = 72@
+end
+if
+    319@ == 6
+then
+    set_lvar_int_to_lvar_int 317@ = 76@
+end
+if
+    319@ == 7
+then
+    set_lvar_int_to_lvar_int 317@ = 81@
+end
+if
+    319@ == 8
+then
+    set_lvar_int_to_lvar_int 317@ = 82@
+end
+if
+    319@ == 9
+then
+    set_lvar_int_to_lvar_int 317@ = 83@
+end
+if
+    319@ == 10
+then
+    set_lvar_int_to_lvar_int 317@ = 80@
+end
+if
+    319@ == 11
+then
+    set_lvar_int_to_lvar_int 317@ = 74@
+end
+if
+    319@ == 12
+then
+    set_lvar_int_to_lvar_int 317@ = 75@
+end
+if
+    319@ == 13
+then
+    set_lvar_int_to_lvar_int 317@ = 87@
+end
+if
+    319@ == 14
+then
+    set_lvar_int_to_lvar_int 317@ = 89@
+end
+if
+    319@ == 15
+then
+    set_lvar_int_to_lvar_int 317@ = 88@
+end
+if
+    319@ == 16
+then
+    set_lvar_int_to_lvar_int 317@ = 172@
+end
+if
+    319@ == 17
+then
+    set_lvar_int_to_lvar_int 317@ = 173@
+end
+if
+    319@ == 18
+then
+    set_lvar_int_to_lvar_int 317@ = 174@
+end
+if
+    319@ == 19
+then
+    set_lvar_int_to_lvar_int 317@ = 179@
+    318@ = 1
+end
+if
+    319@ == 20
+then
+    set_lvar_int_to_lvar_int 317@ = 178@
+end
+if
+    319@ == 21
+then
+    set_lvar_int_to_lvar_int 317@ = 180@
+end
+if
+    319@ == 22
+then
+    set_lvar_int_to_lvar_int 317@ = 181@
+end
+if
+    319@ == 23
+then
+    set_lvar_int_to_lvar_int 317@ = 69@
+    318@ = 1
+end
+if
+    319@ == 24
+then
+    set_lvar_int_to_lvar_int 317@ = 68@
+end
+if
+    319@ == 25
+then
+    set_lvar_int_to_lvar_int 317@ = 67@
+end
+return
+
+// Guards keep their original CJ target until a peer attacks or closes in, then
+// periodically acquire that peer. This gives the demolition team real combat
+// pressure without changing any canonical kill or machine counter.
+:CASINO3_COOP_RETARGET_GUARDS
+if or
+    141@ <> 1
+    117@ >= 9
+then
+    return
+end
+300@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 301@ > 300@
+then
+    return
+end
+set_lvar_int_to_lvar_int 301@ = 300@
+301@ += 750
+for 322@ = 4 to 22
+    if
+        322@ <> 19
+    then
+        set_lvar_int_to_lvar_int 319@ = 322@
+        gosub @CASINO3_COOP_LOAD_ENTITY
+        if
+            Char.DoesExist(317@)
+        then
+            if
+                not Char.IsDead(317@)
+            then
+                for $temp_int = 0 to 2
+                    if and
+                        336@($temp_int,3i) == 1
+                        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+                        not Char.IsDead(330@($temp_int,3i))
+                    then
+                        set_lvar_int_to_lvar_int 323@ = 330@($temp_int,3i)
+                        if or
+                            Char.HasBeenDamagedByChar(317@, 323@)
+                            Char.LocateAnyMeansChar3D(323@, 317@, 22.0, 22.0, 10.0, False)
+                        then
+                            Task.KillCharOnFoot(317@, 323@)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+:CASINO3_COOP_REGROUP
+if or
+    290@ <> 0
+    295@ == 0
+then
+    return
+end
+300@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 306@ > 300@
+then
+    return
+end
+set_lvar_int_to_lvar_int 306@ = 300@
+306@ += 1000
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+        not Char.IsDead(330@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 299@ = 330@($temp_int,3i)
+        307@ = Char.GetAreaVisible(299@)
+        325@ = 0
+        if
+            307@ <> 0
+        then
+            325@ = 1
+        end
+        if
+            Char.IsInWater(299@)
+        then
+            325@ = 1
+        end
+        if
+            not Char.LocateAnyMeansChar3D(299@, $scplayer, 350.0, 350.0, 120.0, False)
+        then
+            325@ = 1
+        end
+        if
+            325@ == 0
+        then
+            360@($temp_int,3i) = 0
+        else
+            if
+                360@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 360@($temp_int,3i) = 300@
+            end
+            set_lvar_int_to_lvar_int 307@ = 300@
+            sub_int_lvar_from_int_lvar 307@ -= 360@($temp_int,3i)
+            if
+                307@ > 15000
+            then
+                gosub @CASINO3_COOP_TELEPORT_CURRENT
+                360@($temp_int,3i) = 0
+                357@($temp_int,3i) = -1
+            end
+        end
+    end
+end
+return
+
+:CASINO3_COOP_UPDATE_OBJECTIVES
+if
+    289@ == 0
+then
+    return
+end
+300@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 292@ > 300@
+then
+    return
+end
+set_lvar_int_to_lvar_int 292@ = 300@
+292@ += 750
+316@ = 0
+if
+    53@ == 5
+then
+    316@ = 1
+end
+if
+    53@ == 10
+then
+    316@ = 2
+end
+if and
+    55@ >= 2
+    8 > 55@
+then
+    316@ = 3
+end
+if and
+    141@ == 1
+    9 > 117@
+then
+    316@ = 3
+end
+if or
+    55@ == 8
+    55@ == 9
+then
+    316@ = 4
+end
+if
+    55@ >= 15
+then
+    316@ = 5
+end
+set_lvar_int_to_lvar_int 291@ = 316@
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 323@ = 330@($temp_int,3i)
+        if
+            not is_int_lvar_equal_to_int_lvar 357@($temp_int,3i) == 316@
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(323@)
+            Coop.RemoveCheckpointForNetworkPlayer(323@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_1', 323@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_2', 323@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_7', 323@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_8', 323@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_23', 323@)
+            if
+                316@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('CA3_1', 10000, 1, 323@)
+            end
+            if
+                316@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('CA3_2', 6000, 1, 323@)
+            end
+            if
+                316@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('CA3_7', 6000, 1, 323@)
+            end
+            if
+                316@ == 4
+            then
+                Coop.PrintNowForNetworkPlayer('CA3_23', 6000, 1, 323@)
+            end
+            set_lvar_int_to_lvar_int 357@($temp_int,3i) = 316@
+        end
+        if or
+            316@ == 1
+            316@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1057.636, 2089.694, 9.8203, 8.0, 8.0, 6.0, 323@)
+            if and
+                366@($temp_int,3i) <> -1
+                Car.DoesExist(363@($temp_int,3i))
+            then
+                Coop.UpdateCarBlipForNetworkPlayer(323@, 363@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if
+            316@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1074.0, 2110.0, 9.82, 18.0, 25.0, 10.0, 323@)
+            for 322@ = 4 to 22
+                if
+                    322@ <> 19
+                then
+                    if
+                        400@(322@,26i) <> -1
+                    then
+                        set_lvar_int_to_lvar_int 319@ = 322@
+                        gosub @CASINO3_COOP_LOAD_ENTITY
+                        if and
+                            Char.DoesExist(317@)
+                            not Char.IsDead(317@)
+                        then
+                            Coop.UpdateCharBlipForNetworkPlayer(323@, 317@, False, BlipDisplay.Both, BlipColor.Red, 2)
+                        end
+                    end
+                end
+            end
+        end
+        if
+            316@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1918.59, 958.3391, 9.8203, 6.0, 6.0, 4.0, 323@)
+        end
+    end
+end
+return
+
+:CASINO3_COOP_PRINT_CURRENT_SUBTITLE
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        Coop.PrintNowForNetworkPlayer(193@(240@,15s), 10000, 1, 330@($temp_int,3i))
+    end
+end
+return
+
+:CASINO3_COOP_CLEAR_CURRENT_SUBTITLE
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        Coop.ClearThisPrintForNetworkPlayer(193@(240@,15s), 330@($temp_int,3i))
+    end
+end
+return
+
+:CASINO3_COOP_PRINT_CA3_8
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        Coop.PrintNowForNetworkPlayer('CA3_8', 6000, 1, 330@($temp_int,3i))
+    end
+end
+return
+
+:CASINO3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 299@ = 330@($temp_int,3i)
+        298@ = Coop.GetNetworkPlayerInternalId(299@)
+        if
+            is_int_lvar_equal_to_int_lvar 298@ == 333@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(299@)
+            Coop.RemoveCheckpointForNetworkPlayer(299@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_1', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_2', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_7', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_8', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CA3_23', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_AA', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_AB', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_AC', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_AD', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_BA', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_BB', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_BC', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_BD', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_BE', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_CA', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_CB', 299@)
+            Coop.ClearThisPrintForNetworkPlayer('CAS3_CC', 299@)
+        end
+    end
+    357@($temp_int,3i) = -1
+end
+return
+
+:CASINO3_COOP_NOTIFY_RESULT
+if
+    288@ == 1
+then
+    return
+end
+288@ = 1
+gosub @CASINO3_COOP_UPDATE_ROSTER
+gosub @CASINO3_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        336@($temp_int,3i) == 1
+    then
+        if
+            315@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 330@($temp_int,3i))
+        end
+        if
+            315@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 330@($temp_int,3i))
+        end
+    end
+end
+return
+
+:CASINO3_COOP_CLEANUP
+if
+    287@ == 1
+then
+    return
+end
+287@ = 1
+gosub @CASINO3_COOP_UPDATE_ROSTER
+gosub @CASINO3_COOP_CLEAR_OBJECTIVES
+gosub @CASINO3_COOP_RELEASE_REMOTES
+375@, 376@, 377@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        336@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(330@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 299@ = 330@($temp_int,3i)
+        if and
+            Car.DoesExist(363@($temp_int,3i))
+            Char.IsInCar(299@, 363@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(299@, 375@, 376@, 377@)
+        end
+        if
+            351@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(27, 299@)
+            if
+                348@($temp_int,3i) == 1
+            then
+                Char.GiveWeapon(299@, WeaponType.Spas12, 342@($temp_int,3i))
+            end
+        end
+        if
+            345@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(299@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(299@, 345@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(299@, 345@($temp_int,3i))
+            end
+        end
+        Char.SetVisible(299@, True)
+        Char.SetCollision(299@, True)
+        Char.SetProofs(299@, False, False, False, False, False)
+        Char.FreezePosition(299@, False)
+        Task.StandStill(299@, 0)
+    end
+    if
+        Car.DoesExist(363@($temp_int,3i))
+    then
+        Car.SetCanBurstTires(363@($temp_int,3i), True)
+        Car.SetProofs(363@($temp_int,3i), False, False, False, False, False)
+        Car.Delete(363@($temp_int,3i))
+    end
+    336@($temp_int,3i) = 0
+    339@($temp_int,3i) = 0
+    351@($temp_int,3i) = 0
+    363@($temp_int,3i) = -1
+    366@($temp_int,3i) = -1
+end
+290@ = 0
+return
 
