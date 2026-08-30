@@ -391,4 +391,4 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [ ] Chopper Checkpoint
   - [ ] Whirly Bird Waypoint
   - [ ] Heli Hell
-- [ ] Import / Export
+- [X] Import / Export
