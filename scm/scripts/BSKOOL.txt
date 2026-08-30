@@ -359,6 +359,7 @@ $car_timer = 16000
 35@ = 181
 gosub @BSKOOL_16623
 38@ = Car.Create(581, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @BSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading(38@, 180.0)
 gosub @BSKOOL_21023
 if 
@@ -676,6 +677,7 @@ $car_timer = 11000
 35@ = 182
 gosub @BSKOOL_16623
 38@ = Car.Create(461, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @BSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading(38@, 180.0)
 gosub @BSKOOL_21023
 if 
@@ -933,6 +935,7 @@ $car_timer = 9000
 35@ = 183
 gosub @BSKOOL_16623
 38@ = Car.Create(521, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @BSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading(38@, 180.0)
 gosub @BSKOOL_21023
 if 
@@ -1253,6 +1256,7 @@ $car_timer = 9000
 35@ = 184
 gosub @BSKOOL_16623
 38@ = Car.Create(521, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @BSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading(38@, 180.0)
 gosub @BSKOOL_21023
 if 
@@ -1574,6 +1578,7 @@ $car_timer = 9000
 35@ = 185
 gosub @BSKOOL_16623
 38@ = Car.Create(468, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @BSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading(38@, $perfect_heading)
 $area_check1ax = Car.GetOffsetInWorldCoords($area_check1ay, $player_z, 38@, -2.5, 46.0, 2.0)
 $area_check1bx = Car.GetOffsetInWorldCoords($area_check1by, $player_z, 38@, 2.5, 50.0, 2.0)
@@ -1863,6 +1868,7 @@ $car_timer = 9000
 35@ = 186
 gosub @BSKOOL_16623
 38@ = Car.Create(522, $perfect_positionx, $perfect_positiony, $perfect_positionz)
+gosub @BSKOOL_COOP_BEGIN_LESSON
 Car.SetHeading(38@, $perfect_heading)
 $area_check1ax = Car.GetOffsetInWorldCoords($area_check1ay, $player_z, 38@, -2.5, 46.0, 2.0)
 $area_check1bx = Car.GetOffsetInWorldCoords($area_check1by, $player_z, 38@, 2.5, 52.0, 2.0)
@@ -4038,6 +4044,16 @@ then
         526@ = 1
     end
 end
+return
+
+:BSKOOL_COOP_BEGIN_LESSON
+517@ = 0
+519@ = 1
+523@ = -1
+524@ = -1
+525@ = 0
+527@ = 0
+528@ = 0
 return
 
 :BSKOOL_COOP_UPDATE

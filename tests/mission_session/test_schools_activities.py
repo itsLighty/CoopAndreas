@@ -29,6 +29,7 @@ class BikeSchoolCoopStructureTests(unittest.TestCase):
         self.assertEqual(
             self.body.count("gosub @BSKOOL_COOP_NOTIFY_LESSON_RESULT"), 6
         )
+        self.assertEqual(self.body.count("gosub @BSKOOL_COOP_BEGIN_LESSON"), 6)
         for key in ("BS_A_1", "BS_B_1", "BS_C_1", "BS_D_1", "BS_E_1", "BS_F_1"):
             self.assertIn(f"Coop.PrintNowForNetworkPlayer('{key}'", self.coop)
 
@@ -77,14 +78,19 @@ class BikeSchoolCoopStructureTests(unittest.TestCase):
         self.assertIn("Coop.UpdateCarBlipForNetworkPlayer", self.coop)
 
     def test_progress_rewards_and_cleanup_remain_single_owner(self):
-        for evidence in (
-            "Stat.RegisterOddjobMissionPassed",
-            "$flag_bikeschool_passed_1stime = 1",
-            "$bs_gold_rewardgiven = 1",
-            "$bs_silver_rewardgiven = 1",
-            "$bs_bronze_rewardgiven = 1",
-        ):
-            self.assertGreaterEqual(self.body.count(evidence), 1)
+        stock = self.body.split("// Co-op policy for all six Bike School lessons:", 1)[0]
+        # Stock intentionally cascades higher awards into lower rewards: the
+        # gold branch grants all three, silver grants silver+bronze, and the
+        # bronze branch grants bronze. These are host-only stock mutations.
+        expected_stock_counts = {
+            "Stat.RegisterOddjobMissionPassed": 1,
+            "$flag_bikeschool_passed_1stime = 1": 1,
+            "$bs_gold_rewardgiven = 1": 1,
+            "$bs_silver_rewardgiven = 1": 2,
+            "$bs_bronze_rewardgiven = 1": 3,
+        }
+        for evidence, expected_count in expected_stock_counts.items():
+            self.assertEqual(stock.count(evidence), expected_count)
             self.assertNotIn(evidence, self.coop)
         cleanup = self.coop.split(":BSKOOL_COOP_CLEANUP", 1)[1]
         self.assertIn("518@ == 1", cleanup)
