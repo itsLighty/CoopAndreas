@@ -64,9 +64,21 @@ try {
             ('"' + $compiledScm + '"')
         )
 
+        $compilerLog = Join-Path $sannyBuilderPath 'compile.log'
+        if (Test-Path -LiteralPath $compilerLog -PathType Leaf) {
+            [System.IO.File]::Delete($compilerLog)
+        }
+
         $compiler = Start-Process -FilePath $sannyExecutable -ArgumentList $arguments -PassThru -Wait -WindowStyle Hidden
         if ($compiler.ExitCode -ne 0) {
             throw "Sanny Builder exited with code $($compiler.ExitCode)."
+        }
+
+        if (Test-Path -LiteralPath $compilerLog -PathType Leaf) {
+            $compilerDiagnostic = Get-Content -LiteralPath $compilerLog -Raw
+            if ($compilerDiagnostic -match '(?im)^\s*(?:error|fatal):') {
+                throw "Sanny Builder reported a compiler diagnostic:`n$($compilerDiagnostic.Trim())"
+            }
         }
 
         if (-not (Test-Path -LiteralPath $compiledScm -PathType Leaf)) {
