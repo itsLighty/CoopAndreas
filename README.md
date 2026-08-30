@@ -219,7 +219,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
       - [X] current path, target entity, mission
     - [X] passenger
   - [ ] aim
-  - [ ] shots
+  - [X] shots
   - [ ] task sync (good luck, warrior!)
   - [X] radar icon?
   - [X] speech sync
