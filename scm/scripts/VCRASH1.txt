@@ -13,6 +13,68 @@ terminate_this_script
 $onmission = 1
 Stat.RegisterMissionGiven
 script_name 'VCRASH1'
+Coop.EnableSyncingThisScript()
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+// Misappropriation remains host-authoritative for pursuit state, escape routes,
+// canonical reward and story progress. Frozen peers join the assault and may
+// recover the dropped dossier; immutable ids exclude late-join state theft.
+224@ = 0 // frozen remote-roster size
+225@ = 0 // deterministic participant failure
+226@ = 0 // idempotent cooperative cleanup guard
+227@ = 0 // cooperative play has begun
+228@ = 0 // canonical result: 0 active, 1 failed, 2 passed
+229@ = 0 // result notification guard
+230@ = 0 // next bounded entity-registration poll
+231@ = 0 // next objective refresh
+232@ = 0 // current active frozen participants
+233@ = 0 // roster/reconnect scratch
+234@ = 0 // actor/entity scratch
+235@ = 0 // internal-id/time scratch
+236@ = 0 // registration degraded after bounded retries
+237@ = 0 // next conservative unsynced-combat pass
+238@ = 0 // health scratch
+239@ = 0 // one fallback hit applied this pass
+240@, 241@, 242@ = Coop.CollectNetworkPlayersForTheMission()
+243@ = 0 // coordinate scratch
+244@ = 0 // coordinate scratch
+245@ = 0 // coordinate scratch
+246@ = -1 // active teleport argument 1
+247@ = -1 // active teleport argument 2
+248@ = -1 // active teleport argument 3
+249@ = 0 // canonical objective phase
+250@ = 0 // a frozen peer recovered the dossier
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 200@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    203@($temp_int,3i) = -1 // immutable internal network identity
+    206@($temp_int,3i) = 0 // currently connected frozen participant
+    209@($temp_int,3i) = 0 // reconnect requires restaging
+    212@($temp_int,3i) = -1 // support Sanchez
+    215@($temp_int,3i) = -1 // support Sanchez network id
+    218@($temp_int,3i) = 0 // bounded support Sanchez registration attempts
+    221@($temp_int,3i) = -1 // last objective phase sent
+    if
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        203@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(200@($temp_int,3i))
+        if
+            203@($temp_int,3i) <> -1
+        then
+            206@($temp_int,3i) = 1
+            224@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 9
+    300@($temp_int,10i) = -1 // mission ped network id
+    310@($temp_int,10i) = 0 // bounded mission ped registration attempts
+end
+320@ = -1 // first escape helicopter network id
+321@ = -1 // backup helicopter network id
+322@ = -1 // second escape vehicle network id
+323@ = 0 // first helicopter registration attempts
+324@ = 0 // backup helicopter registration attempts
+325@ = 0 // second escape vehicle registration attempts
+gosub @VCRASH1_COOP_FREEZE_REMOTES
 wait 0
 Text.LoadMissionText('VCR1')
 Player.MakeGangDisappear
@@ -77,6 +139,7 @@ goto @VCRASH1_312
 
 :VCRASH1_336
 Restart.SetRespawnPointForDurationOfMission(1599.09, 2667.725, 9.8203)
+gosub @VCRASH1_COOP_START_PLAY
 Text.PrintNow('VCR1__1', 15000, 1)
 34@ = Blip.AddForCoord(-1306.191, 2532.48, 86.7332)
 Blip.ChangeColor(34@, BlipColor.Red)
@@ -111,6 +174,12 @@ Skip.SetUp(-1346.614, 2304.482, 93.539, 4.8156)
 
 :VCRASH1_574
 wait 0
+gosub @VCRASH1_COOP_UPDATE
+if
+    225@ == 1
+then
+    goto @VCRASH1_7873
+end
 if 
   not Player.IsPlaying($player1)
 goto_if_false @VCRASH1_601
@@ -282,6 +351,7 @@ Char.SetInformRespectedFriends(80@, 30.0, 5)
 Blip.Remove(34@)
 34@ = Blip.AddForChar(80@)
 Char.SetOnlyDamagedByPlayer(80@, True)
+Char.SetOnlyDamagedByPlayer(80@, False)
 Char.SetHealth(80@, 200)
 90@ = DecisionMakerChar.Copy(-1)
 DecisionMakerChar.ClearEventResponse(90@, 31)
@@ -913,6 +983,7 @@ Blip.Remove(34@)
 Pickup.Remove(106@)
 34@ = Blip.AddForChar(80@(91@,10i))
 Char.SetOnlyDamagedByPlayer(80@(91@,10i), True)
+Char.SetOnlyDamagedByPlayer(80@(91@,10i), False)
 if 
   not Player.IsTargetingChar($player1, 80@(91@,10i))
 goto_if_false @VCRASH1_6670
@@ -1095,7 +1166,15 @@ if
 goto_if_false @VCRASH1_7866
 if 
   Pickup.HasBeenCollected(106@)
+goto_if_false @VCRASH1_COOP_REMOTE_PICKUP_CHECK
+goto @VCRASH1_COOP_PICKUP_COLLECTED
+
+:VCRASH1_COOP_REMOTE_PICKUP_CHECK
+if
+  250@ == 1
 goto_if_false @VCRASH1_7866
+
+:VCRASH1_COOP_PICKUP_COLLECTED
 Blip.Remove(34@)
 Text.PrintNow('VCR1__6', 5000, 1)
 goto @VCRASH1_7980
@@ -1104,6 +1183,8 @@ goto @VCRASH1_7980
 goto @VCRASH1_574
 
 :VCRASH1_7873
+228@ = 1
+gosub @VCRASH1_COOP_NOTIFY_OUTCOME
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 if 
   not Char.IsDead(80@(91@,10i))
@@ -1120,6 +1201,8 @@ Heli.GotoCoords(74@, 0.0, 0.0, 0.0, 20.0, 40.0)
 return 
 
 :VCRASH1_7980
+228@ = 2
+gosub @VCRASH1_COOP_NOTIFY_OUTCOME
 $flag_vcrash_mission_counter += 1
 Text.PrintBig('M_PASSD', 5000, TextStyle.Middle)
 Player.AddScore($player1, 0)
@@ -1131,6 +1214,7 @@ Blip.Remove($vcrash_contact_blip)
 return 
 
 :VCRASH1_8041
+gosub @VCRASH1_COOP_CLEANUP
 Blip.Remove(34@)
 Blip.Remove(35@)
 Game.SetArea51SamSite(True)
@@ -1167,6 +1251,523 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+:VCRASH1_COOP_UPDATE_ROSTER
+232@ = 0
+240@, 241@, 242@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 233@ = 206@($temp_int,3i)
+    206@($temp_int,3i) = 0
+    if and
+        203@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 234@ = 200@($temp_int,3i)
+        235@ = Coop.GetNetworkPlayerInternalId(234@)
+        if
+            is_int_lvar_equal_to_int_lvar 235@ == 203@($temp_int,3i)
+        then
+            206@($temp_int,3i) = 1
+        end
+    end
+    if and
+        203@($temp_int,3i) <> -1
+        206@($temp_int,3i) == 0
+    then
+        for 234@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(240@(234@,3i))
+            then
+                235@ = Coop.GetNetworkPlayerInternalId(240@(234@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 235@ == 203@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 200@($temp_int,3i) = 240@(234@,3i)
+                    206@($temp_int,3i) = 1
+                    if and
+                        227@ == 1
+                        233@ == 0
+                    then
+                        209@($temp_int,3i) = 1
+                        221@($temp_int,3i) = -1
+                    end
+                end
+            end
+        end
+    end
+    if
+        206@($temp_int,3i) == 1
+    then
+        232@ += 1
+        if and
+            228@ == 0
+            Char.IsDead(200@($temp_int,3i))
+        then
+            225@ = 1
+        end
+    end
+end
+return
+
+:VCRASH1_COOP_BUILD_ACTIVE_ARGS
+246@ = -1
+247@ = -1
+248@ = -1
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 246@($temp_int,3i) = 200@($temp_int,3i)
+    end
+end
+return
+
+:VCRASH1_COOP_FREEZE_REMOTES
+if
+    224@ == 0
+then
+    return
+end
+243@, 244@, 245@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        if
+            Char.IsInAnyCar(200@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(200@($temp_int,3i), 243@, 244@, 245@)
+        else
+            Char.SetCoordinates(200@($temp_int,3i), 243@, 244@, 245@)
+        end
+        Char.SetVisible(200@($temp_int,3i), False)
+        Char.SetCollision(200@($temp_int,3i), False)
+        Char.SetProofs(200@($temp_int,3i), True, True, True, True, True)
+        Task.StandStill(200@($temp_int,3i), -1)
+        Char.FreezePosition(200@($temp_int,3i), True)
+    end
+end
+return
+
+:VCRASH1_COOP_START_PLAY
+if
+    227@ == 1
+then
+    return
+end
+227@ = 1
+Streaming.RequestModel(468)
+Streaming.LoadAllModelsNow
+gosub @VCRASH1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        203@($temp_int,3i) <> -1
+        212@($temp_int,3i) == -1
+    then
+        243@ = 1596.0
+        244@ = 2664.0
+        245@ = 9.82
+        if
+            $temp_int == 1
+        then
+            244@ = 2660.0
+        end
+        if
+            $temp_int == 2
+        then
+            244@ = 2656.0
+        end
+        212@($temp_int,3i) = Car.Create(468, 243@, 244@, 245@)
+        if
+            Car.DoesExist(212@($temp_int,3i))
+        then
+            Car.SetHeading(212@($temp_int,3i), 90.0)
+            Car.SetHealth(212@($temp_int,3i), 1000)
+            Car.SetCanBurstTires(212@($temp_int,3i), False)
+            Car.LockDoors(212@($temp_int,3i), CarLock.Unlocked)
+        end
+    end
+end
+230@ = 0
+gosub @VCRASH1_COOP_POLL_REGISTRATIONS
+gosub @VCRASH1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(246@, 247@, 248@)
+for $temp_int = 0 to 2
+    if and
+        206@($temp_int,3i) == 1
+        not Char.IsDead(200@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        if and
+            Car.DoesExist(212@($temp_int,3i))
+            not Car.IsDead(212@($temp_int,3i))
+        then
+            Char.WarpIntoCar(200@($temp_int,3i), 212@($temp_int,3i))
+        else
+            Char.SetCoordinates(200@($temp_int,3i), 1596.0, 2664.0, 9.82)
+        end
+        Char.SetAreaVisible(200@($temp_int,3i), 0)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetProofs(200@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(200@($temp_int,3i), False)
+        Task.StandStill(200@($temp_int,3i), 0)
+        209@($temp_int,3i) = 0
+    end
+end
+249@ = 1
+231@ = 0
+gosub @VCRASH1_COOP_UPDATE_OBJECTIVES
+return
+
+:VCRASH1_COOP_POLL_REGISTRATIONS
+if
+    227@ == 0
+then
+    return
+end
+235@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 230@ > 235@
+then
+    return
+end
+230@ = Clock.GetGameTimer()
+230@ += 500
+for $temp_int = 0 to 9
+    if and
+        300@($temp_int,10i) == -1
+        310@($temp_int,10i) < 10
+        Char.DoesExist(80@($temp_int,10i))
+    then
+        300@($temp_int,10i) = Coop.GetPedNetworkId(80@($temp_int,10i))
+        310@($temp_int,10i) += 1
+    end
+end
+for $temp_int = 0 to 2
+    if and
+        215@($temp_int,3i) == -1
+        218@($temp_int,3i) < 10
+        Car.DoesExist(212@($temp_int,3i))
+    then
+        215@($temp_int,3i) = Coop.GetVehicleNetworkId(212@($temp_int,3i))
+        218@($temp_int,3i) += 1
+    end
+end
+if and
+    320@ == -1
+    323@ < 10
+    Car.DoesExist(74@)
+then
+    320@ = Coop.GetVehicleNetworkId(74@)
+    323@ += 1
+end
+if and
+    321@ == -1
+    324@ < 10
+    Car.DoesExist(75@)
+then
+    321@ = Coop.GetVehicleNetworkId(75@)
+    324@ += 1
+end
+if and
+    322@ == -1
+    325@ < 10
+    Car.DoesExist(92@)
+then
+    322@ = Coop.GetVehicleNetworkId(92@)
+    325@ += 1
+end
+if and
+    36@ > 0
+    310@(91@,10i) >= 10
+then
+    if
+        300@(91@,10i) == -1
+    then
+        236@ = 1
+    end
+end
+return
+
+:VCRASH1_COOP_REGROUP_RECONNECTED
+gosub @VCRASH1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(246@, 247@, 248@)
+for $temp_int = 0 to 2
+    if and
+        206@($temp_int,3i) == 1
+        209@($temp_int,3i) == 1
+        not Char.IsDead(200@($temp_int,3i))
+    then
+        Char.ClearTasksImmediately(200@($temp_int,3i))
+        if and
+            Car.DoesExist(212@($temp_int,3i))
+            not Car.IsDead(212@($temp_int,3i))
+        then
+            Char.WarpIntoCar(200@($temp_int,3i), 212@($temp_int,3i))
+        end
+        Char.SetAreaVisible(200@($temp_int,3i), 0)
+        Char.SetVisible(200@($temp_int,3i), True)
+        Char.SetCollision(200@($temp_int,3i), True)
+        Char.SetProofs(200@($temp_int,3i), False, False, False, False, False)
+        Char.FreezePosition(200@($temp_int,3i), False)
+        209@($temp_int,3i) = 0
+        221@($temp_int,3i) = -1
+    end
+end
+231@ = 0
+return
+
+:VCRASH1_COOP_UPDATE_OBJECTIVES
+if or
+    224@ == 0
+    227@ == 0
+then
+    return
+end
+235@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 231@ > 235@
+then
+    return
+end
+231@ = Clock.GetGameTimer()
+231@ += 750
+249@ = 1
+if and
+    36@ > 0
+    61@ == 0
+then
+    249@ = 2
+end
+if
+    61@ == 1
+then
+    249@ = 3
+end
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 234@ = 200@($temp_int,3i)
+        Coop.ClearAllEntityBlipsForNetworkPlayer(234@)
+        Coop.RemoveCheckpointForNetworkPlayer(234@)
+        if
+            not is_int_lvar_equal_to_int_lvar 221@($temp_int,3i) == 249@
+        then
+            Coop.ClearThisPrintForNetworkPlayer('VCR1__1', 234@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR1__2', 234@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR1__3', 234@)
+            if
+                249@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('VCR1__1', 10000, 1, 234@)
+            end
+            if
+                249@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('VCR1__2', 6000, 1, 234@)
+            end
+            if
+                249@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('VCR1__3', 6000, 1, 234@)
+            end
+            set_lvar_int_to_lvar_int 221@($temp_int,3i) = 249@
+        end
+        if
+            249@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1306.191, 2532.48, 86.7332, 14.0, 14.0, 8.0, 234@)
+        end
+        if
+            249@ == 2
+        then
+            if and
+                300@(91@,10i) <> -1
+                Char.DoesExist(80@(91@,10i))
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(234@, 80@(91@,10i), False, BlipDisplay.Both, BlipColor.Red, 3)
+            else
+                if
+                    Char.DoesExist(80@(91@,10i))
+                then
+                    243@, 244@, 245@ = Char.GetCoordinates(80@(91@,10i))
+                    Coop.UpdateCheckpointForNetworkPlayer(243@, 244@, 245@, 12.0, 12.0, 8.0, 234@)
+                end
+            end
+        end
+        if
+            249@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(103@, 104@, 105@, 4.0, 4.0, 4.0, 234@)
+        end
+    end
+end
+return
+
+:VCRASH1_COOP_REMOTE_PICKUP
+if or
+    250@ == 1
+    61@ <> 1
+    not Pickup.DoesExist(106@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        250@ == 0
+        206@($temp_int,3i) == 1
+        not Char.IsDead(200@($temp_int,3i))
+        Char.LocateAnyMeans3D(200@($temp_int,3i), 0, 103@, 104@, 105@, 2.5, 2.5, 3.0)
+    then
+        250@ = 1
+    end
+end
+return
+
+:VCRASH1_COOP_UNSYNCED_COMBAT_FALLBACK
+if or
+    236@ == 0
+    36@ == 0
+    61@ == 1
+    not Char.DoesExist(80@(91@,10i))
+    Char.IsDead(80@(91@,10i))
+then
+    return
+end
+235@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 237@ > 235@
+then
+    return
+end
+237@ = Clock.GetGameTimer()
+237@ += 300
+239@ = 0
+for $temp_int = 0 to 2
+    if and
+        239@ == 0
+        206@($temp_int,3i) == 1
+        not Char.IsDead(200@($temp_int,3i))
+        Char.IsShooting(200@($temp_int,3i))
+        Char.LocateAnyMeansChar2D(200@($temp_int,3i), 80@(91@,10i), 50.0, 50.0, False)
+    then
+        238@ = Char.GetHealth(80@(91@,10i))
+        238@ -= 20
+        Char.SetHealth(80@(91@,10i), 238@)
+        239@ = 1
+    end
+end
+return
+
+:VCRASH1_COOP_UPDATE
+if or
+    224@ == 0
+    228@ <> 0
+then
+    return
+end
+gosub @VCRASH1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if and
+        206@($temp_int,3i) == 1
+        209@($temp_int,3i) == 1
+    then
+        gosub @VCRASH1_COOP_REGROUP_RECONNECTED
+    end
+end
+if
+    225@ == 1
+then
+    return
+end
+gosub @VCRASH1_COOP_POLL_REGISTRATIONS
+gosub @VCRASH1_COOP_UPDATE_OBJECTIVES
+gosub @VCRASH1_COOP_REMOTE_PICKUP
+gosub @VCRASH1_COOP_UNSYNCED_COMBAT_FALLBACK
+return
+
+:VCRASH1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        203@($temp_int,3i) <> -1
+        Coop.IsNetworkPlayerActorValid(200@($temp_int,3i))
+    then
+        set_lvar_int_to_lvar_int 234@ = 200@($temp_int,3i)
+        235@ = Coop.GetNetworkPlayerInternalId(234@)
+        if
+            is_int_lvar_equal_to_int_lvar 235@ == 203@($temp_int,3i)
+        then
+            Coop.ClearAllEntityBlipsForNetworkPlayer(234@)
+            Coop.RemoveCheckpointForNetworkPlayer(234@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR1__1', 234@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR1__2', 234@)
+            Coop.ClearThisPrintForNetworkPlayer('VCR1__3', 234@)
+        end
+    end
+    221@($temp_int,3i) = -1
+end
+return
+
+:VCRASH1_COOP_NOTIFY_OUTCOME
+if or
+    224@ == 0
+    229@ == 1
+then
+    return
+end
+229@ = 1
+gosub @VCRASH1_COOP_UPDATE_ROSTER
+gosub @VCRASH1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        if
+            228@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 200@($temp_int,3i))
+        end
+        if
+            228@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 200@($temp_int,3i))
+        end
+    end
+end
+return
+
+:VCRASH1_COOP_CLEANUP
+if
+    226@ == 1
+then
+    return
+end
+226@ = 1
+gosub @VCRASH1_COOP_UPDATE_ROSTER
+gosub @VCRASH1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        206@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 234@ = 200@($temp_int,3i)
+        Char.FreezePosition(234@, False)
+        Char.SetProofs(234@, False, False, False, False, False)
+        Char.SetCollision(234@, True)
+        Char.SetVisible(234@, True)
+        Char.SetAreaVisible(234@, 0)
+    end
+    if
+        Car.DoesExist(212@($temp_int,3i))
+    then
+        Car.Delete(212@($temp_int,3i))
+    end
+    212@($temp_int,3i) = -1
+    215@($temp_int,3i) = -1
+end
+return
 
 //-------------Mission 94---------------
 // Originally: High Noon
