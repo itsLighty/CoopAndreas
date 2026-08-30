@@ -224,7 +224,7 @@ Char.SetCantBeDraggedOut($big_smoke, True)
 Char.SetStayInCarWhenJacked($big_smoke, True)
 set_lvar_int_to_lvar_int 291@ = 34@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
-291@ = $big_smoke
+set_lvar_int_to_var_int 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
 if
     314@ > 0
@@ -2774,7 +2774,7 @@ Car.SetHealth(161@, 2000)
 Car.SetCanBurstTires(161@, False)
 set_lvar_int_to_lvar_int 291@ = 161@
 gosub @DRUGS1_COOP_SYNC_VEHICLE
-291@ = $big_smoke
+set_lvar_int_to_var_int 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
 if
     314@ > 0
@@ -8531,7 +8531,7 @@ if
 then
     return
 end
-291@ = $big_smoke
+set_lvar_int_to_var_int 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
 set_lvar_int_to_lvar_int 291@ = 63@
 gosub @DRUGS1_COOP_SYNC_PED
@@ -8554,7 +8554,7 @@ if
 then
     return
 end
-291@ = $big_smoke
+set_lvar_int_to_var_int 291@ = $big_smoke
 gosub @DRUGS1_COOP_SYNC_PED
 set_lvar_int_to_lvar_int 291@ = 161@
 gosub @DRUGS1_COOP_SYNC_VEHICLE

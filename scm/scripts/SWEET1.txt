@@ -228,7 +228,7 @@ $sweet = Char.Create(24, 290, 2518.07, -1668.82, 12.85)
 $big_smoke = Char.Create(24, 299, 2520.1, -1669.58, 13.1)
 
 // SWEET'S CAR
-207@ = $sweet_car
+set_lvar_int_to_var_int 207@ = $sweet_car
 gosub @SWEET1_COOP_WAIT_FOR_VEHICLE
 if
     211@ == 0
@@ -237,7 +237,7 @@ then
 end
 
 // SWEET
-207@ = $sweet
+set_lvar_int_to_var_int 207@ = $sweet
 gosub @SWEET1_COOP_WAIT_FOR_PED
 if
     211@ == 0
@@ -246,7 +246,7 @@ then
 end
 
 // BIG SMOKE
-207@ = $big_smoke
+set_lvar_int_to_var_int 207@ = $big_smoke
 gosub @SWEET1_COOP_WAIT_FOR_PED
 if
     211@ == 0
@@ -255,7 +255,7 @@ then
 end
 
 // RYDER'S CAR
-207@ = $ryder_car
+set_lvar_int_to_var_int 207@ = $ryder_car
 gosub @SWEET1_COOP_WAIT_FOR_VEHICLE
 if
     211@ == 0

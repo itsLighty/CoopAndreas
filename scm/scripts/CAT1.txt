@@ -5112,7 +5112,7 @@ return
 :CAT1_COOP_UPDATE_OBJECTIVE
 set_lvar_int_to_lvar_int 610@ = 34@
 610@ *= 10
-610@ += $cat1_pickups_collected
+add_int_var_to_int_lvar 610@ += $cat1_pickups_collected
 if
     is_int_lvar_equal_to_int_lvar 606@ == 610@
 then

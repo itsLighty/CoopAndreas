@@ -233,7 +233,7 @@ Car.SetCruiseSpeed(108@, 5.0)
 Blip.ChangeDisplay(99@, BlipDisplay.Neither)
 Car.SetStraightLineDistance(108@, 250)
 $ryder = Char.CreateAsPassenger(PedType.Mission1, 290, 108@, 0)
-184@ = $ryder
+set_lvar_int_to_var_int 184@ = $ryder
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetGetOutUpsideDownCar($ryder, False)
 Streaming.UnloadSpecialCharacter(1)
@@ -1536,7 +1536,7 @@ $x, $y, $z = Car.GetCoordinates(108@)
 
 :RYDER3_9798
 $ryder = Char.Create(24, 290, $x, $y, $z)
-184@ = $ryder
+set_lvar_int_to_var_int 184@ = $ryder
 gosub @RYDER3_COOP_WAIT_FOR_PED
 Char.SetHealth($ryder, 1500)
 Char.SetMaxHealth($ryder, 1500)
@@ -3534,7 +3534,7 @@ if
 then
     return
 end
-191@ = $scplayer
+set_lvar_int_to_var_int 191@ = $scplayer
 192@, 193@, 194@ = Char.GetCoordinates(190@)
 195@, 196@, 197@ = Char.GetCoordinates($scplayer)
 198@ = Math.GetDistanceBetweenCoords3D(192@, 193@, 194@, 195@, 196@, 197@)

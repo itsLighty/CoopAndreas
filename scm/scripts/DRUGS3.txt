@@ -40,7 +40,7 @@ end
 210@ = 0 // cleanup/restoration guard
 211@ = 0 // remote pursuit vehicles staged
 213@ = 0 // a remote player has engaged the current encounter
-215@ = $scplayer // dealer flee target
+set_lvar_int_to_var_int 215@ = $scplayer // dealer flee target
 216@ = 0 // a frozen-roster player occupies the dealer car
 217@ = 0 // frozen-roster player died while still connected
 223@ = 0 // any active player is within 200m of the dealer
@@ -3069,7 +3069,7 @@ end
 if
     not Char.DoesExist(215@)
 then
-    215@ = $scplayer
+    set_lvar_int_to_var_int 215@ = $scplayer
 end
 return
 

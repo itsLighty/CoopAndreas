@@ -312,7 +312,7 @@ $big_smoke = Char.Create(24, 290, 2511.514, -1671.464, 12.4607)
 $sweet = Char.Create(24, 291, 2507.886, -1667.801, 12.3881)
 $ryder = Char.Create(24, 292, 2506.348, -1673.591, 12.3784)
 
-116@ = $sweet_car
+set_lvar_int_to_var_int 116@ = $sweet_car
 gosub @SWEET3_COOP_WAIT_FOR_VEHICLE
 if
     120@ == 0
@@ -324,7 +324,7 @@ $temp_int = -1
 if
     115@ == 1
 then
-    116@ = $ryder_car
+    set_lvar_int_to_var_int 116@ = $ryder_car
     gosub @SWEET3_COOP_WAIT_FOR_VEHICLE
     if
         120@ == 0
@@ -333,7 +333,7 @@ then
     end
 end
 
-116@ = $big_smoke
+set_lvar_int_to_var_int 116@ = $big_smoke
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -341,7 +341,7 @@ then
     gosub @SWEET3_COOP_REGISTRATION_ABORT
 end
 
-116@ = $sweet
+set_lvar_int_to_var_int 116@ = $sweet
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -349,7 +349,7 @@ then
     gosub @SWEET3_COOP_REGISTRATION_ABORT
 end
 
-116@ = $ryder
+set_lvar_int_to_var_int 116@ = $ryder
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -874,7 +874,7 @@ Task.CarDriveToCoord(-1, -1, 2502.89, -1674.71, 12.37, 15.0, DriveMode.Normal, 4
 Sequence.Close(65@)
 Car.CustomPlateForNextCar(492, "GROVE4L_")
 $sweet_car = Car.Create(492, 2396.36, -1917.96, 12.38)
-116@ = $sweet_car
+set_lvar_int_to_var_int 116@ = $sweet_car
 gosub @SWEET3_COOP_WAIT_FOR_VEHICLE
 if
     120@ == 0
@@ -886,7 +886,7 @@ Car.ChangeColor($sweet_car, 59, 34)
 Car.SetCanBurstTires($sweet_car, False)
 Streaming.MarkModelAsNoLongerNeeded(492)
 $big_smoke = Char.CreateAsPassenger(PedType.Mission1, 290, $sweet_car, 2)
-116@ = $big_smoke
+set_lvar_int_to_var_int 116@ = $big_smoke
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -906,7 +906,7 @@ Char.SetStayInCarWhenJacked($big_smoke, True)
 Char.SetDecisionMaker($big_smoke, 93@)
 Char.SetGetOutUpsideDownCar($big_smoke, False)
 $sweet = Char.CreateAsPassenger(PedType.Mission1, 291, $sweet_car, 1)
-116@ = $sweet
+set_lvar_int_to_var_int 116@ = $sweet
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0
@@ -926,7 +926,7 @@ Char.SetStayInCarWhenJacked($sweet, True)
 Char.SetDecisionMaker($sweet, 94@)
 Char.SetGetOutUpsideDownCar($sweet, False)
 $ryder = Char.CreateAsPassenger(PedType.Mission1, 292, $sweet_car, 0)
-116@ = $ryder
+set_lvar_int_to_var_int 116@ = $ryder
 gosub @SWEET3_COOP_WAIT_FOR_PED
 if
     120@ == 0

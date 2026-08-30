@@ -111,7 +111,7 @@ wait 1000
 Text.LoadMissionText('CRASH2')
 286@ = Zone.GetGangStrength('GLN1', GangType.Ballas)
 287@ = Zone.GetGangStrength('GLN1', GangType.Grove)
-308@ = $flag_gang_war_active
+set_lvar_int_to_var_int 308@ = $flag_gang_war_active
 Zone.SetGangStrength('GLN1', GangType.Ballas, 40)
 Zone.SetGangStrength('GLN1', GangType.Grove, 0)
 71@ = Zone.GetGangStrength('GLN1', GangType.Vagos)
@@ -1826,7 +1826,7 @@ then
                 if
                     Char.HasBeenDamagedByChar(250@(212@,12i), $NETWORK_PLAYER[$temp_int])
                 then
-                    262@(212@,12i) = $temp_int
+                    set_lvar_int_to_var_int 262@(212@,12i) = $temp_int
                     262@(212@,12i) += 1
                     Char.ClearLastDamageEntity(250@(212@,12i))
                 end
@@ -1940,7 +1940,7 @@ then
                 if
                     Char.HasBeenDamagedByChar(250@(212@,12i), $NETWORK_PLAYER[$temp_int])
                 then
-                    262@(212@,12i) = $temp_int
+                    set_lvar_int_to_var_int 262@(212@,12i) = $temp_int
                     262@(212@,12i) += 1
                 end
             end

@@ -3820,7 +3820,7 @@ goto_if_false @DRUGS4_26568
 if 
   not Char.IsDead($sweet)
 goto_if_false @DRUGS4_26568
-385@ = $sweet
+set_lvar_int_to_var_int 385@ = $sweet
 373@ = 3.5
 374@ = 3.5
 375@ = 3.5

@@ -1367,7 +1367,7 @@ goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 
 :CESAR1_COOP_WAIT_FOR_GRID
 Text.LoadMissionText('RACETOR')
-64@ = $races_timer
+set_lvar_int_to_var_int 64@ = $races_timer
 52@ = Clock.GetGameTimer()
 52@ += 25000
 
@@ -1519,10 +1519,10 @@ if
 then
     goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 end
-66@ = $races_timer
+set_lvar_int_to_var_int 66@ = $races_timer
 if and
     not is_int_lvar_equal_to_int_lvar 66@ == 64@
-    66@ > $game_timer
+    is_int_lvar_greater_than_int_var 66@ > $game_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_THREE
 end
@@ -1548,10 +1548,10 @@ if
 then
     goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 end
-66@ = $races_timer
+set_lvar_int_to_var_int 66@ = $races_timer
 if and
     not is_int_lvar_equal_to_int_lvar 66@ == 64@
-    66@ > $game_timer
+    is_int_lvar_greater_than_int_var 66@ > $game_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_TWO
 end
@@ -1577,10 +1577,10 @@ if
 then
     goto @CESAR1_COOP_RACE_CLEANUP_SILENT
 end
-66@ = $races_timer
+set_lvar_int_to_var_int 66@ = $races_timer
 if and
     not is_int_lvar_equal_to_int_lvar 66@ == 64@
-    66@ > $game_timer
+    is_int_lvar_greater_than_int_var 66@ > $game_timer
 then
     goto @CESAR1_COOP_COUNTDOWN_ONE
 end

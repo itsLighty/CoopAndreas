@@ -218,7 +218,7 @@ $sweet_car = Car.Create(492, 2508.16, -1666.47, 12.3983)
 
 $ryder = Char.Create(24, 290, 2516.392, -1676.517, 13.0041)
 
-206@ = $ryder
+set_lvar_int_to_var_int 206@ = $ryder
 gosub @SWEET1B_COOP_WAIT_FOR_PED
 if
     210@ == 0
@@ -226,7 +226,7 @@ then
     gosub @SWEET1B_COOP_REGISTRATION_ABORT
 end
 
-206@ = $sweet_car
+set_lvar_int_to_var_int 206@ = $sweet_car
 gosub @SWEET1B_COOP_WAIT_FOR_VEHICLE
 if
     210@ == 0
@@ -234,7 +234,7 @@ then
     gosub @SWEET1B_COOP_REGISTRATION_ABORT
 end
 
-206@ = $ryder_car
+set_lvar_int_to_var_int 206@ = $ryder_car
 gosub @SWEET1B_COOP_WAIT_FOR_VEHICLE
 if
     210@ == 0

@@ -167,14 +167,14 @@ if
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = $big_smoke
+set_lvar_int_to_var_int 534@ = $big_smoke
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = $sweet
+set_lvar_int_to_var_int 534@ = $sweet
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -245,7 +245,7 @@ Char.SetSuffersCriticalHits($mc_strap, False)
 Char.SetOnlyDamagedByPlayer($mc_strap, True)
 Char.WarpIntoCarAsPassenger($mc_strap, 37@, -1)
 Char.SetSenseRange($mc_strap, 80.0)
-534@ = $mc_strap
+set_lvar_int_to_var_int 534@ = $mc_strap
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
@@ -579,21 +579,21 @@ if
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = $big_smoke
+set_lvar_int_to_var_int 534@ = $big_smoke
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = $sweet
+set_lvar_int_to_var_int 534@ = $sweet
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0
 then
     gosub @TWAR7_COOP_REGISTRATION_ABORT
 end
-534@ = $mc_strap
+set_lvar_int_to_var_int 534@ = $mc_strap
 gosub @TWAR7_COOP_WAIT_FOR_PED
 if
     538@ == 0

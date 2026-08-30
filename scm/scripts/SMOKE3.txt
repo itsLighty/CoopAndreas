@@ -184,7 +184,7 @@ Car.SetHealth(78@, 1000)
 $big_smoke = Char.CreateAsPassenger(PedType.Special, 290, 78@, 0)
 set_lvar_int_to_lvar_int 138@ = 78@
 gosub @SMOKE3_COOP_WAIT_FOR_VEHICLE
-138@ = $big_smoke
+set_lvar_int_to_var_int 138@ = $big_smoke
 gosub @SMOKE3_COOP_WAIT_FOR_PED
 Char.SetGetOutUpsideDownCar($big_smoke, False)
 Char.SetHealth($big_smoke, 500)
@@ -2350,7 +2350,7 @@ goto_if_false @SMOKE3_15587
 if 
   not Car.IsOnScreen(40@)
 goto_if_false @SMOKE3_15587
-137@ = $x
+set_lvar_float_to_var_float 137@ = $x
 gosub @SMOKE3_COOP_ANY_PLAYER_NEAR_TRAIN
 if
   136@ == 0
@@ -3160,7 +3160,7 @@ Group.SetSeparationRange($Players_Group, 30.0)
 
 :SMOKE3_19434
 Blip.Remove(118@)
-138@ = $big_smoke
+set_lvar_int_to_var_int 138@ = $big_smoke
 gosub @SMOKE3_COOP_REMOVE_CHAR_BLIP
 if 
   80@ == 2

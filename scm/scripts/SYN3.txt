@@ -4395,7 +4395,7 @@ for $temp_int = 0 to 2
         end
         for 632@ = 0 to 2
             if and
-                632@ <> $temp_int
+                not is_int_lvar_equal_to_int_var 632@ == $temp_int
                 506@(632@,3i) == 1
             then
                 if
