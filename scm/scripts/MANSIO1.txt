@@ -3,6 +3,9 @@
 
 :MANSIO1
 script_name 'MANSIO1'
+Coop.EnableSyncingThisScript()
+gosub @MANSIO1_COOP_INIT
+gosub @MANSIO1_COOP_BEGIN_CINEMATIC
 gosub @MANSIO1_47
 if 
   has_deatharrest_been_executed 
@@ -10,6 +13,7 @@ goto_if_false @MANSIO1_38
 gosub @MANSIO1_38488
 
 :MANSIO1_38
+gosub @MANSIO1_COOP_CLEANUP
 gosub @MANSIO1_39063
 terminate_this_script 
 
@@ -31,6 +35,7 @@ if
   not Cutscene.HasLoaded
 goto_if_false @MANSIO1_174
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_150
 
 :MANSIO1_174
@@ -42,6 +47,7 @@ if
   not Cutscene.HasFinished
 goto_if_false @MANSIO1_207
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_183
 
 :MANSIO1_207
@@ -54,6 +60,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_246
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_222
 
 :MANSIO1_246
@@ -69,6 +76,7 @@ if
   not Streaming.HasModelLoaded(592)
 goto_if_false @MANSIO1_320
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_293
 
 :MANSIO1_320
@@ -95,6 +103,7 @@ if
   1000 > TIMERA
 goto_if_false @MANSIO1_523
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_493
 
 :MANSIO1_523
@@ -114,6 +123,7 @@ Car.SetCoordinates(96@, 2144.0, 97@, 50.0)
 
 :MANSIO1_604
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_547
 
 :MANSIO1_615
@@ -131,6 +141,7 @@ Car.SetCoordinates(96@, 2144.0, 97@, 50.0)
 
 :MANSIO1_685
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_622
 
 :MANSIO1_696
@@ -152,6 +163,7 @@ Car.SetCoordinates(96@, 2144.0, 97@, 50.0)
 
 :MANSIO1_769
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_712
 
 :MANSIO1_780
@@ -193,6 +205,7 @@ if or
   not Streaming.HasModelLoaded(353)
 goto_if_false @MANSIO1_980
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_932
 
 :MANSIO1_980
@@ -205,6 +218,7 @@ if or
   not Streaming.HasAnimationLoaded("PARACHUTE")
 goto_if_false @MANSIO1_1040
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_980
 
 :MANSIO1_1040
@@ -212,6 +226,7 @@ if
   not StreamedScript.HasLoaded(1)
 goto_if_false @MANSIO1_1066
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_1040
 
 :MANSIO1_1066
@@ -341,6 +356,7 @@ if
   500 > TIMERA
 goto_if_false @MANSIO1_2812
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_2782
 
 :MANSIO1_2812
@@ -358,6 +374,7 @@ if
   not Streaming.HasModelLoaded(331)
 goto_if_false @MANSIO1_2898
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_2871
 
 :MANSIO1_2898
@@ -375,6 +392,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_2950
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_2926
 
 :MANSIO1_2950
@@ -425,6 +443,7 @@ if
   46@ == 0
 goto_if_false @MANSIO1_3369
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 46@ = Char.GetSequenceProgress($scplayer)
 goto @MANSIO1_3332
 
@@ -432,12 +451,14 @@ goto @MANSIO1_3332
 set_var_int_to_constant $load_sample = 20804
 set_var_text_label s$load_text = 'MOBRING'
 start_new_script @A_ALAP 0 99 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_3403
 if 
   $SLOT_status($preload_slot,2i) <> -3
 goto_if_false @MANSIO1_3436
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3403
 
 :MANSIO1_3436
@@ -449,6 +470,7 @@ if
   46@ <> 4
 goto_if_false @MANSIO1_3492
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 46@ = Char.GetSequenceProgress($scplayer)
 goto @MANSIO1_3455
 
@@ -465,16 +487,19 @@ if
   65@(75@,10i) <> -1
 goto_if_false @MANSIO1_3587
 start_new_script @A_ALAP 2 100 65@(75@,10i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 goto @MANSIO1_3599
 
 :MANSIO1_3587
 start_new_script @A_ALAP 0 100 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_3599
 if 
   $SLOT_status($preload_slot,2i) <> -3
 goto_if_false @MANSIO1_3632
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3599
 
 :MANSIO1_3632
@@ -488,6 +513,7 @@ if or
   $SLOT_status($preload_slot,2i) <> -4
 goto_if_false @MANSIO1_3701
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3657
 
 :MANSIO1_3701
@@ -503,12 +529,14 @@ Task.TurnCharToFaceChar(133@, $scplayer)
 set_var_int_to_constant $load_sample = 23808
 set_var_text_label s$load_text = 'MAN1_CA'
 start_new_script @A_ALAP 1 100 $scplayer 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_3782
 if 
   $SLOT_status($preload_slot,2i) <> -3
 goto_if_false @MANSIO1_3815
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3782
 
 :MANSIO1_3815
@@ -516,12 +544,14 @@ $SLOT_status($preload_slot,2i) = -4
 set_var_int_to_constant $load_sample = 23809
 set_var_text_label s$load_text = 'MAN1_CB'
 start_new_script @A_ALAP 2 100 133@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_3863
 if 
   $SLOT_status($preload_slot,2i) <> -3
 goto_if_false @MANSIO1_3896
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3863
 
 :MANSIO1_3896
@@ -529,6 +559,7 @@ $SLOT_status($preload_slot,2i) = -4
 set_var_int_to_constant $load_sample = 23810
 set_var_text_label s$load_text = 'MAN1_CC'
 start_new_script @A_ALAP 1 100 $scplayer 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_3944
 if or
@@ -536,6 +567,7 @@ if or
   $SLOT_status($preload_slot,2i) <> -4
 goto_if_false @MANSIO1_3988
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3944
 
 :MANSIO1_3988
@@ -546,6 +578,7 @@ if
   1000 > TIMERA
 goto_if_false @MANSIO1_4025
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_3995
 
 :MANSIO1_4025
@@ -556,6 +589,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_4056
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_4032
 
 :MANSIO1_4056
@@ -571,6 +605,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_4097
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_4073
 
 :MANSIO1_4097
@@ -624,6 +659,7 @@ if
   800 > TIMERA
 goto_if_false @MANSIO1_4428
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_4398
 
 :MANSIO1_4428
@@ -641,6 +677,7 @@ if
   1000 > TIMERA
 goto_if_false @MANSIO1_4572
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 Clock.SetTimeOfDay(3, 0)
 goto @MANSIO1_4536
 
@@ -658,6 +695,7 @@ if
   14000 > TIMERA
 goto_if_false @MANSIO1_4826
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 if and
   111@ == 0
   TIMERA > 3000
@@ -681,6 +719,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_4857
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_4833
 
 :MANSIO1_4857
@@ -695,6 +734,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_4896
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_4872
 
 :MANSIO1_4896
@@ -728,6 +768,7 @@ if or
   not Streaming.HasModelLoaded(#SUNSET22_LAWN)
 goto_if_false @MANSIO1_5096
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_5059
 
 :MANSIO1_5096
@@ -739,6 +780,7 @@ if
   500 > TIMERA
 goto_if_false @MANSIO1_5147
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 gosub @MANSIO1_10537
 goto @MANSIO1_5110
 
@@ -769,6 +811,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_5547
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 gosub @MANSIO1_10537
 gosub @MANSIO1_18623
 goto @MANSIO1_5509
@@ -782,6 +825,7 @@ if
   8 > 107@
 goto_if_false @MANSIO1_5624
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 gosub @MANSIO1_9333
 gosub @MANSIO1_10132
 Clock.SetTimeOfDay(3, 0)
@@ -797,6 +841,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_5655
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_5631
 
 :MANSIO1_5655
@@ -810,6 +855,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_5687
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_5663
 
 :MANSIO1_5687
@@ -834,6 +880,7 @@ if or
   not Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
 goto_if_false @MANSIO1_5813
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 167@ = 4
 gosub @MANSIO1_10537
 goto @MANSIO1_5763
@@ -892,6 +939,7 @@ if
   500 > TIMERA
 goto_if_false @MANSIO1_6302
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 gosub @MANSIO1_10537
 goto @MANSIO1_6265
 
@@ -905,6 +953,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_6351
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 gosub @MANSIO1_10537
 goto @MANSIO1_6320
 
@@ -918,6 +967,7 @@ if
   5 > 75@
 goto_if_false @MANSIO1_6627
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 gosub @MANSIO1_10537
 if 
   TIMERA > 1000
@@ -937,6 +987,7 @@ goto @MANSIO1_6620
 set_var_int_to_lvar_int $load_sample = 55@(75@,10i)
 set_var_text_label s$load_text = 76@(75@,10s)
 start_new_script @A_ALAP 2 100 65@(75@,10i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 156@ = 2
 
 :MANSIO1_6566
@@ -959,6 +1010,7 @@ TIMERA = 0
 
 :MANSIO1_6639
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 40@ = Clock.GetGameTimer()
 set_lvar_int_to_lvar_int 42@ = 40@
 sub_int_lvar_from_int_lvar 42@ -= 41@
@@ -1003,6 +1055,13 @@ set_lvar_int_to_constant 185@ = 109
 
 :MANSIO1_6889
 wait 0
+gosub @MANSIO1_COOP_UPDATE
+if
+  535@ <> 0
+goto_if_false @MANSIO1_COOP_PARACHUTE_CONTINUE
+goto @MANSIO1_38488
+
+:MANSIO1_COOP_PARACHUTE_CONTINUE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @MANSIO1_6915
@@ -1064,20 +1123,30 @@ gosub @MANSIO1_14197
 :MANSIO1_7177
 211@ = 0
 48@ = Streaming.GetAreaVisible()
-if 
+gosub @MANSIO1_COOP_CHECK_ROOF_TRIGGER
+if or
   48@ <> 0
+  571@ == 1
 goto_if_false @MANSIO1_7358
-if 
+if or
   Char.LocateOnFoot2D($scplayer, 0, 1257.995, -785.4104, 5.0, 5.0)
+  571@ == 1
 goto_if_false @MANSIO1_7358
 48@ = 0
 
 :MANSIO1_7252
+if
+  571@ == 1
+goto_if_false @MANSIO1_COOP_WAIT_HOST_ENTRY
+goto @MANSIO1_7289
+
+:MANSIO1_COOP_WAIT_HOST_ENTRY
 if 
   48@ == 0
 goto_if_false @MANSIO1_7289
 48@ = Char.GetAreaVisible($scplayer)
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_7252
 
 :MANSIO1_7289
@@ -1088,6 +1157,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_7319
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_7295
 
 :MANSIO1_7319
@@ -1144,6 +1214,7 @@ if
   158@ > 700
 goto_if_false @MANSIO1_7767
 158@ = 0
+gosub @MANSIO1_COOP_BEGIN_PARACHUTE
 Hud.DisplayZoneNames(True)
 Object.Delete(127@)
 Object.Delete(128@)
@@ -1157,6 +1228,10 @@ Pad.SetPlayerFireButton($player1, True)
 Hud.DisplayRadar(True)
 Hud.Display(True)
 Text.PrintNow('MAN1_03', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_03'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 47@ = Blip.AddForCoord(1290.491, -788.3314, 95.4531)
 157@ += 1
 
@@ -1212,6 +1287,10 @@ goto @MANSIO1_8101
 
 :MANSIO1_8078
 Text.PrintNow('MAN1_04', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_04'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 157@ = 4
 
 :MANSIO1_8101
@@ -1219,6 +1298,10 @@ goto @MANSIO1_8131
 
 :MANSIO1_8108
 Text.PrintNow('MAN1_04', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_04'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 157@ = 3
 
 :MANSIO1_8131
@@ -1269,10 +1352,18 @@ if
   168@ == 0
 goto_if_false @MANSIO1_8361
 Text.PrintNow('MAN1_06', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_06'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 goto @MANSIO1_8377
 
 :MANSIO1_8361
 Text.PrintNow('MAN1_05', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_05'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 
 :MANSIO1_8377
 Player.ClearWantedLevel($player1)
@@ -1358,11 +1449,19 @@ if and
   210@ <> -1
 goto_if_false @MANSIO1_9051
 Text.PrintNow('MAN1_09', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_09'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 157@ = 8
 goto @MANSIO1_9074
 
 :MANSIO1_9051
 Text.PrintNow('MAN1_10', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_10'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 157@ = 7
 
 :MANSIO1_9074
@@ -1376,6 +1475,10 @@ if and
   210@ <> -1
 goto_if_false @MANSIO1_9143
 Text.PrintNow('MAN1_09', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_09'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 157@ = 8
 
 :MANSIO1_9143
@@ -1703,6 +1806,7 @@ goto_if_false @MANSIO1_11163
 set_var_int_to_constant $load_sample = 23816
 set_var_text_label s$load_text = 'MAN1_DF'
 start_new_script @A_ALAP 2 100 65@(75@,10i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_11163
 Task.GoToCoordAnyMeans(131@(43@,4i), 1585.323, -783.2303, 347.0, 6, -1)
@@ -1861,6 +1965,7 @@ goto_if_false @MANSIO1_12152
 set_var_int_to_constant $load_sample = 23818
 set_var_text_label s$load_text = 'MAN1_DH'
 start_new_script @A_ALAP 2 100 131@(43@,4i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_12152
 Task.Jump(131@(43@,4i), True)
@@ -1888,6 +1993,7 @@ set_var_text_label s$load_text = 'MAN1_DJ'
 
 :MANSIO1_12310
 start_new_script @A_ALAP 2 100 131@(43@,4i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 Task.Jump(131@(43@,4i), True)
 160@(43@,4i) = 0
 135@(43@,4i) += 1
@@ -1948,10 +2054,18 @@ if and
   210@ <> -1
 goto_if_false @MANSIO1_12865
 Text.PrintNow('MAN1_07', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_07'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 goto @MANSIO1_12881
 
 :MANSIO1_12865
 Text.PrintNow('MAN1_08', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_08'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 
 :MANSIO1_12881
 149@(43@,3i) += 1
@@ -3052,6 +3166,7 @@ Streaming.MarkModelAsNoLongerNeeded(330)
 return 
 
 :MANSIO1_19435
+gosub @MANSIO1_COOP_BEGIN_INTERIOR_CINEMATIC
 gosub @MANSIO1_13440
 gosub @MANSIO1_19274
 DecisionMaker.Remove(39@)
@@ -3072,6 +3187,7 @@ if or
   not Streaming.HasModelLoaded(195)
 goto_if_false @MANSIO1_19632
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_19597
 
 :MANSIO1_19632
@@ -3346,6 +3462,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_22004
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_21980
 
 :MANSIO1_22004
@@ -3354,6 +3471,7 @@ TIMERA = 0
 set_var_int_to_constant $load_sample = 23820
 set_var_text_label s$load_text = 'MAN1_EA'
 start_new_script @A_ALAP 2 100 145@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 skip_cutscene_start_internal @MANSIO1_22313
 
 :MANSIO1_22062
@@ -3361,6 +3479,7 @@ if
   4000 > TIMERA
 goto_if_false @MANSIO1_22092
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_22062
 
 :MANSIO1_22092
@@ -3375,6 +3494,7 @@ if
   4400 > TIMERA
 goto_if_false @MANSIO1_22152
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_22122
 
 :MANSIO1_22152
@@ -3389,6 +3509,7 @@ if
   4700 > TIMERA
 goto_if_false @MANSIO1_22228
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_22198
 
 :MANSIO1_22228
@@ -3409,6 +3530,7 @@ if
   5400 > TIMERA
 goto_if_false @MANSIO1_22313
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_22283
 
 :MANSIO1_22313
@@ -3440,9 +3562,11 @@ goto @MANSIO1_22450
 Char.SetHeading($scplayer, 270.0)
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
+gosub @MANSIO1_COOP_BEGIN_ASSAULT
 set_var_int_to_constant $load_sample = 23821
 set_var_text_label s$load_text = 'MAN1_EB'
 start_new_script @A_ALAP 2 101 143@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 TIMERB = 0
 415@ = 1
 411@ = 1
@@ -3520,6 +3644,13 @@ Sequence.Clear(45@)
 
 :MANSIO1_22930
 wait 0
+gosub @MANSIO1_COOP_UPDATE
+if
+  535@ <> 0
+goto_if_false @MANSIO1_COOP_ASSAULT_CONTINUE
+goto @MANSIO1_38488
+
+:MANSIO1_COOP_ASSAULT_CONTINUE
 40@ = Clock.GetGameTimer()
 set_lvar_int_to_lvar_int 42@ = 40@
 sub_int_lvar_from_int_lvar 42@ -= 41@
@@ -3587,6 +3718,7 @@ goto @MANSIO1_36517
 goto @MANSIO1_22930
 
 :MANSIO1_23279
+gosub @MANSIO1_COOP_CHECK_INTERIOR_TRIGGER
 switch_start 157@ total_jumps 12 default_jump 0 @MANSIO1_28153 jumps 0 @MANSIO1_23407 1 @MANSIO1_24472 2 @MANSIO1_24838 3 @MANSIO1_24986 4 @MANSIO1_25838 5 @MANSIO1_26532 6 @MANSIO1_26757
 switch_continued 7 @MANSIO1_26929 8 @MANSIO1_27158 9 @MANSIO1_27387 10 @MANSIO1_27654 11 @MANSIO1_27883 -1 @MANSIO1_28153 -1 @MANSIO1_28153 -1 @MANSIO1_28153 -1 @MANSIO1_28153
 
@@ -3595,6 +3727,7 @@ if or
   Char.IsInArea2D($scplayer, 0, 1285.937, -783.2331, 1279.36, -779.1484)
   149@ == 6
   150@ == 7
+  571@ == 1
 goto_if_false @MANSIO1_24465
 286@ = Char.Create(25, 108, 1271.954, -786.6414, 1088.928)
 Char.SetHeading(286@, 248.455)
@@ -3878,8 +4011,9 @@ Char.SetDecisionMaker(318@, 37@)
 157@ += 1
 
 :MANSIO1_25838
-if 
+if or
   Char.IsInArea2D($scplayer, 0, 1266.533, -831.5337, 1261.282, -838.8454)
+  571@ == 1
 goto_if_false @MANSIO1_26532
 237@ = Char.Create(25, 110, 1253.758, -826.5505, 1083.008)
 Char.SetHeading(237@, 197.3586)
@@ -3939,6 +4073,7 @@ Sequence.Clear(45@)
 set_var_int_to_constant $load_sample = 23804
 set_var_text_label s$load_text = 'MAN1_BA'
 start_new_script @A_ALAP 2 200 328@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 330@ = 1
 415@ = -1
 319@ = Char.Create(26, 13, 1240.835, -826.6857, 1082.156)
@@ -3949,13 +4084,18 @@ Char.SetDecisionMaker(319@, 37@)
 157@ += 1
 
 :MANSIO1_26532
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1229.934, -835.5339, 1082.5, 1224.882, -838.8135, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_26750
 if 
   515@ == 0
 goto_if_false @MANSIO1_26621
 Text.PrintNow('MAN1_21', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_21'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 515@ = 1
 
 :MANSIO1_26621
@@ -3980,8 +4120,9 @@ Task.GoStraightToCoord(328@, 516@, 517@, 1083.015, MoveState.Run, -1)
 goto @MANSIO1_28153
 
 :MANSIO1_26757
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1228.68, -829.9222, 1082.5, 1224.883, -825.2996, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_26922
 239@ = Char.Create(25, 108, 1228.808, -812.9333, 1083.008)
 Char.SetHeading(239@, 180.0)
@@ -4001,8 +4142,9 @@ Task.WeaponRoll(239@, True)
 goto @MANSIO1_28153
 
 :MANSIO1_26929
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1229.799, -810.6401, 1082.5, 1224.884, -819.0158, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_27151
 if 
   not Char.IsDead(328@)
@@ -4030,8 +4172,9 @@ Sequence.Clear(45@)
 goto @MANSIO1_28153
 
 :MANSIO1_27158
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1254.281, -810.6465, 1082.5, 1264.045, -813.9205, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_27380
 if 
   not Char.IsDead(328@)
@@ -4049,6 +4192,7 @@ Task.GoStraightToCoord(328@, 516@, 517@, 1083.015, MoveState.Run, -1)
 set_var_int_to_constant $load_sample = 23805
 set_var_text_label s$load_text = 'MAN1_BB'
 start_new_script @A_ALAP 2 200 328@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_27366
 157@ += 1
@@ -4058,8 +4202,9 @@ gosub @MANSIO1_35546
 goto @MANSIO1_28153
 
 :MANSIO1_27387
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1278.469, -791.9025, 1082.5, 1285.187, -786.7327, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_27647
 if 
   not Char.IsDead(328@)
@@ -4082,6 +4227,7 @@ Sequence.Clear(45@)
 set_var_int_to_constant $load_sample = 23806
 set_var_text_label s$load_text = 'MAN1_BC'
 start_new_script @A_ALAP 2 200 328@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_27640
 157@ += 1
@@ -4090,8 +4236,9 @@ start_new_script @A_ALAP 2 200 328@
 goto @MANSIO1_28153
 
 :MANSIO1_27654
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1251.285, -775.3042, 1082.5, 1247.005, -765.7498, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_27876
 if 
   not Char.IsDead(328@)
@@ -4119,8 +4266,9 @@ Sequence.Clear(45@)
 goto @MANSIO1_28153
 
 :MANSIO1_27883
-if 
+if or
   Char.IsInArea3D($scplayer, 0, 1260.289, -765.4207, 1082.5, 1267.524, -774.8633, 1085.5)
+  571@ == 1
 goto_if_false @MANSIO1_28146
 if 
   not Char.IsDead(328@)
@@ -4142,6 +4290,7 @@ Sequence.Clear(45@)
 set_var_int_to_constant $load_sample = 23807
 set_var_text_label s$load_text = 'MAN1_BD'
 start_new_script @A_ALAP 2 200 328@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_28139
 157@ += 1
@@ -4169,6 +4318,10 @@ switch_start 43@ total_jumps 4 default_jump 0 @MANSIO1_28930 jumps 0 @MANSIO1_28
 
 :MANSIO1_28283
 Text.PrintNow('MAN1_13', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_13'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 415@ = 1
 set_lvar_int_to_lvar_int 416@ = 43@
 TIMERB = 0
@@ -4195,6 +4348,7 @@ set_var_text_label s$load_text = 'MAN1_FB'
 
 :MANSIO1_28454
 start_new_script @A_ALAP 2 100 143@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_28469
 415@ = 1
@@ -4207,6 +4361,7 @@ goto_if_false @MANSIO1_28556
 set_var_int_to_constant $load_sample = 23830
 set_var_text_label s$load_text = 'MAN1_FJ'
 start_new_script @A_ALAP 2 100 144@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_28556
 415@ = 1
@@ -4224,6 +4379,10 @@ goto @MANSIO1_28930
 
 :MANSIO1_28610
 Text.PrintNow('MAN1_20', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_20'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 415@ = 1
 set_lvar_int_to_lvar_int 416@ = 43@
 TIMERB = 0
@@ -4250,6 +4409,7 @@ set_var_text_label s$load_text = 'MAN1_FH'
 
 :MANSIO1_28781
 start_new_script @A_ALAP 2 100 143@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_28796
 415@ = 1
@@ -4262,6 +4422,7 @@ goto_if_false @MANSIO1_28883
 set_var_int_to_constant $load_sample = 23835
 set_var_text_label s$load_text = 'MAN1_FO'
 start_new_script @A_ALAP 2 100 144@ 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 
 :MANSIO1_28883
 415@ = 1
@@ -4328,6 +4489,17 @@ goto_if_false @MANSIO1_29182
 return 
 
 :MANSIO1_29182
+for $temp_int = 0 to 2
+    if and
+        606@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+        not Char.IsDead(600@($temp_int,3i))
+        Char.IsInArea2D(600@($temp_int,3i), 0, 418@, 419@, 420@, 421@)
+    then
+        417@ = 1
+        return
+    end
+end
 return 
 
 :MANSIO1_29184
@@ -4895,6 +5067,7 @@ set_var_text_label s$load_text = 453@(452@,8s)
 
 :MANSIO1_32809
 start_new_script @A_ALAP 2 100 143@(430@,3i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 452@ += 1
 if 
   452@ == 4
@@ -5186,6 +5359,7 @@ goto_if_false @MANSIO1_34523
 set_var_int_to_lvar_int $load_sample = 331@(335@,4i)
 set_var_text_label s$load_text = 336@(335@,4s)
 start_new_script @A_ALAP 2 50 474@(486@,3i) 
+gosub @MANSIO1_COOP_PRINT_LOAD_TEXT
 477@(486@,3i) = 0
 335@ += 1
 
@@ -5306,6 +5480,10 @@ if
   515@ == 0
 goto_if_false @MANSIO1_35333
 Text.PrintNow('MAN1_21', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_21'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 515@ = 1
 
 :MANSIO1_35333
@@ -5320,6 +5498,10 @@ World.SwitchEntryExit('MDDOGS', True)
 47@ = Blip.AddForCoord(1298.74, -795.9946, 1083.008)
 Blip.SetEntryExit(47@, 1258.338, -785.4264, 91.0313)
 Text.PrintNow('MAN1_22', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_22'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 Char.SetCoordinates(328@, 1261.031, -815.666, 83.1484)
 Char.SetHeading(328@, 65.0097)
 Char.SetAreaVisible(328@, 0)
@@ -5473,6 +5655,7 @@ Char.SetDecisionMaker(526@, 38@)
 return 
 
 :MANSIO1_36517
+gosub @MANSIO1_COOP_BEGIN_PURSUIT_CINEMATIC
 Text.ClearPrints
 48@ = 5
 
@@ -5481,6 +5664,7 @@ if
   48@ == 5
 goto_if_false @MANSIO1_36563
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 48@ = Char.GetAreaVisible($scplayer)
 goto @MANSIO1_36526
 
@@ -5493,6 +5677,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_36606
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_36582
 
 :MANSIO1_36606
@@ -5514,6 +5699,7 @@ if or
   not Streaming.HasCarRecordingBeenLoaded(708)
 goto_if_false @MANSIO1_36741
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_36704
 
 :MANSIO1_36741
@@ -5525,6 +5711,7 @@ Car.SetModelComponents(555, 1, 1)
 528@ = Car.Create(555, 1244.026, -808.5705, 83.1484)
 Car.SetHeading(528@, 177.4448)
 Car.ChangeColor(528@, 126, 0)
+gosub @MANSIO1_COOP_PREPARE_PURSUIT_SUPPORTS
 Audio.SetRadioChannel(RadioChannel.BounceFM)
 if 
   not Char.IsDead(328@)
@@ -5551,6 +5738,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_37066
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37042
 
 :MANSIO1_37066
@@ -5580,6 +5768,7 @@ if
   1500 > TIMERA
 goto_if_false @MANSIO1_37227
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37197
 
 :MANSIO1_37227
@@ -5594,6 +5783,7 @@ if
   49@ == 0
 goto_if_false @MANSIO1_37384
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 if 
   not Char.IsDead(328@)
 goto_if_false @MANSIO1_37377
@@ -5625,6 +5815,7 @@ if
   5000 > TIMERA
 goto_if_false @MANSIO1_37493
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37463
 
 :MANSIO1_37493
@@ -5635,7 +5826,12 @@ goto_if_false @MANSIO1_37517
 
 :MANSIO1_37517
 Text.PrintNow('MAN1_23', 8000, 1)
+set_lvar_text_label 830@s = 'MAN1_23'
+832@ = 8000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 Player.SetControl($player1, True)
+gosub @MANSIO1_COOP_BEGIN_PURSUIT
 Hud.SwitchWidescreen(False)
 Camera.ResetNewScriptables
 Camera.RestoreJumpcut
@@ -5645,11 +5841,19 @@ World.SetCarDensityMultiplier(0.5)
 
 :MANSIO1_37561
 wait 0
+gosub @MANSIO1_COOP_UPDATE
+if
+  535@ <> 0
+goto_if_false @MANSIO1_COOP_PURSUIT_CONTINUE
+goto @MANSIO1_38488
+
+:MANSIO1_COOP_PURSUIT_CONTINUE
 if 
   not Char.IsDead(328@)
 goto_if_false @MANSIO1_37678
-if 
-  not Char.LocateAnyMeansChar2D($scplayer, 328@, 250.0, 250.0, False)
+gosub @MANSIO1_COOP_CHECK_PURSUIT_DISTANCE
+if
+  571@ == 0
 goto_if_false @MANSIO1_37640
 52@ = 1
 set_lvar_text_label 53@s = 'MAN1_24'
@@ -5666,6 +5870,7 @@ gosub @MANSIO1_38303
 goto @MANSIO1_38296
 
 :MANSIO1_37678
+gosub @MANSIO1_COOP_BEGIN_FINAL_CINEMATIC
 Blip.Remove(329@)
 TIMERA = 0
 
@@ -5674,6 +5879,7 @@ if
   2000 > TIMERA
 goto_if_false @MANSIO1_37720
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37690
 
 :MANSIO1_37720
@@ -5684,6 +5890,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_37750
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37726
 
 :MANSIO1_37750
@@ -5713,6 +5920,7 @@ if
   not Streaming.HasModelLoaded(#DRG_NU_EXT)
 goto_if_false @MANSIO1_37883
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37856
 
 :MANSIO1_37883
@@ -5726,6 +5934,7 @@ if
   500 > TIMERA
 goto_if_false @MANSIO1_37993
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_37963
 
 :MANSIO1_37993
@@ -5736,11 +5945,16 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_38024
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_38000
 
 :MANSIO1_38024
 skip_cutscene_start_internal @MANSIO1_38115
 Text.PrintNow('MAN1_30', 7000, 1)
+set_lvar_text_label 830@s = 'MAN1_30'
+832@ = 7000
+833@ = 1
+gosub @MANSIO1_COOP_PRINT_NOW
 TIMERA = 0
 
 :MANSIO1_38054
@@ -5748,6 +5962,7 @@ if
   7000 > TIMERA
 goto_if_false @MANSIO1_38084
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_38054
 
 :MANSIO1_38084
@@ -5758,6 +5973,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_38115
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_38091
 
 :MANSIO1_38115
@@ -5769,6 +5985,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_38147
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_38123
 
 :MANSIO1_38147
@@ -5786,6 +6003,7 @@ if
   500 > TIMERA
 goto_if_false @MANSIO1_38238
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_38208
 
 :MANSIO1_38238
@@ -5797,6 +6015,7 @@ if
   Camera.GetFadingStatus
 goto_if_false @MANSIO1_38274
 wait 0
+gosub @MANSIO1_COOP_UPDATE
 goto @MANSIO1_38250
 
 :MANSIO1_38274
@@ -5840,6 +6059,8 @@ DecisionMaker.Remove(36@)
 return 
 
 :MANSIO1_38488
+543@ = 2
+538@ = 5
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 World.SwitchEntryExit('MADDOGS', False)
 World.SwitchEntryExit('MDDOGS', False)
@@ -5849,9 +6070,13 @@ goto_if_false @MANSIO1_38558
 Text.PrintNow(53@s, 8000, 1)
 
 :MANSIO1_38558
+gosub @MANSIO1_COOP_NOTIFY_RESULT
 return 
 
 :MANSIO1_38560
+543@ = 1
+538@ = 5
+gosub @MANSIO1_COOP_NOTIFY_RESULT
 43@ = 0
 
 :MANSIO1_38567
@@ -6019,4 +6244,1534 @@ $timer_mobile_start = Clock.GetGameTimer()
 $onmission = 0
 Mission.Finish
 return 
+
+// Cooperative A Home in the Hills layer. The stock script remains the only
+// authority for story globals, cutscenes, failure reasons, rewards and pass state.
+// Entry-time internal identities are immutable: matching reconnects recover
+// their role, while later identities remain spectators for the entire mission.
+:MANSIO1_COOP_INIT
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+533@ = 0 // immutable frozen participant count
+534@ = 0 // currently connected frozen participants
+535@ = 0 // deterministic connected-participant death failure
+536@ = 0 // idempotent cooperative cleanup guard
+537@ = 0 // remote participants frozen for a cinematic
+538@ = 0 // phase: 0 intro, 1 parachute, 2 assault, 3 pursuit, 4 finale, 5 result
+539@ = 0 // next objective refresh
+540@ = 0 // next bounded entity-registration poll
+541@ = 0 // next hostile retarget pass
+542@ = 0 // next regroup pass
+543@ = 0 // result: 0 active, 1 passed, 2 failed
+544@ = 0 // result fan-out guard
+553@ = 0 // exhausted registration count
+555@ = 0 // force objective refresh
+557@ = Char.GetHealth($scplayer)
+558@ = Char.GetArmor($scplayer)
+573@ = 0 // pursuit support vehicles prepared
+574@ = 0 // next unsynchronized combat fallback
+579@ = 0 // reconnect observed this update
+589@ = 0 // at least one registration degraded to fallback
+Char.ClearLastDamageEntity($scplayer)
+Char.ClearLastWeaponDamage($scplayer)
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 600@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    603@($temp_int,3i) = -1 // immutable internal identity
+    606@($temp_int,3i) = 0 // connected matching participant
+    609@($temp_int,3i) = 0 // reconnect needs phase-aware staging
+    612@($temp_int,3i) = 0 // pre-mission selected weapon
+    615@($temp_int,3i) = 0 // pre-mission parachute ammo
+    618@($temp_int,3i) = 0 // participant originally had a parachute
+    621@($temp_int,3i) = 0 // cooperative parachute mutation applied
+    624@($temp_int,3i) = 0 // prior participant health ledger
+    627@($temp_int,3i) = 0 // prior participant armor ledger
+    630@($temp_int,3i) = -1 // last objective token sent
+    633@($temp_int,3i) = 0 // out-of-range regroup grace start
+    636@($temp_int,3i) = -1 // dedicated pursuit support car
+    639@($temp_int,3i) = -1 // support car network id
+    642@($temp_int,3i) = 0 // bounded support registration attempts
+    645@($temp_int,3i) = 0 // support car health ledger
+    if
+        Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+    then
+        603@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
+        if
+            603@($temp_int,3i) <> -1
+        then
+            606@($temp_int,3i) = 1
+            533@ += 1
+            612@($temp_int,3i) = Char.GetCurrentWeapon(600@($temp_int,3i))
+            615@($temp_int,3i) = Char.GetAmmoInWeapon(600@($temp_int,3i), 46)
+            if
+                Char.HasGotWeapon(600@($temp_int,3i), 46)
+            then
+                618@($temp_int,3i) = 1
+            end
+            624@($temp_int,3i) = Char.GetHealth(600@($temp_int,3i))
+            627@($temp_int,3i) = Char.GetArmor(600@($temp_int,3i))
+            Char.ClearLastDamageEntity(600@($temp_int,3i))
+            Char.ClearLastWeaponDamage(600@($temp_int,3i))
+        end
+    end
+end
+for 550@ = 0 to 57
+    651@(550@,58i) = -1 // canonical mission/support entity network id
+    709@(550@,58i) = 0 // bounded registration attempts
+    767@(550@,58i) = -1 // handle snapshot guards recycled handles
+end
+for 550@ = 0 to 2
+    825@(550@,3i) = 0 // friendly-fire health ledger for mission allies 143..145
+end
+return
+
+:MANSIO1_COOP_UPDATE_ROSTER
+648@, 649@, 650@ = Coop.CollectNetworkPlayersForTheMission()
+534@ = 0
+579@ = 0
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 546@ = 606@($temp_int,3i)
+    606@($temp_int,3i) = 0
+    548@ = -1
+    if
+        603@($temp_int,3i) <> -1
+    then
+        if
+            Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+        then
+            547@ = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
+            if
+                is_int_lvar_equal_to_int_lvar 547@ == 603@($temp_int,3i)
+            then
+                set_lvar_int_to_lvar_int 548@ = 600@($temp_int,3i)
+            end
+        end
+        if
+            548@ == -1
+        then
+            for 549@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(648@(549@,3i))
+                then
+                    547@ = Coop.GetNetworkPlayerInternalId(648@(549@,3i))
+                    if
+                        is_int_lvar_equal_to_int_lvar 547@ == 603@($temp_int,3i)
+                    then
+                        set_lvar_int_to_lvar_int 548@ = 648@(549@,3i)
+                    end
+                end
+            end
+        end
+    end
+    if
+        548@ <> -1
+    then
+        set_lvar_int_to_lvar_int 600@($temp_int,3i) = 548@
+        606@($temp_int,3i) = 1
+        534@ += 1
+        if
+            546@ == 0
+        then
+            609@($temp_int,3i) = 1
+            630@($temp_int,3i) = -1
+            579@ = 1
+        end
+        if and
+            543@ == 0
+            Char.IsDead(548@)
+        then
+            535@ = 1
+            52@ = 1
+            set_lvar_text_label 53@s = 'MAN1_11'
+        end
+    else
+        630@($temp_int,3i) = -1
+        633@($temp_int,3i) = 0
+    end
+end
+return
+
+:MANSIO1_COOP_VALIDATE_CURRENT
+548@ = -1
+if and
+    603@($temp_int,3i) <> -1
+    606@($temp_int,3i) == 1
+    Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+then
+    547@ = Coop.GetNetworkPlayerInternalId(600@($temp_int,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 547@ == 603@($temp_int,3i)
+    then
+        set_lvar_int_to_lvar_int 548@ = 600@($temp_int,3i)
+    end
+end
+return
+
+:MANSIO1_COOP_BUILD_ACTIVE_ARGS
+575@ = -1
+576@ = -1
+577@ = -1
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 575@($temp_int,3i) = 600@($temp_int,3i)
+    end
+end
+return
+
+:MANSIO1_COOP_TELEPORT_CURRENT
+if
+    $temp_int == 0
+then
+    Coop.TeleportPlayersToHostSafely(600@, -1, -1)
+end
+if
+    $temp_int == 1
+then
+    Coop.TeleportPlayersToHostSafely(-1, 601@, -1)
+end
+if
+    $temp_int == 2
+then
+    Coop.TeleportPlayersToHostSafely(-1, -1, 602@)
+end
+return
+
+:MANSIO1_COOP_FREEZE_CURRENT
+gosub @MANSIO1_COOP_VALIDATE_CURRENT
+if or
+    548@ == -1
+    Char.IsDead(548@)
+then
+    return
+end
+561@, 562@, 563@ = Char.GetCoordinates($scplayer)
+588@ = Char.GetAreaVisible($scplayer)
+Char.ClearTasksImmediately(548@)
+if
+    Char.IsInAnyCar(548@)
+then
+    Char.WarpFromCarToCoord(548@, 561@, 562@, 563@)
+else
+    Char.SetCoordinates(548@, 561@, 562@, 563@)
+end
+Char.SetAreaVisible(548@, 588@)
+Char.SetVisible(548@, False)
+Char.SetCollision(548@, False)
+Char.SetProofs(548@, True, True, True, True, True)
+Char.FreezePosition(548@, True)
+Task.StandStill(548@, -1)
+609@($temp_int,3i) = 0
+633@($temp_int,3i) = 0
+return
+
+:MANSIO1_COOP_BEGIN_CINEMATIC
+if
+    533@ == 0
+then
+    537@ = 1
+    return
+end
+537@ = 1
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+gosub @MANSIO1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(575@, 576@, 577@)
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        gosub @MANSIO1_COOP_FREEZE_CURRENT
+    end
+end
+return
+
+:MANSIO1_COOP_STAGE_CURRENT_PARACHUTE
+gosub @MANSIO1_COOP_VALIDATE_CURRENT
+if or
+    548@ == -1
+    Char.IsDead(548@)
+then
+    return
+end
+gosub @MANSIO1_COOP_TELEPORT_CURRENT
+561@, 562@, 563@ = Char.GetCoordinates($scplayer)
+588@ = Char.GetAreaVisible($scplayer)
+if
+    $temp_int == 0
+then
+    561@ += 2.0
+end
+if
+    $temp_int == 1
+then
+    562@ += 2.0
+end
+if
+    $temp_int == 2
+then
+    561@ -= 2.0
+end
+Char.ClearTasksImmediately(548@)
+if
+    Char.IsInAnyCar(548@)
+then
+    Char.WarpFromCarToCoord(548@, 561@, 562@, 563@)
+else
+    Char.SetCoordinates(548@, 561@, 562@, 563@)
+end
+Char.SetAreaVisible(548@, 588@)
+if
+    621@($temp_int,3i) == 0
+then
+    Char.GiveWeapon(548@, WeaponType.Parachute, 1)
+    621@($temp_int,3i) = 1
+end
+if
+    563@ > 120.0
+then
+    Char.SetCurrentWeapon(548@, WeaponType.Parachute)
+    Char.SetVelocity(548@, 0.0, -8.0, -3.0)
+end
+Char.SetVisible(548@, True)
+Char.SetCollision(548@, True)
+Char.SetProofs(548@, False, False, False, False, False)
+Char.FreezePosition(548@, False)
+Task.StandStill(548@, 0)
+624@($temp_int,3i) = Char.GetHealth(548@)
+627@($temp_int,3i) = Char.GetArmor(548@)
+Char.ClearLastDamageEntity(548@)
+Char.ClearLastWeaponDamage(548@)
+609@($temp_int,3i) = 0
+630@($temp_int,3i) = -1
+633@($temp_int,3i) = 0
+return
+
+:MANSIO1_COOP_BEGIN_PARACHUTE
+if
+    538@ >= 1
+then
+    return
+end
+538@ = 1
+537@ = 0
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        gosub @MANSIO1_COOP_STAGE_CURRENT_PARACHUTE
+    end
+end
+539@ = 0
+540@ = 0
+555@ = 1
+if
+    533@ > 0
+then
+    Coop.AddChatMessage("{00ff00}[A Home in the Hills]{ffffff} Parachute team: land on the mansion roof and breach together; any frozen participant may trigger the entry.")
+end
+return
+
+:MANSIO1_COOP_BEGIN_INTERIOR_CINEMATIC
+if
+    538@ >= 2
+then
+    return
+end
+538@ = 2
+gosub @MANSIO1_COOP_CLEAR_OBJECTIVES
+gosub @MANSIO1_COOP_BEGIN_CINEMATIC
+return
+
+:MANSIO1_COOP_STAGE_CURRENT_ASSAULT
+gosub @MANSIO1_COOP_VALIDATE_CURRENT
+if or
+    548@ == -1
+    Char.IsDead(548@)
+then
+    return
+end
+gosub @MANSIO1_COOP_TELEPORT_CURRENT
+561@, 562@, 563@ = Char.GetCoordinates($scplayer)
+if
+    $temp_int == 0
+then
+    561@ += 1.5
+end
+if
+    $temp_int == 1
+then
+    562@ += 1.5
+end
+if
+    $temp_int == 2
+then
+    561@ -= 1.5
+end
+Char.ClearTasksImmediately(548@)
+if
+    Char.IsInAnyCar(548@)
+then
+    Char.WarpFromCarToCoord(548@, 561@, 562@, 563@)
+else
+    Char.SetCoordinates(548@, 561@, 562@, 563@)
+end
+Char.SetAreaVisible(548@, 5)
+Char.SetHeading(548@, 270.0)
+Char.SetVisible(548@, True)
+Char.SetCollision(548@, True)
+Char.SetProofs(548@, False, False, False, False, False)
+Char.FreezePosition(548@, False)
+Task.StandStill(548@, 0)
+624@($temp_int,3i) = Char.GetHealth(548@)
+627@($temp_int,3i) = Char.GetArmor(548@)
+Char.ClearLastDamageEntity(548@)
+Char.ClearLastWeaponDamage(548@)
+609@($temp_int,3i) = 0
+630@($temp_int,3i) = -1
+633@($temp_int,3i) = 0
+return
+
+:MANSIO1_COOP_BEGIN_ASSAULT
+538@ = 2
+537@ = 0
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        gosub @MANSIO1_COOP_STAGE_CURRENT_ASSAULT
+    end
+end
+539@ = 0
+540@ = 0
+541@ = 0
+555@ = 1
+if
+    533@ > 0
+then
+    Coop.AddChatMessage("{00ff00}[A Home in the Hills]{ffffff} Assault team: clear the mansion, cover the returning crew, and advance the shared room triggers while CJ keeps story authority.")
+end
+return
+
+:MANSIO1_COOP_BEGIN_PURSUIT_CINEMATIC
+if
+    538@ >= 3
+then
+    return
+end
+538@ = 3
+gosub @MANSIO1_COOP_CLEAR_OBJECTIVES
+gosub @MANSIO1_COOP_BEGIN_CINEMATIC
+return
+
+// Dedicated registered support cars give each connected peer a real pursuit
+// role. A failed ten-probe handshake falls back to on-foot host staging.
+:MANSIO1_COOP_PREPARE_PURSUIT_SUPPORTS
+if or
+    533@ == 0
+    573@ == 1
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        603@($temp_int,3i) <> -1
+    then
+        834@ = 1268.5
+        835@ = -810.5
+        if
+            $temp_int == 1
+        then
+            834@ = 1271.5
+            835@ = -813.5
+        end
+        if
+            $temp_int == 2
+        then
+            834@ = 1268.0
+            835@ = -816.5
+        end
+        636@($temp_int,3i) = Car.Create(555, 834@, 835@, 83.1484)
+        if
+            Car.DoesExist(636@($temp_int,3i))
+        then
+            Car.SetHeading(636@($temp_int,3i), 90.0)
+            Car.ChangeColor(636@($temp_int,3i), 126, 0)
+            Car.SetHealth(636@($temp_int,3i), 1500)
+            Car.SetCanBurstTires(636@($temp_int,3i), False)
+            Car.SetProofs(636@($temp_int,3i), True, True, True, True, True)
+            Car.LockDoors(636@($temp_int,3i), CarLock.Unlocked)
+            Car.SetAreaVisible(636@($temp_int,3i), 0)
+            Car.FreezePosition(636@($temp_int,3i), True)
+            Car.SetCollision(636@($temp_int,3i), False)
+            Car.SetVisible(636@($temp_int,3i), False)
+            645@($temp_int,3i) = Car.GetHealth(636@($temp_int,3i))
+        end
+    end
+end
+573@ = 1
+540@ = 0
+return
+
+:MANSIO1_COOP_STAGE_CURRENT_PURSUIT
+gosub @MANSIO1_COOP_VALIDATE_CURRENT
+if or
+    548@ == -1
+    Char.IsDead(548@)
+then
+    return
+end
+gosub @MANSIO1_COOP_TELEPORT_CURRENT
+561@, 562@, 563@ = Char.GetCoordinates($scplayer)
+572@ = Char.GetHeading($scplayer)
+561@ += 3.0
+if
+    $temp_int == 1
+then
+    562@ += 3.0
+end
+if
+    $temp_int == 2
+then
+    562@ -= 3.0
+end
+Char.ClearTasksImmediately(548@)
+if and
+    639@($temp_int,3i) <> -1
+    Car.DoesExist(636@($temp_int,3i))
+    not Car.IsDead(636@($temp_int,3i))
+then
+    Car.SetCoordinates(636@($temp_int,3i), 561@, 562@, 563@)
+    Car.SetHeading(636@($temp_int,3i), 572@)
+    Car.SetAreaVisible(636@($temp_int,3i), 0)
+    Car.FreezePosition(636@($temp_int,3i), False)
+    Car.SetCollision(636@($temp_int,3i), True)
+    Car.SetVisible(636@($temp_int,3i), True)
+    Car.SetProofs(636@($temp_int,3i), False, False, False, False, False)
+    Car.SetCanBurstTires(636@($temp_int,3i), True)
+    if
+        Char.IsInAnyCar(548@)
+    then
+        Char.WarpFromCarToCoord(548@, 561@, 562@, 563@)
+    end
+    Char.WarpIntoCar(548@, 636@($temp_int,3i))
+else
+    if
+        Car.DoesExist(636@($temp_int,3i))
+    then
+        Car.Delete(636@($temp_int,3i))
+    end
+    636@($temp_int,3i) = -1
+    639@($temp_int,3i) = -1
+    if
+        Char.IsInAnyCar(548@)
+    then
+        Char.WarpFromCarToCoord(548@, 561@, 562@, 563@)
+    else
+        Char.SetCoordinates(548@, 561@, 562@, 563@)
+    end
+end
+Char.SetAreaVisible(548@, 0)
+Char.SetVisible(548@, True)
+Char.SetCollision(548@, True)
+Char.SetProofs(548@, False, False, False, False, False)
+Char.FreezePosition(548@, False)
+Task.StandStill(548@, 0)
+624@($temp_int,3i) = Char.GetHealth(548@)
+627@($temp_int,3i) = Char.GetArmor(548@)
+Char.ClearLastDamageEntity(548@)
+Char.ClearLastWeaponDamage(548@)
+609@($temp_int,3i) = 0
+630@($temp_int,3i) = -1
+633@($temp_int,3i) = 0
+return
+
+:MANSIO1_COOP_BEGIN_PURSUIT
+538@ = 3
+537@ = 0
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    if
+        606@($temp_int,3i) == 1
+    then
+        gosub @MANSIO1_COOP_STAGE_CURRENT_PURSUIT
+    end
+end
+539@ = 0
+540@ = 0
+555@ = 1
+if
+    533@ > 0
+then
+    Coop.AddChatMessage("{00ff00}[A Home in the Hills]{ffffff} Pursuit team: keep Big Poppa within range; any connected frozen participant can sustain the shared chase while CJ owns the outcome.")
+end
+return
+
+:MANSIO1_COOP_BEGIN_FINAL_CINEMATIC
+if
+    538@ >= 4
+then
+    return
+end
+538@ = 4
+gosub @MANSIO1_COOP_CLEAR_OBJECTIVES
+gosub @MANSIO1_COOP_BEGIN_CINEMATIC
+return
+
+:MANSIO1_COOP_STAGE_RECONNECTS
+if
+    579@ == 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if and
+        606@($temp_int,3i) == 1
+        609@($temp_int,3i) == 1
+    then
+        if
+            537@ == 1
+        then
+            gosub @MANSIO1_COOP_FREEZE_CURRENT
+        else
+            if
+                538@ == 1
+            then
+                gosub @MANSIO1_COOP_STAGE_CURRENT_PARACHUTE
+            end
+            if
+                538@ == 2
+            then
+                gosub @MANSIO1_COOP_STAGE_CURRENT_ASSAULT
+            end
+            if
+                538@ == 3
+            then
+                gosub @MANSIO1_COOP_STAGE_CURRENT_PURSUIT
+            end
+        end
+        609@($temp_int,3i) = 0
+    end
+end
+555@ = 1
+return
+
+:MANSIO1_COOP_CHECK_ROOF_TRIGGER
+571@ = 0
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if and
+        548@ <> -1
+        not Char.IsDead(548@)
+        Char.LocateOnFoot2D(548@, 0, 1257.995, -785.4104, 5.0, 5.0)
+    then
+        571@ = 1
+    end
+end
+return
+
+// Shared room gates mirror every stock host rectangle. They only request the
+// existing host-authored state transition; they never mutate story globals.
+:MANSIO1_COOP_CHECK_INTERIOR_TRIGGER
+571@ = 0
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if and
+        548@ <> -1
+        not Char.IsDead(548@)
+    then
+        if and
+            157@ == 0
+            Char.IsInArea2D(548@, 0, 1285.937, -783.2331, 1279.36, -779.1484)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 4
+            Char.IsInArea2D(548@, 0, 1266.533, -831.5337, 1261.282, -838.8454)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 5
+            Char.IsInArea3D(548@, 0, 1229.934, -835.5339, 1082.5, 1224.882, -838.8135, 1085.5)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 6
+            Char.IsInArea3D(548@, 0, 1228.68, -829.9222, 1082.5, 1224.883, -825.2996, 1085.5)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 7
+            Char.IsInArea3D(548@, 0, 1229.799, -810.6401, 1082.5, 1224.884, -819.0158, 1085.5)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 8
+            Char.IsInArea3D(548@, 0, 1254.281, -810.6465, 1082.5, 1264.045, -813.9205, 1085.5)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 9
+            Char.IsInArea3D(548@, 0, 1278.469, -791.9025, 1082.5, 1285.187, -786.7327, 1085.5)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 10
+            Char.IsInArea3D(548@, 0, 1251.285, -775.3042, 1082.5, 1247.005, -765.7498, 1085.5)
+        then
+            571@ = 1
+        end
+        if and
+            157@ == 11
+            Char.IsInArea3D(548@, 0, 1260.289, -765.4207, 1082.5, 1267.524, -774.8633, 1085.5)
+        then
+            571@ = 1
+        end
+    end
+end
+return
+
+:MANSIO1_COOP_CHECK_PURSUIT_DISTANCE
+571@ = 0
+if
+    Char.LocateAnyMeansChar2D($scplayer, 328@, 250.0, 250.0, False)
+then
+    571@ = 1
+end
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if and
+        548@ <> -1
+        not Char.IsDead(548@)
+        Char.LocateAnyMeansChar2D(548@, 328@, 250.0, 250.0, False)
+    then
+        571@ = 1
+    end
+end
+return
+
+:MANSIO1_COOP_UPDATE_REGROUP
+if or
+    537@ == 1
+    538@ < 1
+    538@ > 3
+then
+    return
+end
+545@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 542@ > 545@
+then
+    return
+end
+set_lvar_int_to_lvar_int 542@ = 545@
+542@ += 1000
+561@, 562@, 563@ = Char.GetCoordinates($scplayer)
+588@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if and
+        548@ <> -1
+        not Char.IsDead(548@)
+    then
+        597@ = 0
+        564@, 565@, 566@ = Char.GetCoordinates(548@)
+        580@ = Char.GetAreaVisible(548@)
+        567@ = Math.GetDistanceBetweenCoords2D(561@, 562@, 564@, 565@)
+        if and
+            538@ == 1
+            567@ > 250.0
+        then
+            597@ = 1
+        end
+        if and
+            538@ == 2
+            567@ > 85.0
+        then
+            597@ = 1
+        end
+        if and
+            538@ == 2
+            580@ <> 5
+        then
+            597@ = 1
+        end
+        if and
+            538@ == 3
+            567@ > 500.0
+        then
+            597@ = 1
+        end
+        if
+            597@ == 1
+        then
+            if
+                633@($temp_int,3i) == 0
+            then
+                set_lvar_int_to_lvar_int 633@($temp_int,3i) = 545@
+            else
+                set_lvar_int_to_lvar_int 594@ = 545@
+                sub_int_lvar_from_int_lvar 594@ -= 633@($temp_int,3i)
+                if
+                    594@ > 6000
+                then
+                    if
+                        538@ == 1
+                    then
+                        gosub @MANSIO1_COOP_STAGE_CURRENT_PARACHUTE
+                    end
+                    if
+                        538@ == 2
+                    then
+                        gosub @MANSIO1_COOP_STAGE_CURRENT_ASSAULT
+                    end
+                    if
+                        538@ == 3
+                    then
+                        gosub @MANSIO1_COOP_STAGE_CURRENT_PURSUIT
+                    end
+                    633@($temp_int,3i) = 0
+                end
+            end
+        else
+            633@($temp_int,3i) = 0
+        end
+    end
+end
+return
+
+// Attacker-attributed ledgers roll back only host/participant friendly fire.
+// Enemy and world damage still drives every stock health and failure path.
+:MANSIO1_COOP_PROTECT_FRIENDLIES
+if or
+    537@ == 1
+    538@ < 1
+    538@ > 3
+then
+    return
+end
+if
+    not Char.IsDead($scplayer)
+then
+    556@ = 0
+    for $temp_int = 0 to 2
+        if and
+            606@($temp_int,3i) == 1
+            Coop.IsNetworkPlayerActorValid(600@($temp_int,3i))
+        then
+            if
+                Char.HasBeenDamagedByChar($scplayer, 600@($temp_int,3i))
+            then
+                556@ = 1
+            end
+        end
+    end
+    559@ = Char.GetHealth($scplayer)
+    560@ = Char.GetArmor($scplayer)
+    if
+        556@ == 1
+    then
+        if and
+            557@ > 0
+            is_int_lvar_greater_than_int_lvar 557@ > 559@
+        then
+            Char.SetHealth($scplayer, 557@)
+        end
+        if
+            is_int_lvar_greater_than_int_lvar 558@ > 560@
+        then
+            set_lvar_int_to_lvar_int 595@ = 558@
+            sub_int_lvar_from_int_lvar 595@ -= 560@
+            Char.AddArmor($scplayer, 595@)
+        end
+        Char.ClearLastDamageEntity($scplayer)
+        Char.ClearLastWeaponDamage($scplayer)
+    end
+    557@ = Char.GetHealth($scplayer)
+    558@ = Char.GetArmor($scplayer)
+end
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if and
+        548@ <> -1
+        not Char.IsDead(548@)
+    then
+        556@ = 0
+        if
+            Char.HasBeenDamagedByChar(548@, $scplayer)
+        then
+            556@ = 1
+        end
+        for 593@ = 0 to 2
+            if and
+                606@(593@,3i) == 1
+                Coop.IsNetworkPlayerActorValid(600@(593@,3i))
+            then
+                if
+                    Char.HasBeenDamagedByChar(548@, 600@(593@,3i))
+                then
+                    556@ = 1
+                end
+            end
+        end
+        559@ = Char.GetHealth(548@)
+        560@ = Char.GetArmor(548@)
+        if
+            556@ == 1
+        then
+            if and
+                624@($temp_int,3i) > 0
+                is_int_lvar_greater_than_int_lvar 624@($temp_int,3i) > 559@
+            then
+                Char.SetHealth(548@, 624@($temp_int,3i))
+            end
+            if
+                is_int_lvar_greater_than_int_lvar 627@($temp_int,3i) > 560@
+            then
+                set_lvar_int_to_lvar_int 595@ = 627@($temp_int,3i)
+                sub_int_lvar_from_int_lvar 595@ -= 560@
+                Char.AddArmor(548@, 595@)
+            end
+            Char.ClearLastDamageEntity(548@)
+            Char.ClearLastWeaponDamage(548@)
+        end
+        624@($temp_int,3i) = Char.GetHealth(548@)
+        627@($temp_int,3i) = Char.GetArmor(548@)
+    end
+end
+for 591@ = 0 to 2
+    set_lvar_int_to_lvar_int 592@ = 143@(591@,3i)
+    if and
+        Char.DoesExist(592@)
+        not Char.IsDead(592@)
+    then
+        559@ = Char.GetHealth(592@)
+        if
+            825@(591@,3i) == 0
+        then
+            set_lvar_int_to_lvar_int 825@(591@,3i) = 559@
+        end
+        556@ = 0
+        if
+            Char.HasBeenDamagedByChar(592@, $scplayer)
+        then
+            556@ = 1
+        end
+        for 593@ = 0 to 2
+            if and
+                606@(593@,3i) == 1
+                Coop.IsNetworkPlayerActorValid(600@(593@,3i))
+            then
+                if
+                    Char.HasBeenDamagedByChar(592@, 600@(593@,3i))
+                then
+                    556@ = 1
+                end
+            end
+        end
+        if and
+            556@ == 1
+            is_int_lvar_greater_than_int_lvar 825@(591@,3i) > 559@
+        then
+            Char.SetHealth(592@, 825@(591@,3i))
+            Char.ClearLastDamageEntity(592@)
+            Char.ClearLastWeaponDamage(592@)
+        end
+        825@(591@,3i) = Char.GetHealth(592@)
+    end
+end
+return
+
+:MANSIO1_COOP_RETARGET_CURRENT_ENEMY
+if and
+    Char.DoesExist(551@)
+    not Char.IsDead(551@)
+then
+    set_lvar_int_to_var_int 569@ = $scplayer
+    if and
+        584@ >= 0
+        606@(584@,3i) == 1
+        Coop.IsNetworkPlayerActorValid(600@(584@,3i))
+        not Char.IsDead(600@(584@,3i))
+    then
+        set_lvar_int_to_lvar_int 569@ = 600@(584@,3i)
+    end
+    Task.KillCharOnFoot(551@, 569@)
+end
+584@ += 1
+if
+    584@ > 2
+then
+    584@ = -1
+end
+return
+
+// Stable round-robin targeting makes every assault peer meaningful without
+// changing the stock enemy lifecycle, scripted deaths or progression counters.
+:MANSIO1_COOP_RETARGET_HOSTILES
+if or
+    538@ <> 2
+    537@ == 1
+then
+    return
+end
+545@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 541@ > 545@
+then
+    return
+end
+set_lvar_int_to_lvar_int 541@ = 545@
+541@ += 900
+584@ = -1
+for 550@ = 0 to 19
+    set_lvar_int_to_lvar_int 551@ = 226@(550@,20i)
+    gosub @MANSIO1_COOP_RETARGET_CURRENT_ENEMY
+end
+for 550@ = 0 to 9
+    set_lvar_int_to_lvar_int 551@ = 286@(550@,10i)
+    gosub @MANSIO1_COOP_RETARGET_CURRENT_ENEMY
+end
+for 550@ = 0 to 2
+    set_lvar_int_to_lvar_int 551@ = 474@(550@,3i)
+    gosub @MANSIO1_COOP_RETARGET_CURRENT_ENEMY
+end
+return
+
+// If an assigned hostile exhausts its ten registration probes, nearby peer
+// gunfire receives one conservative host-side hit per bounded pass.
+:MANSIO1_COOP_UNSYNCED_COMBAT_FALLBACK
+if or
+    538@ <> 2
+    537@ == 1
+then
+    return
+end
+545@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 574@ > 545@
+then
+    return
+end
+set_lvar_int_to_lvar_int 574@ = 545@
+574@ += 450
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if and
+        548@ <> -1
+        not Char.IsDead(548@)
+        Char.IsShooting(548@)
+    then
+        set_lvar_int_to_var_int 570@ = $temp_int
+        570@ += 22
+        set_lvar_int_to_lvar_int 551@ = 226@($temp_int,20i)
+        if and
+            651@(570@,58i) == -1
+            709@(570@,58i) >= 10
+            Char.DoesExist(551@)
+            not Char.IsDead(551@)
+            Char.LocateAnyMeansChar2D(548@, 551@, 35.0, 35.0, False)
+        then
+            Char.Damage(551@, 6, False)
+        else
+            set_lvar_int_to_var_int 570@ = $temp_int
+            570@ += 42
+            set_lvar_int_to_lvar_int 551@ = 286@($temp_int,10i)
+            if and
+                651@(570@,58i) == -1
+                709@(570@,58i) >= 10
+                Char.DoesExist(551@)
+                not Char.IsDead(551@)
+                Char.LocateAnyMeansChar2D(548@, 551@, 35.0, 35.0, False)
+            then
+                Char.Damage(551@, 6, False)
+            end
+        end
+    end
+end
+return
+
+:MANSIO1_COOP_LOAD_ENTITY
+551@ = -1
+552@ = 0 // 0 ped, 1 vehicle
+if
+    550@ < 4
+then
+    set_lvar_int_to_lvar_int 551@ = 99@(550@,4i)
+end
+if and
+    550@ >= 4
+    550@ < 8
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 4
+    set_lvar_int_to_lvar_int 551@ = 131@(570@,4i)
+end
+if and
+    550@ >= 8
+    550@ < 14
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 8
+    set_lvar_int_to_lvar_int 551@ = 170@(570@,6i)
+end
+if and
+    550@ >= 14
+    550@ < 17
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 14
+    set_lvar_int_to_lvar_int 551@ = 143@(570@,3i)
+end
+if
+    550@ == 17
+then
+    set_lvar_int_to_lvar_int 551@ = 159@
+end
+if
+    550@ == 18
+then
+    set_lvar_int_to_lvar_int 551@ = 328@
+end
+if
+    550@ == 19
+then
+    set_lvar_int_to_lvar_int 551@ = 96@
+    552@ = 1
+end
+if
+    550@ == 20
+then
+    set_lvar_int_to_lvar_int 551@ = 527@
+    552@ = 1
+end
+if
+    550@ == 21
+then
+    set_lvar_int_to_lvar_int 551@ = 528@
+    552@ = 1
+end
+if and
+    550@ >= 22
+    550@ < 42
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 22
+    set_lvar_int_to_lvar_int 551@ = 226@(570@,20i)
+end
+if and
+    550@ >= 42
+    550@ < 52
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 42
+    set_lvar_int_to_lvar_int 551@ = 286@(570@,10i)
+end
+if and
+    550@ >= 52
+    550@ < 55
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 52
+    set_lvar_int_to_lvar_int 551@ = 474@(570@,3i)
+end
+if
+    550@ >= 55
+then
+    set_lvar_int_to_lvar_int 570@ = 550@
+    570@ -= 55
+    set_lvar_int_to_lvar_int 551@ = 636@(570@,3i)
+    552@ = 1
+end
+return
+
+// All 58 canonical handles use ten nonblocking probes at 500 ms intervals.
+// Handle snapshots reset the bounded budget when the stock script creates or
+// replaces an entity; no network-id operation can hold mission progression.
+:MANSIO1_COOP_POLL_REGISTRATIONS
+if
+    533@ == 0
+then
+    return
+end
+545@ = Clock.GetGameTimer()
+if
+    is_int_lvar_greater_than_int_lvar 540@ > 545@
+then
+    return
+end
+set_lvar_int_to_lvar_int 540@ = 545@
+540@ += 500
+for 550@ = 0 to 57
+    gosub @MANSIO1_COOP_LOAD_ENTITY
+    if
+        not is_int_lvar_equal_to_int_lvar 551@ == 767@(550@,58i)
+    then
+        set_lvar_int_to_lvar_int 767@(550@,58i) = 551@
+        651@(550@,58i) = -1
+        709@(550@,58i) = 0
+    end
+    if and
+        651@(550@,58i) == -1
+        709@(550@,58i) < 10
+    then
+        if
+            552@ == 0
+        then
+            if
+                Char.DoesExist(551@)
+            then
+                651@(550@,58i) = Coop.GetPedNetworkId(551@)
+                709@(550@,58i) += 1
+            end
+        else
+            if
+                Car.DoesExist(551@)
+            then
+                651@(550@,58i) = Coop.GetVehicleNetworkId(551@)
+                709@(550@,58i) += 1
+            end
+        end
+        if and
+            709@(550@,58i) == 10
+            651@(550@,58i) == -1
+        then
+            589@ = 1
+            553@ += 1
+        end
+    end
+end
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 570@ = $temp_int
+    570@ += 55
+    set_lvar_int_to_lvar_int 639@($temp_int,3i) = 651@(570@,58i)
+    set_lvar_int_to_lvar_int 642@($temp_int,3i) = 709@(570@,58i)
+end
+return
+
+:MANSIO1_COOP_CLEAR_CURRENT_TEXT
+Coop.ClearThisPrintForNetworkPlayer('MAN1_03', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_04', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_05', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_06', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_07', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_08', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_09', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_10', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_11', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_13', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_20', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_21', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_22', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_23', 548@)
+Coop.ClearThisPrintForNetworkPlayer('MAN1_24', 548@)
+return
+
+:MANSIO1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if
+        548@ <> -1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(548@)
+        Coop.RemoveCheckpointForNetworkPlayer(548@)
+        gosub @MANSIO1_COOP_CLEAR_CURRENT_TEXT
+    end
+    630@($temp_int,3i) = -1
+end
+return
+
+// Every connected immutable participant receives a role-appropriate HUD. A
+// resolved entity id gives a live blip; pending/exhausted ids use coordinates.
+:MANSIO1_COOP_UPDATE_OBJECTIVES
+if or
+    533@ == 0
+    537@ == 1
+    538@ < 1
+    538@ > 3
+then
+    return
+end
+545@ = Clock.GetGameTimer()
+if
+    555@ == 0
+then
+    if
+        is_int_lvar_greater_than_int_lvar 539@ > 545@
+    then
+        return
+    end
+end
+set_lvar_int_to_lvar_int 539@ = 545@
+539@ += 1500
+555@ = 0
+554@ = 10
+if
+    538@ == 2
+then
+    554@ = 20
+    if
+        Char.DoesExist(328@)
+    then
+        554@ = 21
+    end
+end
+if
+    538@ == 3
+then
+    554@ = 30
+end
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if
+        548@ <> -1
+    then
+        Coop.ClearAllEntityBlipsForNetworkPlayer(548@)
+        Coop.RemoveCheckpointForNetworkPlayer(548@)
+        if
+            not is_int_lvar_equal_to_int_lvar 630@($temp_int,3i) == 554@
+        then
+            gosub @MANSIO1_COOP_CLEAR_CURRENT_TEXT
+            if
+                554@ == 10
+            then
+                Coop.PrintNowForNetworkPlayer('MAN1_03', 8000, 1, 548@)
+            end
+            if
+                554@ == 20
+            then
+                Coop.PrintNowForNetworkPlayer('MAN1_20', 8000, 1, 548@)
+            end
+            if
+                554@ == 21
+            then
+                Coop.PrintNowForNetworkPlayer('MAN1_21', 8000, 1, 548@)
+            end
+            if
+                554@ == 30
+            then
+                Coop.PrintNowForNetworkPlayer('MAN1_23', 8000, 1, 548@)
+            end
+            set_lvar_int_to_lvar_int 630@($temp_int,3i) = 554@
+        end
+        if
+            554@ == 10
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1290.491, -788.3314, 95.4531, 8.0, 8.0, 8.0, 548@)
+        end
+        if or
+            554@ == 20
+            554@ == 21
+        then
+            if and
+                Char.DoesExist(328@)
+                669@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(548@, 328@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            else
+                if
+                    Char.DoesExist(328@)
+                then
+                    585@, 586@, 587@ = Char.GetCoordinates(328@)
+                    Coop.UpdateCheckpointForNetworkPlayer(585@, 586@, 587@, 8.0, 8.0, 5.0, 548@)
+                else
+                    Coop.UpdateCheckpointForNetworkPlayer(1227.226, -834.4195, 1083.008, 10.0, 10.0, 6.0, 548@)
+                end
+            end
+        end
+        if
+            554@ == 30
+        then
+            if and
+                Char.DoesExist(328@)
+                669@ <> -1
+            then
+                Coop.UpdateCharBlipForNetworkPlayer(548@, 328@, False, BlipDisplay.Both, BlipColor.Red, 3)
+            else
+                if and
+                    Car.DoesExist(527@)
+                    671@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(548@, 527@, False, BlipDisplay.Both, BlipColor.Red, 3)
+                else
+                    if
+                        Char.DoesExist(328@)
+                    then
+                        585@, 586@, 587@ = Char.GetCoordinates(328@)
+                        Coop.UpdateCheckpointForNetworkPlayer(585@, 586@, 587@, 15.0, 15.0, 8.0, 548@)
+                    end
+                end
+            end
+        end
+    end
+end
+return
+
+// A_ALAP still owns host audio and timing; only its selected GXT subtitle is
+// mirrored. Static HUD messages use the same identity-checked fan-out path.
+:MANSIO1_COOP_PRINT_LOAD_TEXT
+if
+    533@ == 0
+then
+    return
+end
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if
+        548@ <> -1
+    then
+        Coop.PrintNowForNetworkPlayer(s$load_text, 10000, 1, 548@)
+    end
+end
+return
+
+:MANSIO1_COOP_PRINT_NOW
+if
+    533@ == 0
+then
+    return
+end
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if
+        548@ <> -1
+    then
+        Coop.PrintNowForNetworkPlayer(830@s, 832@, 833@, 548@)
+    end
+end
+return
+
+:MANSIO1_COOP_NOTIFY_RESULT
+if or
+    544@ == 1
+    543@ == 0
+then
+    return
+end
+544@ = 1
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+gosub @MANSIO1_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if
+        548@ <> -1
+    then
+        if
+            543@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 548@)
+        end
+        if
+            543@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 548@)
+            if
+                52@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer(53@s, 8000, 1, 548@)
+            end
+        end
+    end
+end
+return
+
+:MANSIO1_COOP_UPDATE
+if or
+    533@ == 0
+    543@ <> 0
+then
+    return
+end
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+gosub @MANSIO1_COOP_STAGE_RECONNECTS
+gosub @MANSIO1_COOP_POLL_REGISTRATIONS
+gosub @MANSIO1_COOP_PROTECT_FRIENDLIES
+gosub @MANSIO1_COOP_RETARGET_HOSTILES
+gosub @MANSIO1_COOP_UNSYNCED_COMBAT_FALLBACK
+gosub @MANSIO1_COOP_UPDATE_REGROUP
+gosub @MANSIO1_COOP_UPDATE_OBJECTIVES
+return
+
+// Cleanup is safe from every exit. It touches only exact-identity participants,
+// restores the pre-mission parachute/selected weapon state, and deletes only
+// cooperative support vehicles created above.
+:MANSIO1_COOP_CLEANUP
+if
+    536@ == 1
+then
+    return
+end
+536@ = 1
+gosub @MANSIO1_COOP_UPDATE_ROSTER
+gosub @MANSIO1_COOP_CLEAR_OBJECTIVES
+gosub @MANSIO1_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(575@, 576@, 577@)
+561@, 562@, 563@ = Char.GetCoordinates($scplayer)
+588@ = Char.GetAreaVisible($scplayer)
+for $temp_int = 0 to 2
+    gosub @MANSIO1_COOP_VALIDATE_CURRENT
+    if
+        548@ <> -1
+    then
+        if and
+            Car.DoesExist(636@($temp_int,3i))
+            Char.IsInCar(548@, 636@($temp_int,3i))
+        then
+            Char.WarpFromCarToCoord(548@, 561@, 562@, 563@)
+        end
+        if
+            621@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(46, 548@)
+            if
+                618@($temp_int,3i) == 1
+            then
+                Char.GiveWeapon(548@, WeaponType.Parachute, 615@($temp_int,3i))
+            end
+        end
+        if
+            612@($temp_int,3i) == 0
+        then
+            Char.SetCurrentWeapon(548@, WeaponType.Unarmed)
+        else
+            if
+                Char.HasGotWeapon(548@, 612@($temp_int,3i))
+            then
+                Char.SetCurrentWeapon(548@, 612@($temp_int,3i))
+            end
+        end
+        Char.SetAreaVisible(548@, 588@)
+        Char.SetVisible(548@, True)
+        Char.SetCollision(548@, True)
+        Char.SetProofs(548@, False, False, False, False, False)
+        Char.FreezePosition(548@, False)
+        Task.StandStill(548@, 0)
+    end
+    if
+        Car.DoesExist(636@($temp_int,3i))
+    then
+        Car.SetProofs(636@($temp_int,3i), False, False, False, False, False)
+        Car.SetCanBurstTires(636@($temp_int,3i), True)
+        Car.Delete(636@($temp_int,3i))
+    end
+    606@($temp_int,3i) = 0
+    609@($temp_int,3i) = 0
+    621@($temp_int,3i) = 0
+    630@($temp_int,3i) = -1
+    633@($temp_int,3i) = 0
+    636@($temp_int,3i) = -1
+    639@($temp_int,3i) = -1
+end
+537@ = 0
+538@ = 6
+return
 
