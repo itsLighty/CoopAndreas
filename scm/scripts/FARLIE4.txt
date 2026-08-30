@@ -3,6 +3,7 @@
 
 :FARLIE4
 script_name 'FARLIE4'
+Coop.EnableSyncingThisScript()
 gosub @FARLIE4_47
 if 
   has_deatharrest_been_executed 
@@ -76,6 +77,37 @@ Camera.SetFadingColor(0, 0, 0)
 Camera.DoFade(1, 1000)
 Stat.RegisterMissionGiven
 $onmission = 1
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+520@ = 0 // frozen cooperative roster size
+521@ = 0 // cooperative cleanup guard
+522@ = 0 // a connected participant died
+524@ = 0 // next objective refresh
+525@ = 0 // next entity registration pass
+526@ = 0 // next combat retarget pass
+527@ = 0 // an entity missed its registration pass
+528@ = 0 // timer/internal-id scratch
+529@ = -1 // entity network-id scratch
+530@ = 0 // entity scratch
+540@ = 1 // cooperative phase: travel to airport
+548@ = -1 // last cooperative phase
+549@ = 0 // cooperative abort reason
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 500@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    503@($temp_int,3i) = -1 // immutable internal identity
+    506@($temp_int,3i) = 0 // connected frozen-roster participant
+    509@($temp_int,3i) = -1 // last objective phase displayed
+    570@($temp_int,3i) = 0 // dedicated remote escort vehicle
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        503@($temp_int,3i) = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        506@($temp_int,3i) = 1
+        520@ += 1
+        Char.GiveWeapon(500@($temp_int,3i), WeaponType.MicroUzi, 150)
+    end
+end
+gosub @FARLIE4_COOP_UPDATE_ROSTER
+gosub @FARLIE4_COOP_TELEPORT_ACTIVE
 Path.SwitchRoadsOff(-1478.294, -65.4014, 0.0, -1395.423, 2.7054, 10.0)
 Game.SetRelationship(RelationshipType.Hate, PedType.Mission1, PedType.Player1)
 Game.SetRelationship(RelationshipType.Like, PedType.Mission1, PedType.Mission1)
@@ -114,6 +146,12 @@ if
   not Char.IsDead($scplayer)
 goto_if_false @FARLIE4_875
 wait 0
+gosub @FARLIE4_COOP_UPDATE
+if
+    522@ == 1
+then
+    goto @FARLIE4_7851
+end
 if 
 is_ps2_keyboard_key_just_pressed 83
 goto_if_false @FARLIE4_650
@@ -147,6 +185,24 @@ Blip.SetAsFriendly(35@, True)
 Car.SetCanBurstTires(34@, False)
 Car.SetHealth(34@, 3000)
 Car.ChangeColor(34@, 3, 3)
+540@ = 2
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        535@ = -1430.0
+        536@ = -28.0
+        537@ = 5.0078
+        538@ = 4.0
+        538@ *= $temp_int
+        536@ += 538@
+        570@($temp_int,3i) = Car.Create(410, 535@, 536@, 537@)
+        Car.SetHeading(570@($temp_int,3i), 88.7848)
+        Car.SetHealth(570@($temp_int,3i), 2000)
+        Car.SetCanBurstTires(570@($temp_int,3i), False)
+        Car.ChangeColor(570@($temp_int,3i), 6, 6)
+    end
+end
 Text.PrintNow('F4_T7', 4000, 1)
 goto @FARLIE4_882
 
@@ -162,6 +218,12 @@ if and
   not Car.IsDead(34@)
 goto_if_false @FARLIE4_1039
 wait 0
+gosub @FARLIE4_COOP_UPDATE
+if
+    522@ == 1
+then
+    goto @FARLIE4_7851
+end
 gosub @FARLIE4_8744
 gosub @FARLIE4_9534
 if and
@@ -192,6 +254,7 @@ goto @FARLIE4_882
 goto @FARLIE4_7851
 
 :FARLIE4_1046
+540@ = 3
 Player.SetControl($player1, False)
 Streaming.RequestModel(121)
 Streaming.RequestModel(122)
@@ -330,6 +393,12 @@ if and
   not Car.IsDead(34@)
 goto_if_false @FARLIE4_7844
 wait 0
+gosub @FARLIE4_COOP_UPDATE
+if
+    522@ == 1
+then
+    goto @FARLIE4_7851
+end
 gosub @FARLIE4_8744
 gosub @FARLIE4_9534
 if 
@@ -1103,6 +1172,7 @@ goto @FARLIE4_1806
 goto @FARLIE4_7851
 
 :FARLIE4_7851
+gosub @FARLIE4_COOP_NOTIFY_FAILURE
 if 
   Blip.DoesExist(37@)
 goto_if_false @FARLIE4_7872
@@ -1144,6 +1214,7 @@ Text.PrintNow('F4_F', 4000, 1)
 return 
 
 :FARLIE4_8013
+gosub @FARLIE4_COOP_NOTIFY_SUCCESS
 $flag_wuzi_mission_counter += 1
 if 
   Blip.DoesExist(37@)
@@ -1244,6 +1315,7 @@ goto @FARLIE4_8326
 return 
 
 :FARLIE4_8352
+gosub @FARLIE4_COOP_CLEANUP
 $onmission = 0
 Hud.ClearCounter($f4_car_damage)
 Path.SwitchRoadsBackToOriginal(-1478.294, -65.4014, 0.0, -1395.423, 2.7054, 10.0)
@@ -1329,6 +1401,399 @@ Garage.Close('FDORSFE')
 :FARLIE4_8740
 Mission.Finish
 return 
+
+// Frozen-roster identity maintenance. A late joiner cannot claim a disconnected
+// slot because both the original actor handle and its internal identity must match.
+:FARLIE4_COOP_UPDATE_ROSTER
+for $temp_int = 0 to 2
+    506@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            506@($temp_int,3i) = 1
+            if
+                Char.IsDead(500@($temp_int,3i))
+            then
+                522@ = 1
+                549@ = 1
+            end
+        end
+    end
+end
+return
+
+:FARLIE4_COOP_BUILD_ACTIVE_ARGS
+553@ = -1
+554@ = -1
+555@ = -1
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        set_lvar_int_to_lvar_int 553@($temp_int,3i) = 500@($temp_int,3i)
+    end
+end
+return
+
+:FARLIE4_COOP_TELEPORT_ACTIVE
+if
+    520@ == 0
+then
+    return
+end
+gosub @FARLIE4_COOP_BUILD_ACTIVE_ARGS
+Coop.TeleportPlayersToHostSafely(553@, 554@, 555@)
+return
+
+:FARLIE4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearAllEntityBlipsForNetworkPlayer(500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('F4_T0', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('F4_T7', 500@($temp_int,3i))
+        Coop.ClearThisPrintForNetworkPlayer('F4_T8', 500@($temp_int,3i))
+    end
+    509@($temp_int,3i) = -1
+end
+return
+
+:FARLIE4_COOP_REFRESH_OBJECTIVES
+for $temp_int = 0 to 2
+    if and
+        506@($temp_int,3i) == 1
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        if
+            509@($temp_int,3i) <> 540@
+        then
+            if
+                540@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('F4_T0', 7000, 1, 500@($temp_int,3i))
+            end
+            if
+                540@ == 2
+            then
+                Coop.PrintNowForNetworkPlayer('F4_T7', 5000, 1, 500@($temp_int,3i))
+            end
+            if
+                540@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('F4_T8', 5000, 1, 500@($temp_int,3i))
+            end
+            set_lvar_int_to_lvar_int 509@($temp_int,3i) = 540@
+        end
+        if
+            540@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1409.9, -303.4, 4.5, 5.0, 5.0, 5.0, 500@($temp_int,3i))
+        end
+        if
+            540@ == 2
+        then
+            if
+                Car.DoesExist(34@)
+            then
+                529@ = Coop.GetVehicleNetworkId(34@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+            if
+                Car.DoesExist(570@($temp_int,3i))
+            then
+                529@ = Coop.GetVehicleNetworkId(570@($temp_int,3i))
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 570@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Purple, 3)
+                end
+            end
+        end
+        if
+            540@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(-1742.273, 1422.631, 6.1842, 6.0, 6.0, 5.0, 500@($temp_int,3i))
+            if
+                Car.DoesExist(34@)
+            then
+                529@ = Coop.GetVehicleNetworkId(34@)
+                if
+                    529@ <> -1
+                then
+                    Coop.UpdateCarBlipForNetworkPlayer(500@($temp_int,3i), 34@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+                end
+            end
+        end
+    end
+end
+return
+
+// Get*NetworkId performs the entity handshake. Calls are retried from the main
+// gameplay loops on a bounded cadence; a late entity loses only its blip and can
+// never stall the mission.
+:FARLIE4_COOP_REGISTER_PED
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        529@ = Coop.GetPedNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:FARLIE4_COOP_REGISTER_VEHICLE
+if
+    Car.DoesExist(530@)
+then
+    if
+        not Car.IsDead(530@)
+    then
+        529@ = Coop.GetVehicleNetworkId(530@)
+        if
+            529@ == -1
+        then
+            527@ = 1
+        end
+    end
+end
+return
+
+:FARLIE4_COOP_SYNC_WORLD_PASS
+527@ = 0
+set_lvar_int_to_lvar_int 530@ = 34@
+gosub @FARLIE4_COOP_REGISTER_VEHICLE
+for 560@ = 0 to 2
+    set_lvar_int_to_lvar_int 530@ = 570@(560@,3i)
+    gosub @FARLIE4_COOP_REGISTER_VEHICLE
+end
+for 560@ = 0 to 4
+    set_lvar_int_to_lvar_int 530@ = 49@(560@,5i)
+    gosub @FARLIE4_COOP_REGISTER_VEHICLE
+end
+for 560@ = 0 to 2
+    set_lvar_int_to_lvar_int 530@ = 109@(560@,3i)
+    gosub @FARLIE4_COOP_REGISTER_VEHICLE
+end
+for 560@ = 0 to 3
+    set_lvar_int_to_lvar_int 530@ = 162@(560@,4i)
+    gosub @FARLIE4_COOP_REGISTER_VEHICLE
+end
+for 560@ = 0 to 3
+    set_lvar_int_to_lvar_int 530@ = 59@(560@,4i)
+    gosub @FARLIE4_COOP_REGISTER_PED
+end
+for 560@ = 0 to 1
+    set_lvar_int_to_lvar_int 530@ = 44@(560@,2i)
+    gosub @FARLIE4_COOP_REGISTER_PED
+    set_lvar_int_to_lvar_int 530@ = 69@(560@,2i)
+    gosub @FARLIE4_COOP_REGISTER_PED
+end
+for 560@ = 0 to 3
+    set_lvar_int_to_lvar_int 530@ = 99@(560@,4i)
+    gosub @FARLIE4_COOP_REGISTER_PED
+end
+for 560@ = 0 to 5
+    set_lvar_int_to_lvar_int 530@ = 119@(560@,6i)
+    gosub @FARLIE4_COOP_REGISTER_PED
+end
+for 560@ = 0 to 7
+    set_lvar_int_to_lvar_int 530@ = 147@(560@,8i)
+    gosub @FARLIE4_COOP_REGISTER_PED
+end
+return
+
+:FARLIE4_COOP_RETARGET_PED
+if
+    Char.DoesExist(530@)
+then
+    if
+        not Char.IsDead(530@)
+    then
+        for $temp_int = 0 to 2
+            if
+                506@($temp_int,3i) == 1
+            then
+                if
+                    Char.HasBeenDamagedByChar(530@, 500@($temp_int,3i))
+                then
+                    Task.KillCharOnFoot(530@, 500@($temp_int,3i))
+                end
+            end
+        end
+    end
+end
+return
+
+:FARLIE4_COOP_UPDATE_COMBAT
+for 560@ = 0 to 3
+    set_lvar_int_to_lvar_int 530@ = 59@(560@,4i)
+    gosub @FARLIE4_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 530@ = 99@(560@,4i)
+    gosub @FARLIE4_COOP_RETARGET_PED
+end
+for 560@ = 0 to 1
+    set_lvar_int_to_lvar_int 530@ = 44@(560@,2i)
+    gosub @FARLIE4_COOP_RETARGET_PED
+    set_lvar_int_to_lvar_int 530@ = 69@(560@,2i)
+    gosub @FARLIE4_COOP_RETARGET_PED
+end
+for 560@ = 0 to 5
+    set_lvar_int_to_lvar_int 530@ = 119@(560@,6i)
+    gosub @FARLIE4_COOP_RETARGET_PED
+end
+for 560@ = 0 to 7
+    set_lvar_int_to_lvar_int 530@ = 147@(560@,8i)
+    gosub @FARLIE4_COOP_RETARGET_PED
+end
+return
+
+:FARLIE4_COOP_PHASE_CHANGED
+gosub @FARLIE4_COOP_CLEAR_OBJECTIVES
+gosub @FARLIE4_COOP_REFRESH_OBJECTIVES
+set_lvar_int_to_lvar_int 548@ = 540@
+return
+
+:FARLIE4_COOP_UPDATE
+if
+    520@ == 0
+then
+    return
+end
+gosub @FARLIE4_COOP_UPDATE_ROSTER
+if
+    548@ <> 540@
+then
+    gosub @FARLIE4_COOP_PHASE_CHANGED
+end
+528@ = Clock.GetGameTimer()
+if
+    528@ > 524@
+then
+    gosub @FARLIE4_COOP_REFRESH_OBJECTIVES
+    set_lvar_int_to_lvar_int 524@ = 528@
+    524@ += 3000
+end
+if
+    528@ > 525@
+then
+    gosub @FARLIE4_COOP_SYNC_WORLD_PASS
+    set_lvar_int_to_lvar_int 525@ = 528@
+    if
+        527@ == 1
+    then
+        525@ += 750
+    else
+        525@ += 5000
+    end
+end
+if and
+    540@ == 3
+    528@ > 526@
+then
+    gosub @FARLIE4_COOP_UPDATE_COMBAT
+    set_lvar_int_to_lvar_int 526@ = 528@
+    526@ += 750
+end
+return
+
+:FARLIE4_COOP_NOTIFY_FAILURE
+if
+    520@ == 0
+then
+    return
+end
+gosub @FARLIE4_COOP_UPDATE_ROSTER
+gosub @FARLIE4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:FARLIE4_COOP_NOTIFY_SUCCESS
+if
+    520@ == 0
+then
+    return
+end
+gosub @FARLIE4_COOP_UPDATE_ROSTER
+gosub @FARLIE4_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        506@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 6000, TextStyle.Middle, 500@($temp_int,3i))
+    end
+end
+return
+
+:FARLIE4_COOP_CLEANUP
+if
+    521@ == 1
+then
+    return
+end
+521@ = 1
+gosub @FARLIE4_COOP_UPDATE_ROSTER
+gosub @FARLIE4_COOP_CLEAR_OBJECTIVES
+535@, 536@, 537@ = Char.GetCoordinates($scplayer)
+for $temp_int = 0 to 2
+    if and
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+        503@($temp_int,3i) <> -1
+    then
+        528@ = Coop.GetNetworkPlayerInternalId(500@($temp_int,3i))
+        if
+            is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
+        then
+            if
+                Car.DoesExist(570@($temp_int,3i))
+            then
+                if
+                    Char.IsInCar(500@($temp_int,3i), 570@($temp_int,3i))
+                then
+                    Char.WarpFromCarToCoord(500@($temp_int,3i), 535@, 536@, 537@)
+                end
+            end
+            Char.ClearTasksImmediately(500@($temp_int,3i))
+            Char.FreezePosition(500@($temp_int,3i), False)
+            Char.SetProofs(500@($temp_int,3i), False, False, False, False, False)
+            Char.SetCollision(500@($temp_int,3i), True)
+            Char.SetVisible(500@($temp_int,3i), True)
+        end
+    end
+    if
+        Car.DoesExist(570@($temp_int,3i))
+    then
+        Car.Delete(570@($temp_int,3i))
+    end
+    500@($temp_int,3i) = 0
+    503@($temp_int,3i) = -1
+    506@($temp_int,3i) = 0
+    509@($temp_int,3i) = -1
+end
+return
 
 :FARLIE4_8744
 if 
