@@ -287,7 +287,14 @@ std::vector<std::vector<CTextSegment>> CChat::SplitSegmentsByLength(const std::v
 
 void CChat::Draw()
 {
-    if (!CDXFont::m_pD3DXFont || m_aMessages.empty())
+    const CScreenTransform transform = CUtil::GetScreenTransform();
+    if (!transform.valid || m_aMessages.empty())
+        return;
+
+    // Also refreshes the D3D font when the live resolution changed without a
+    // device-reset callback reaching the plugin.
+    CDXFont::GetTextWidth(L" ");
+    if (!CDXFont::m_pD3DXFont || CDXFont::m_fFontSize == 0)
         return;
 
     int tickCount = GetTickCount();
@@ -319,8 +326,9 @@ void CChat::Draw()
             }
         }
 
-        int x = 10;
-        int y = RsGlobal.maximumHeight / 5 + (MAX_MESSAGES - drawnMessages) * CDXFont::m_fFontSize;
+        int x = static_cast<int>(std::lround(transform.X(10.0f)));
+        int y = static_cast<int>(std::lround(transform.Y(CUtil::SCREEN_BASE_HEIGHT / 5.0f))) +
+            (MAX_MESSAGES - drawnMessages) * CDXFont::m_fFontSize;
 
         for (auto& seg : message.segments)
         {
@@ -367,7 +375,8 @@ void CChat::ToggleInput(bool toggle)
 
 void CChat::DrawInput()
 {
-    if (!m_bInputActive)
+    const CScreenTransform transform = CUtil::GetScreenTransform();
+    if (!m_bInputActive || !transform.valid)
         return;
 
     char caretSymbol = (GetTickCount() % 1000 > CARET_BLINKING_INTERVAL) ? '|' : ' '; // caret blinking
@@ -378,7 +387,14 @@ void CChat::DrawInput()
         displayText.insert(m_nCaretPos, 1, caretSymbol);
     }
     
-    CDXFont::Draw(10, RsGlobal.maximumHeight / 5 + 16 * CDXFont::m_fFontSize, L": " + displayText, D3DCOLOR_RGBA(255, 255, 255, 255));
+    CDXFont::GetTextWidth(L" ");
+    if (!CDXFont::m_pD3DXFont || CDXFont::m_fFontSize == 0)
+        return;
+
+    const int x = static_cast<int>(std::lround(transform.X(10.0f)));
+    const int y = static_cast<int>(std::lround(transform.Y(CUtil::SCREEN_BASE_HEIGHT / 5.0f))) +
+        16 * CDXFont::m_fFontSize;
+    CDXFont::Draw(x, y, L": " + displayText, D3DCOLOR_RGBA(255, 255, 255, 255));
 }
 
 void CChat::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)

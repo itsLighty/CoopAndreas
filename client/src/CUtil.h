@@ -1,5 +1,25 @@
 #pragma once
 
+struct CScreenTransform
+{
+	float screenWidth{};
+	float screenHeight{};
+	float safeLeft{};
+	float safeTop{};
+	float safeWidth{};
+	float safeHeight{};
+	float scaleX{};
+	float scaleY{};
+	bool valid{};
+
+	float X(float virtualX) const { return safeLeft + virtualX * scaleX; }
+	float Y(float virtualY) const { return safeTop + virtualY * scaleY; }
+	float Width(float virtualWidth) const { return virtualWidth * scaleX; }
+	float Height(float virtualHeight) const { return virtualHeight * scaleY; }
+	float Right() const { return safeLeft + safeWidth; }
+	float Bottom() const { return safeTop + safeHeight; }
+};
+
 class CUtil
 {
 public:
@@ -21,11 +41,21 @@ public:
 	static bool IsPedHasJetpack(CPed* ped);
 	static void SetPlayerJetpack(CNetworkPlayer* ped, bool set);
 	static std::string GetWeaponName(eWeaponType type);
-	static float HUD_X(float a) { return a * RsGlobal.maximumWidth / SCREEN_BASE_WIDTH; }
-	static float HUD_Y(float a) { return a * RsGlobal.maximumHeight / SCREEN_BASE_HEIGHT; }
-	static float SCREEN_SCALE_AR(float a) { return a * DEFAULT_ASPECT_RATIO / CDraw::ms_fAspectRatio; };
-	static float SCREEN_SCALE_X(float a) { return SCREEN_SCALE_AR(HUD_X(a)); }
-	static float SCREEN_SCALE_Y(float a) { return HUD_Y(a); }
+
+	// BuildScreenTransform is intentionally independent of RenderWare so the
+	// aspect-ratio math can be tested without a running game. GetScreenTransform
+	// samples the live render state on every call; callers must not cache it.
+	static CScreenTransform BuildScreenTransform(float screenWidth, float screenHeight, float renderAspect);
+	static CScreenTransform GetScreenTransform();
+
+	// Dimension-only compatibility helpers. Positions should use X/Y on the
+	// current CScreenTransform so ultrawide and narrow-screen safe-area offsets
+	// are retained.
+	static float HUD_X(float a) { return GetScreenTransform().Width(a); }
+	static float HUD_Y(float a) { return GetScreenTransform().Height(a); }
+	static float SCREEN_SCALE_AR(float a) { return a; }
+	static float SCREEN_SCALE_X(float a) { return GetScreenTransform().Width(a); }
+	static float SCREEN_SCALE_Y(float a) { return GetScreenTransform().Height(a); }
 
 };
 

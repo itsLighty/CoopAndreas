@@ -2,9 +2,13 @@
 
 void CNetworkPlayerWaypoint::Process()
 {
-	for (auto player : CNetworkPlayerManager::m_pPlayers)
+	const CScreenTransform transform = CUtil::GetScreenTransform();
+	if (!transform.valid || !RwD3D9GetCurrentD3DDevice())
+		return;
+
+	for (auto* player : CNetworkPlayerManager::m_pPlayers)
 	{
-		if (!player->m_waypointState.place)
+		if (!player || !player->m_waypointState.place)
 			continue;
 
 		CVector vecWaypointPos = CVector(player->m_waypointState.position.x, player->m_waypointState.position.y, 0.0f);
@@ -19,44 +23,23 @@ void CNetworkPlayerWaypoint::Process()
 
 		CRadar::DrawRadarSprite(eRadarSprite::RADAR_SPRITE_WAYPOINT, screen.x, screen.y, 255);
 
-		if (FrontEndMenuManager.m_bDrawRadarOrMap) 
+		if (FrontEndMenuManager.m_bDrawRadarOrMap)
 		{
-			std::string name = player->GetName();
-			D3DCOLOR shadowColor = D3DCOLOR_RGBA(0, 0, 0, 255);
+			if (!CDXFont::m_pD3DXFont)
+				CDXFont::GetTextWidth(L" ");
+			if (!CDXFont::m_pD3DXFont)
+				continue;
 
-			// 8.0f - size of the sprite, / 2 - half of the size sprite
-			screen.x = CUtil::HUD_X(screen.x);
-			screen.y = CUtil::HUD_Y(screen.y) - CUtil::HUD_X(8.0f) / 2.f * offsetY;
+			const std::wstring name = CUnicode::ConvertUtf8ToUtf16(player->GetName());
+			// 8 virtual units is the radar sprite size; place the label above it.
+			screen.y -= transform.Width(8.0f) / 2.0f * offsetY;
 
 			CRadar::LimitToMap(&screen.x, &screen.y);
-			RECT rect{};
-			rect.left = (LONG)screen.x;
-			rect.top = (LONG)screen.y;
-			rect.right = RsGlobal.maximumWidth;
-			rect.bottom = RsGlobal.maximumHeight;
 
-			CDXFont::m_pD3DXFont->DrawTextA(nullptr, name.c_str(), -1, &rect, DT_CALCRECT, D3DCOLOR_RGBA(0, 0, 0, 0));
-			int diff = (rect.right - rect.left) / 2;
-			rect.left -= diff;
-			rect.right += diff;
-
-			RECT rightRect = rect;
-			rightRect.left += CDXFont::m_iShadowSize;
-			CDXFont::m_pD3DXFont->DrawTextA(nullptr, name.c_str(), -1, &rightRect, 0, shadowColor);
-
-			RECT leftRect = rect;
-			leftRect.left -= CDXFont::m_iShadowSize;
-			CDXFont::m_pD3DXFont->DrawTextA(nullptr, name.c_str(), -1, &leftRect, 0, shadowColor);
-
-			RECT bottomRect = rect;
-			bottomRect.top += CDXFont::m_iShadowSize;
-			CDXFont::m_pD3DXFont->DrawTextA(nullptr, name.c_str(), -1, &bottomRect, 0, shadowColor);
-
-			RECT topRect = rect;
-			CDXFont::m_pD3DXFont->DrawTextA(nullptr, name.c_str(), -1, &topRect, 0, shadowColor);
-			topRect.top -= CDXFont::m_iShadowSize;
-
-			CDXFont::m_pD3DXFont->DrawTextA(nullptr, name.c_str(), -1, &rect, 0, D3DCOLOR_RGBA(181, 24, 24, 255));
+			const int textWidth = CDXFont::GetTextWidth(name);
+			const int textX = static_cast<int>(std::lround(screen.x)) - textWidth / 2;
+			const int textY = static_cast<int>(std::lround(screen.y));
+			CDXFont::Draw(textX, textY, name, D3DCOLOR_RGBA(181, 24, 24, 255));
 		}
 	}
 }

@@ -41,11 +41,11 @@ public:
 	static constexpr float MAX_NAME_SCALE_Y = 0.8f;
 
 	static void Draw();
-	static void DrawBox(float fX, float fY);
-	static void DrawPing(CNetworkPlayer* pNetworkPlayer, float fX, float fY);
-	static void DrawName(CNetworkPlayer* pNetworkPlayer, float fX, float fY);
-	static void DrawBars(CPlayerPed* pPlayerPed, float fX, float fY);
-	static void DrawWeaponIcon(CPlayerPed* pPlayerPed, float fX, float fY);
-	static void DrawSeparator(float fCenterBoxX, float fCenterBoxY, float fColumnY);
+	static void DrawBox(const CScreenTransform& transform, float fX, float fY);
+	static void DrawPing(const CScreenTransform& transform, CNetworkPlayer* pNetworkPlayer, float fX, float fY);
+	static void DrawName(const CScreenTransform& transform, CNetworkPlayer* pNetworkPlayer, float fX, float fY);
+	static void DrawBars(const CScreenTransform& transform, CPlayerPed* pPlayerPed, float fX, float fY);
+	static void DrawWeaponIcon(const CScreenTransform& transform, CPlayerPed* pPlayerPed, float fX, float fY);
+	static void DrawSeparator(const CScreenTransform& transform, float fCenterBoxX, float fCenterBoxY, float fColumnY);
 };
 

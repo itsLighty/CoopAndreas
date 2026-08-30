@@ -1,125 +1,215 @@
 #include "stdafx.h"
 
-#define PROPORION_X(value) (value * RsGlobal.maximumWidth / 1920)
-#define PROPORION_Y(value) (value * RsGlobal.maximumHeight / 1080)
+namespace
+{
+constexpr float NAME_TAG_DESIGN_WIDTH = 1920.0f;
+constexpr float NAME_TAG_DESIGN_HEIGHT = 1080.0f;
+
+constexpr float ToVirtualX(float value)
+{
+	return value * CUtil::SCREEN_BASE_WIDTH / NAME_TAG_DESIGN_WIDTH;
+}
+
+constexpr float ToVirtualY(float value)
+{
+	return value * CUtil::SCREEN_BASE_HEIGHT / NAME_TAG_DESIGN_HEIGHT;
+}
+
+class ScopedFontState
+{
+public:
+	ScopedFontState()
+		: color(*CFont::m_Color), scale(*CFont::m_Scale), dropColor(*CFont::m_FontDropColor),
+		  justify(CFont::m_bFontJustify), centre(CFont::m_bFontCentreAlign), right(CFont::m_bFontRightAlign),
+		  background(CFont::m_bFontBackground), enlargeBackground(CFont::m_bEnlargeBackgroundBox),
+		  style(CFont::m_FontStyle), shadow(CFont::m_nFontShadow), outlineSize(CFont::m_nFontOutlineSize),
+		  outline(CFont::m_nFontOutline)
+	{
+	}
+
+	~ScopedFontState()
+	{
+		*CFont::m_Color = color;
+		*CFont::m_Scale = scale;
+		*CFont::m_FontDropColor = dropColor;
+		CFont::m_bFontJustify = justify;
+		CFont::m_bFontCentreAlign = centre;
+		CFont::m_bFontRightAlign = right;
+		CFont::m_bFontBackground = background;
+		CFont::m_bEnlargeBackgroundBox = enlargeBackground;
+		CFont::m_FontStyle = style;
+		CFont::m_nFontShadow = shadow;
+		CFont::m_nFontOutlineSize = outlineSize;
+		CFont::m_nFontOutline = outline;
+	}
+
+private:
+	CRGBA color;
+	CVector2D scale;
+	CRGBA dropColor;
+	bool justify;
+	bool centre;
+	bool right;
+	bool background;
+	bool enlargeBackground;
+	unsigned char style;
+	unsigned char shadow;
+	unsigned char outlineSize;
+	unsigned char outline;
+};
+
+class ScopedRenderState
+{
+public:
+	ScopedRenderState()
+		: textureFilter(plugin::GetRenderState(rwRENDERSTATETEXTUREFILTER)),
+		  zTest(plugin::GetRenderState(rwRENDERSTATEZTESTENABLE)),
+		  zWrite(plugin::GetRenderState(rwRENDERSTATEZWRITEENABLE)),
+		  shadeMode(plugin::GetRenderState(rwRENDERSTATESHADEMODE)),
+		  raster(plugin::GetRenderRaster(rwRENDERSTATETEXTURERASTER))
+	{
+	}
+
+	~ScopedRenderState()
+	{
+		plugin::SetRenderState(rwRENDERSTATETEXTUREFILTER, textureFilter);
+		plugin::SetRenderState(rwRENDERSTATEZTESTENABLE, zTest);
+		plugin::SetRenderState(rwRENDERSTATEZWRITEENABLE, zWrite);
+		plugin::SetRenderState(rwRENDERSTATESHADEMODE, shadeMode);
+		plugin::SetRenderRaster(raster);
+	}
+
+private:
+	unsigned int textureFilter;
+	unsigned int zTest;
+	unsigned int zWrite;
+	unsigned int shadeMode;
+	RwRaster* raster;
+};
 
 uint8_t GetHudAlpha(float distance)
 {
 	if (distance < 45.0f)
-	{
 		return 255;
-	}
-	else if (distance > CNetworkPlayerNameTag::MAX_DRAW_NICKNAME_DISTANCE)
-	{
+
+	if (distance > CNetworkPlayerNameTag::MAX_DRAW_NICKNAME_DISTANCE)
 		return 0;
-	}
-	else
-	{
-		return (uint8_t)((1.0f - (distance - 45.0f) / 5.0f) * 255.0f);
-	}
+
+	return static_cast<uint8_t>((1.0f - (distance - 45.0f) / 5.0f) * 255.0f);
 }
 
-void DrawNickName(float x, float y, float scale, unsigned char alpha, const char* name)
+void DrawNickName(const CScreenTransform& transform, float x, float y, float scale, unsigned char alpha, const char* name)
 {
+	if (!name)
+		return;
+
 	CFont::SetOrientation(eFontAlignment::ALIGN_LEFT);
 	CFont::SetFontStyle(1);
 	CFont::SetColor(CRGBA(255, 255, 0, alpha));
 	CFont::SetBackground(false, false);
 	CFont::SetDropColor(CRGBA(0, 0, 0, alpha));
 	CFont::SetDropShadowPosition(1);
-	CFont::SetScale(PROPORION_X(0.6f * scale), PROPORION_Y(1.22f * scale));
+	CFont::SetScale(
+		transform.Width(ToVirtualX(0.6f) * scale),
+		transform.Height(ToVirtualY(1.22f) * scale));
 	CFont::PrintString(x, y, name);
 }
 
-void DrawWeaponIcon(CPed* ped, float x, float y, float scale, unsigned char alpha)
+void DrawWeaponIcon(const CScreenTransform& transform, CPed* ped, float x, float y, float scale, unsigned char alpha)
 {
-	const float width = CUtil::HUD_X(47.0f / 2.0f) * scale;
-	const float height = CUtil::HUD_Y(58.0f / 2.0f) * scale;
+	if (!ped)
+		return;
+
+	ScopedRenderState renderState;
+	const float width = transform.Width(47.0f / 2.0f) * scale;
+	const float height = transform.Height(58.0f / 2.0f) * scale;
 	const float halfWidth = width / 2.0f;
 	const float halfHeight = height / 2.0f;
 
 	RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, RWRSTATE(rwFILTERLINEAR));
 
-	auto modelId = CUtil::GetWeaponModelById(ped->m_aWeapons[ped->m_nActiveWeaponSlot].m_eWeaponType);
-
-	if (modelId <= 0) {
+	const auto modelId = CUtil::GetWeaponModelById(ped->m_aWeapons[ped->m_nActiveWeaponSlot].m_eWeaponType);
+	if (modelId <= 0)
+	{
 		CHud::Sprites[0].Draw({ x, y, width + x, height + y }, CRGBA(255, 255, 255, alpha));
 		return;
 	}
 
-	auto mi = CModelInfo::GetModelInfo(modelId);
-	auto txd = CTxdStore::ms_pTxdPool->GetAt(mi->m_nTxdIndex);
-	if (!txd)
+	auto* modelInfo = CModelInfo::GetModelInfo(modelId);
+	if (!modelInfo || !CTxdStore::ms_pTxdPool)
 		return;
 
-	auto texture = RwTexDictionaryFindHashNamedTexture(txd->m_pRwDictionary, CKeyGen::AppendStringToKey(mi->m_nKey, "ICON"));
+	auto* txd = CTxdStore::ms_pTxdPool->GetAt(modelInfo->m_nTxdIndex);
+	if (!txd || !txd->m_pRwDictionary)
+		return;
+
+	auto* texture = RwTexDictionaryFindHashNamedTexture(
+		txd->m_pRwDictionary, CKeyGen::AppendStringToKey(modelInfo->m_nKey, "ICON"));
 	if (!texture)
 		return;
 
-	RwRenderStateSet(rwRENDERSTATEZTESTENABLE, RWRSTATE(NULL));
+	RwRenderStateSet(rwRENDERSTATEZTESTENABLE, RWRSTATE(FALSE));
 	RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RWRSTATE(RwTextureGetRaster(texture)));
 	CSprite::RenderOneXLUSprite(
-		x + halfWidth, y + halfHeight, 1.0f,
-		halfWidth, halfHeight,
-		255u, 255u, 255u, alpha,
-		1.0f,
-		alpha,
-		0, 0
-	);
-	RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, RWRSTATE(FALSE));
+		x + halfWidth, y + halfHeight, 1.0f, halfWidth, halfHeight,
+		255u, 255u, 255u, alpha, 1.0f, alpha, 0, 0);
 }
 
-void DrawBarChartScale(float x, float y, uint16_t width, uint8_t height, float scale, float progress, CRGBA color)
+void DrawBarChartScale(
+	const CScreenTransform& transform,
+	float x,
+	float y,
+	float width,
+	float height,
+	float scale,
+	float progress,
+	CRGBA color)
 {
+	ScopedRenderState renderState;
 	RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RWRSTATE(NULL));
 	RwRenderStateSet(rwRENDERSTATESHADEMODE, RWRSTATE(rwSHADEMODEFLAT));
 
 	progress = std::clamp(progress, 0.0f, 100.0f);
+	const float endX = x + width;
+	const float currentX = std::min(x + width * progress / 100.0f, endX);
 
-	const float endX = x + (float)width;
-	const float unclampedCurrX = x + (float)width * progress / 100.0f;
-	const float currX = std::min(unclampedCurrX, endX);
-	const auto fheight = (float)height;
+	CSprite2d::DrawRect({ x, y, currentX, y + height }, color);
+	CSprite2d::DrawRect(
+		{ currentX, y, endX, y + height },
+		{ uint8_t(color.r / 2.0f), uint8_t(color.g / 2.0f), uint8_t(color.b / 2.0f), color.a });
 
-	// Progress rect
-	CSprite2d::DrawRect({ x, y, currX, y + fheight }, color);
-	// Background (from currX to endX)
-	CSprite2d::DrawRect({ currX, y, endX, y + fheight }, { uint8_t(color.r / 2.0f), uint8_t(color.g / 2.0f), uint8_t(color.b / 2.0f), color.a });
-
-	const float w = CUtil::HUD_X(2.0f) * scale, h = CUtil::SCREEN_SCALE_Y(2.0f) * scale;
+	const float borderWidth = transform.Width(2.0f) * scale;
+	const float borderHeight = transform.Height(2.0f) * scale;
 	const CRect rects[] = {
-		//left,     top,              right,    bottom
-		{ x,        y,                endX,     y + h       },       // Top
-		{ x,        y + fheight - h,  endX,     y + fheight },       // Bottom
-		{ x,        y,                x + w,    y + fheight },       // Left
-		{ endX - w, y,                endX,     y + fheight }        // Right
+		{ x, y, endX, y + borderHeight },
+		{ x, y + height - borderHeight, endX, y + height },
+		{ x, y, x + borderWidth, y + height },
+		{ endX - borderWidth, y, endX, y + height }
 	};
 
 	const auto black = CRGBA{ 0, 0, 0, color.a };
-	for (const CRect& rect : rects) {
+	for (const CRect& rect : rects)
 		CSprite2d::DrawRect(rect, black);
-	}
 }
-
+}
 
 void CNetworkPlayerNameTag::Process()
 {
-	if (CCutsceneMgr::ms_running
-		|| TheCamera.m_bWideScreenOn)
-	{
+	const CScreenTransform transform = CUtil::GetScreenTransform();
+	if (!transform.valid || !RwD3D9GetCurrentD3DDevice() || CCutsceneMgr::ms_running || TheCamera.m_bWideScreenOn)
 		return;
-	}
 
-	for (auto player : CNetworkPlayerManager::m_pPlayers)
+	ScopedFontState fontState;
+	for (auto* player : CNetworkPlayerManager::m_pPlayers)
 	{
-		if (!player->m_pPed)
+		if (!player || !player->m_pPed)
 			continue;
 
 		CVector localPlayerCamPos = TheCamera.m_aCams[TheCamera.m_nActiveCam].m_vecSource;
 		CVector networkPlayerPos{};
 
 		if (player->m_pPed->m_pRwClump)
-			player->m_pPed->GetBonePosition(*(RwV3d*)&networkPlayerPos, 5, false);
+			player->m_pPed->GetBonePosition(*reinterpret_cast<RwV3d*>(&networkPlayerPos), 5, false);
 		else
 		{
 			networkPlayerPos = player->m_pPed->GetPosition();
@@ -127,64 +217,62 @@ void CNetworkPlayerNameTag::Process()
 		}
 		networkPlayerPos.z += 0.3f;
 
-		float distance = (localPlayerCamPos - networkPlayerPos).Magnitude();
-		uint8_t alpha = GetHudAlpha(distance);
-
+		const float distance = (localPlayerCamPos - networkPlayerPos).Magnitude();
+		const uint8_t alpha = GetHudAlpha(distance);
 		if (alpha == 0 || !player->m_pPed->IsVisible())
 			continue;
 
-		if (!CWorld::GetIsLineOfSightClear(localPlayerCamPos, networkPlayerPos, true, false, false, true, false, false, false))
+		if (!CWorld::GetIsLineOfSightClear(
+			localPlayerCamPos, networkPlayerPos, true, false, false, true, false, false, false))
 			continue;
 
-		RwV3d out;
-		float width, height;
-		float normalizedDistance = distance / MAX_DRAW_NICKNAME_DISTANCE;
-		CSprite::CalcScreenCoors(*(RwV3d*)&networkPlayerPos, &out, &width, &height, false, false);
+		RwV3d out{};
+		float projectedWidth = 0.0f;
+		float projectedHeight = 0.0f;
+		if (!CSprite::CalcScreenCoors(
+			*reinterpret_cast<RwV3d*>(&networkPlayerPos), &out, &projectedWidth, &projectedHeight, false, false))
+			continue;
 
-		float scale = std::clamp(1.2f - normalizedDistance, 0.7f, 1.0f);
-		
-		// draw health bar
-		if (player->m_onFootSnapshotInterpolated.healthSnapshot.iHealth >= 10.0f || GetTickCount() % 500 > 150) // blinking, fps fixed
+		const float normalizedDistance = distance / MAX_DRAW_NICKNAME_DISTANCE;
+		const float scale = std::clamp(1.2f - normalizedDistance, 0.7f, 1.0f);
+		const float barWidth = transform.Width(ToVirtualX(100.0f) * scale);
+		const float barHeight = transform.Height(ToVirtualY(14.0f) * scale);
+
+		if (player->m_onFootSnapshotInterpolated.healthSnapshot.iHealth >= 10.0f || GetTickCount() % 500 > 150)
 		{
-			DrawBarChartScale(
-				out.x,
-				out.y,
-				(uint16_t)(PROPORION_X(100.0f * scale)),
-				(uint8_t)(PROPORION_Y(14.0f * scale)),
-				scale,
-				player->m_onFootSnapshotInterpolated.healthSnapshot.iHealth,
-				CRGBA(180, 25, 29, alpha)
-			);
+			DrawBarChartScale(transform, out.x, out.y, barWidth, barHeight, scale,
+				player->m_onFootSnapshotInterpolated.healthSnapshot.iHealth, CRGBA(180, 25, 29, alpha));
 		}
 
-		// draw armour bar
-		if (player->m_onFootSnapshotInterpolated.healthSnapshot.iArmour > 0.0f)
+		const bool hasArmour = player->m_onFootSnapshotInterpolated.healthSnapshot.iArmour > 0.0f;
+		if (hasArmour)
 		{
 			DrawBarChartScale(
+				transform,
 				out.x,
-				out.y - PROPORION_X(12) * scale,
-				(uint16_t)(PROPORION_X(100) * scale),
-				(uint8_t)(PROPORION_Y(14) * scale),
+				out.y - transform.Height(ToVirtualY(12.0f) * scale),
+				barWidth,
+				barHeight,
 				scale,
 				player->m_onFootSnapshotInterpolated.healthSnapshot.iArmour,
-				CRGBA(225, 225, 225, alpha)
-			);
+				CRGBA(225, 225, 225, alpha));
 		}
-		
-		float nicknameOffsetY = (player->m_onFootSnapshotInterpolated.healthSnapshot.iArmour > 0.0f ? 12.0f * scale + 12.0f * scale : 12.0f * scale);
+
+		const float nicknameOffsetY = hasArmour ? 24.0f * scale : 12.0f * scale;
 		DrawNickName(
-			out.x + PROPORION_X(4.8f),
-			out.y - (PROPORION_Y(nicknameOffsetY) + PROPORION_Y(8.0f)),
+			transform,
+			out.x + transform.Width(ToVirtualX(4.8f)),
+			out.y - transform.Height(ToVirtualY(nicknameOffsetY + 8.0f)),
 			scale,
 			alpha,
-			player->GetName().c_str()
-		);
+			player->GetName().c_str());
+
 		DrawWeaponIcon(
+			transform,
 			player->m_pPed,
-			(int)out.x - PROPORION_X(70.0f) * scale,
-			(int)out.y - PROPORION_Y(44.0f) * scale,
+			out.x - transform.Width(ToVirtualX(70.0f) * scale),
+			out.y - transform.Height(ToVirtualY(44.0f) * scale),
 			scale,
-			alpha
-		);
+			alpha);
 	}
 }

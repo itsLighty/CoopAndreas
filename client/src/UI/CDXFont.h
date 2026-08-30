@@ -23,6 +23,8 @@ public:
 	static std::vector<CTextSegment> ParseColorSegments(const std::wstring& input, D3DCOLOR defaultColor);
 
 private:
+	static uint8_t CalculateFontSize(const CScreenTransform& transform);
+	static bool EnsureFontForCurrentLayout();
 	static void InitFont();
 	static void DestroyFont();
 };

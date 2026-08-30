@@ -4,32 +4,69 @@
 ID3DXFont* CDXFont::m_pD3DXFont;
 uint8_t CDXFont::m_fFontSize;
 
+uint8_t CDXFont::CalculateFontSize(const CScreenTransform& transform)
+{
+    if (!transform.valid)
+        return 0;
+
+    const float normalizedWidth = std::clamp(
+        (transform.safeWidth - MIN_SCREEN_WIDTH) / (MAX_SCREEN_WIDTH - MIN_SCREEN_WIDTH), 0.0f, 1.0f);
+    const float normalizedHeight = std::clamp(
+        (transform.safeHeight - MIN_SCREEN_HEIGHT) / (MAX_SCREEN_HEIGHT - MIN_SCREEN_HEIGHT), 0.0f, 1.0f);
+    const float normalizedScale = std::min(normalizedWidth, normalizedHeight);
+    const float fontSize = MIN_RENDER_FONT_SIZE + normalizedScale * (MAX_RENDER_FONT_SIZE - MIN_RENDER_FONT_SIZE);
+    return static_cast<uint8_t>(std::clamp(std::lround(fontSize), 1l, 255l));
+}
+
 void CDXFont::InitFont()
 {
+    const CScreenTransform transform = CUtil::GetScreenTransform();
     IDirect3DDevice9* device = reinterpret_cast<IDirect3DDevice9*>(RwD3D9GetCurrentD3DDevice());
+    const uint8_t fontSize = CalculateFontSize(transform);
 
-    const float normalizedWidth = std::clamp(((float)RsGlobal.maximumWidth - MIN_SCREEN_WIDTH) / (MAX_SCREEN_WIDTH - MIN_SCREEN_WIDTH), 0.0f, 1.0f);
-    const float normalizedHeight = std::clamp(((float)RsGlobal.maximumHeight - MIN_SCREEN_HEIGHT) / (MAX_SCREEN_HEIGHT - MIN_SCREEN_HEIGHT), 0.0f, 1.0f);
-    const float normalizedScale = std::min(normalizedWidth, normalizedHeight);
+    if (!device || fontSize == 0)
+        return;
 
-    const float fontSize = MIN_RENDER_FONT_SIZE + normalizedScale * (MAX_RENDER_FONT_SIZE - MIN_RENDER_FONT_SIZE);
-    CDXFont::m_fFontSize = (uint8_t)fontSize;
+    CDXFont::m_fFontSize = fontSize;
 
-    D3DXCreateFontW(device, (INT)fontSize, 0, 400, 1, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &m_pD3DXFont);
+    if (FAILED(D3DXCreateFontW(device, static_cast<INT>(fontSize), 0, 400, 1, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &m_pD3DXFont)))
+    {
+        m_pD3DXFont = nullptr;
+        m_fFontSize = 0;
+    }
 }
 
 void CDXFont::DestroyFont() 
 {
-    if (!m_pD3DXFont) 
+    if (!m_pD3DXFont)
+    {
+        m_fFontSize = 0;
         return;
+    }
 
     m_pD3DXFont->Release();
-    m_pD3DXFont = NULL;
+    m_pD3DXFont = nullptr;
+    m_fFontSize = 0;
+}
+
+bool CDXFont::EnsureFontForCurrentLayout()
+{
+    const uint8_t desiredFontSize = CalculateFontSize(CUtil::GetScreenTransform());
+    if (desiredFontSize == 0)
+        return false;
+
+    if (m_pD3DXFont && desiredFontSize == m_fFontSize)
+        return true;
+
+    DestroyFont();
+    InitFont();
+    return m_pD3DXFont != nullptr;
 }
 
 void CDXFont::Draw(int x, int y, const std::vector<CTextSegment>& segments)
 {
-    if (!m_pD3DXFont)
+    if (!EnsureFontForCurrentLayout())
         return;
 
     int currentX = x;
@@ -42,7 +79,7 @@ void CDXFont::Draw(int x, int y, const std::vector<CTextSegment>& segments)
 
 void CDXFont::Draw(int x, int y, const std::wstring& str, D3DCOLOR defaultColor)
 {
-    if (!m_pD3DXFont)
+    if (!EnsureFontForCurrentLayout())
         return;
 
     std::vector<CTextSegment> segments = ParseColorSegments(str, defaultColor);
@@ -56,7 +93,8 @@ void CDXFont::Draw(int x, int y, const std::string& str, D3DCOLOR defaultColor)
 
 void CDXFont::DrawSegmentWithShadow(int x, int y, const wchar_t* text, D3DCOLOR color)
 {
-    if (!m_pD3DXFont)
+    const CScreenTransform transform = CUtil::GetScreenTransform();
+    if (!text || !transform.valid || !EnsureFontForCurrentLayout())
         return;
 
     uint8_t shadowThickness = m_iShadowSize;
@@ -76,8 +114,8 @@ void CDXFont::DrawSegmentWithShadow(int x, int y, const wchar_t* text, D3DCOLOR 
     RECT rect{};
     rect.left = x;
     rect.top = y;
-    rect.right = RsGlobal.maximumWidth;
-    rect.bottom = RsGlobal.maximumHeight;
+    rect.right = static_cast<LONG>(std::lround(transform.Right()));
+    rect.bottom = static_cast<LONG>(std::lround(transform.Bottom()));
 
     if (shadowThickness > 0)
     {
@@ -103,7 +141,7 @@ void CDXFont::DrawSegmentWithShadow(int x, int y, const wchar_t* text, D3DCOLOR 
 
 int CDXFont::GetTextWidth(const std::wstring& text)
 {
-    if (!m_pD3DXFont)
+    if (!EnsureFontForCurrentLayout())
         return 0;
 
     RECT rc = {0, 0, 0, 0};
@@ -218,7 +256,8 @@ std::vector<CTextSegment> CDXFont::ParseColorSegments(const std::wstring& input,
 
 void CDXFont::Init()
 {
-    m_pD3DXFont = NULL;
+    m_pD3DXFont = nullptr;
+    m_fFontSize = 0;
     Events::initRwEvent.Add(InitFont);
     Events::shutdownRwEvent.Add(DestroyFont);
     Events::d3dLostEvent.Add(DestroyFont);

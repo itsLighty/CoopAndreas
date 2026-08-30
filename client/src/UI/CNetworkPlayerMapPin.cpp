@@ -1,7 +1,12 @@
 #include "stdafx.h"
 
-CVector2D GetPlayerMarkerPosition()
+namespace
 {
+bool GetPlayerMarkerPosition(CVector2D& result)
+{
+	if (std::abs(CRadar::m_radarRange) <= 0.000001f)
+		return false;
+
 	CVector2D vec = FindPlayerCoors(-1) - CRadar::vec2DRadarOrigin;
 	CVector2D playerDirection = 
 	{ 
@@ -15,12 +20,10 @@ CVector2D GetPlayerMarkerPosition()
 	};
 	CRadar::LimitRadarPoint(rotatedPos);
 
-	CVector2D ret{};
-	
-	CRadar::TransformRadarPointToScreenSpace(ret, rotatedPos);
+	CRadar::TransformRadarPointToScreenSpace(result, rotatedPos);
 
-	return ret;
-};
+	return true;
+}
 
 float CalculateMarkerAngle(CNetworkPlayer* player)
 {
@@ -40,22 +43,30 @@ float CalculateMarkerAngle(CNetworkPlayer* player)
 		return baseAngle - CRadar::m_fRadarOrientation + (float)M_PI;
 	}
 }
+}
 
 void CNetworkPlayerMapPin::Process()
 {
+	const CScreenTransform transform = CUtil::GetScreenTransform();
+	if (!transform.valid || !RwD3D9GetCurrentD3DDevice())
+		return;
+
 	const auto previousPlayerInFocus = CWorld::PlayerInFocus;
 
-	for (auto player : CNetworkPlayerManager::m_pPlayers)
+	for (auto* player : CNetworkPlayerManager::m_pPlayers)
 	{
 		if (player == nullptr || player->m_pPed == nullptr)
 			continue;
 
-		CWorld::PlayerInFocus = player->GetInternalId();
-
-		if (CWorld::PlayerInFocus == -1)
+		const int playerId = player->GetInternalId();
+		if (playerId < 0)
 			continue;
 
-		CVector2D pos = GetPlayerMarkerPosition();
+		CWorld::PlayerInFocus = playerId;
+		CVector2D pos{};
+		if (!GetPlayerMarkerPosition(pos))
+			continue;
+
 		float angle = CalculateMarkerAngle(player);
 
 		CRadar::DrawRotatingRadarSprite(

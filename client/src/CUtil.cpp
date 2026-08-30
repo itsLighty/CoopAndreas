@@ -1,6 +1,55 @@
 #include "stdafx.h"
 #include "CNetworkPed.h"
 
+CScreenTransform CUtil::BuildScreenTransform(float screenWidth, float screenHeight, float renderAspect)
+{
+    CScreenTransform transform{};
+
+    if (!std::isfinite(screenWidth) || !std::isfinite(screenHeight) || screenWidth <= 0.0f || screenHeight <= 0.0f)
+        return transform;
+
+    const float framebufferAspect = screenWidth / screenHeight;
+    const bool renderAspectIsUsable = std::isfinite(renderAspect) && renderAspect > 0.0f;
+
+    // RsGlobal gives the physical viewport. CDraw is sampled as well because it
+    // is the game's live aspect setting, but a stale setting must never create a
+    // canvas outside the current framebuffer.
+    const float currentAspect = renderAspectIsUsable &&
+        std::abs(renderAspect - framebufferAspect) <= framebufferAspect * 0.05f
+        ? renderAspect
+        : framebufferAspect;
+
+    transform.screenWidth = screenWidth;
+    transform.screenHeight = screenHeight;
+
+    if (currentAspect >= DEFAULT_ASPECT_RATIO)
+    {
+        transform.safeHeight = screenHeight;
+        transform.safeWidth = std::min(screenWidth, screenHeight * DEFAULT_ASPECT_RATIO);
+        transform.safeLeft = (screenWidth - transform.safeWidth) * 0.5f;
+    }
+    else
+    {
+        transform.safeWidth = screenWidth;
+        transform.safeHeight = std::min(screenHeight, screenWidth / DEFAULT_ASPECT_RATIO);
+        transform.safeTop = (screenHeight - transform.safeHeight) * 0.5f;
+    }
+
+    transform.scaleX = transform.safeWidth / SCREEN_BASE_WIDTH;
+    transform.scaleY = transform.safeHeight / SCREEN_BASE_HEIGHT;
+    transform.valid = transform.scaleX > 0.0f && transform.scaleY > 0.0f;
+    return transform;
+}
+
+CScreenTransform CUtil::GetScreenTransform()
+{
+    return BuildScreenTransform(
+        static_cast<float>(RsGlobal.maximumWidth),
+        static_cast<float>(RsGlobal.maximumHeight),
+        CDraw::ms_fAspectRatio
+    );
+}
+
 bool CUtil::CompareControllerStates(const CControllerState & state1, const CControllerState & state2) {
     return state1.LeftStickX == state2.LeftStickX &&
         state1.LeftStickY == state2.LeftStickY &&
@@ -250,9 +299,10 @@ void CUtil::SetPlayerJetpack(CNetworkPlayer* player, bool set)
         if (playerNum == -1)
             return;
 
+        const int previousPlayerInFocus = CWorld::PlayerInFocus;
         CWorld::PlayerInFocus = playerNum;
         CCheat::JetpackCheat(); // its easier to call this instead of implementing jetpack giving
-        CWorld::PlayerInFocus = 0;
+        CWorld::PlayerInFocus = previousPlayerInFocus;
     }
     else
     {
