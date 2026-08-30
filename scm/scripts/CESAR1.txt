@@ -167,15 +167,24 @@ Player.SetGroupRecruitment($player1, False)
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 158@ = 0
 159@ = 0
+223@ = 0 // deterministic connected-participant death failure
 for $temp_int = 0 to 2
     $NETWORK_PLAYER_VEHICLE[$temp_int] = -1
     160@($temp_int,3i) = 0
     163@($temp_int,3i) = -1
     180@($temp_int,3i) = 0
+    211@($temp_int,3i) = -1 // immutable internal network identity
+    214@($temp_int,3i) = 0 // currently connected frozen participant
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
-        158@ += 1
+        211@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            211@($temp_int,3i) <> -1
+        then
+            214@($temp_int,3i) = 1
+            158@ += 1
+        end
     end
 end
 34@ = 0
@@ -355,6 +364,11 @@ if
 goto_if_false @CESAR1_2305
 gosub @CESAR1_5106
 gosub @CESAR1_COOP_UPDATE_CONVOY
+if
+    223@ == 1
+then
+    goto @CESAR1_4957
+end
 
 :CESAR1_2305
 if and
@@ -814,7 +828,7 @@ $cs1_race_is_go = 1
 if
     158@ > 0
 then
-    start_new_script @CESAR1_COOP_RACE
+    start_new_script @CESAR1_COOP_RACE 211@ 212@ 213@
     159@ = 1
 end
 return 
@@ -1201,7 +1215,63 @@ for $temp_int = 0 to 2
 end
 return
 
+:CESAR1_COOP_REFRESH_ROSTER
+217@, 218@, 219@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 222@ = 214@($temp_int,3i)
+    214@($temp_int,3i) = 0
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        211@($temp_int,3i) <> -1
+    then
+        for 220@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(217@(220@,3i))
+            then
+                221@ = Coop.GetNetworkPlayerInternalId(217@(220@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 221@ == 211@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 217@(220@,3i)
+                    214@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        214@($temp_int,3i) == 1
+    then
+        if
+            222@ == 0
+        then
+            if
+                $temp_int == 0
+            then
+                Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+            end
+            if
+                $temp_int == 1
+            then
+                Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+            end
+            if
+                $temp_int == 2
+            then
+                Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+            end
+            160@($temp_int,3i) = 0
+        end
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            223@ = 1
+        end
+    end
+end
+return
+
 :CESAR1_COOP_UPDATE_CONVOY
+gosub @CESAR1_COOP_REFRESH_ROSTER
 for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
@@ -1327,6 +1397,8 @@ Coop.EnableSyncingThisScript()
 50@ = 0
 51@ = 0
 67@ = 0
+88@ = 0 // connected frozen participant died
+89@ = 0 // cooperative race failure was published
 for $temp_int = 0 to 2
     34@($temp_int,3i) = 0
     37@($temp_int,3i) = 0
@@ -1336,10 +1408,18 @@ for $temp_int = 0 to 2
     70@($temp_int,3i) = -1
     73@($temp_int,3i) = 0
     76@($temp_int,3i) = 0
-    if
+    84@($temp_int,3i) = 0
+    if and
+        0@($temp_int,3i) <> -1
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
-        51@ += 1
+        83@ = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            is_int_lvar_equal_to_int_lvar 83@ == 0@($temp_int,3i)
+        then
+            84@($temp_int,3i) = 1
+            51@ += 1
+        end
     end
 end
 if
@@ -1352,6 +1432,8 @@ end
 
 :CESAR1_COOP_WAIT_FOR_RACE_LAUNCH
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if and
     $cs1_race_is_go == 2
     $onmission == 1
@@ -1373,6 +1455,8 @@ set_lvar_int_to_var_int 64@ = $races_timer
 
 :CESAR1_COOP_WAIT_FOR_GRID_LOOP
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if
     $onmission == 0
 goto_if_false @CESAR1_COOP_GRID_MISSION_ACTIVE
@@ -1471,6 +1555,8 @@ end
 52@ += 2500
 
 :CESAR1_COOP_RACE_CAR_IDS_LOOP
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 53@ = 0
 for $temp_int = 0 to 2
     if
@@ -1514,6 +1600,8 @@ end
 
 :CESAR1_COOP_WAIT_COUNTDOWN_THREE
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if
     $onmission == 0
 then
@@ -1543,6 +1631,8 @@ gosub @CESAR1_COOP_PRINT_BIG_ALL
 
 :CESAR1_COOP_WAIT_COUNTDOWN_TWO
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if
     $onmission == 0
 then
@@ -1572,6 +1662,8 @@ gosub @CESAR1_COOP_PRINT_BIG_ALL
 
 :CESAR1_COOP_WAIT_COUNTDOWN_ONE
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if
     $onmission == 0
 then
@@ -1601,6 +1693,8 @@ gosub @CESAR1_COOP_PRINT_BIG_ALL
 
 :CESAR1_COOP_WAIT_COUNTDOWN_GO
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if
     $onmission == 0
 then
@@ -1660,6 +1754,8 @@ end
 
 :CESAR1_COOP_RACE_LOOP
 wait 0
+gosub @CESAR1_COOP_RACE_UPDATE_ROSTER
+gosub @CESAR1_COOP_RACE_CHECK_FAILURE
 if
     $onmission == 0
 goto_if_false @CESAR1_COOP_RACE_ACTIVE
@@ -1829,6 +1925,87 @@ for $temp_int = 0 to 2
     end
 end
 goto @CESAR1_COOP_RACE_LOOP
+
+:CESAR1_COOP_RACE_UPDATE_ROSTER
+79@, 80@, 81@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 87@ = 84@($temp_int,3i)
+    84@($temp_int,3i) = 0
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        0@($temp_int,3i) <> -1
+    then
+        for 82@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(79@(82@,3i))
+            then
+                83@ = Coop.GetNetworkPlayerInternalId(79@(82@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 83@ == 0@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 79@(82@,3i)
+                    84@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if
+        84@($temp_int,3i) == 1
+    then
+        if
+            87@ == 0
+        then
+            if
+                $temp_int == 0
+            then
+                Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+            end
+            if
+                $temp_int == 1
+            then
+                Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+            end
+            if
+                $temp_int == 2
+            then
+                Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+            end
+            46@($temp_int,3i) = 0
+        end
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            88@ = 1
+        end
+    end
+end
+return
+
+:CESAR1_COOP_RACE_CHECK_FAILURE
+if
+    88@ == 0
+then
+    return
+end
+$failed_cesar_race = 1
+if
+    89@ == 0
+then
+    89@ = 1
+    for $temp_int = 0 to 2
+        if
+            84@($temp_int,3i) == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+if
+    not Car.IsDead($cs1_player_car)
+then
+    Car.SetHealth($cs1_player_car, 0)
+end
+goto @CESAR1_COOP_RACE_CLEANUP
 
 :CESAR1_COOP_RACE_RESULT
 for $temp_int = 0 to 2

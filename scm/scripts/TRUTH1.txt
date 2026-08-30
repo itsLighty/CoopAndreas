@@ -22,10 +22,18 @@ wait 0
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 600@ = 0 // identity-stable remote participant count
 for $temp_int = 0 to 2
+    620@($temp_int,3i) = -1 // immutable internal network identity
+    623@($temp_int,3i) = 0 // currently connected frozen participant
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
-        600@ += 1
+        620@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            620@($temp_int,3i) <> -1
+        then
+            623@($temp_int,3i) = 1
+            600@ += 1
+        end
     end
 end
 605@ = 0 // cooperative participant failure
@@ -2561,7 +2569,56 @@ return
 // assumes one canonical driver. Remote players receive the same destination and
 // entity guidance, can eliminate the synchronized farm defenders, and escort the
 // harvester to Truth. All entity-id waits are bounded to preserve progression.
+:TRUTH1_COOP_REFRESH_ROSTER
+626@, 627@, 628@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 631@ = 623@($temp_int,3i)
+    623@($temp_int,3i) = 0
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        620@($temp_int,3i) <> -1
+    then
+        for 629@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(626@(629@,3i))
+            then
+                630@ = Coop.GetNetworkPlayerInternalId(626@(629@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 630@ == 620@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 626@(629@,3i)
+                    623@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
+    if and
+        623@($temp_int,3i) == 1
+        631@ == 0
+    then
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+        end
+        606@ = -1
+    end
+end
+return
+
 :TRUTH1_COOP_CHECK_PLAYERS
+gosub @TRUTH1_COOP_REFRESH_ROSTER
 605@ = 0
 for $temp_int = 0 to 2
     if

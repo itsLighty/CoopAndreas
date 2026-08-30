@@ -3386,7 +3386,53 @@ return
 // Cooperative mission layer. The three remote actor handles and their immutable
 // internal identities are captured once. A disconnected slot may reconnect with
 // the same identity, but can never be replaced by a late joiner.
+:DECON_COOP_RECOLLECT_ROSTER
+570@, 571@, 572@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 575@ = 506@($temp_int,3i)
+    500@($temp_int,3i) = -1
+    if
+        503@($temp_int,3i) <> -1
+    then
+        for 573@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(570@(573@,3i))
+            then
+                574@ = Coop.GetNetworkPlayerInternalId(570@(573@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 574@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 570@(573@,3i)
+                end
+            end
+        end
+    end
+    if and
+        575@ == 0
+        Coop.IsNetworkPlayerActorValid(500@($temp_int,3i))
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely(500@, -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, 501@, -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, 502@)
+        end
+        509@($temp_int,3i) = -1
+    end
+end
+return
+
 :DECON_COOP_UPDATE_ROSTER
+gosub @DECON_COOP_RECOLLECT_ROSTER
 for $temp_int = 0 to 2
     506@($temp_int,3i) = 0
     if

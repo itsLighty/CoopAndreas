@@ -5394,7 +5394,53 @@ return
 // Identity-stable cooperative layer. A disconnected frozen slot is ignored;
 // reconnecting or late-joining actors cannot replace it. A death by any active
 // participant fails the shared run through the original host failure path.
+:CAT2_COOP_RECOLLECT_ROSTER
+690@, 691@, 692@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 695@ = 653@($temp_int,3i)
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        650@($temp_int,3i) <> -1
+    then
+        for 693@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(690@(693@,3i))
+            then
+                694@ = Coop.GetNetworkPlayerInternalId(690@(693@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 694@ == 650@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 690@(693@,3i)
+                end
+            end
+        end
+    end
+    if and
+        695@ == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+        end
+        643@ = -1
+    end
+end
+return
+
 :CAT2_COOP_UPDATE_ROSTER
+gosub @CAT2_COOP_RECOLLECT_ROSTER
 671@ = 1
 for $temp_int = 0 to 2
     653@($temp_int,3i) = 0

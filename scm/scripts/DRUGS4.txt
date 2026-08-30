@@ -10168,7 +10168,54 @@ return
 // Cooperative mission layer.  The participant roster is frozen by network identity
 // at mission start.  Disconnected or late-streamed slots are skipped and are never
 // replaced by a late joiner.
+:DRUGS4_COOP_RECOLLECT_ROSTER
+410@, 411@, 412@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 415@ = 341@($temp_int,3i)
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        338@($temp_int,3i) <> -1
+    then
+        for 413@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(410@(413@,3i))
+            then
+                414@ = Coop.GetNetworkPlayerInternalId(410@(413@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 414@ == 338@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 410@(413@,3i)
+                end
+            end
+        end
+    end
+    if and
+        415@ == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+        end
+        351@ = -1
+        358@ = -1
+    end
+end
+return
+
 :DRUGS4_COOP_UPDATE_ROSTER
+gosub @DRUGS4_COOP_RECOLLECT_ROSTER
 for $temp_int = 0 to 2
     341@($temp_int,3i) = 0
     if

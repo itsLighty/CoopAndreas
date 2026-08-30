@@ -579,7 +579,52 @@ return
 // Refresh only the actors whose internal network identities were captured by the
 // single mission-start roster collection. A disconnected slot can never be
 // inherited by a late joiner that happens to reuse its script handle.
+:BCESAR4_COOP_RECOLLECT_ROSTER
+90@, 91@, 92@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 95@ = 47@($temp_int,3i)
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        44@($temp_int,3i) <> -1
+    then
+        for 93@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(90@(93@,3i))
+            then
+                94@ = Coop.GetNetworkPlayerInternalId(90@(93@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 94@ == 44@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 90@(93@,3i)
+                end
+            end
+        end
+    end
+    if and
+        95@ == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+        end
+    end
+end
+return
+
 :BCESAR4_COOP_UPDATE_ROSTER
+gosub @BCESAR4_COOP_RECOLLECT_ROSTER
 for $temp_int = 0 to 2
     47@($temp_int,3i) = 0
     if
@@ -1409,7 +1454,52 @@ for $temp_int = 0 to 2
 end
 terminate_this_script
 
+:BCESAR4_COOP_RACE_RECOLLECT_ROSTER
+90@, 91@, 92@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 95@ = 28@($temp_int,3i)
+    0@($temp_int,3i) = -1
+    if
+        3@($temp_int,3i) <> -1
+    then
+        for 93@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(90@(93@,3i))
+            then
+                94@ = Coop.GetNetworkPlayerInternalId(90@(93@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 94@ == 3@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 0@($temp_int,3i) = 90@(93@,3i)
+                end
+            end
+        end
+    end
+    if and
+        95@ == 0
+        Coop.IsNetworkPlayerActorValid(0@($temp_int,3i))
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely(0@, -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, 1@, -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, 2@)
+        end
+    end
+end
+return
+
 :BCESAR4_COOP_RACE_UPDATE_ROSTER
+gosub @BCESAR4_COOP_RACE_RECOLLECT_ROSTER
 57@ = 0
 for $temp_int = 0 to 2
     28@($temp_int,3i) = 0

@@ -47,6 +47,8 @@ set_lvar_int_to_var_int 212@ = $scplayer // participant who caused detection/pro
 269@ = 1 // cooperative cutscene state
 for $temp_int = 0 to 2
     set_lvar_int_to_var_int 220@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    278@($temp_int,3i) = -1 // immutable internal network identity
+    281@($temp_int,3i) = 0 // currently connected frozen participant
     223@($temp_int,3i) = 0
     226@($temp_int,3i) = 0
     229@($temp_int,3i) = 0
@@ -58,10 +60,16 @@ for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
-        208@ += 1
-        223@($temp_int,3i) = Char.GetCurrentWeapon($NETWORK_PLAYER[$temp_int])
-        226@($temp_int,3i) = Char.GetAmmoInWeapon($NETWORK_PLAYER[$temp_int], 4)
-        229@($temp_int,3i) = 1
+        278@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            278@($temp_int,3i) <> -1
+        then
+            281@($temp_int,3i) = 1
+            208@ += 1
+            223@($temp_int,3i) = Char.GetCurrentWeapon($NETWORK_PLAYER[$temp_int])
+            226@($temp_int,3i) = Char.GetAmmoInWeapon($NETWORK_PLAYER[$temp_int], 4)
+            229@($temp_int,3i) = 1
+        end
     end
 end
 gosub @MUSIC2_COOP_BEGIN_CUTSCENE
@@ -1848,10 +1856,30 @@ then
 end
 set_lvar_int_to_lvar_int 244@ = 203@
 244@ += 1000
-$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+284@, 285@, 286@ = Coop.CollectNetworkPlayersForTheMission()
 208@ = 0
 246@ = 0
 for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 289@ = 281@($temp_int,3i)
+    281@($temp_int,3i) = 0
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        278@($temp_int,3i) <> -1
+    then
+        for 287@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(284@(287@,3i))
+            then
+                288@ = Coop.GetNetworkPlayerInternalId(284@(287@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 288@ == 278@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 284@(287@,3i)
+                    281@($temp_int,3i) = 1
+                end
+            end
+        end
+    end
     if
         not is_int_lvar_equal_to_int_var 220@($temp_int,3i) == $NETWORK_PLAYER[$temp_int]
     then
@@ -1861,9 +1889,6 @@ for $temp_int = 0 to 2
             Car.Delete(238@($temp_int,3i))
         end
         set_lvar_int_to_var_int 220@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
-        223@($temp_int,3i) = 0
-        226@($temp_int,3i) = 0
-        229@($temp_int,3i) = 0
         232@($temp_int,3i) = -1
         235@($temp_int,3i) = 0
         238@($temp_int,3i) = -1
@@ -1871,16 +1896,22 @@ for $temp_int = 0 to 2
         270@($temp_int,3i) = 0
         246@ = 1
     end
-    if
+    if and
+        281@($temp_int,3i) == 1
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
         208@ += 1
-        if
+        if and
             229@($temp_int,3i) == 0
+            289@ == 1
         then
             223@($temp_int,3i) = Char.GetCurrentWeapon($NETWORK_PLAYER[$temp_int])
             226@($temp_int,3i) = Char.GetAmmoInWeapon($NETWORK_PLAYER[$temp_int], 4)
             229@($temp_int,3i) = 1
+        end
+        if
+            289@ == 0
+        then
             232@($temp_int,3i) = -1
             if and
                 70@ >= 2

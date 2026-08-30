@@ -2468,7 +2468,53 @@ for $temp_int = 0 to 2
 end
 return
 
+:BCRASH1_COOP_REFRESH_ROSTER
+430@, 431@, 432@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 435@ = 353@($temp_int,3i)
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        350@($temp_int,3i) <> -1
+    then
+        for 433@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(430@(433@,3i))
+            then
+                434@ = Coop.GetNetworkPlayerInternalId(430@(433@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 434@ == 350@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 430@(433@,3i)
+                end
+            end
+        end
+    end
+    if and
+        435@ == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+        end
+        356@($temp_int,3i) = -1
+    end
+end
+return
+
 :BCRASH1_COOP_UPDATE
+gosub @BCRASH1_COOP_REFRESH_ROSTER
 393@ = 0
 394@ = 0
 395@ = 0

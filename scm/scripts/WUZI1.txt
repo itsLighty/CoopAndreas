@@ -4244,7 +4244,31 @@ then
 end
 return
 
+:WUZI1_COOP_RECOLLECT_ROSTER
+910@, 911@, 912@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        800@($temp_int,3i) <> -1
+    then
+        for 913@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(910@(913@,3i))
+            then
+                914@ = Coop.GetNetworkPlayerInternalId(910@(913@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 914@ == 800@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 910@(913@,3i)
+                end
+            end
+        end
+    end
+end
+return
+
 :WUZI1_COOP_UPDATE_ROSTER
+gosub @WUZI1_COOP_RECOLLECT_ROSTER
 763@ = 0
 783@ = 0
 for $temp_int = 0 to 2

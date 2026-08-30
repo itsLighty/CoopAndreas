@@ -3721,7 +3721,31 @@ return
 // pickup, cutscenes, train/taxi state machine, wanted state and story rewards.
 // Frozen participants receive synchronized transport, route guidance and final
 // combat access while their own stealth violations feed the canonical spook meter.
+:SCRASH2_COOP_RECOLLECT_ROSTER
+580@, 581@, 582@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    500@($temp_int,3i) = -1
+    if
+        503@($temp_int,3i) <> -1
+    then
+        for 583@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(580@(583@,3i))
+            then
+                584@ = Coop.GetNetworkPlayerInternalId(580@(583@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 584@ == 503@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 500@($temp_int,3i) = 580@(583@,3i)
+                end
+            end
+        end
+    end
+end
+return
+
 :SCRASH2_COOP_UPDATE_ROSTER
+gosub @SCRASH2_COOP_RECOLLECT_ROSTER
 534@ = 0
 561@ = 0
 for $temp_int = 0 to 2

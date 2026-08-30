@@ -2503,7 +2503,53 @@ return
 
 // Cooperative mission layer.  The roster is frozen by network player identity at mission
 // start; disconnected slots are ignored and are never replaced by late joiners.
+:MUSIC5_COOP_RECOLLECT_ROSTER
+207@, 208@, 209@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 212@ = 171@($temp_int,3i)
+    $NETWORK_PLAYER[$temp_int] = -1
+    if
+        168@($temp_int,3i) <> -1
+    then
+        for 210@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(207@(210@,3i))
+            then
+                211@ = Coop.GetNetworkPlayerInternalId(207@(210@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 211@ == 168@($temp_int,3i)
+                then
+                    set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 207@(210@,3i)
+                end
+            end
+        end
+    end
+    if and
+        212@ == 0
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+        end
+        156@ = -1
+    end
+end
+return
+
 :MUSIC5_COOP_UPDATE_ROSTER
+gosub @MUSIC5_COOP_RECOLLECT_ROSTER
 for $temp_int = 0 to 2
     171@($temp_int,3i) = 0
     if

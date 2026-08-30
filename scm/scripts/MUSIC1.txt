@@ -221,6 +221,18 @@ $iTerminateDanceMiniGame = 0
 for $temp_int = 0 to 2
     set_lvar_int_to_var_int 350@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
     353@($temp_int,3i) = -1
+    372@($temp_int,3i) = -1 // immutable internal network identity
+    375@($temp_int,3i) = 0 // currently connected frozen participant
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        372@($temp_int,3i) = Coop.GetNetworkPlayerInternalId($NETWORK_PLAYER[$temp_int])
+        if
+            372@($temp_int,3i) <> -1
+        then
+            375@($temp_int,3i) = 1
+        end
+    end
 end
 
 :MUSIC1_1557
@@ -2878,18 +2890,58 @@ sub_int_lvar_from_int_lvar 348@ -= 346@
 if
   348@ > 1000
 then
-    $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+    378@, 379@, 380@ = Coop.CollectNetworkPlayersForTheMission()
     for $temp_int = 0 to 2
+        set_lvar_int_to_lvar_int 383@ = 375@($temp_int,3i)
+        375@($temp_int,3i) = 0
+        $NETWORK_PLAYER[$temp_int] = -1
+        if
+            372@($temp_int,3i) <> -1
+        then
+            for 381@ = 0 to 2
+                if
+                    Coop.IsNetworkPlayerActorValid(378@(381@,3i))
+                then
+                    382@ = Coop.GetNetworkPlayerInternalId(378@(381@,3i))
+                    if
+                        is_int_lvar_equal_to_int_lvar 382@ == 372@($temp_int,3i)
+                    then
+                        set_var_int_to_lvar_int $NETWORK_PLAYER[$temp_int] = 378@(381@,3i)
+                        375@($temp_int,3i) = 1
+                    end
+                end
+            end
+        end
         if
             not is_int_lvar_equal_to_int_var 350@($temp_int,3i) == $NETWORK_PLAYER[$temp_int]
         then
             set_lvar_int_to_var_int 350@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
             353@($temp_int,3i) = -1
         end
-        if
+        if and
+            375@($temp_int,3i) == 1
             Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
         then
             Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+            if
+                383@ == 0
+            then
+                if
+                    $temp_int == 0
+                then
+                    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], -1, -1)
+                end
+                if
+                    $temp_int == 1
+                then
+                    Coop.TeleportPlayersToHostSafely(-1, $NETWORK_PLAYER[1], -1)
+                end
+                if
+                    $temp_int == 2
+                then
+                    Coop.TeleportPlayersToHostSafely(-1, -1, $NETWORK_PLAYER[2])
+                end
+            end
         end
     end
     set_lvar_int_to_lvar_int 346@ = 347@

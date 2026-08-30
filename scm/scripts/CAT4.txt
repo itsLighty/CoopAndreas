@@ -3612,7 +3612,53 @@ end
 gosub @CAT4_COOP_UPDATE_OBJECTIVES
 return
 
+:CAT4_COOP_RECOLLECT_ROSTER
+670@, 671@, 672@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 675@ = 636@($temp_int,3i)
+    630@($temp_int,3i) = -1
+    if
+        633@($temp_int,3i) <> -1
+    then
+        for 673@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(670@(673@,3i))
+            then
+                674@ = Coop.GetNetworkPlayerInternalId(670@(673@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 674@ == 633@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 630@($temp_int,3i) = 670@(673@,3i)
+                end
+            end
+        end
+    end
+    if and
+        675@ == 0
+        Coop.IsNetworkPlayerActorValid(630@($temp_int,3i))
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely(630@, -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, 631@, -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, 632@)
+        end
+        639@($temp_int,3i) = -1
+    end
+end
+return
+
 :CAT4_COOP_UPDATE_ROSTER
+gosub @CAT4_COOP_RECOLLECT_ROSTER
 616@ = 0
 for $temp_int = 0 to 2
     636@($temp_int,3i) = 0

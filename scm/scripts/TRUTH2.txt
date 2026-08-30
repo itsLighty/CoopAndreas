@@ -2824,7 +2824,53 @@ return
 // Cooperative mission layer. The host alone advances canonical story globals,
 // rewards, and mission state. Frozen-roster peers only feed guarded mission
 // interactions into that host-owned state machine.
+:TRUTH2_COOP_RECOLLECT_ROSTER
+390@, 391@, 392@ = Coop.CollectNetworkPlayersForTheMission()
+for $temp_int = 0 to 2
+    set_lvar_int_to_lvar_int 395@ = 306@($temp_int,3i)
+    300@($temp_int,3i) = -1
+    if
+        303@($temp_int,3i) <> -1
+    then
+        for 393@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(390@(393@,3i))
+            then
+                394@ = Coop.GetNetworkPlayerInternalId(390@(393@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 394@ == 303@($temp_int,3i)
+                then
+                    set_lvar_int_to_lvar_int 300@($temp_int,3i) = 390@(393@,3i)
+                end
+            end
+        end
+    end
+    if and
+        395@ == 0
+        Coop.IsNetworkPlayerActorValid(300@($temp_int,3i))
+    then
+        if
+            $temp_int == 0
+        then
+            Coop.TeleportPlayersToHostSafely(300@, -1, -1)
+        end
+        if
+            $temp_int == 1
+        then
+            Coop.TeleportPlayersToHostSafely(-1, 301@, -1)
+        end
+        if
+            $temp_int == 2
+        then
+            Coop.TeleportPlayersToHostSafely(-1, -1, 302@)
+        end
+        309@($temp_int,3i) = -1
+    end
+end
+return
+
 :TRUTH2_COOP_UPDATE_ROSTER
+gosub @TRUTH2_COOP_RECOLLECT_ROSTER
 350@ = 0
 for $temp_int = 0 to 2
     306@($temp_int,3i) = 0
