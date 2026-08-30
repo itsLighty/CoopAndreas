@@ -6,6 +6,12 @@ wait 125
 if 
   Player.IsPlaying($player1)
 goto_if_false @SHOOT_324
+// Coop.IsHost also evaluates true while unauthenticated, preserving the exact
+// stock single-player launcher. Authenticated peers must never start a second
+// shooting-range state machine or mutate the shared challenge globals.
+if
+  Coop.IsHost()
+goto_if_false @SHOOT_324
 if 
   $onmission == 0
 goto_if_false @SHOOT_238

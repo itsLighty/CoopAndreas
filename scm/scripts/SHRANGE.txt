@@ -3,6 +3,16 @@
 
 :SHRANGE
 script_name 'SHRANGE'
+Coop.EnableSyncingThisScript()
+if
+  Coop.IsHost()
+goto_if_false @SHRANGE_COOP_REJECT_NON_HOST
+goto @SHRANGE_COOP_HOST_START
+
+:SHRANGE_COOP_REJECT_NON_HOST
+terminate_this_script
+
+:SHRANGE_COOP_HOST_START
 set_deatharrest_state 0
 $onmission = 1
 $flag_shooting_range_mission = 1
@@ -174,6 +184,7 @@ $sr_obj = Object.Create(338, $x, $y, $z)
 
 :SHRANGE_1201
 $sr_area = Streaming.GetAreaVisible()
+gosub @SHRANGE_COOP_INIT
 
 :SHRANGE_1206
 if 
@@ -212,6 +223,7 @@ goto_if_false @SHRANGE_1370
 gosub @SHRANGE_13478
 gosub @SHRANGE_11089
 gosub @SHRANGE_1379
+gosub @SHRANGE_COOP_UPDATE
 
 :SHRANGE_1370
 goto @SHRANGE_1206
@@ -2747,6 +2759,7 @@ add_float_lvar_to_float_var $z += 43@($SR_range_id,4f)
 return 
 
 :SHRANGE_17017
+gosub @SHRANGE_COOP_CLEANUP
 Char.Delete($SR_ped[0])
 Char.Delete($SR_ped[1])
 Char.Delete($SR_ped[2])
@@ -2795,3 +2808,258 @@ terminate_this_script
 return 
 terminate_this_script 
 
+// Co-op policy for the complete four-weapon, three-round shooting range:
+// - the host remains the sole launcher and sole owner of target damage,
+//   scoring, round progression, pass/fail, rewards, stats and save mutations;
+// - frozen mission identities observe the host's synchronized targets, camera
+//   and messages without running an independent challenge or contributing
+//   unsynchronized local target damage;
+// - spectators retain their complete weapon loadouts. Their weapons are only
+//   hidden while a round is active, then restored without grant/remove calls;
+// - disconnect is nonblocking and only the same immutable identity can reclaim
+//   a frozen slot after reconnect.
+:SHRANGE_COOP_INIT
+600@, 601@, 602@ = Coop.CollectNetworkPlayersForTheMission()
+615@ = 0
+for 620@ = 0 to 2
+    603@(620@,3i) = -1
+    606@(620@,3i) = -1
+    if
+        Coop.IsNetworkPlayerActorValid(600@(620@,3i))
+    then
+        603@(620@,3i) = Coop.GetNetworkPlayerInternalId(600@(620@,3i))
+        if
+            603@(620@,3i) >= 0
+        then
+            615@ += 1
+        end
+    end
+end
+616@ = 0 // idempotent final cleanup latch
+617@ = 0 // active spectator staging latch
+618@ = 0 // latest displayed result: 0 pending, 1 failed, 2 passed
+set_var_int_to_lvar_int 619@ = $SR_mission_state
+return
+
+:SHRANGE_COOP_REFRESH_ROSTER
+609@, 610@, 611@ = Coop.CollectNetworkPlayersForTheMission()
+625@ = 0
+for 620@ = 0 to 2
+    set_lvar_int_to_lvar_int 624@ = 600@(620@,3i)
+    600@(620@,3i) = 0
+    if
+        603@(620@,3i) >= 0
+    then
+        for 621@ = 0 to 2
+            if
+                Coop.IsNetworkPlayerActorValid(609@(621@,3i))
+            then
+                623@ = Coop.GetNetworkPlayerInternalId(609@(621@,3i))
+                if
+                    is_int_lvar_equal_to_int_lvar 623@ == 603@(620@,3i)
+                then
+                    set_lvar_int_to_lvar_int 600@(620@,3i) = 609@(621@,3i)
+                end
+            end
+        end
+    end
+    if
+        not is_int_lvar_equal_to_int_lvar 624@ == 600@(620@,3i)
+    then
+        606@(620@,3i) = -1
+        if
+            Coop.IsNetworkPlayerActorValid(600@(620@,3i))
+        then
+            625@ = 1
+        end
+    end
+end
+return
+
+:SHRANGE_COOP_VALIDATE_SLOT
+622@ = 0
+if
+    Coop.IsNetworkPlayerActorValid(600@(620@,3i))
+then
+    623@ = Coop.GetNetworkPlayerInternalId(600@(620@,3i))
+    if
+        is_int_lvar_equal_to_int_lvar 623@ == 603@(620@,3i)
+    then
+        622@ = 1
+    end
+end
+return
+
+:SHRANGE_COOP_UPDATE
+if
+    616@ == 1
+then
+    return
+end
+gosub @SHRANGE_COOP_REFRESH_ROSTER
+if and
+    619@ == 0
+    $SR_mission_state <> 0
+then
+    617@ = 1
+    618@ = 0
+    gosub @SHRANGE_COOP_STAGE_SPECTATORS
+end
+if and
+    617@ == 1
+    625@ == 1
+then
+    gosub @SHRANGE_COOP_STAGE_SPECTATORS
+end
+if and
+    617@ == 1
+    $SR_mission_state <> 0
+then
+    gosub @SHRANGE_COOP_UPDATE_OBJECTIVES
+end
+if and
+    $SR_mission_state == 3
+    619@ <> 3
+then
+    618@ = 2
+    gosub @SHRANGE_COOP_NOTIFY_PASS
+end
+if and
+    $SR_mission_state == 20
+    619@ <> 20
+then
+    if
+        $SR_skill_won > 11
+    then
+        if
+            618@ <> 2
+        then
+            618@ = 2
+            gosub @SHRANGE_COOP_NOTIFY_PASS
+        end
+    else
+        618@ = 1
+        gosub @SHRANGE_COOP_NOTIFY_FAILURE
+    end
+end
+if and
+    619@ <> 0
+    $SR_mission_state == 0
+then
+    gosub @SHRANGE_COOP_RELEASE_SPECTATORS
+    617@ = 0
+end
+set_var_int_to_lvar_int 619@ = $SR_mission_state
+return
+
+:SHRANGE_COOP_STAGE_SPECTATORS
+if
+    615@ > 0
+then
+    Coop.TeleportPlayersToHostSafely(600@, 601@, 602@)
+end
+for 620@ = 0 to 2
+    606@(620@,3i) = -1
+end
+gosub @SHRANGE_COOP_HOLD_SPECTATORS
+625@ = 0
+return
+
+// StandStill and HideWeaponForScriptedCutscene are synchronized ped opcodes,
+// so the participant's own client becomes a noninterfering spectator. Local
+// freeze/collision/proofs also keep the host's replica out of the firing lane.
+:SHRANGE_COOP_HOLD_SPECTATORS
+for 620@ = 0 to 2
+    gosub @SHRANGE_COOP_VALIDATE_SLOT
+    if
+        622@ == 1
+    then
+        if
+            not Char.IsDead(600@(620@,3i))
+        then
+            Task.StandStill(600@(620@,3i), -1)
+            Char.HideWeaponForScriptedCutscene(600@(620@,3i), True)
+            Char.FreezePosition(600@(620@,3i), True)
+            Char.SetCollision(600@(620@,3i), False)
+            Char.SetProofs(600@(620@,3i), True, True, True, True, True)
+        end
+    end
+end
+return
+
+// A state-keyed checkpoint/message snapshot gives every connected frozen
+// identity coherent context after a transition or identity-matched reconnect.
+:SHRANGE_COOP_UPDATE_OBJECTIVES
+626@, 627@, 628@ = Char.GetCoordinates($scplayer)
+for 620@ = 0 to 2
+    gosub @SHRANGE_COOP_VALIDATE_SLOT
+    if and
+        622@ == 1
+        not is_int_lvar_equal_to_int_var 606@(620@,3i) == $SR_mission_state
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(600@(620@,3i))
+        Coop.UpdateCheckpointForNetworkPlayer(626@, 627@, 628@, 8.0, 8.0, 5.0, 600@(620@,3i))
+        Coop.PrintNowForNetworkPlayer('ANR_1', 5000, 1, 600@(620@,3i))
+        set_var_int_to_lvar_int 606@(620@,3i) = $SR_mission_state
+    end
+end
+return
+
+:SHRANGE_COOP_NOTIFY_PASS
+gosub @SHRANGE_COOP_REFRESH_ROSTER
+for 620@ = 0 to 2
+    gosub @SHRANGE_COOP_VALIDATE_SLOT
+    if
+        622@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, 600@(620@,3i))
+    end
+end
+return
+
+:SHRANGE_COOP_NOTIFY_FAILURE
+gosub @SHRANGE_COOP_REFRESH_ROSTER
+for 620@ = 0 to 2
+    gosub @SHRANGE_COOP_VALIDATE_SLOT
+    if
+        622@ == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, 600@(620@,3i))
+    end
+end
+return
+
+:SHRANGE_COOP_RELEASE_SPECTATORS
+gosub @SHRANGE_COOP_REFRESH_ROSTER
+for 620@ = 0 to 2
+    gosub @SHRANGE_COOP_VALIDATE_SLOT
+    if
+        622@ == 1
+    then
+        Coop.RemoveCheckpointForNetworkPlayer(600@(620@,3i))
+        Coop.ClearThisPrintForNetworkPlayer('ANR_1', 600@(620@,3i))
+        Task.StandStill(600@(620@,3i), 0)
+        Char.HideWeaponForScriptedCutscene(600@(620@,3i), False)
+        Char.FreezePosition(600@(620@,3i), False)
+        Char.SetCollision(600@(620@,3i), True)
+        Char.SetProofs(600@(620@,3i), False, False, False, False, False)
+        606@(620@,3i) = -1
+    end
+end
+return
+
+:SHRANGE_COOP_CLEANUP
+if
+    616@ == 1
+then
+    return
+end
+616@ = 1
+gosub @SHRANGE_COOP_RELEASE_SPECTATORS
+617@ = 0
+for 620@ = 0 to 2
+    600@(620@,3i) = 0
+    603@(620@,3i) = -1
+    606@(620@,3i) = -1
+end
+return
