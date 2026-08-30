@@ -4679,8 +4679,8 @@ for $temp_int = 0 to 2
             not Char.IsDead($NETWORK_PLAYER[$temp_int])
             Char.IsInCar($NETWORK_PLAYER[$temp_int], 73@)
         then
-            set_lvar_float_to_constant 282@ = 840.0
-            set_lvar_float_to_constant 283@ = -2049.0
+            282@ = 840.0
+            283@ = -2049.0
             if
               $temp_int == 1
             then
