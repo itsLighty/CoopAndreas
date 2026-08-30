@@ -10237,6 +10237,7 @@ for $temp_int = 0 to 2
             then
                 Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
             end
+            // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
             if
                 Char.IsDead($NETWORK_PLAYER[$temp_int])
             then

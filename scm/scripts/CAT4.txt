@@ -3672,6 +3672,7 @@ for $temp_int = 0 to 2
         then
             636@($temp_int,3i) = 1
             616@ += 1
+            // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
             if
                 Char.IsDead(609@)
             then

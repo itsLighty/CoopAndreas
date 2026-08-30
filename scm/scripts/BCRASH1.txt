@@ -2289,15 +2289,7 @@ goto @BCRASH1_13609
 :BCRASH1_13511
 392@ = 2
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
-for $temp_int = 0 to 2
-    gosub @BCRASH1_COOP_VALIDATE_SLOT
-    if and
-        353@($temp_int,3i) == 1
-        407@ == 1
-    then
-        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-    end
-end
+gosub @BCRASH1_COOP_NOTIFY_RESULT
 if 
   Player.IsPlaying($player1)
 goto_if_false @BCRASH1_13586
@@ -2329,15 +2321,7 @@ Audio.PlayMissionPassedTune(1)
 $flag_bcrash_mission_counter += 1
 Blip.Remove($bcrash_contact_blip)
   $call_delay = 15000
-for $temp_int = 0 to 2
-    gosub @BCRASH1_COOP_VALIDATE_SLOT
-    if and
-        353@($temp_int,3i) == 1
-        407@ == 1
-    then
-        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-    end
-end
+gosub @BCRASH1_COOP_NOTIFY_RESULT
   return
 
 :BCRASH1_13680
@@ -2544,6 +2528,7 @@ for $temp_int = 0 to 2
                         Char.GiveWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Camera, 36)
                     end
                 end
+                // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
                 if
                     Char.IsDead($NETWORK_PLAYER[$temp_int])
                 then
@@ -3131,6 +3116,27 @@ for $temp_int = 0 to 2
         Coop.ClearThisPrintForNetworkPlayer('BCR1_22', $NETWORK_PLAYER[$temp_int])
     end
     356@($temp_int,3i) = -1
+end
+return
+
+:BCRASH1_COOP_NOTIFY_RESULT
+gosub @BCRASH1_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    gosub @BCRASH1_COOP_VALIDATE_SLOT
+    if
+        407@ == 1
+    then
+        if
+            392@ == 1
+        then
+            Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            392@ == 2
+        then
+            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+        end
+    end
 end
 return
 

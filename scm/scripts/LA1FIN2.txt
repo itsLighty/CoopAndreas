@@ -3379,6 +3379,7 @@ for $temp_int = 0 to 2
             is_int_lvar_equal_to_int_lvar 528@ == 503@($temp_int,3i)
         then
             506@($temp_int,3i) = 1
+            // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
             if
                 Char.IsDead(500@($temp_int,3i))
             then

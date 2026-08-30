@@ -2767,11 +2767,13 @@ goto @CAT3_17048
 goto @CAT3_15906
 
 :CAT3_17048
+gosub @CAT3_COOP_NOTIFY_FAILURE
 gosub @CAT3_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :CAT3_17066
+gosub @CAT3_COOP_NOTIFY_PASS
 gosub @CAT3_COOP_CLEANUP
 $cat_counter += 1
 if and
@@ -3185,6 +3187,7 @@ for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
+        // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
@@ -3228,6 +3231,28 @@ for $temp_int = 0 to 2
             Coop.UpdateCheckpointForNetworkPlayer(50@, 51@, 52@, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
             Coop.PrintNowForNetworkPlayer('CAT3_04', 7000, 1, $NETWORK_PLAYER[$temp_int])
         end
+    end
+end
+return
+
+:CAT3_COOP_NOTIFY_FAILURE
+gosub @CAT3_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if
+        623@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:CAT3_COOP_NOTIFY_PASS
+gosub @CAT3_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if
+        623@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
     end
 end
 return

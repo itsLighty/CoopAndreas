@@ -2517,11 +2517,13 @@ Sequence.Clear(100@)
 return 
 
 :TRUTH1_16379
+gosub @TRUTH1_COOP_NOTIFY_FAILURE
 gosub @TRUTH1_COOP_CLEANUP
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :TRUTH1_16397
+gosub @TRUTH1_COOP_NOTIFY_PASS
 gosub @TRUTH1_COOP_CLEANUP
 Blip.Remove($bcrash_contact_blip)
 $bcrash_contact_blip = Blip.AddSpriteForContactPoint($cesar_blip_icon, $bcrashX, $bcrashY, $bcrashZ)
@@ -2624,6 +2626,7 @@ for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
+        // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
@@ -2662,6 +2665,28 @@ for $temp_int = 0 to 2
             Coop.UpdateCheckpointForNetworkPlayer(-1100.007, -1620.949, 75.375, 8.0, 8.0, 6.0, $NETWORK_PLAYER[$temp_int])
             Coop.PrintNowForNetworkPlayer('TRU1_4', 7000, 1, $NETWORK_PLAYER[$temp_int])
         end
+    end
+end
+return
+
+:TRUTH1_COOP_NOTIFY_FAILURE
+gosub @TRUTH1_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if
+        623@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:TRUTH1_COOP_NOTIFY_PASS
+gosub @TRUTH1_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if
+        623@($temp_int,3i) == 1
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
     end
 end
 return

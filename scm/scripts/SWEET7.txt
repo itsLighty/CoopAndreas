@@ -5228,7 +5228,7 @@ return
 
 :SWEET7_32404
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
-gosub @SWEET7_coop_broadcast_failure
+gosub @SWEET7_COOP_NOTIFY_FAILURE_RESULT
 return 
 
 :SWEET7_32422
@@ -5243,7 +5243,7 @@ Player.ClearWantedLevel($player1)
 $flag_sweet_mission_counter += 1
 Blip.Remove($sweet_contact_blip)
 Game.SetPoliceIgnorePlayer($player1, False)
-gosub @SWEET7_coop_broadcast_success
+gosub @SWEET7_COOP_NOTIFY_SUCCESS_RESULT
 return 
 
 :SWEET7_32503
@@ -5431,6 +5431,7 @@ for 579@ = 0 to 2
             563@(579@,3i) = 1
             578@ += 1
         end
+        // COOP_PARTICIPANT_DEATH: fail only for a connected frozen-roster actor.
         if
             Char.IsDead(551@(579@,3i))
         then
@@ -6151,7 +6152,7 @@ for 579@ = 0 to 2
 end
 return
 
-:SWEET7_coop_broadcast_failure
+:SWEET7_COOP_NOTIFY_FAILURE_RESULT
 for 579@ = 0 to 2
     gosub @SWEET7_coop_validate_current_roster_slot
     if
@@ -6162,7 +6163,7 @@ for 579@ = 0 to 2
 end
 return
 
-:SWEET7_coop_broadcast_success
+:SWEET7_COOP_NOTIFY_SUCCESS_RESULT
 for 579@ = 0 to 2
     gosub @SWEET7_coop_validate_current_roster_slot
     if
