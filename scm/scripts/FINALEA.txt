@@ -6352,7 +6352,7 @@ then
         end
     end
 end
-// Result 2 deliberately shows no mission-passed card: the stock riot counter
+// COOP_RESULT_CONTINUES: Result 2 deliberately shows no mission-passed card: the stock riot counter
 // immediately hands the same story into FINALEB, which owns the next result.
 return
 

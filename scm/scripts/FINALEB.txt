@@ -2865,6 +2865,7 @@ end
 return
 
 :FINALEB_COOP_NOTIFY_RESULT
+// COOP_RESULT_CONTINUES: success immediately hands this story segment into FINALEC.
 if or
     190@ == 0
     195@ == 1

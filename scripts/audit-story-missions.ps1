@@ -124,7 +124,7 @@ $rows = foreach ($match in [regex]::Matches($missionRunner, $runnerPattern)) {
     $syncHook = $script -match 'Coop\.EnableSyncingThisScript\s*\('
     $rosterCollectionCount = ([regex]::Matches($script, 'Coop\.CollectNetworkPlayersForTheMission\s*\(')).Count
     $rosterHook = $rosterCollectionCount -gt 0
-    $rosterLabels = @(Get-ReferencedCoopLabels -Script $script -PurposePattern '(?:(?:UPDATE|REFRESH)[A-Z0-9_]*ROSTER|ROSTER[A-Z0-9_]*(?:UPDATE|REFRESH)|RECONNECT)')
+    $rosterLabels = @(Get-ReferencedCoopLabels -Script $script -PurposePattern '(?:(?:UPDATE|REFRESH|VALIDATE)[A-Z0-9_]*ROSTER|ROSTER[A-Z0-9_]*(?:UPDATE|REFRESH|VALIDATE)|RECONNECT)')
     $periodicRecollection = $rosterCollectionCount -ge 2 -and $rosterLabels.Count -gt 0
 
     $internalIdCount = ([regex]::Matches($script, 'Coop\.GetNetworkPlayerInternalId\s*\(')).Count
@@ -145,9 +145,15 @@ $rows = foreach ($match in [regex]::Matches($missionRunner, $runnerPattern)) {
     $unboundedWaitLines = @(Get-UnboundedNetworkIdWaitLines -Script $script)
     $boundedRegistration = $unboundedWaitLines.Count -eq 0
 
-    $resultLabels = @(Get-ReferencedCoopLabels -Script $script -PurposePattern '(?:NOTIFY[A-Z0-9_]*RESULT|RESULT)')
-    $peerPassResult = $script -match "(?is)Coop\.(?:PrintBig|PrintNow|PrintHigh|PrintLow|ShowText)[A-Za-z]*ForNetworkPlayer\s*\([^\)]*'M_PASS(?:D|R)'"
-    $resultFanout = $resultLabels.Count -gt 0 -and $peerFailureResult -and $peerPassResult
+    # Result fanout labels in the converted scripts use RESULT/OUTCOME as well as explicit
+    # NOTIFY_PASS, NOTIFY_FAILURE, PASS_REMOTES, and FAIL_REMOTES forms. Keep the check tied
+    # to a referenced co-op label while accepting those semantically equivalent names.
+    $resultLabels = @(Get-ReferencedCoopLabels -Script $script -PurposePattern '(?:(?:NOTIFY|BROADCAST|FANOUT|SEND)[A-Z0-9_]*(?:RESULT|OUTCOME|PASS|FAIL(?:URE)?)|(?:RESULT|OUTCOME|PASS|FAIL(?:URE)?)[A-Z0-9_]*(?:NOTIFY|BROADCAST|FANOUT|SEND|REMOTES)|RESULT|OUTCOME)')
+    $peerPassResult = $script -match "(?is)Coop\.(?:PrintBig|PrintNow|PrintHigh|PrintLow|ShowText)[A-Za-z]*ForNetworkPlayer\s*\([^\)]*'M_PASS[A-Z0-9_]*'"
+    # Multi-part finale segments intentionally transition without showing an intermediate
+    # pass card. They must opt in explicitly so an omitted pass fanout cannot pass silently.
+    $continuedResult = $script -match '(?im)\bCOOP_RESULT_CONTINUES\b'
+    $resultFanout = $resultLabels.Count -gt 0 -and $peerFailureResult -and ($peerPassResult -or $continuedResult)
 
     $cleanupLabels = @(Get-ReferencedCoopLabels -Script $script -PurposePattern 'CLEANUP')
     $idempotentCleanup = $cleanupLabels.Count -gt 0 -and
