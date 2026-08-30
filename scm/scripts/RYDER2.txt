@@ -18,6 +18,7 @@ terminate_this_script
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 500@ = 1 // stable frozen roster is active
+508@ = 0 // guarded cooperative cleanup has not run
 for $temp_int = 0 to 2
     494@($temp_int,3i) = -1 // immutable participant internal ID
     497@($temp_int,3i) = 0 // exact participant is currently connected
@@ -7119,13 +7120,7 @@ return
 
 :RYDER2_41371
 gosub @RYDER2_COOP_CLEAR_OBJECTIVES
-for $temp_int = 0 to 2
-    if
-        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-    then
-        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-    end
-end
+gosub @RYDER2_COOP_NOTIFY_FAILURE
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
@@ -7135,6 +7130,7 @@ Coop.AddChatMessage("{00ff00}[CoopAndreas]{ffffff} Robbing Uncle Sam complete.")
 Player.ClearWantedLevel($player1)
 Stat.RegisterMissionPassed('RYDER_2')
 Text.PrintWithNumberBig('M_PASSR', 10, 5000, TextStyle.Middle)
+gosub @RYDER2_COOP_NOTIFY_PASS
 Stat.AwardPlayerMissionRespect(5)
 Audio.PlayMissionPassedTune(1)
 Player.ClearWantedLevel($player1)
@@ -7151,8 +7147,7 @@ $flag_ryder_mission_counter += 1
 return 
 
 :RYDER2_41489
-500@ = 0
-gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+gosub @RYDER2_COOP_CLEANUP
 Text.ClearHelp
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
@@ -7478,6 +7473,11 @@ for $temp_int = 0 to 2
         then
             497@($temp_int,3i) = 1
             if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                goto @RYDER2_COOP_PARTICIPANT_DEATH
+            end
+            if
                 502@ == 0
             then
                 503@ = 1
@@ -7517,5 +7517,54 @@ then
     end
     Coop.TeleportPlayersToHostSafely(504@, 505@, 506@)
 end
+return
+
+:RYDER2_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:RYDER2_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:RYDER2_COOP_CLEANUP
+if
+    508@ == 1
+then
+    return
+end
+508@ = 1
+500@ = 0
+gosub @RYDER2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+return
+
+:RYDER2_COOP_PARTICIPANT_DEATH
+// Deterministic co-op participant death failure routes through normal result and cleanup.
+gosub @RYDER2_41371
+gosub @RYDER2_41489
+terminate_this_script
 return
 

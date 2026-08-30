@@ -30,6 +30,7 @@ for $temp_int = 0 to 2
         543@($temp_int,3i) = 1
     end
 end
+553@ = 0 // guarded cooperative cleanup has not run
 Text.LoadMissionText('SMOKE1')
 if 
   $onmission == 0
@@ -3707,19 +3708,14 @@ goto @TWAR7_1306
 :TWAR7_23165
 gosub @TWAR7_coop_clear_objectives
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
-for $temp_int = 0 to 2
-    if
-        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-    then
-        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-    end
-end
+gosub @TWAR7_COOP_NOTIFY_FAILURE
 return 
 
 :TWAR7_23183
 gosub @TWAR7_coop_clear_objectives
 Text.ClearPrints
 Text.PrintWithNumberBig('M_PASSR', 5, 5000, TextStyle.Middle)
+gosub @TWAR7_COOP_NOTIFY_PASS
 Stat.AwardPlayerMissionRespect(5)
 Player.ClearWantedLevel($player1)
 Audio.PlayMissionPassedTune(1)
@@ -5588,8 +5584,23 @@ end
 return
 
 :TWAR7_coop_cleanup
+if
+    553@ == 1
+then
+    return
+end
+553@ = 1
 gosub @TWAR7_coop_clear_objectives
 for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
     if
         520@($temp_int,3i) <> -1
     then
@@ -5603,6 +5614,26 @@ for $temp_int = 0 to 2
     540@($temp_int,3i) = -1
     543@($temp_int,3i) = 0
     $NETWORK_PLAYER[$temp_int] = 0
+end
+return
+
+:TWAR7_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:TWAR7_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
 end
 return
 

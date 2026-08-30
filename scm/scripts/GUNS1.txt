@@ -44,6 +44,7 @@ end
 312@ = -1 // police car network id
 313@ = -1 // first police officer network id
 314@ = -1 // second police officer network id
+331@ = 0 // guarded cooperative cleanup has not run
 $onmission = 1
 wait 0
 Camera.SetFadingColor(0, 0, 0)
@@ -7287,13 +7288,7 @@ return
 :GUNS1_40642
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 gosub @GUNS1_coop_clear_objectives
-for $temp_int = 0 to 2
-    if
-        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-    then
-        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-    end
-end
+gosub @GUNS1_COOP_NOTIFY_FAILURE
 return 
 
 :GUNS1_40660
@@ -7301,13 +7296,7 @@ set_lvar_int_to_lvar_int 50@ = 35@
 50@ *= 50
 Text.PrintWithNumberBig('M_PASSR', 3, 5000, TextStyle.Middle)
 gosub @GUNS1_coop_clear_objectives
-for $temp_int = 0 to 2
-    if
-        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-    then
-        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-    end
-end
+gosub @GUNS1_COOP_NOTIFY_PASS
 Stat.AwardPlayerMissionRespect(3)
 Game.SetPoliceIgnorePlayer($player1, False)
 Player.ClearWantedLevel($player1)
@@ -7318,7 +7307,7 @@ $flag_ryder_mission_counter += 1
 return 
 
 :GUNS1_40737
-gosub @GUNS1_coop_restore_players
+gosub @GUNS1_COOP_CLEANUP
 $onmission = 0
 $disable_mod_garage = 0
 $timer_mobile_start = Clock.GetGameTimer()
@@ -7458,6 +7447,7 @@ for $temp_int = 0 to 2
     if
         Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
     then
+        // Deterministic co-op participant death failure is consumed by the main mission loop.
         if
             Char.IsDead($NETWORK_PLAYER[$temp_int])
         then
@@ -8475,5 +8465,35 @@ Player.SetGroupRecruitment($player1, True)
 Hud.FreezeTimer(False)
 Hud.SwitchWidescreen(False)
 Camera.RestoreJumpcut
+return
+
+:GUNS1_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:GUNS1_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:GUNS1_COOP_CLEANUP
+if
+    331@ == 1
+then
+    return
+end
+331@ = 1
+gosub @GUNS1_coop_restore_players
 return
 

@@ -9033,6 +9033,11 @@ for $temp_int = 0 to 2
         then
             323@($temp_int,3i) = 1
             if
+                Char.IsDead($NETWORK_PLAYER[$temp_int])
+            then
+                goto @DRUGS1_COOP_PARTICIPANT_DEATH
+            end
+            if
                 328@ == 0
             then
                 326@ = 1
@@ -9118,13 +9123,14 @@ for $temp_int = 0 to 2
 end
 return
 
-:DRUGS1_COOP_RESTORE_PLAYERS
+:DRUGS1_COOP_CLEANUP
 if
     309@ == 1
 then
     return
 end
 309@ = 1
+314@ = 0
 gosub @DRUGS1_COOP_CLEAR_OBJECTIVES
 Player.SetControl($player1, True)
 Hud.SwitchWidescreen(False)
@@ -9159,6 +9165,7 @@ return
 :DRUGS1_52025
 gosub @DRUGS1_COOP_CLEAR_OBJECTIVES
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @DRUGS1_COOP_NOTIFY_FAILURE
 return 
 
 :DRUGS1_52043
@@ -9168,6 +9175,7 @@ Blip.Remove($smoke_contact_blip)
 Stat.RegisterMissionPassed('SMOKE_4')
 Stat.PlayerMadeProgress(1)
 Text.PrintWithNumberBig('M_PASSR', 10, 5000, TextStyle.Middle)
+gosub @DRUGS1_COOP_NOTIFY_PASS
 Audio.PlayMissionPassedTune(1)
 Stat.AwardPlayerMissionRespect(10)
 Player.ClearWantedLevel($player1)
@@ -9175,7 +9183,7 @@ return
 
 :DRUGS1_52103
 $onmission = 0
-gosub @DRUGS1_COOP_RESTORE_PLAYERS
+gosub @DRUGS1_COOP_CLEANUP
 Path.SwitchRoadsOn(1694.12, -1604.33, 5.0, 1805.94, -1593.12, 15.0)
 if
     Char.DoesExist($big_smoke)
@@ -9350,4 +9358,31 @@ Task.KillCharOnFoot(55@, $scplayer)
 
 :DRUGS1_52905
 return 
+
+:DRUGS1_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS1_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:DRUGS1_COOP_PARTICIPANT_DEATH
+// Deterministic co-op participant death failure routes through normal result and cleanup.
+gosub @DRUGS1_52025
+gosub @DRUGS1_52103
+terminate_this_script
+return
 

@@ -19,6 +19,7 @@ terminate_this_script
 Stat.RegisterMissionGiven
 $NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
 309@ = 1 // stable frozen roster is active
+318@ = 0 // guarded cooperative cleanup has not run
 for $temp_int = 0 to 2
     303@($temp_int,3i) = -1 // immutable participant internal ID
     306@($temp_int,3i) = 0 // exact participant is currently connected
@@ -5667,6 +5668,7 @@ return
 Blip.Remove($mod_garage_blip)
 $stop_gargae_for_neil = 1
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
+gosub @SWEET6_COOP_NOTIFY_FAILURE
 Garage.Deactivate('MODLAST')
 Garage.Deactivate('BODLAWN')
 return 
@@ -5681,6 +5683,7 @@ Garage.Activate('MODLAST')
 Garage.Activate('BODLAWN')
 276@ *= 2
 Text.PrintWithNumberBig('M_PASS', 276@, 5000, TextStyle.Middle)
+gosub @SWEET6_COOP_NOTIFY_PASS
 Player.AddScore($player1, 276@)
 Audio.PlayMissionPassedTune(1)
 Player.ClearWantedLevel($player1)
@@ -5694,18 +5697,10 @@ CarGenerator.Switch($sw6_car_gen1, 101)
 return 
 
 :SWEET6_36144
-309@ = 0
+gosub @SWEET6_COOP_CLEANUP
 start_new_script @CLEANAU 
 Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
-for $temp_int = 0 to 2
-    if
-        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-    then
-        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
-        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
-    end
-end
 Zone.SwitchAudio('LOWRIDE', False)
 if 
   Car.DoesExist(71@)
@@ -5995,14 +5990,6 @@ if
     317@ == 1
 then
     309@ = 0
-    for $temp_int = 0 to 2
-        if and
-            306@($temp_int,3i) == 1
-            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
-        then
-            Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
-        end
-    end
     gosub @SWEET6_35918
     gosub @SWEET6_36144
     terminate_this_script
@@ -6034,5 +6021,48 @@ then
         end
     end
     Coop.TeleportPlayersToHostSafely(313@, 314@, 315@)
+end
+return
+
+:SWEET6_COOP_NOTIFY_FAILURE
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SWEET6_COOP_NOTIFY_PASS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:SWEET6_COOP_CLEANUP
+if
+    318@ == 1
+then
+    return
+end
+318@ = 1
+309@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
 end
 return
