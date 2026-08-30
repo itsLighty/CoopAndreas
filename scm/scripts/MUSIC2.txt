@@ -3,6 +3,7 @@
 
 :MUSIC2
 script_name 'MUSIC2'
+Coop.EnableSyncingThisScript()
 gosub @MUSIC2_47
 if 
   has_deatharrest_been_executed 
@@ -17,6 +18,53 @@ terminate_this_script
 $onmission = 1
 Stat.RegisterMissionGiven
 Text.LoadMissionText('STRAP2')
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+200@ = 0 // cooperative failure flag
+201@ = -1 // current cooperative objective stage
+202@ = 0 // next objective refresh time
+203@ = 0 // current game time scratch
+204@ = 0 // elapsed time scratch
+205@ = 0 // participant/entity scratch
+206@ = -1 // entity network id scratch
+207@ = 0 // bounded registration deadline
+208@ = 0 // active remote participant count
+209@ = 0 // participant-aware location result
+210@ = 0 // participant is in the mansion interior
+211@ = 0 // remote rhyme-book fallback collected
+set_lvar_int_to_var_int 212@ = $scplayer // participant who caused detection/progression
+213@ = 0 // cooperative escape trigger
+214@ = 0 // mansion transition has run
+215@ = 0 // outside transition has run
+216@ = 0 // interior entity registration dirty flag
+217@ = 0 // next entity resync time
+218@ = 0.0 // additional cooperative stealth noise
+219@ = 0 // cooperative detection state
+247@ = Char.GetCurrentWeapon($scplayer)
+248@ = Char.GetAmmoInWeapon($scplayer, 4)
+249@ = 0 // host mission knife granted
+262@ = Clock.GetGameTimer() // non-blocking regroup timer
+264@ = 0 // support-bike wave: 0 none, 1 approach, 2 escape
+269@ = 1 // cooperative cutscene state
+for $temp_int = 0 to 2
+    set_lvar_int_to_var_int 220@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+    223@($temp_int,3i) = 0
+    226@($temp_int,3i) = 0
+    229@($temp_int,3i) = 0
+    232@($temp_int,3i) = -1
+    235@($temp_int,3i) = 0
+    238@($temp_int,3i) = -1
+    241@($temp_int,3i) = -1
+    270@($temp_int,3i) = 0
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        208@ += 1
+        223@($temp_int,3i) = Char.GetCurrentWeapon($NETWORK_PLAYER[$temp_int])
+        226@($temp_int,3i) = Char.GetAmmoInWeapon($NETWORK_PLAYER[$temp_int], 4)
+        229@($temp_int,3i) = 1
+    end
+end
+gosub @MUSIC2_COOP_BEGIN_CUTSCENE
 Camera.SetFadingColor(0, 0, 0)
 Streaming.SetAreaVisible(10)
 Camera.DoFade(0, 2000)
@@ -103,6 +151,9 @@ Char.SetCoordinates($scplayer, 790.0, -1626.0, 12.5)
 Streaming.LoadScene(790.0, -1626.0, 12.5)
 Camera.SetBehindPlayer
 Char.SetHeading($scplayer, 356.0)
+gosub @MUSIC2_COOP_MOVE_PLAYERS_TO_START
+gosub @MUSIC2_COOP_END_CUTSCENE
+gosub @MUSIC2_COOP_SPAWN_APPROACH_BIKES
 45@ = DecisionMakerChar.Load(DecisionMakerType.Steal)
 46@ = DecisionMakerChar.Load(DecisionMakerType.Empty)
 Game.SetRelationship(RelationshipType.Hate, PedType.Mission1, PedType.Player1)
@@ -140,6 +191,10 @@ Camera.DoFade(1, 1500)
 96@ = 0
 97@ = 0
 Text.PrintNow('STP2_1', 10000, 1)
+set_lvar_text_label 274@s = 'STP2_1'
+276@ = 10000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 if 
   $tripskip_s2flag > 0
 goto_if_false @MUSIC2_745
@@ -147,6 +202,13 @@ Skip.SetUp(1242.659, -748.503, 94.33, 191.586)
 
 :MUSIC2_745
 wait 0
+gosub @MUSIC2_COOP_UPDATE
+if
+  200@ == 1
+goto_if_false @MUSIC2_COOP_MAIN_CONTINUE
+goto @MUSIC2_10509
+
+:MUSIC2_COOP_MAIN_CONTINUE
 if 
 is_ps2_keyboard_key_pressed 83
 goto_if_false @MUSIC2_771
@@ -156,8 +218,9 @@ goto @MUSIC2_10527
 if 
   70@ == 0
 goto_if_false @MUSIC2_973
-if 
-  Char.IsInAngledArea2D($scplayer, 1222.799, -735.563, 1348.407, -759.322, -100.0, False)
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_APPROACH
+if
+  209@ == 1
 goto_if_false @MUSIC2_973
 if 
   $tripskip_s2flag == 0
@@ -169,9 +232,17 @@ Skip.Clear
 Blip.Remove(61@)
 61@ = Blip.AddForCoord(1298.66, -795.58, 83.84)
 Text.PrintNow('STP2_2', 5000, 1)
+set_lvar_text_label 274@s = 'STP2_2'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 35@ = Car.Create(579, 1243.154, -805.76, 83.188)
+set_lvar_int_to_lvar_int 254@ = 35@
+gosub @MUSIC2_COOP_SYNC_VEHICLE
 Car.SetHeading(35@, 1.533)
 36@ = Car.Create(580, 1255.024, -804.587, 83.934)
+set_lvar_int_to_lvar_int 254@ = 36@
+gosub @MUSIC2_COOP_SYNC_VEHICLE
 Car.SetHeading(36@, 182.9)
 70@ = 1
 
@@ -179,10 +250,13 @@ Car.SetHeading(36@, 182.9)
 if 
   70@ == 1
 goto_if_false @MUSIC2_1832
-34@ = Char.GetAreaVisible($scplayer)
-if 
-  34@ == 5
+gosub @MUSIC2_COOP_ANY_PLAYER_IN_MANSION
+if
+  210@ == 1
 goto_if_false @MUSIC2_1832
+gosub @MUSIC2_COOP_BEGIN_CUTSCENE
+gosub @MUSIC2_COOP_DELETE_SUPPORT_BIKES
+gosub @MUSIC2_COOP_MOVE_PLAYERS_INSIDE
 Game.SetWantedMultiplier(0.0)
 Hud.SwitchWidescreen(True)
 Camera.SetFixedPosition(1256.623, -801.0125, 1084.091, 0.0, 0.0, 0.0)
@@ -217,6 +291,8 @@ Player.SetControl($player1, False)
 Hud.SetRadarZoom(100)
 Blip.Remove(61@)
 37@ = Char.Create(24, 24, 1301.98, -785.31, 1083.05)
+set_lvar_int_to_lvar_int 254@ = 37@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(37@, 1298.78, -798.2, 1.0)
 Char.SetFollowNodeThresholdDistance(37@, 2.0)
 Char.SetHeading(37@, 358.83)
@@ -228,10 +304,16 @@ Char.SetAccuracy(37@, 90)
 Char.SetDropsWeaponsWhenDead(37@, False)
 Char.SetAreaVisible(37@, 5)
 Text.PrintNow('STP2_3', 7000, 1)
+set_lvar_text_label 274@s = 'STP2_3'
+276@ = 7000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 wait 2000
 skip_cutscene_start_internal @MUSIC2_1701
 wait 1000
 38@ = Char.Create(24, 25, 1249.063, -769.8262, 1083.023)
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(38@, 1298.78, -798.2, 1.0)
 Char.SetAreaVisible(38@, 5)
 Char.SetHeading(38@, 270.552)
@@ -248,11 +330,19 @@ wait 500
 Camera.SetFixedPosition(1260.744, -769.5749, 1085.258, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(1259.781, -769.5841, 1084.988, SwitchType.JumpCut)
 Text.PrintNow('STP2_39', 7000, 1)
+set_lvar_text_label 274@s = 'STP2_39'
+276@ = 7000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 wait 7000
 Camera.SetNearClip(0.1)
 Camera.SetFixedPosition(1299.504, -793.3958, 1084.693, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(1299.589, -792.3994, 1084.685, SwitchType.JumpCut)
 Text.PrintNow('STP2_5', 7000, 1)
+set_lvar_text_label 274@s = 'STP2_5'
+276@ = 7000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 wait 7000
 
 :MUSIC2_1701
@@ -266,7 +356,7 @@ Camera.RestoreJumpcut
 Camera.SetBehindPlayer
 Hud.SwitchWidescreen(False)
 Player.SetControl($player1, True)
-Char.GiveWeapon($scplayer, WeaponType.Knife, 1)
+gosub @MUSIC2_COOP_GIVE_KNIVES
 Pad.SetPlayerCycleWeaponButton($player1, False)
 Car.Delete(35@)
 Streaming.MarkModelAsNoLongerNeeded(579)
@@ -275,6 +365,9 @@ Car.Delete(36@)
 Text.ClearPrints
 TIMERA = 0
 70@ = 2
+216@ = 1
+gosub @MUSIC2_COOP_REGROUP_TO_HOST
+gosub @MUSIC2_COOP_END_CUTSCENE
 
 :MUSIC2_1832
 if 
@@ -287,6 +380,8 @@ if
   71@ == 0
 goto_if_false @MUSIC2_1922
 Text.PrintHelp('STP2_7')
+set_lvar_text_label 274@s = 'STP2_7'
+gosub @MUSIC2_COOP_PRINT_HELP
 Hud.FlashObject(HudObject.Radar)
 TIMERA = 0
 TIMERB = 0
@@ -313,6 +408,8 @@ if
   TIMERA > 5000
 goto_if_false @MUSIC2_2052
 Text.PrintHelp('STP2_9')
+set_lvar_text_label 274@s = 'STP2_9'
+gosub @MUSIC2_COOP_PRINT_HELP
 Hud.FlashObject(-1)
 TIMERA = 0
 71@ = 2
@@ -341,6 +438,8 @@ if or
   Player.IsTargetingChar($player1, 37@)
 goto_if_false @MUSIC2_2228
 Text.PrintHelp('STP2_10')
+set_lvar_text_label 274@s = 'STP2_10'
+gosub @MUSIC2_COOP_PRINT_HELP
 TIMERA = 0
 71@ = 4
 
@@ -352,6 +451,8 @@ if
   Char.IsPlayingAnim($scplayer, "KILL_PARTIAL")
 goto_if_false @MUSIC2_2301
 Text.PrintHelp('STP2_11')
+set_lvar_text_label 274@s = 'STP2_11'
+gosub @MUSIC2_COOP_PRINT_HELP
 TIMERA = 0
 71@ = 5
 
@@ -359,8 +460,14 @@ TIMERA = 0
 if 
   72@ == 0
 goto_if_false @MUSIC2_3036
-if 
-  Char.LocateAnyMeans3D($scplayer, 0, 1290.907, -781.423, 1083.59, 4.3, 4.3, 6.0)
+250@ = 1290.907
+251@ = -781.423
+252@ = 1083.59
+253@ = 4.3
+267@ = 6.0
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_COORD
+if
+  209@ == 1
 goto_if_false @MUSIC2_3036
 if 
   Char.IsDucking($scplayer)
@@ -368,12 +475,15 @@ goto_if_false @MUSIC2_2390
 96@ = 1
 
 :MUSIC2_2390
+gosub @MUSIC2_COOP_BEGIN_CUTSCENE
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Char.ClearTasksImmediately($scplayer)
 Camera.SetNearClip(0.1)
 World.ClearArea(0, 1290.907, -781.423, 100.0, 100.0)
 38@ = Char.Create(24, 25, 1290.667, -778.9339, 1083.012)
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(38@, 1298.78, -798.2, 1.0)
 Char.SetAreaVisible(38@, 5)
 Char.SetHeading(38@, 350.151)
@@ -399,6 +509,8 @@ if
 goto_if_false @MUSIC2_2910
 Char.Delete(37@)
 37@ = Char.Create(24, 24, 1304.189, -785.871, 1084.048)
+set_lvar_int_to_lvar_int 254@ = 37@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(37@, 1298.78, -798.2, 1.0)
 Char.SetAreaVisible(37@, 5)
 Char.SetFollowNodeThresholdDistance(37@, 2.0)
@@ -412,6 +524,10 @@ Char.SetDropsWeaponsWhenDead(37@, False)
 
 :MUSIC2_2910
 Text.PrintNow('STP2_13', 6000, 1)
+set_lvar_text_label 274@s = 'STP2_13'
+276@ = 6000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 wait 2000
 skip_cutscene_start_internal @MUSIC2_2943
 wait 4000
@@ -430,10 +546,17 @@ Task.ToggleDuck($scplayer, True)
 96@ = 0
 Hud.SwitchWidescreen(False)
 Text.PrintNow('STP2_14', 5000, 1)
+set_lvar_text_label 274@s = 'STP2_14'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 TIMERA = 0
 TIMERB = 0
 72@ = 1
 71@ = 6
+216@ = 1
+gosub @MUSIC2_COOP_REGROUP_TO_HOST
+gosub @MUSIC2_COOP_END_CUTSCENE
 
 :MUSIC2_3036
 if 
@@ -448,8 +571,14 @@ goto_if_false @MUSIC2_3080
 if 
   73@ == 0
 goto_if_false @MUSIC2_4088
-if 
-  Char.LocateAnyMeans3D($scplayer, 0, 1260.104, -769.51, 1083.06, 5.0, 5.0, 6.0)
+250@ = 1260.104
+251@ = -769.51
+252@ = 1083.06
+253@ = 5.0
+267@ = 6.0
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_COORD
+if
+  209@ == 1
 goto_if_false @MUSIC2_4088
 if 
   Char.IsDucking($scplayer)
@@ -457,12 +586,15 @@ goto_if_false @MUSIC2_3169
 96@ = 1
 
 :MUSIC2_3169
+gosub @MUSIC2_COOP_BEGIN_CUTSCENE
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Char.ClearTasksImmediately($scplayer)
 Text.ClearPrints
 World.ClearArea(0, 1260.104, -769.51, 100.0, 100.0)
 39@ = Char.Create(24, 25, 1249.598, -780.06, 1083.063)
+set_lvar_int_to_lvar_int 254@ = 39@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(39@, 1298.78, -798.2, 1.0)
 Char.SetAreaVisible(39@, 5)
 Char.SetAccuracy(39@, 90)
@@ -479,6 +611,8 @@ if
 goto_if_false @MUSIC2_3669
 Char.Delete(38@)
 38@ = Char.Create(24, 25, 1290.667, -778.9339, 1083.012)
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(38@, 1298.78, -798.2, 1.0)
 Char.SetHeading(38@, 350.151)
 Char.SetFollowNodeThresholdDistance(38@, 2.0)
@@ -497,10 +631,18 @@ Task.FollowPatrolRoute(38@, 4, RouteMode.Loop)
 
 :MUSIC2_3669
 Text.PrintNow('STP2_15', 3000, 1)
+set_lvar_text_label 274@s = 'STP2_15'
+276@ = 3000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 wait 2000
 skip_cutscene_start_internal @MUSIC2_3844
 wait 1000
 Text.PrintNow('STP2_16', 4000, 1)
+set_lvar_text_label 274@s = 'STP2_16'
+276@ = 4000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 Camera.SetFixedPosition(1267.405, -769.6973, 1084.667, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(1266.412, -769.6685, 1084.551, SwitchType.JumpCut)
 if 
@@ -518,6 +660,8 @@ wait 2000
 skip_cutscene_end 
 Char.Delete(39@)
 39@ = Char.Create(24, 25, 1249.634, -781.405, 1083.5)
+set_lvar_int_to_lvar_int 254@ = 39@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(39@, 1298.78, -798.2, 1.0)
 Char.SetAreaVisible(39@, 5)
 Char.SetHeading(39@, 357.273)
@@ -547,14 +691,25 @@ Task.ToggleDuck($scplayer, True)
 96@ = 0
 Text.ClearPrints
 Text.PrintHelp('STP2_41')
+set_lvar_text_label 274@s = 'STP2_41'
+gosub @MUSIC2_COOP_PRINT_HELP
 73@ = 1
+216@ = 1
+gosub @MUSIC2_COOP_REGROUP_TO_HOST
+gosub @MUSIC2_COOP_END_CUTSCENE
 
 :MUSIC2_4088
 if 
   74@ == 0
 goto_if_false @MUSIC2_6068
-if 
-  Char.LocateAnyMeans3D($scplayer, 0, 1249.466, -789.487, 1083.063, 7.5, 7.5, 6.0)
+250@ = 1249.466
+251@ = -789.487
+252@ = 1083.063
+253@ = 7.5
+267@ = 6.0
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_COORD
+if
+  209@ == 1
 goto_if_false @MUSIC2_6068
 if 
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot3)
@@ -569,6 +724,7 @@ goto_if_false @MUSIC2_4215
 96@ = 1
 
 :MUSIC2_4215
+gosub @MUSIC2_COOP_BEGIN_CUTSCENE
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Char.ClearTasksImmediately($scplayer)
@@ -577,6 +733,8 @@ Char.SetCoordinates($scplayer, 1249.825, -780.682, 1083.06)
 Char.SetHeading($scplayer, 180.659)
 Text.ClearPrints
 40@ = Char.Create(24, 25, 1258.271, -793.395, 1083.289)
+set_lvar_int_to_lvar_int 254@ = 40@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(40@, 1298.78, -798.2, 1.0)
 Char.SetAreaVisible(40@, 5)
 Char.SetHeading(40@, 354.328)
@@ -590,6 +748,8 @@ $x, $y, $z, $x, $y, $z = Streaming.GetModelDimensions(#CJ_JUICE_CAN)
 $y /= 2.0
 $y += 0.027
 41@ = Char.Create(24, 24, 1276.795, -792.368, 1083.055)
+set_lvar_int_to_lvar_int 254@ = 41@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(41@, 1298.78, -798.2, 1.0)
 Char.SetAccuracy(41@, 100)
 Char.SetAreaVisible(41@, 5)
@@ -609,11 +769,17 @@ Sequence.Clear(49@)
 Camera.SetFixedPosition(1251.82, -788.354, 1084.502, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(1252.463, -789.1154, 1084.42, SwitchType.JumpCut)
 Text.PrintNow('STP2_19', 5000, 1)
+set_lvar_text_label 274@s = 'STP2_19'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 if 
   not Char.IsDead(38@)
 goto_if_false @MUSIC2_5002
 Char.Delete(38@)
 38@ = Char.Create(24, 25, 1290.667, -778.9339, 1083.012)
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(38@, 1298.78, -798.2, 1.0)
 Char.SetHeading(38@, 350.151)
 Char.SetFollowNodeThresholdDistance(38@, 2.0)
@@ -636,6 +802,8 @@ if
 goto_if_false @MUSIC2_5133
 Char.Delete(39@)
 39@ = Char.Create(24, 25, 1267.96, -769.792, 1084.06)
+set_lvar_int_to_lvar_int 254@ = 39@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(39@, 1298.78, -798.2, 1.0)
 Char.SetHeading(39@, 0.141)
 64@ = Blip.AddForChar(39@)
@@ -661,6 +829,10 @@ wait 500
 Camera.SetFixedPosition(1274.983, -790.5506, 1084.063, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(1275.575, -791.356, 1084.035, SwitchType.JumpCut)
 Text.PrintNow('LOC2_BA', 4000, 1)
+set_lvar_text_label 274@s = 'LOC2_BA'
+276@ = 4000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 
 :MUSIC2_5294
@@ -674,6 +846,10 @@ goto @MUSIC2_5294
 Camera.SetFixedPosition(1276.301, -794.5306, 1084.231, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(1276.292, -793.5345, 1084.143, SwitchType.JumpCut)
 Text.PrintNow('LOC2_BB', 4000, 1)
+set_lvar_text_label 274@s = 'LOC2_BB'
+276@ = 4000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 if 
   not Char.IsDead(41@)
@@ -697,6 +873,8 @@ skip_cutscene_end
 Char.Delete(40@)
 Char.Delete(41@)
 40@ = Char.Create(24, 25, 1258.271, -793.395, 1083.289)
+set_lvar_int_to_lvar_int 254@ = 40@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(40@, 1298.78, -798.2, 1.0)
 Char.SetHeading(40@, 354.328)
 Task.PlayAnim(40@, "ATM", "PED", 4.0, True, False, False, False, -1)
@@ -708,6 +886,8 @@ Char.GiveWeapon(40@, WeaponType.MicroUzi, 5000)
 Char.SetAccuracy(40@, 100)
 Char.SetInformRespectedFriends(40@, 5.0, 1)
 41@ = Char.Create(24, 24, 1276.795, -792.368, 1083.055)
+set_lvar_int_to_lvar_int 254@ = 41@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(41@, 1298.78, -798.2, 1.0)
 Char.SetHeading(41@, 180.0)
 Char.SetDecisionMaker(41@, 45@)
@@ -718,6 +898,8 @@ Blip.ChangeDisplay(66@, BlipDisplay.BlipOnly)
 Char.SetAccuracy(41@, 100)
 Char.SetInformRespectedFriends(41@, 5.0, 1)
 43@ = Char.Create(24, 25, 1262.533, -805.139, 1083.056)
+set_lvar_int_to_lvar_int 254@ = 43@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(43@, 1298.78, -798.2, 1.0)
 Char.SetHeading(43@, 359.265)
 Char.SetDecisionMaker(43@, 45@)
@@ -750,7 +932,12 @@ TIMERA = 0
 TIMERB = 0
 71@ = 9
 Text.PrintHelp('STP2_36')
+set_lvar_text_label 274@s = 'STP2_36'
+gosub @MUSIC2_COOP_PRINT_HELP
 74@ = 1
+216@ = 1
+gosub @MUSIC2_COOP_REGROUP_TO_HOST
+gosub @MUSIC2_COOP_END_CUTSCENE
 
 :MUSIC2_6068
 if 
@@ -774,9 +961,11 @@ Sequence.Clear(51@)
 74@ = 2
 
 :MUSIC2_6260
-if 
+if or
   Pickup.HasBeenCollected(59@)
+  211@ == 1
 goto_if_false @MUSIC2_6388
+Pickup.Remove(59@)
 Blip.Remove(61@)
 61@ = Blip.AddForCoord(1298.74, -797.46, 1083.4)
 if 
@@ -787,6 +976,10 @@ Pad.SetPlayerCycleWeaponButton($player1, True)
 :MUSIC2_6324
 Blip.SetEntryExit(61@, 1298.78, -798.2, 1.0)
 Text.PrintNow('STP2_40', 7000, 1)
+set_lvar_text_label 274@s = 'STP2_40'
+276@ = 7000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 TIMERA = 0
 TIMERB = 0
 70@ = 3
@@ -859,6 +1052,8 @@ Char.Delete(37@)
 Char.Delete(38@)
 Char.Delete(39@)
 37@ = Char.Create(24, 24, 1243.53, -812.19, 1083.04)
+set_lvar_int_to_lvar_int 254@ = 37@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(37@, 1298.78, -798.2, 1.0)
 Char.SetHeading(37@, 270.948)
 Char.SetDecisionMaker(37@, 45@)
@@ -870,6 +1065,8 @@ Task.FollowPathNodesToCoord(37@, 1270.694, -802.518, 1084.05, 4, -2)
 Char.SetInformRespectedFriends(37@, 10.0, 1)
 Char.SetAccuracy(37@, 100)
 38@ = Char.Create(24, 25, 1280.02, -789.01, 1083.05)
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(38@, 1298.78, -798.2, 1.0)
 Char.SetHeading(38@, 91.837)
 Char.SetDecisionMaker(38@, 45@)
@@ -879,6 +1076,8 @@ Char.GiveWeapon(38@, WeaponType.PistolSilenced, 99999)
 Char.SetInformRespectedFriends(38@, 5.0, 1)
 Char.SetAccuracy(38@, 100)
 42@ = Char.Create(24, 24, 1249.768, -780.616, 1084.063)
+set_lvar_int_to_lvar_int 254@ = 42@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(42@, 1298.78, -798.2, 1.0)
 Char.SetHeading(42@, 3.43)
 67@ = Blip.AddForChar(42@)
@@ -897,6 +1096,8 @@ if
 goto_if_false @MUSIC2_7347
 Char.Delete(41@)
 41@ = Char.Create(24, 24, 1276.795, -792.368, 1083.055)
+set_lvar_int_to_lvar_int 254@ = 41@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(41@, 1298.78, -798.2, 1.0)
 Char.SetHeading(41@, 180.0)
 Char.SetDecisionMaker(41@, 46@)
@@ -910,6 +1111,8 @@ goto @MUSIC2_7463
 :MUSIC2_7347
 Char.RemoveElegantly(41@)
 41@ = Char.Create(24, 24, 1270.616, -792.298, 1084.047)
+set_lvar_int_to_lvar_int 254@ = 41@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(41@, 1298.78, -798.2, 1.0)
 Char.SetHeading(41@, 186.126)
 Char.SetDecisionMaker(41@, 46@)
@@ -925,6 +1128,8 @@ if
 goto_if_false @MUSIC2_7622
 Char.Delete(40@)
 40@ = Char.Create(24, 25, 1256.492, -795.662, 1084.282)
+set_lvar_int_to_lvar_int 254@ = 40@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(40@, 1298.78, -798.2, 1.0)
 Char.SetHeading(40@, 186.842)
 Task.PlayAnim(40@, "ATM", "PED", 4.0, True, False, False, False, -1)
@@ -938,6 +1143,8 @@ goto @MUSIC2_7758
 :MUSIC2_7622
 Char.RemoveElegantly(40@)
 40@ = Char.Create(24, 25, 1252.99, -795.461, 1083.282)
+set_lvar_int_to_lvar_int 254@ = 40@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(40@, 1298.78, -798.2, 1.0)
 Char.SetHeading(40@, 186.842)
 Task.PlayAnim(40@, "ATM", "PED", 4.0, True, False, False, False, -1)
@@ -949,6 +1156,8 @@ Char.SetInformRespectedFriends(40@, 10.0, 1)
 
 :MUSIC2_7758
 44@ = Char.Create(24, 25, 1290.667, -778.9339, 1083.012)
+set_lvar_int_to_lvar_int 254@ = 44@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHasUsedEntryExit(44@, 1298.78, -798.2, 1.0)
 Char.SetHeading(44@, 350.151)
 Char.SetFollowNodeThresholdDistance(44@, 5.0)
@@ -970,8 +1179,14 @@ Task.FollowPatrolRoute(44@, 4, RouteMode.Loop)
 if 
   94@ == 0
 goto_if_false @MUSIC2_8132
-if 
-  Char.LocateAnyMeans3D($scplayer, 0, 1282.61, -787.389, 1084.063, 6.0, 6.0, 6.0)
+250@ = 1282.61
+251@ = -787.389
+252@ = 1084.063
+253@ = 6.0
+267@ = 6.0
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_COORD
+if
+  209@ == 1
 goto_if_false @MUSIC2_8132
 if 
   not Char.IsDead(40@)
@@ -991,8 +1206,14 @@ Char.SetDecisionMaker(41@, 45@)
 if 
   78@ == 0
 goto_if_false @MUSIC2_8229
-if 
-  Char.LocateOnFoot3D($scplayer, 0, 1249.61, -772.86, 1083.46, 7.0, 7.0, 5.0)
+250@ = 1249.61
+251@ = -772.86
+252@ = 1083.46
+253@ = 7.0
+267@ = 5.0
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_COORD
+if
+  209@ == 1
 goto_if_false @MUSIC2_8229
 if 
   not Char.IsDead(44@)
@@ -1011,12 +1232,14 @@ if
   TIMERA > 8500
 goto_if_false @MUSIC2_8302
 Text.PrintHelp('STP2_33')
+set_lvar_text_label 274@s = 'STP2_33'
+gosub @MUSIC2_COOP_PRINT_HELP
 71@ = 10
 
 :MUSIC2_8302
-34@ = Char.GetAreaVisible($scplayer)
-if 
-  34@ == 0
+gosub @MUSIC2_COOP_ANY_PLAYER_OUTSIDE_MANSION
+if
+  213@ == 1
 goto_if_false @MUSIC2_8403
 Blip.Remove(61@)
 
@@ -1028,11 +1251,11 @@ wait 0
 goto @MUSIC2_8333
 
 :MUSIC2_8357
-Char.SetCoordinates($scplayer, 1299.664, -800.546, 83.148)
-Char.SetHeading($scplayer, 271.284)
+gosub @MUSIC2_COOP_MOVE_PLAYERS_OUTSIDE
 Camera.SetBehindPlayer
 85@ = 2
 70@ = 4
+216@ = 1
 
 :MUSIC2_8403
 if 
@@ -1116,7 +1339,10 @@ goto_if_false @MUSIC2_8988
 61@ = Blip.AddForCoord(790.0, -1631.0, 12.43)
 Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 53@ = Car.Create(510, 1306.718, -797.24, 83.66)
+set_lvar_int_to_lvar_int 254@ = 53@
+gosub @MUSIC2_COOP_SYNC_VEHICLE
 Car.SetHeading(53@, 206.253)
+gosub @MUSIC2_COOP_SPAWN_ESCAPE_BIKES
 Char.Delete(37@)
 Char.Delete(38@)
 Char.Delete(39@)
@@ -1150,6 +1376,10 @@ Blip.Remove(66@)
 Blip.Remove(67@)
 Blip.Remove(68@)
 Text.PrintNow('STP2_30', 7000, 1)
+set_lvar_text_label 274@s = 'STP2_30'
+276@ = 7000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 70@ = 5
 TIMERA = 0
 
@@ -1169,9 +1399,16 @@ goto_if_false @MUSIC2_9048
 if 
   70@ == 5
 goto_if_false @MUSIC2_9582
-if 
-  Char.LocateAnyMeans3D($scplayer, 1, 788.05, -1630.31, 12.42, 2.0, 2.0, 5.0)
+250@ = 788.05
+251@ = -1630.31
+252@ = 12.42
+253@ = 4.0
+267@ = 5.0
+gosub @MUSIC2_COOP_ANY_PLAYER_AT_COORD
+if
+  209@ == 1
 goto_if_false @MUSIC2_9582
+gosub @MUSIC2_COOP_BEGIN_CUTSCENE
 Player.SetControl($player1, False)
 Hud.SwitchWidescreen(True)
 Camera.DoFade(0, 1000)
@@ -1186,6 +1423,7 @@ goto @MUSIC2_9132
 :MUSIC2_9156
 World.ClearArea(1, -1095.489, -1630.609, 50.0, 50.0)
 Car.MarkAsNoLongerNeeded(53@)
+gosub @MUSIC2_COOP_DELETE_SUPPORT_BIKES
 if 
   Char.IsInAnyCar($scplayer)
 goto_if_false @MUSIC2_9276
@@ -1220,6 +1458,8 @@ goto @MUSIC2_9352
 
 :MUSIC2_9391
 52@ = Char.Create(23, 290, 792.72, -1626.6, 12.43)
+set_lvar_int_to_lvar_int 254@ = 52@
+gosub @MUSIC2_COOP_SYNC_PED
 Char.SetHeading(52@, 114.71)
 Char.SetDecisionMaker(52@, 46@)
 Char.SetCurrentWeapon($scplayer, WeaponType.Unarmed)
@@ -1269,6 +1509,10 @@ goto_if_false @MUSIC2_9924
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 Char.StartFacialTalk($scplayer, 10000)
 Text.PrintNow('LOC2_CA', 5000, 1)
+set_lvar_text_label 274@s = 'LOC2_CA'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 95@ = 2
 
 :MUSIC2_9924
@@ -1290,6 +1534,10 @@ if
 goto_if_false @MUSIC2_10035
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('LOC2_CB', 5000, 1)
+set_lvar_text_label 274@s = 'LOC2_CB'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 Char.StartFacialTalk(52@, 10000)
 95@ = 4
 
@@ -1314,6 +1562,10 @@ if
   Audio.HasMissionAudioLoaded(MissionAudioSlot.Slot1)
 goto_if_false @MUSIC2_10161
 Text.PrintNow('LOC2_CC', 5000, 1)
+set_lvar_text_label 274@s = 'LOC2_CC'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 Char.StartFacialTalk($scplayer, 10000)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot1)
 95@ = 6
@@ -1337,6 +1589,10 @@ Camera.SetFixedPosition(773.2047, -1633.066, 17.7324, 0.0, 0.0, 0.0)
 Camera.PointAtPoint(774.1813, -1632.908, 17.5877, SwitchType.JumpCut)
 Audio.PlayMissionAudio(MissionAudioSlot.Slot2)
 Text.PrintNow('LOC2_DC', 5000, 1)
+set_lvar_text_label 274@s = 'LOC2_DC'
+276@ = 5000
+277@ = 1
+gosub @MUSIC2_COOP_PRINT_NOW
 Char.StartFacialTalk(52@, 4000)
 Task.GoStraightToCoord($scplayer, 806.1331, -1630.219, 12.3906, MoveState.Walk, 60000)
 Task.GoStraightToCoord(52@, 793.8177, -1625.155, 12.3828, MoveState.Walk, 60000)
@@ -1363,6 +1619,8 @@ goto @MUSIC2_10412
 :MUSIC2_10436
 Char.SetCoordinates($scplayer, 808.299, -1630.424, 12.42)
 Char.SetHeading($scplayer, 254.602)
+gosub @MUSIC2_COOP_REGROUP_TO_HOST
+gosub @MUSIC2_COOP_END_CUTSCENE
 Camera.DoFade(1, 1000)
 Camera.RestoreJumpcut
 Camera.SetBehindPlayer
@@ -1375,10 +1633,27 @@ goto @MUSIC2_10527
 goto @MUSIC2_745
 
 :MUSIC2_10509
+gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_FAIL', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
 Text.PrintBig('M_FAIL', 5000, TextStyle.Middle)
 return 
 
 :MUSIC2_10527
+gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintBigForNetworkPlayer('M_PASSD', 5000, TextStyle.Middle, $NETWORK_PLAYER[$temp_int])
+    end
+end
+Coop.AddChatMessage("{00ff00}[CoopAndreas]{ffffff} Madd Dogg's Rhymes complete.")
 Stat.RegisterMissionPassed('STRAP_2')
 Text.PrintWithNumberBig('M_PASSR', 4, 5000, TextStyle.Middle)
 Stat.AwardPlayerMissionRespect(4)
@@ -1389,8 +1664,73 @@ $flag_strap_mission_counter += 1
 return 
 
 :MUSIC2_10582
+gosub @MUSIC2_COOP_RESTORE_PLAYERS
 Game.SetScriptLimitToGangSize(99)
-Char.RemoveElegantly(52@)
+if
+  Char.DoesExist(37@)
+then
+    Char.RemoveElegantly(37@)
+end
+if
+  Char.DoesExist(38@)
+then
+    Char.RemoveElegantly(38@)
+end
+if
+  Char.DoesExist(39@)
+then
+    Char.RemoveElegantly(39@)
+end
+if
+  Char.DoesExist(40@)
+then
+    Char.RemoveElegantly(40@)
+end
+if
+  Char.DoesExist(41@)
+then
+    Char.RemoveElegantly(41@)
+end
+if
+  Char.DoesExist(42@)
+then
+    Char.RemoveElegantly(42@)
+end
+if
+  Char.DoesExist(43@)
+then
+    Char.RemoveElegantly(43@)
+end
+if
+  Char.DoesExist(44@)
+then
+    Char.RemoveElegantly(44@)
+end
+if
+  Char.DoesExist(52@)
+then
+    Char.RemoveElegantly(52@)
+end
+if
+  Car.DoesExist(35@)
+then
+    Car.Delete(35@)
+end
+if
+  Car.DoesExist(36@)
+then
+    Car.Delete(36@)
+end
+if
+  Car.DoesExist(53@)
+then
+    Car.MarkAsNoLongerNeeded(53@)
+end
+if
+  Object.DoesExist(47@)
+then
+    Object.Delete(47@)
+end
 Pickup.Remove(60@)
 World.SwitchEntryExit('MADDOGS', False)
 World.SwitchEntryExit('MDDOGS', False)
@@ -1404,6 +1744,17 @@ Player.SetGroupRecruitment($player1, True)
 Game.SetWantedMultiplier(1.0)
 Hud.SetRadarZoom(0)
 Char.ShutUp($scplayer, False)
+Player.SetControl($player1, True)
+Hud.SwitchWidescreen(False)
+Hud.Display(True)
+Hud.DisplayRadar(True)
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+Text.ClearPrints
+Text.ClearHelp
+Audio.ClearMissionAudio(MissionAudioSlot.Slot1)
+Audio.ClearMissionAudio(MissionAudioSlot.Slot2)
+Audio.ClearMissionAudio(MissionAudioSlot.Slot3)
 Blip.Remove(61@)
 Blip.Remove(62@)
 Blip.Remove(63@)
@@ -1412,6 +1763,7 @@ Blip.Remove(65@)
 Blip.Remove(66@)
 Blip.Remove(67@)
 Blip.Remove(68@)
+Blip.Remove(69@)
 Pickup.Remove(59@)
 Streaming.UnloadSpecialCharacter(1)
 Streaming.RemoveAnimation("GANGS")
@@ -1427,9 +1779,1202 @@ Streaming.MarkModelAsNoLongerNeeded(347)
 Streaming.RemoveAnimation("CRIB")
 Streaming.RemoveAnimation("VENDING")
 Streaming.MarkModelAsNoLongerNeeded(335)
+DecisionMaker.Remove(45@)
+DecisionMaker.Remove(46@)
 $onmission = 0
 World.DisableAllEntryExits(False)
 $timer_mobile_start = Clock.GetGameTimer()
 Mission.Finish
 return 
+
+// Cooperative mission layer. The host owns story state; remote participants
+// receive explicit transitions and roles without ever gating host progression.
+:MUSIC2_COOP_UPDATE
+gosub @MUSIC2_COOP_REFRESH_ROSTER
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            200@ = 1
+        end
+    end
+end
+if
+  200@ == 1
+then
+    return
+end
+if
+  70@ == 2
+then
+    gosub @MUSIC2_COOP_UPDATE_INTERIOR_PLAYERS
+    gosub @MUSIC2_COOP_UPDATE_REMOTE_BOOK
+    gosub @MUSIC2_COOP_UPDATE_STEALTH
+end
+gosub @MUSIC2_COOP_UPDATE_GUARD_COMBAT
+203@ = Clock.GetGameTimer()
+if or
+  is_int_lvar_greater_than_int_lvar 203@ > 202@
+  is_int_lvar_equal_to_int_lvar 203@ == 202@
+then
+    set_lvar_int_to_lvar_int 202@ = 203@
+    202@ += 1000
+    gosub @MUSIC2_COOP_UPDATE_OBJECTIVES
+end
+if or
+  is_int_lvar_greater_than_int_lvar 203@ > 217@
+  is_int_lvar_equal_to_int_lvar 203@ == 217@
+then
+    set_lvar_int_to_lvar_int 217@ = 203@
+    217@ += 2000
+    gosub @MUSIC2_COOP_RESYNC_ONE_ENTITY
+end
+if
+  269@ == 0
+then
+    gosub @MUSIC2_COOP_UPDATE_REGROUP
+end
+return
+
+:MUSIC2_COOP_REFRESH_ROSTER
+203@ = Clock.GetGameTimer()
+if
+  is_int_lvar_greater_than_int_lvar 244@ > 203@
+then
+    return
+end
+set_lvar_int_to_lvar_int 244@ = 203@
+244@ += 1000
+$NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2] = Coop.CollectNetworkPlayersForTheMission()
+208@ = 0
+246@ = 0
+for $temp_int = 0 to 2
+    if
+        not is_int_lvar_equal_to_int_var 220@($temp_int,3i) == $NETWORK_PLAYER[$temp_int]
+    then
+        if
+            Car.DoesExist(238@($temp_int,3i))
+        then
+            Car.Delete(238@($temp_int,3i))
+        end
+        set_lvar_int_to_var_int 220@($temp_int,3i) = $NETWORK_PLAYER[$temp_int]
+        223@($temp_int,3i) = 0
+        226@($temp_int,3i) = 0
+        229@($temp_int,3i) = 0
+        232@($temp_int,3i) = -1
+        235@($temp_int,3i) = 0
+        238@($temp_int,3i) = -1
+        241@($temp_int,3i) = -1
+        270@($temp_int,3i) = 0
+        246@ = 1
+    end
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        208@ += 1
+        if
+            229@($temp_int,3i) == 0
+        then
+            223@($temp_int,3i) = Char.GetCurrentWeapon($NETWORK_PLAYER[$temp_int])
+            226@($temp_int,3i) = Char.GetAmmoInWeapon($NETWORK_PLAYER[$temp_int], 4)
+            229@($temp_int,3i) = 1
+            232@($temp_int,3i) = -1
+            if and
+                70@ >= 2
+                70@ <= 3
+            then
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 5)
+                250@ = 1297.2
+                251@ = -790.5
+                if
+                    $temp_int == 1
+                then
+                    250@ = 1295.8
+                    251@ = -792.0
+                end
+                if
+                    $temp_int == 2
+                then
+                    250@ = 1295.8
+                    251@ = -789.0
+                end
+                Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 250@, 251@, 1083.05)
+                Char.GiveWeapon($NETWORK_PLAYER[$temp_int], 4, 1)
+                Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], 4)
+                270@($temp_int,3i) = 1
+            end
+            if
+                70@ >= 4
+            then
+                Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+            end
+            if
+                269@ == 1
+            then
+                Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+                Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+                Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+                Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+                Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+            end
+        end
+    end
+end
+if and
+    246@ == 1
+    70@ >= 4
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+end
+return
+
+:MUSIC2_COOP_BEGIN_CUTSCENE
+269@ = 1
+gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+            then
+                250@, 251@, 252@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+                Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 250@, 251@, 252@)
+            end
+            Char.FreezePosition($NETWORK_PLAYER[$temp_int], True)
+            Char.SetProofs($NETWORK_PLAYER[$temp_int], True, True, True, True, True)
+            Char.SetCollision($NETWORK_PLAYER[$temp_int], False)
+            Char.SetVisible($NETWORK_PLAYER[$temp_int], False)
+            Task.StandStill($NETWORK_PLAYER[$temp_int], -1)
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_END_CUTSCENE
+269@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+        232@($temp_int,3i) = -1
+    end
+end
+202@ = 0
+return
+
+:MUSIC2_COOP_MOVE_PLAYERS_TO_START
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        250@ = 793.0
+        251@ = -1628.0
+        if
+            $temp_int == 1
+        then
+            250@ = 796.0
+            251@ = -1628.0
+        end
+        if
+            $temp_int == 2
+        then
+            250@ = 799.0
+            251@ = -1628.0
+        end
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 250@, 251@, 12.5)
+        else
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 250@, 251@, 12.5)
+        end
+        Char.SetHeading($NETWORK_PLAYER[$temp_int], 356.0)
+    end
+end
+return
+
+:MUSIC2_COOP_MOVE_PLAYERS_INSIDE
+Streaming.SetAreaVisible(5)
+Char.SetAreaVisible($scplayer, 5)
+Char.SetCoordinates($scplayer, 1299.352, -792.6416, 1083.008)
+Char.SetHeading($scplayer, 0.0)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 5)
+        250@ = 1297.2
+        251@ = -790.5
+        if
+            $temp_int == 1
+        then
+            250@ = 1295.8
+            251@ = -792.0
+        end
+        if
+            $temp_int == 2
+        then
+            250@ = 1295.8
+            251@ = -789.0
+        end
+        Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 250@, 251@, 1083.05)
+        Char.SetHeading($NETWORK_PLAYER[$temp_int], 90.0)
+        235@($temp_int,3i) = Clock.GetGameTimer()
+    end
+end
+214@ = 1
+return
+
+:MUSIC2_COOP_MOVE_PLAYERS_OUTSIDE
+Streaming.SetAreaVisible(0)
+Char.SetAreaVisible($scplayer, 0)
+Char.SetCoordinates($scplayer, 1299.664, -800.546, 83.148)
+Char.SetHeading($scplayer, 271.284)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        250@ = 1301.0
+        251@ = -802.5
+        if
+            $temp_int == 1
+        then
+            250@ = 1303.0
+            251@ = -800.5
+        end
+        if
+            $temp_int == 2
+        then
+            250@ = 1303.0
+            251@ = -804.5
+        end
+        if
+            Char.IsInAnyCar($NETWORK_PLAYER[$temp_int])
+        then
+            Char.WarpFromCarToCoord($NETWORK_PLAYER[$temp_int], 250@, 251@, 83.15)
+        else
+            Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 250@, 251@, 83.15)
+        end
+        Char.SetHeading($NETWORK_PLAYER[$temp_int], 271.284)
+        235@($temp_int,3i) = Clock.GetGameTimer()
+    end
+end
+215@ = 1
+return
+
+:MUSIC2_COOP_REGROUP_TO_HOST
+if
+  208@ > 0
+then
+    Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+end
+return
+
+:MUSIC2_COOP_UPDATE_INTERIOR_PLAYERS
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            205@ = Char.GetAreaVisible($NETWORK_PLAYER[$temp_int])
+            if
+                205@ <> 5
+            then
+                Char.ClearTasksImmediately($NETWORK_PLAYER[$temp_int])
+                Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 5)
+                250@ = 1297.2
+                251@ = -790.5
+                if
+                    $temp_int == 1
+                then
+                    250@ = 1295.8
+                    251@ = -792.0
+                end
+                if
+                    $temp_int == 2
+                then
+                    250@ = 1295.8
+                    251@ = -789.0
+                end
+                Char.SetCoordinates($NETWORK_PLAYER[$temp_int], 250@, 251@, 1083.05)
+            end
+            if
+                270@($temp_int,3i) == 0
+            then
+                Char.GiveWeapon($NETWORK_PLAYER[$temp_int], 4, 1)
+                Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], 4)
+                270@($temp_int,3i) = 1
+            end
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_ANY_PLAYER_AT_APPROACH
+209@ = 0
+if
+  Char.IsInAngledArea2D($scplayer, 1222.799, -735.563, 1348.407, -759.322, -100.0, False)
+then
+    209@ = 1
+    set_lvar_int_to_var_int 212@ = $scplayer
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            Char.IsInAngledArea2D($NETWORK_PLAYER[$temp_int], 1222.799, -735.563, 1348.407, -759.322, -100.0, False)
+        then
+            209@ = 1
+            set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_ANY_PLAYER_IN_MANSION
+210@ = 0
+34@ = Char.GetAreaVisible($scplayer)
+if or
+    34@ == 5
+    Char.LocateAnyMeans3D($scplayer, False, 1298.66, -795.58, 83.84, 6.0, 6.0, 6.0)
+then
+    210@ = 1
+    set_lvar_int_to_var_int 212@ = $scplayer
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        205@ = Char.GetAreaVisible($NETWORK_PLAYER[$temp_int])
+        if or
+            205@ == 5
+            Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 1298.66, -795.58, 83.84, 6.0, 6.0, 6.0)
+        then
+            210@ = 1
+            set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_ANY_PLAYER_AT_COORD
+209@ = 0
+if
+  Char.LocateAnyMeans3D($scplayer, False, 250@, 251@, 252@, 253@, 253@, 267@)
+then
+    209@ = 1
+    set_lvar_int_to_var_int 212@ = $scplayer
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 250@, 251@, 252@, 253@, 253@, 267@)
+            then
+                209@ = 1
+                set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+            end
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_ANY_PLAYER_OUTSIDE_MANSION
+213@ = 0
+34@ = Char.GetAreaVisible($scplayer)
+if
+  34@ == 0
+then
+    213@ = 1
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        205@ = Char.GetAreaVisible($NETWORK_PLAYER[$temp_int])
+        if
+            205@ == 0
+        then
+            213@ = 1
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_GIVE_KNIVES
+Char.GiveWeapon($scplayer, 4, 1)
+249@ = 1
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                229@($temp_int,3i) == 0
+            then
+                223@($temp_int,3i) = Char.GetCurrentWeapon($NETWORK_PLAYER[$temp_int])
+                226@($temp_int,3i) = Char.GetAmmoInWeapon($NETWORK_PLAYER[$temp_int], 4)
+                229@($temp_int,3i) = 1
+            end
+            Char.GiveWeapon($NETWORK_PLAYER[$temp_int], 4, 1)
+            Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], 4)
+            270@($temp_int,3i) = 1
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_RESTORE_KNIVES
+if and
+    249@ == 1
+    Player.IsPlaying($player1)
+then
+    Char.RemoveWeapon(4, $scplayer)
+    if
+        248@ > 0
+    then
+        Char.GiveWeapon($scplayer, 4, 248@)
+    end
+    if
+        247@ == 0
+    then
+        Char.SetCurrentWeapon($scplayer, WeaponType.Unarmed)
+    else
+        if
+            Char.HasGotWeapon($scplayer, 247@)
+        then
+            Char.SetCurrentWeapon($scplayer, 247@)
+        end
+    end
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if and
+            229@($temp_int,3i) == 1
+            270@($temp_int,3i) == 1
+        then
+            Char.RemoveWeapon(4, $NETWORK_PLAYER[$temp_int])
+            if
+                226@($temp_int,3i) > 0
+            then
+                Char.GiveWeapon($NETWORK_PLAYER[$temp_int], 4, 226@($temp_int,3i))
+            end
+            if
+                223@($temp_int,3i) == 0
+            then
+                Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], WeaponType.Unarmed)
+            else
+                if
+                    Char.HasGotWeapon($NETWORK_PLAYER[$temp_int], 223@($temp_int,3i))
+                then
+                    Char.SetCurrentWeapon($NETWORK_PLAYER[$temp_int], 223@($temp_int,3i))
+                end
+            end
+            270@($temp_int,3i) = 0
+        end
+    end
+end
+249@ = 0
+return
+
+:MUSIC2_COOP_SPAWN_APPROACH_BIKES
+if
+  208@ == 0
+then
+    return
+end
+gosub @MUSIC2_COOP_DELETE_SUPPORT_BIKES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        250@ = 794.5
+        251@ = -1634.0
+        if
+            $temp_int == 1
+        then
+            250@ = 797.0
+        end
+        if
+            $temp_int == 2
+        then
+            250@ = 799.5
+        end
+        238@($temp_int,3i) = Car.Create(510, 250@, 251@, 12.5)
+        Car.SetHeading(238@($temp_int,3i), 356.0)
+        Car.SetHealth(238@($temp_int,3i), 1000)
+        Car.SetCanBurstTires(238@($temp_int,3i), False)
+        set_lvar_int_to_lvar_int 254@ = 238@($temp_int,3i)
+        gosub @MUSIC2_COOP_SYNC_VEHICLE
+        set_lvar_int_to_lvar_int 241@($temp_int,3i) = 206@
+    end
+end
+264@ = 1
+return
+
+:MUSIC2_COOP_SPAWN_ESCAPE_BIKES
+if
+  208@ == 0
+then
+    return
+end
+gosub @MUSIC2_COOP_DELETE_SUPPORT_BIKES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        250@ = 1309.0
+        251@ = -801.0
+        if
+            $temp_int == 1
+        then
+            250@ = 1311.5
+            251@ = -798.5
+        end
+        if
+            $temp_int == 2
+        then
+            250@ = 1311.5
+            251@ = -803.5
+        end
+        238@($temp_int,3i) = Car.Create(510, 250@, 251@, 83.2)
+        Car.SetHeading(238@($temp_int,3i), 206.253)
+        Car.SetHealth(238@($temp_int,3i), 1000)
+        Car.SetCanBurstTires(238@($temp_int,3i), False)
+        set_lvar_int_to_lvar_int 254@ = 238@($temp_int,3i)
+        gosub @MUSIC2_COOP_SYNC_VEHICLE
+        set_lvar_int_to_lvar_int 241@($temp_int,3i) = 206@
+    end
+end
+264@ = 2
+return
+
+:MUSIC2_COOP_DELETE_SUPPORT_BIKES
+for $temp_int = 0 to 2
+    if
+        Car.DoesExist(238@($temp_int,3i))
+    then
+        Car.Delete(238@($temp_int,3i))
+    end
+    238@($temp_int,3i) = -1
+    241@($temp_int,3i) = -1
+end
+264@ = 0
+return
+
+:MUSIC2_COOP_SYNC_PED
+if
+  208@ == 0
+then
+    return
+end
+if
+  Char.DoesExist(254@)
+then
+    207@ = Clock.GetGameTimer()
+    207@ += 750
+    206@ = Coop.GetPedNetworkId(254@)
+    while 206@ == -1
+        wait 0
+        if
+            not Char.DoesExist(254@)
+        then
+            return
+        end
+        203@ = Clock.GetGameTimer()
+        if or
+            is_int_lvar_greater_than_int_lvar 203@ > 207@
+            is_int_lvar_equal_to_int_lvar 203@ == 207@
+        then
+            return
+        end
+        206@ = Coop.GetPedNetworkId(254@)
+    end
+end
+return
+
+:MUSIC2_COOP_SYNC_VEHICLE
+206@ = -1
+if
+  208@ == 0
+then
+    return
+end
+if
+  Car.DoesExist(254@)
+then
+    207@ = Clock.GetGameTimer()
+    207@ += 750
+    206@ = Coop.GetVehicleNetworkId(254@)
+    while 206@ == -1
+        wait 0
+        if
+            not Car.DoesExist(254@)
+        then
+            return
+        end
+        203@ = Clock.GetGameTimer()
+        if or
+            is_int_lvar_greater_than_int_lvar 203@ > 207@
+            is_int_lvar_equal_to_int_lvar 203@ == 207@
+        then
+            return
+        end
+        206@ = Coop.GetVehicleNetworkId(254@)
+    end
+end
+return
+
+:MUSIC2_COOP_RESYNC_ONE_ENTITY
+if
+  208@ == 0
+then
+    return
+end
+if
+  266@ == 0
+then
+    set_lvar_int_to_lvar_int 254@ = 37@
+end
+if
+  266@ == 1
+then
+    set_lvar_int_to_lvar_int 254@ = 38@
+end
+if
+  266@ == 2
+then
+    set_lvar_int_to_lvar_int 254@ = 39@
+end
+if
+  266@ == 3
+then
+    set_lvar_int_to_lvar_int 254@ = 40@
+end
+if
+  266@ == 4
+then
+    set_lvar_int_to_lvar_int 254@ = 41@
+end
+if
+  266@ == 5
+then
+    set_lvar_int_to_lvar_int 254@ = 42@
+end
+if
+  266@ == 6
+then
+    set_lvar_int_to_lvar_int 254@ = 43@
+end
+if
+  266@ == 7
+then
+    set_lvar_int_to_lvar_int 254@ = 44@
+end
+if
+  266@ == 8
+then
+    set_lvar_int_to_lvar_int 254@ = 52@
+end
+if
+  266@ < 9
+then
+    gosub @MUSIC2_COOP_SYNC_PED
+else
+    set_lvar_int_to_lvar_int 254@ = 53@
+    gosub @MUSIC2_COOP_SYNC_VEHICLE
+end
+266@ += 1
+if
+  266@ > 9
+then
+    266@ = 0
+end
+return
+
+// Pickups/objects are not network entities yet. A remote participant reaching
+// the book therefore advances the same host-owned state as the local pickup.
+:MUSIC2_COOP_UPDATE_REMOTE_BOOK
+if or
+    211@ == 1
+    85@ <> 0
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            205@ = Char.GetAreaVisible($NETWORK_PLAYER[$temp_int])
+            if and
+                205@ == 5
+                Char.LocateAnyMeans3D($NETWORK_PLAYER[$temp_int], False, 1256.871, -801.048, 1084.063, 1.8, 1.8, 2.5)
+            then
+                211@ = 1
+                set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+            end
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_UPDATE_STEALTH
+218@ *= 0.96
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            205@ = Char.GetAreaVisible($NETWORK_PLAYER[$temp_int])
+            if
+                205@ == 5
+            then
+                250@, 251@, 252@ = Char.GetCoordinates($NETWORK_PLAYER[$temp_int])
+                253@ = World.GetSoundLevelAtCoords(-1, 250@, 251@, 252@)
+                if
+                    253@ > 20.0
+                then
+                    253@ -= 20.0
+                    253@ *= 0.35
+                    add_float_lvar_to_float_lvar 218@ += 253@
+                    set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+                end
+                if
+                    Char.IsShooting($NETWORK_PLAYER[$temp_int])
+                then
+                    218@ = 100.0
+                    set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+                end
+            end
+        end
+    end
+end
+if and
+    218@ >= 100.0
+    219@ == 0
+then
+    219@ = 1
+    for $temp_int = 0 to 2
+        if
+            Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+        then
+            Coop.PrintNowForNetworkPlayer('STP2_33', 5000, 1, $NETWORK_PLAYER[$temp_int])
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_UPDATE_GUARD_COMBAT
+set_lvar_int_to_lvar_int 254@ = 37@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 39@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 40@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 41@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 42@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 43@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+set_lvar_int_to_lvar_int 254@ = 44@
+gosub @MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+return
+
+:MUSIC2_COOP_ATTRIBUTE_GUARD_DAMAGE
+if
+  not Char.DoesExist(254@)
+then
+    return
+end
+Char.SetOnlyDamagedByPlayer(254@, False)
+if
+  Char.IsDead(254@)
+then
+    return
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                Char.HasBeenDamagedByChar(254@, $NETWORK_PLAYER[$temp_int])
+            then
+                set_lvar_int_to_var_int 212@ = $NETWORK_PLAYER[$temp_int]
+                Char.SetDecisionMaker(254@, 45@)
+                Task.KillCharOnFoot(254@, $NETWORK_PLAYER[$temp_int])
+                Char.ClearLastDamageEntity(254@)
+                if
+                    85@ == 0
+                then
+                    219@ = 1
+                    218@ = 100.0
+                end
+            end
+            if and
+                70@ >= 3
+                Char.LocateAnyMeansChar3D($NETWORK_PLAYER[$temp_int], 254@, 12.0, 12.0, 5.0, False)
+            then
+                Char.SetDecisionMaker(254@, 45@)
+                Task.KillCharOnFoot(254@, $NETWORK_PLAYER[$temp_int])
+            end
+        end
+    end
+end
+if and
+    219@ == 1
+    Char.DoesExist(212@)
+then
+    if
+        not Char.IsDead(212@)
+    then
+        Char.SetDecisionMaker(254@, 45@)
+        Task.KillCharOnFoot(254@, 212@)
+    end
+end
+return
+
+:MUSIC2_COOP_UPDATE_REGROUP
+if and
+    70@ <> 0
+    70@ <> 1
+    70@ <> 5
+then
+    return
+end
+209@ = 0
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        if
+            not Char.IsDead($NETWORK_PLAYER[$temp_int])
+        then
+            if
+                not Char.LocateAnyMeansChar2D($NETWORK_PLAYER[$temp_int], $scplayer, 250.0, 250.0, False)
+            then
+                209@ = 1
+            end
+        end
+    end
+end
+if
+  209@ == 1
+then
+    203@ = Clock.GetGameTimer()
+    set_lvar_int_to_lvar_int 204@ = 203@
+    sub_int_lvar_from_int_lvar 204@ -= 262@
+    if
+        204@ > 45000
+    then
+        Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+        set_lvar_int_to_lvar_int 262@ = 203@
+    end
+else
+    262@ = Clock.GetGameTimer()
+end
+return
+
+:MUSIC2_COOP_UPDATE_OBJECTIVES
+201@ = 0
+if
+  70@ == 1
+then
+    201@ = 1
+end
+if
+  70@ == 2
+then
+    201@ = 2
+    if
+      72@ == 1
+    then
+        201@ = 3
+    end
+    if
+      73@ == 1
+    then
+        201@ = 4
+    end
+    if
+      74@ >= 1
+    then
+        201@ = 5
+    end
+end
+if
+  70@ == 3
+then
+    201@ = 6
+end
+if or
+    70@ == 4
+    70@ == 5
+then
+    201@ = 7
+end
+if
+  70@ >= 6
+then
+    201@ = 8
+end
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        set_lvar_int_to_var_int 205@ = $NETWORK_PLAYER[$temp_int]
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        if
+            not Char.IsDead($scplayer)
+        then
+            Coop.UpdateCharBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], $scplayer, True, BlipDisplay.Both, BlipColor.Blue, 2)
+        end
+        if
+            not is_int_lvar_equal_to_int_lvar 232@($temp_int,3i) == 201@
+        then
+            if
+                201@ == 0
+            then
+                Coop.PrintNowForNetworkPlayer('STP2_1', 10000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 1
+            then
+                Coop.PrintNowForNetworkPlayer('STP2_2', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 2
+            then
+                Coop.PrintHelpForNetworkPlayer('STP2_7', $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 3
+            then
+                Coop.PrintNowForNetworkPlayer('STP2_14', 5000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 4
+            then
+                Coop.PrintHelpForNetworkPlayer('STP2_41', $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 5
+            then
+                Coop.PrintHelpForNetworkPlayer('STP2_36', $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 6
+            then
+                Coop.PrintNowForNetworkPlayer('STP2_40', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            if
+                201@ == 7
+            then
+                Coop.PrintNowForNetworkPlayer('STP2_30', 7000, 1, $NETWORK_PLAYER[$temp_int])
+            end
+            set_lvar_int_to_lvar_int 232@($temp_int,3i) = 201@
+        end
+        if
+            201@ == 0
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1239.032, -741.106, 94.76, 12.0, 12.0, 8.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 1
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1298.66, -795.58, 83.84, 5.0, 5.0, 5.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 2
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1290.907, -781.423, 1083.59, 4.3, 4.3, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 3
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1260.104, -769.51, 1083.06, 5.0, 5.0, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 4
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1249.466, -789.487, 1083.063, 7.5, 7.5, 6.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 5
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1256.871, -801.048, 1084.063, 1.8, 1.8, 2.5, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 6
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(1298.74, -797.46, 1083.4, 3.0, 3.0, 4.0, $NETWORK_PLAYER[$temp_int])
+        end
+        if
+            201@ == 7
+        then
+            Coop.UpdateCheckpointForNetworkPlayer(788.05, -1630.31, 12.42, 5.0, 5.0, 5.0, $NETWORK_PLAYER[$temp_int])
+            if
+                Car.DoesExist(53@)
+            then
+                Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 53@, True, BlipDisplay.Both, BlipColor.Blue, 3)
+            end
+        end
+        if and
+            201@ >= 2
+            201@ <= 6
+        then
+            gosub @MUSIC2_COOP_ADD_ALL_GUARD_BLIPS
+        end
+        if
+            Car.DoesExist(238@($temp_int,3i))
+        then
+            Coop.UpdateCarBlipForNetworkPlayer($NETWORK_PLAYER[$temp_int], 238@($temp_int,3i), True, BlipDisplay.Both, BlipColor.Blue, 2)
+        end
+    end
+end
+return
+
+:MUSIC2_COOP_ADD_ALL_GUARD_BLIPS
+set_lvar_int_to_lvar_int 254@ = 37@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 38@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 39@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 40@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 41@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 42@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 43@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+set_lvar_int_to_lvar_int 254@ = 44@
+gosub @MUSIC2_COOP_ADD_GUARD_BLIP
+return
+
+:MUSIC2_COOP_ADD_GUARD_BLIP
+if
+  Char.DoesExist(254@)
+then
+    if
+        not Char.IsDead(254@)
+    then
+        Coop.UpdateCharBlipForNetworkPlayer(205@, 254@, False, BlipDisplay.Both, BlipColor.Red, 2)
+    end
+end
+return
+
+:MUSIC2_COOP_CLEAR_OBJECTIVES
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.RemoveCheckpointForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+        Coop.ClearAllEntityBlipsForNetworkPlayer($NETWORK_PLAYER[$temp_int])
+    end
+    232@($temp_int,3i) = -1
+end
+return
+
+:MUSIC2_COOP_PRINT_NOW
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintNowForNetworkPlayer(274@s, 276@, 277@, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:MUSIC2_COOP_PRINT_HELP
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Coop.PrintHelpForNetworkPlayer(274@s, $NETWORK_PLAYER[$temp_int])
+    end
+end
+return
+
+:MUSIC2_COOP_RESTORE_PLAYERS
+gosub @MUSIC2_COOP_CLEAR_OBJECTIVES
+gosub @MUSIC2_COOP_DELETE_SUPPORT_BIKES
+gosub @MUSIC2_COOP_RESTORE_KNIVES
+Player.SetControl($player1, True)
+Hud.SwitchWidescreen(False)
+Hud.Display(True)
+Hud.DisplayRadar(True)
+Camera.RestoreJumpcut
+Camera.SetBehindPlayer
+Streaming.SetAreaVisible(0)
+Char.SetAreaVisible($scplayer, 0)
+Char.FreezePosition($scplayer, False)
+Char.SetProofs($scplayer, False, False, False, False, False)
+Char.SetCollision($scplayer, True)
+Char.SetVisible($scplayer, True)
+Char.HideWeaponForScriptedCutscene($scplayer, False)
+for $temp_int = 0 to 2
+    if
+        Coop.IsNetworkPlayerActorValid($NETWORK_PLAYER[$temp_int])
+    then
+        Char.FreezePosition($NETWORK_PLAYER[$temp_int], False)
+        Char.SetProofs($NETWORK_PLAYER[$temp_int], False, False, False, False, False)
+        Char.SetCollision($NETWORK_PLAYER[$temp_int], True)
+        Char.SetVisible($NETWORK_PLAYER[$temp_int], True)
+        Char.SetAreaVisible($NETWORK_PLAYER[$temp_int], 0)
+        Task.StandStill($NETWORK_PLAYER[$temp_int], 0)
+    end
+end
+if and
+    214@ == 1
+    215@ == 0
+then
+    Char.ClearTasksImmediately($scplayer)
+    Char.SetCoordinates($scplayer, 1299.664, -800.546, 83.148)
+    Char.SetHeading($scplayer, 271.284)
+end
+Coop.TeleportPlayersToHostSafely($NETWORK_PLAYER[0], $NETWORK_PLAYER[1], $NETWORK_PLAYER[2])
+269@ = 0
+return
 
