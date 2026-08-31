@@ -1,5 +1,7 @@
 import pathlib
 import re
+import shutil
+import subprocess
 import unittest
 
 
@@ -97,8 +99,33 @@ class MissionSessionProtocolStructureTests(unittest.TestCase):
         ):
             self.assertIn(evidence, audit)
         self.assertIn("Get-UnboundedNetworkIdWaitLines", audit)
+        self.assertIn("RegexOptions]::CultureInvariant", audit)
         self.assertIn("audit-story-missions.ps1 -RequireReady -SummaryOnly", workflow)
         self.assertIn("python -m unittest discover -s tests/mission_session", workflow)
+
+    @unittest.skipUnless(shutil.which("powershell.exe"), "Windows PowerShell is unavailable")
+    def test_strict_story_audit_passes_in_turkish_windows_powershell(self):
+        command = (
+            "[System.Threading.Thread]::CurrentThread.CurrentCulture = "
+            "[System.Globalization.CultureInfo]::GetCultureInfo('tr-TR'); "
+            "& './scripts/audit-story-missions.ps1' -RequireReady -SummaryOnly"
+        )
+        result = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                command,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("protocol-ready: 97; pending: 0", result.stdout)
 
     def test_protocol_contract_documents_bridge_and_runtime_limits(self):
         protocol = (ROOT / "docs/mission-coop-protocol.md").read_text(encoding="utf-8")

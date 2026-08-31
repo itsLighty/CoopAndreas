@@ -16,15 +16,23 @@ function Get-ReferencedCoopLabels {
         [string]$PurposePattern
     )
 
+    # Windows PowerShell 5.1 applies the current culture to inline ignore-case
+    # matching.  In a Turkish locale that makes an ASCII range such as A-Z fail
+    # on mission labels containing I (INTRO1, MUSIC1, and others).  Keep label
+    # matching ASCII-friendly and deterministic across powershell.exe and pwsh.
+    $regexOptions = [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+        [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
     $labels = [regex]::Matches(
         $Script,
-        "(?im)^:(?<label>[A-Z0-9_]*COOP[A-Z0-9_]*$PurposePattern[A-Z0-9_]*)\s*$"
+        "^:(?<label>[A-Z0-9_]*COOP[A-Z0-9_]*$PurposePattern[A-Z0-9_]*)\s*$",
+        $regexOptions
     )
 
     foreach ($labelMatch in $labels) {
         $label = $labelMatch.Groups['label'].Value
         $escapedLabel = [regex]::Escape($label)
-        if ([regex]::IsMatch($Script, "(?im)^\s*(?:gosub|goto)\s+@$escapedLabel\s*$")) {
+        if ([regex]::IsMatch($Script, "^\s*(?:gosub|goto)\s+@$escapedLabel\s*$", $regexOptions)) {
             $label
         }
     }
@@ -156,8 +164,15 @@ $rows = foreach ($match in [regex]::Matches($missionRunner, $runnerPattern)) {
     $resultFanout = $resultLabels.Count -gt 0 -and $peerFailureResult -and ($peerPassResult -or $continuedResult)
 
     $cleanupLabels = @(Get-ReferencedCoopLabels -Script $script -PurposePattern 'CLEANUP')
-    $idempotentCleanup = $cleanupLabels.Count -gt 0 -and
-        $script -match '(?ims)^:[A-Z0-9_]*COOP[A-Z0-9_]*CLEANUP[A-Z0-9_]*\s*\r?\n\s*if[\s\S]{0,180}?==\s*1[\s\S]{0,100}?return'
+    $cleanupRegexOptions = [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
+        [System.Text.RegularExpressions.RegexOptions]::Singleline -bor
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+        [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
+    $idempotentCleanup = $cleanupLabels.Count -gt 0 -and [regex]::IsMatch(
+        $script,
+        '^:[A-Z0-9_]*COOP[A-Z0-9_]*CLEANUP[A-Z0-9_]*\s*\r?\n\s*if[\s\S]{0,180}?==\s*1[\s\S]{0,100}?return',
+        $cleanupRegexOptions
+    )
 
     $unsupportedWarning = $script -match '(?i)currently unsupported|not recommended to play|may cause desyncs'
     $readySignal = $syncHook -and $rosterHook -and $reconnectSafe -and $participantDeathPolicy -and
