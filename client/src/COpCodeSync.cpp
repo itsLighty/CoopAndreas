@@ -469,6 +469,7 @@ void BuildAndSendOpcode()
     if (lastOpCodeProcessed == 0x02E7) // start_cutscene
     {
         CCutsceneVoteManager::NotifySynchronizedCutsceneStarted();
+        CCutsceneVoteManager::SkipCurrentCutsceneImmediately();
     }
     else if (lastOpCodeProcessed == 0x02EA) // clear_cutscene
     {
@@ -820,6 +821,11 @@ void COpCodeSync::HandlePacket(const uint8_t* buffer, int bufferSize)
     patch::SetRaw(0x464080, (void*)"\x66\x8B\x44\x24\x04", 5, false);
     patch::SetRaw(0x463D50, (void*)"\x8B\x41\x14\x83\xEC\x08", 6, false);
     bProcessingNetworkOpcode = false;
+
+    if (header.opcode == 0x02E7) // start_cutscene
+    {
+        CCutsceneVoteManager::SkipCurrentCutsceneImmediately();
+    }
 }
 
 void __declspec(naked) FinishedOpcodeProcessing_Hook()

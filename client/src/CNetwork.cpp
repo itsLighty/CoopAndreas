@@ -9,6 +9,7 @@
 #include "CNetworkPickupManager.h"
 #include "CNetworkFireManager.h"
 #include "CNetworkCheatManager.h"
+#include "CNetworkEntityBlip.h"
 #include "CStuntJumpSyncManager.h"
 #include "CNetworkPedManager.h"
 #include "CNetworkPlayerManager.h"
@@ -254,6 +255,7 @@ void CNetwork::ResetConnectionState()
     CNetworkPickupManager::ResetNetworkState();
     CNetworkFireManager::ResetNetworkState();
     CNetworkCheatManager::ResetNetworkState();
+    CNetworkEntityBlip::ClearEntityBlips();
 
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();

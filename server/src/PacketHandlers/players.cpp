@@ -235,6 +235,7 @@ PACKET_HANDLER(
     pNetworkPlayer->m_eLastWeaponType = static_cast<eWeaponType>(pOnFootUpdate->weaponSnapshot.iWeaponType);
     CFireAuthorityManager::ObservePlayerMovement(
         pNetworkPlayer, pOnFootUpdate->vecPos, pNetworkPlayer->m_bIsAlive);
+    CFireAuthorityManager::ObservePlayerArea(pNetworkPlayer, pOnFootUpdate->areaId);
     if (pNetworkPlayer->m_bHasAuthoritativeParachuteState &&
         (!pNetworkPlayer->m_bIsAlive || pNetworkPlayer->m_eLastWeaponType != WEAPON_PARACHUTE ||
             pNetworkPlayer->m_nVehicleId >= 0))
@@ -346,6 +347,36 @@ PACKET_HANDLER(ePacketType::PLAYER_BULLET_SHOT, Packets::Players::PlayerBulletSh
 
 PACKET_HANDLER(ePacketType::ADD_PROJECTILE, Packets::Players::AddProjectile* pAddProjectile, CNetworkPlayer* pNetworkPlayer)
 {
+    if (!pAddProjectile->IsSemanticallyValid())
+    {
+        logger::warn("%s tried to publish an invalid projectile type", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    bool creatorOwnedBySender = false;
+    switch (pAddProjectile->creator.entityType)
+    {
+        case NETWORK_ENTITY_TYPE_PLAYER:
+            creatorOwnedBySender = pAddProjectile->creator.entityId == pNetworkPlayer->m_iPlayerId;
+            break;
+        case NETWORK_ENTITY_TYPE_PED:
+            if (CNetworkPed* ped = CNetworkPedManager::GetPed(pAddProjectile->creator.entityId))
+                creatorOwnedBySender = ped->m_pSyncer == pNetworkPlayer;
+            break;
+        case NETWORK_ENTITY_TYPE_VEHICLE:
+            if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(pAddProjectile->creator.entityId))
+                creatorOwnedBySender = vehicle->m_pSyncer == pNetworkPlayer;
+            break;
+        default:
+            break;
+    }
+    if (!creatorOwnedBySender)
+    {
+        logger::warn("%s tried to publish a projectile for an entity they do not host",
+            pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
     GetPacketFactory().SendToAll(*pAddProjectile, pNetworkPlayer);
 }
 

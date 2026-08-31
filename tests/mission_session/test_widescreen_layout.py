@@ -142,7 +142,7 @@ class WidescreenLayoutStructureTests(unittest.TestCase):
         self.assertIn("class ScopedRenderState", player_list)
         self.assertIn("class ScopedFontState", name_tag)
         self.assertIn("class ScopedRenderState", name_tag)
-        self.assertIn("CWorld::PlayerInFocus = previousPlayerInFocus;", map_pin)
+        self.assertNotIn("CWorld::PlayerInFocus =", map_pin)
 
     def test_dynamic_font_tracks_live_safe_canvas(self):
         font = self.ui_sources["CDXFont.cpp"]

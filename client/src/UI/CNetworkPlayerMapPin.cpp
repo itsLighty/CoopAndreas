@@ -2,12 +2,12 @@
 
 namespace
 {
-bool GetPlayerMarkerPosition(CVector2D& result)
+bool GetPlayerMarkerPosition(const CVector& worldPosition, CVector2D& result)
 {
 	if (std::abs(CRadar::m_radarRange) <= 0.000001f)
 		return false;
 
-	CVector2D vec = FindPlayerCoors(-1) - CRadar::vec2DRadarOrigin;
+	CVector2D vec = CVector2D(worldPosition.x, worldPosition.y) - CRadar::vec2DRadarOrigin;
 	CVector2D playerDirection = 
 	{ 
 		vec.x / CRadar::m_radarRange, 
@@ -27,6 +27,10 @@ bool GetPlayerMarkerPosition(CVector2D& result)
 
 float CalculateMarkerAngle(CNetworkPlayer* player)
 {
+	if (player->m_pPed == nullptr)
+		return player->m_onFootSnapshotInterpolated.currentRotation.m_angle - CRadar::m_fRadarOrientation +
+			(FrontEndMenuManager.m_bDrawRadarOrMap ? static_cast<float>(M_PI) : -static_cast<float>(M_PI));
+
 	float baseAngle = player->m_pPed->m_nPhysicalFlags.bOnSolidSurface ? player->m_pPed->GetHeading() : player->m_onFootSnapshotInterpolated.currentRotation.m_angle;
 
 	if (player->m_pPed->m_pVehicle && player->m_pPed->m_nPedFlags.bInVehicle)
@@ -51,20 +55,13 @@ void CNetworkPlayerMapPin::Process()
 	if (!transform.valid || !RwD3D9GetCurrentD3DDevice())
 		return;
 
-	const auto previousPlayerInFocus = CWorld::PlayerInFocus;
-
 	for (auto* player : CNetworkPlayerManager::m_pPlayers)
 	{
-		if (player == nullptr || player->m_pPed == nullptr)
+		if (player == nullptr || (!player->m_bHasOnFootSnapshot && !player->m_bHasVehicleDriverSnapshot &&
+			!player->m_bHasVehiclePassengerSnapshot))
 			continue;
-
-		const int playerId = player->GetInternalId();
-		if (playerId < 0)
-			continue;
-
-		CWorld::PlayerInFocus = playerId;
 		CVector2D pos{};
-		if (!GetPlayerMarkerPosition(pos))
+		if (!GetPlayerMarkerPosition(player->GetLogicalPosition(), pos))
 			continue;
 
 		float angle = CalculateMarkerAngle(player);
@@ -76,9 +73,7 @@ void CNetworkPlayerMapPin::Process()
 			angle,
 			CUtil::SCREEN_SCALE_X(5.0f),
 			CUtil::SCREEN_SCALE_Y(5.0f),
-			player->m_pPed->IsHidden() ? CRGBA{ 50, 50, 50, 255 } : CRGBA{ 255, 255, 255, 255 }
+			player->m_pPed && player->m_pPed->IsHidden() ? CRGBA{ 50, 50, 50, 255 } : CRGBA{ 255, 255, 255, 255 }
 		);
 	}
-
-	CWorld::PlayerInFocus = previousPlayerInFocus;
 }

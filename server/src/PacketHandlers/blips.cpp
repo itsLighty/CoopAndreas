@@ -98,5 +98,8 @@ PACKET_HANDLER(ePacketType::CREATE_STATIC_BLIP, Packets::Blips::StaticBlipsSnaps
         return;
     }
 
+    Packets::Blips::g_lastStaticBlipsData = *pCreateStaticBlip;
+    Packets::Blips::g_lastStaticBlipsData.serverTime = 0;
+    Packets::Blips::g_pLastStaticBlipsOwner = pNetworkPlayer;
     SendToMissionRecipients(*pCreateStaticBlip, pNetworkPlayer);
 }

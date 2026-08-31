@@ -29,6 +29,7 @@
 #include <CAimSync.h>
 #include <CKeySync.h>
 #include <CCompatibilityChecker.h>
+#include <CCutsceneVoteManager.h>
 #include <CWeatherSync.h>
 #include <network/packets/scripts.h>
 #include <CNetworkEntityBlip.h>
@@ -123,6 +124,7 @@ public:
                     COpCodeSync::ms_bLoadingCutscene = false;
                     COpCodeSync::ms_nLoadingCutsceneSessionId = 0;
                     Command<Commands::START_CUTSCENE>();
+                    CCutsceneVoteManager::SkipCurrentCutsceneImmediately();
                 }
 
                 if (!CLocalPlayer::m_bIsHost)
@@ -176,6 +178,7 @@ public:
                     {
                         Packets::Players::OnFootUpdate onFootUpdate{};
                         onFootUpdate.vecPos = localPlayer->GetPosition();
+                        onFootUpdate.areaId = static_cast<uint8_t>(localPlayer->m_nAreaCode);
                         onFootUpdate.vecMoveSpeed = localPlayer->m_vecMoveSpeed;
                         onFootUpdate.currentRotation = localPlayer->m_fCurrentRotation;
                         onFootUpdate.aimingRotation = localPlayer->m_fAimingRotation;

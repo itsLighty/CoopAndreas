@@ -7,6 +7,7 @@ class CCutsceneVoteManager
 public:
     static void NotifySynchronizedCutsceneStarted();
     static void NotifySynchronizedCutsceneEnded();
+    static void SkipCurrentCutsceneImmediately();
     static bool HandleSkipButton(bool bPressed);
     static void HandleState(const Packets::Scripts::CutsceneVoteState& state);
     static void Process();

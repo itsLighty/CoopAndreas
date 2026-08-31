@@ -2,6 +2,10 @@
 
 #include <CRadar.h>
 
+#ifdef COOP_SERVER
+class CNetworkPlayer;
+#endif
+
 namespace Packets::Blips
 {
 class UpdateEntityBlip : public Packet
@@ -150,4 +154,9 @@ private:
         return true;
     }
 };
+
+#ifdef COOP_SERVER
+inline StaticBlipsSnapshot g_lastStaticBlipsData{};
+inline CNetworkPlayer* g_pLastStaticBlipsOwner = nullptr;
+#endif
 }  // namespace Packets::Blips

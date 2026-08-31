@@ -143,6 +143,7 @@ class OnFootUpdate : public Packet
 public:
     SenderPlayerId playerid{};
     WorldPositionCompressed vecPos{};
+    uint8_t areaId = AREA_MAIN_MAP;
     MoveSpeedCompressed vecMoveSpeed{};
     RadianAngleCompressed currentRotation{};
     RadianAngleCompressed aimingRotation{};
@@ -160,6 +161,7 @@ private:
         serialize_object(stream, playerid);
 
         serialize_object(stream, vecPos);
+        serialize_int(stream, areaId, AREA_MAIN_MAP, MAX_VISIBLE_AREAS - 1);
         serialize_object(stream, vecMoveSpeed);
 
         serialize_object(stream, currentRotation);
@@ -577,6 +579,11 @@ public:
     bool bTarget = false;
     CNetworkEntitySerializer target{};
 
+    bool IsSemanticallyValid() const
+    {
+        return projectileType >= WEAPON_GRENADE && projectileType <= WEAPON_FREEFALL_BOMB;
+    }
+
     template <typename Stream>
     bool Serialize(Stream& stream)
     {
@@ -601,7 +608,7 @@ public:
         {
             serialize_object(stream, target);
         }
-        return true;
+        return IsSemanticallyValid();
     }
 };
 

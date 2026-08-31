@@ -65,6 +65,16 @@ void CCutsceneVoteManager::NotifySynchronizedCutsceneEnded()
     }
 }
 
+void CCutsceneVoteManager::SkipCurrentCutsceneImmediately()
+{
+    CHud::m_BigMessage[1][0] = 0;
+    CCutsceneMgr::ms_wasCutsceneSkipped = true;
+    if (CCutsceneMgr::ms_running)
+    {
+        CCutsceneMgr::FinishCutscene();
+    }
+}
+
 bool CCutsceneVoteManager::HandleSkipButton(bool bPressed)
 {
     if (!bPressed)
@@ -166,6 +176,13 @@ void CCutsceneVoteManager::HandleState(const CutsceneVoteState& state)
 
 void CCutsceneVoteManager::Process()
 {
+    // This playtest build intentionally disables cinematic playback. Catch asynchronous starts as well as
+    // synchronized start opcodes so a delayed cutscene load cannot leave either peer on a black frame.
+    if (CCutsceneMgr::ms_running)
+    {
+        SkipCurrentCutsceneImmediately();
+    }
+
     if (!CNetwork::m_bAuthenticated)
     {
         Reset();
@@ -262,9 +279,7 @@ void CCutsceneVoteManager::ApplyAuthoritativeSkip()
         return;
     }
     m_bSkipApplied = true;
-    CHud::m_BigMessage[1][0] = 0;
-    CCutsceneMgr::ms_wasCutsceneSkipped = true;
-    CCutsceneMgr::FinishCutscene();
+    SkipCurrentCutsceneImmediately();
     if (CLocalPlayer::m_bIsHost)
     {
         SendEndRequest();

@@ -224,6 +224,7 @@ public:
     {
         OnFootUpdate onFoot{};
         onFoot.vecPos = CVector(2246.0f + offset, -1259.0f + offset, 24.0f);
+        onFoot.areaId = m_name == "SoakAlpha" ? AREA_MAIN_MAP : AREA_MANSION;
         onFoot.vecMoveSpeed = CVector(0.01f, 0.0f, 0.0f);
         onFoot.currentRotation = 0.25f;
         onFoot.aimingRotation = 0.5f;
@@ -279,6 +280,7 @@ public:
     size_t StuntStateCount() const { return m_stuntStateCount; }
     size_t DisconnectCount() const { return m_disconnectCount; }
     int LastOnFootPlayerId() const { return m_lastOnFootPlayerId; }
+    uint8_t LastOnFootArea() const { return m_lastOnFootArea; }
     int LastCameraPlayerId() const { return m_lastCameraPlayerId; }
     int LastKeyPlayerId() const { return m_lastKeyPlayerId; }
 
@@ -382,6 +384,7 @@ private:
                 OnFootUpdate packet{};
                 Require(DecodePacket(data, size, packet), m_name + ": invalid relayed on-foot packet");
                 m_lastOnFootPlayerId = packet.playerid.value;
+                m_lastOnFootArea = packet.areaId;
                 ++m_onFootCount;
                 break;
             }
@@ -442,6 +445,7 @@ private:
     size_t m_stuntStateCount = 0;
     size_t m_disconnectCount = 0;
     int m_lastOnFootPlayerId = -1;
+    uint8_t m_lastOnFootArea = AREA_MAIN_MAP;
     int m_lastCameraPlayerId = -1;
     int m_lastKeyPlayerId = -1;
 };
@@ -555,6 +559,8 @@ int Run(const Options& options)
             bravo.LastCameraPlayerId() == alpha.Id() &&
             bravo.LastKeyPlayerId() == alpha.Id(),
         "bravo received a relay with an incorrect sender ID");
+    Require(alpha.LastOnFootArea() == AREA_MANSION && bravo.LastOnFootArea() == AREA_MAIN_MAP,
+        "on-foot area identity changed during relay");
 
     Bot* host = alpha.HostId() == alpha.Id() ? &alpha :
         (bravo.HostId() == bravo.Id() ? &bravo : nullptr);

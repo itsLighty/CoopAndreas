@@ -4,6 +4,11 @@
 
 bool __fastcall CWeapon__FireProjectile_Hook(CWeapon* This, SKIP_EDX, CEntity* firingEntity, CVector* origin, CEntity* targetEntity, CVector* targetPos, float proj_force_)
 {
+	if (This == nullptr || firingEntity == nullptr || !firingEntity->IsVTableValid())
+	{
+		return false;
+	}
+
 	if (firingEntity == FindPlayerPed(0))
 	{
 		return This->FireProjectile(firingEntity, origin, targetEntity, targetPos, proj_force_);
@@ -36,7 +41,8 @@ bool __fastcall CWeapon__FireProjectile_Hook(CWeapon* This, SKIP_EDX, CEntity* f
 // also used for CVehicle__FireHeatSeakingMissile
 bool __cdecl CWeapon__FireProjectile_AddProjectile_Hook(CEntity* creator, eWeaponType projectileType, CVector origin, float force, CVector* dir, CEntity* target)
 {
-	if (!CLocalPlayer::GetIsHostingEntity(creator))
+	if (creator == nullptr || !creator->IsVTableValid() || projectileType < WEAPON_GRENADE ||
+		projectileType > WEAPON_FREEFALL_BOMB || !CLocalPlayer::GetIsHostingEntity(creator))
 	{
 		return false;
 	}

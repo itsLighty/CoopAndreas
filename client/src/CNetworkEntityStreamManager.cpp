@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "CNetworkEntityStreamManager.h"
+#include "CNetworkEntityBlip.h"
 #include "CNetworkPedGroupSyncManager.h"
 #include "CMissionSessionClient.h"
 #include <unordered_set>
@@ -228,14 +229,16 @@ void CNetworkEntityStreamManager::Process()
     for (CNetworkPed* ped : CNetworkPedManager::m_pPeds)
     {
         if (ped && (ped->m_bSyncing || (ped->m_nLogicalArea == localArea &&
-            (ped->m_nBlipHandle != -1 || CNetworkPedGroupSyncManager::IsPedPresentationRequired(ped->m_nPedId) ||
+            (ped->m_nBlipHandle != -1 || CNetworkEntityBlip::HasDesiredPedBlip(ped->m_nPedId) ||
+                CNetworkPedGroupSyncManager::IsPedPresentationRequired(ped->m_nPedId) ||
                 WithinPresentationRange(ped, localPosition)))))
             requiredPeds.insert(ped);
     }
     for (CNetworkVehicle* vehicle : CNetworkVehicleManager::m_pVehicles)
     {
         if (vehicle && (vehicle->m_bSyncing || (vehicle->m_nLogicalArea == localArea &&
-            (vehicle->m_nBlipHandle != -1 || HasLocalOccupant(vehicle) ||
+            (vehicle->m_nBlipHandle != -1 || CNetworkEntityBlip::HasDesiredVehicleBlip(vehicle->m_nVehicleId) ||
+                HasLocalOccupant(vehicle) ||
                 WithinPresentationRange(vehicle, localPosition)))))
             requiredVehicles.insert(vehicle);
     }

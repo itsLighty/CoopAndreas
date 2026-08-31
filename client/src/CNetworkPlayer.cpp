@@ -227,7 +227,7 @@ CNetworkPlayer::CNetworkPlayer(int id, CVector position)
     m_pPedClothesDesc.SetTextureAndModel("SNEAKERBINCBLK", "SNEAKER", 3);
     m_pPedClothesDesc.SetTextureAndModel("PLAYER_FACE", "HEAD", 1);
     m_vecLogicalPosition = position;
-    m_nLogicalArea = static_cast<uint8_t>(CGame::currArea);
+    m_nLogicalArea = AREA_MAIN_MAP;
 }
 
 void CNetworkPlayer::CreatePed(int id, CVector position)
@@ -346,15 +346,25 @@ void CNetworkPlayer::StreamOut()
 
 bool CNetworkPlayer::CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot)
 {
+    const uint8_t previousArea = m_nLogicalArea;
+    m_nLogicalArea = snapshot.areaId;
     const CNetworkTransformSnapshot transform = MakePlayerOnFootTransform(snapshot, m_iPlayerId, m_nLogicalArea);
     if (!m_transformInterpolator.Push(transform, PLAYER_TELEPORT_DISTANCE))
+    {
+        m_nLogicalArea = previousArea;
         return false;
+    }
 
     m_onFootSnapshotInterpolated = snapshot;
     m_bHasOnFootSnapshot = true;
     m_vecLogicalPosition = snapshot.vecPos;
     m_oldControllerState = snapshot.keySnapshot.oldControllerState;
     m_newControllerState = snapshot.keySnapshot.newControllerState;
+    if (m_pPed && m_pPed->IsVTableValid() && m_pPed->m_nAreaCode != m_nLogicalArea)
+    {
+        m_pPed->m_nAreaCode = m_nLogicalArea;
+        m_pPed->UpdateRwMatrix();
+    }
     ClearVehicleRelation(false);
     if (snapshot.healthSnapshot.iHealth == 0)
     {

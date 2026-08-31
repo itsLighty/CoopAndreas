@@ -241,10 +241,14 @@ PACKET_HANDLER(ePacketType::PLAYER_BULLET_SHOT, Packets::Players::PlayerBulletSh
 
 PACKET_HANDLER(ePacketType::ADD_PROJECTILE, Packets::Players::AddProjectile* pAddProjectile)
 {
-    if (pAddProjectile->creator.GetEntity() == nullptr)
+    if (!pAddProjectile->IsSemanticallyValid())
     {
         return;
     }
+
+    CEntity* creator = pAddProjectile->creator.GetEntity();
+    if (creator == nullptr || !creator->IsVTableValid())
+        return;
 
     CVector origin = pAddProjectile->origin;
     CVector dir = pAddProjectile->dir;
@@ -261,17 +265,21 @@ PACKET_HANDLER(ePacketType::ADD_PROJECTILE, Packets::Players::AddProjectile* pAd
     if (pAddProjectile->bTarget)
     {
         pTarget = pAddProjectile->target.GetEntity();
+        if (pTarget != nullptr && !pTarget->IsVTableValid())
+            pTarget = nullptr;
     }
     if (pAddProjectile->bDir)
     {
-        CProjectileInfo::AddProjectile(pAddProjectile->creator.GetEntity(), pAddProjectile->projectileType, origin, pAddProjectile->force, nullptr, pTarget);
+        CProjectileInfo::AddProjectile(
+            creator, pAddProjectile->projectileType, origin, pAddProjectile->force, &dir, pTarget);
     }
     else
     {
-        CProjectileInfo::AddProjectile(pAddProjectile->creator.GetEntity(), pAddProjectile->projectileType, origin, pAddProjectile->force, &pAddProjectile->dir, pTarget);
+        CProjectileInfo::AddProjectile(
+            creator, pAddProjectile->projectileType, origin, pAddProjectile->force, nullptr, pTarget);
     }
 
-    if (pAddProjectile->creator.entityType == NETWORK_ENTITY_TYPE_PLAYER && CNetworkPlayerManager::GetPlayer(pAddProjectile->creator.GetEntity()))
+    if (pAddProjectile->creator.entityType == NETWORK_ENTITY_TYPE_PLAYER && CNetworkPlayerManager::GetPlayer(creator))
     {
         CAimSync::ApplyLocalContext();
     }

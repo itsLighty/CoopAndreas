@@ -16,6 +16,7 @@
 #include <network/packets/vehicles.h>
 #include <network/packets/peds.h>
 #include <network/packets/scripts.h>
+#include <network/packets/blips.h>
 #include <array>
 #include <cerrno>
 #include <cstring>
@@ -288,6 +289,10 @@ void CNetwork::HandlePlayerDisconnected(ENetEvent& event)
     {
         Packets::Scripts::g_pLastEnExPlayerOwner = nullptr;
     }
+    if (Packets::Blips::g_pLastStaticBlipsOwner == pNetworkPlayer)
+    {
+        Packets::Blips::g_pLastStaticBlipsOwner = nullptr;
+    }
 
     CNetworkPedManager::RemoveAllHostedAndNotify(pNetworkPlayer);
     CNetworkVehicleManager::RemoveAllHostedAndNotify(pNetworkPlayer);
@@ -536,6 +541,15 @@ void CNetwork::CompletePlayerConnection(
                 Packets::Scripts::g_pLastEnExPlayerOwner) != CNetworkPlayerManager::m_pPlayers.end())
         {
             GetPacketFactory().Send(Packets::Scripts::g_lastEnExData, pNewNetworkPlayer);
+        }
+    }
+
+    if (mayReceiveCachedEnEx && Packets::Blips::g_pLastStaticBlipsOwner)
+    {
+        if (std::find(CNetworkPlayerManager::m_pPlayers.begin(), CNetworkPlayerManager::m_pPlayers.end(),
+                Packets::Blips::g_pLastStaticBlipsOwner) != CNetworkPlayerManager::m_pPlayers.end())
+        {
+            GetPacketFactory().Send(Packets::Blips::g_lastStaticBlipsData, pNewNetworkPlayer);
         }
     }
 
