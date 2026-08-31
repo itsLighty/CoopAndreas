@@ -4,6 +4,51 @@
 
 namespace
 {
+constexpr uint32_t PLAYER_VOICE_COMMAND_RATE_WINDOW_MS = 2000;
+constexpr uint16_t MAX_PLAYER_VOICE_COMMANDS_PER_WINDOW = 8;
+
+struct PlayerVoiceCommandRateSlot
+{
+    CNetworkPlayer* owner = nullptr;
+    uint32_t connectId = 0;
+    uint32_t windowStartedAt = 0;
+    uint16_t commandCount = 0;
+};
+
+PlayerVoiceCommandRateSlot g_playerVoiceCommandRateSlots[Config::MAX_SERVER_PLAYERS]{};
+
+bool IsAuthenticatedLivePlayer(const CNetworkPlayer* player)
+{
+    return player != nullptr && player->m_iPlayerId >= 0 &&
+           player->m_iPlayerId < Config::MAX_SERVER_PLAYERS && player->m_pPeer != nullptr &&
+           CNetworkPlayerManager::GetPlayer(player->m_iPlayerId) == player && player->m_bHasOnFootSnapshot &&
+           player->m_bIsAlive && player->m_nVehicleId < 0;
+}
+
+bool CanRelayPlayerVoiceCommand(CNetworkPlayer* player)
+{
+    if (!IsAuthenticatedLivePlayer(player))
+        return false;
+
+    PlayerVoiceCommandRateSlot& slot = g_playerVoiceCommandRateSlots[player->m_iPlayerId];
+    const uint32_t now = enet_time_get();
+    const uint32_t connectId = player->m_pPeer->connectID;
+    if (slot.owner != player || slot.connectId != connectId ||
+        now - slot.windowStartedAt >= PLAYER_VOICE_COMMAND_RATE_WINDOW_MS)
+    {
+        slot.owner = player;
+        slot.connectId = connectId;
+        slot.windowStartedAt = now;
+        slot.commandCount = 0;
+    }
+
+    if (slot.commandCount >= MAX_PLAYER_VOICE_COMMANDS_PER_WINDOW)
+        return false;
+
+    ++slot.commandCount;
+    return true;
+}
+
 bool HasValidTaskTarget(const CNetworkPed* owner, const Packets::Peds::SPedTaskSnapshot& task)
 {
     if (task.type != Packets::Peds::ePedTaskSyncType::KILL_PED_ON_FOOT)
@@ -384,7 +429,17 @@ PACKET_HANDLER(ePacketType::PED_SAY, Packets::Peds::PedSay* pPedSay, CNetworkPla
 {
     if (pPedSay->entity.entityType == NETWORK_ENTITY_TYPE_PLAYER)
     {
+        // Never trust the entity ID supplied by a client. Commands are identified from the canonical player entity
+        // plus a closed speech-context list; NPC speech using an ORDER context remains ordinary PED_SAY traffic.
         pPedSay->entity.entityId = pNetworkPlayer->m_iPlayerId;
+
+        if (Packets::Peds::IsDeliberatePlayerVoiceCommand(pPedSay->phraseId) &&
+            (!Packets::Peds::HasStockPlayerVoiceCommandArguments(pPedSay->phraseId, pPedSay->startTimeDelay,
+                 pPedSay->overrideSilence, pPedSay->isForceAudible, pPedSay->isFrontEnd) ||
+                !CanRelayPlayerVoiceCommand(pNetworkPlayer)))
+        {
+            return;
+        }
     }
     else if (pPedSay->entity.entityType == NETWORK_ENTITY_TYPE_PED)
     {

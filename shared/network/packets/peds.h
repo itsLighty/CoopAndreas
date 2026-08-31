@@ -8,6 +8,42 @@
 
 namespace Packets::Peds
 {
+inline bool IsDeliberatePlayerVoiceCommand(eGlobalSpeechContexts context)
+{
+    // GTA SA 1.0 US routes keyboard and gamepad group controls through CPlayerPed::Say. Keep this list to
+    // speech initiated by a deliberate recruit/attack/disband/follow/wait command. ORDER_KEEP_UP is omitted:
+    // CPlayerPed::ProcessControl emits it automatically every 128 frames when a follower falls behind.
+    switch (context)
+    {
+    case CONTEXT_GLOBAL_JOIN_ME_ASK:
+    case CONTEXT_GLOBAL_JOIN_ME_REJECTED:
+    case CONTEXT_GLOBAL_ORDER_ATTACK_MANY:
+    case CONTEXT_GLOBAL_ORDER_ATTACK_SINGLE:
+    case CONTEXT_GLOBAL_ORDER_DISBAND_MANY:
+    case CONTEXT_GLOBAL_ORDER_DISBAND_ONE:
+    case CONTEXT_GLOBAL_ORDER_FOLLOW_FAR_MANY:
+    case CONTEXT_GLOBAL_ORDER_FOLLOW_FAR_ONE:
+    case CONTEXT_GLOBAL_ORDER_FOLLOW_NEAR_MANY:
+    case CONTEXT_GLOBAL_ORDER_FOLLOW_NEAR_ONE:
+    case CONTEXT_GLOBAL_ORDER_FOLLOW_VNEAR_MANY:
+    case CONTEXT_GLOBAL_ORDER_FOLLOW_VNEAR_ONE:
+    case CONTEXT_GLOBAL_ORDER_WAIT_MANY:
+    case CONTEXT_GLOBAL_ORDER_WAIT_ONE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool HasStockPlayerVoiceCommandArguments(eGlobalSpeechContexts context, uint32_t startTimeDelay,
+    bool overrideSilence, bool isForceAudible, bool isFrontEnd)
+{
+    // Every native player group command uses CPed::Say's default arguments. Keeping those arguments closed stops
+    // a client from turning a spatial command into delayed, forced, or front-end audio.
+    return IsDeliberatePlayerVoiceCommand(context) && startTimeDelay == 0 && !overrideSilence &&
+           !isForceAudible && !isFrontEnd;
+}
+
 enum class ePedTaskSyncType
 {
     NONE = 0,

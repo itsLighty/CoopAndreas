@@ -302,13 +302,23 @@ PACKET_HANDLER(ePacketType::PED_SAY, Packets::Peds::PedSay* pPedSay)
     // pPedSay->isForceAudible, pPedSay->isFrontEnd);
 
     CPed* pPed = (CPed*)pPedSay->entity.GetEntity();
-    if (pPed)
+    if (pPed == nullptr || !pPed->IsVTableValid())
+        return;
+
+    const bool isPlayerCommand = pPedSay->entity.entityType == NETWORK_ENTITY_TYPE_PLAYER &&
+                                 Packets::Peds::IsDeliberatePlayerVoiceCommand(pPedSay->phraseId);
+    if (isPlayerCommand && (!pPed->IsPlayer() || !pPed->IsAlive() ||
+        !Packets::Peds::HasStockPlayerVoiceCommandArguments(pPedSay->phraseId, pPedSay->startTimeDelay,
+            pPedSay->overrideSilence, pPedSay->isForceAudible, pPedSay->isFrontEnd)))
     {
-        // CAEPedSpeechAudioEntity::AddSayEvent
-        plugin::CallMethodAndReturn<int16_t, 0x4E6550, CAEPedSpeechAudioEntity*, int, int16_t, uint32_t, float, bool,
-            bool, bool>(&pPed->m_pedSpeech, AE_SPEECH_PED, pPedSay->phraseId, pPedSay->startTimeDelay, 1.0f,
-            pPedSay->overrideSilence, pPedSay->isForceAudible, pPedSay->isFrontEnd);
+        return;
     }
+
+    // Call the native implementation directly. Going through CPed::Say would re-enter PedHooks and echo the event.
+    // The speech entity remains attached to the streamed remote player, so GTA's normal spatial audio path is used.
+    plugin::CallMethodAndReturn<int16_t, 0x4E6550, CAEPedSpeechAudioEntity*, int, int16_t, uint32_t, float, bool,
+        bool, bool>(&pPed->m_pedSpeech, AE_SPEECH_PED, pPedSay->phraseId, pPedSay->startTimeDelay, 1.0f,
+        pPedSay->overrideSilence, pPedSay->isForceAudible, pPedSay->isFrontEnd);
 }
 
 

@@ -3,6 +3,62 @@
 #include "CNetworkPed.h"
 #include <CPedGroups.h>
 
+namespace
+{
+constexpr uint32_t PLAYER_VOICE_COMMAND_DEBOUNCE_MS = 250;
+
+struct PlayerVoiceCommandDebounce
+{
+    ENetPeer* peer = nullptr;
+    uint32_t connectId = 0;
+    int playerId = -1;
+    eGlobalSpeechContexts context = CONTEXT_GLOBAL_NO_SPEECH;
+    uint32_t acceptedAt = 0;
+    bool hasAcceptedCommand = false;
+};
+
+PlayerVoiceCommandDebounce g_playerVoiceCommandDebounce{};
+
+void ResetPlayerVoiceCommandDebounce()
+{
+    g_playerVoiceCommandDebounce = {};
+}
+
+bool ShouldRelayPlayerVoiceCommand(CPed* ped, eGlobalSpeechContexts context)
+{
+    if (!CNetwork::m_bAuthenticated || CNetwork::m_pPeer == nullptr ||
+        CNetworkPlayerManager::m_nMyId < 0 || CNetworkPlayerManager::m_nMyId >= Config::MAX_SERVER_PLAYERS ||
+        ped == nullptr || ped != FindPlayerPed(0) || !ped->IsAlive())
+    {
+        ResetPlayerVoiceCommandDebounce();
+        return false;
+    }
+
+    auto& state = g_playerVoiceCommandDebounce;
+    const uint32_t connectId = CNetwork::m_pPeer->connectID;
+    if (state.peer != CNetwork::m_pPeer || state.connectId != connectId ||
+        state.playerId != CNetworkPlayerManager::m_nMyId)
+    {
+        ResetPlayerVoiceCommandDebounce();
+        state.peer = CNetwork::m_pPeer;
+        state.connectId = connectId;
+        state.playerId = CNetworkPlayerManager::m_nMyId;
+    }
+
+    const uint32_t now = CTimer::GetTimeInMS();
+    if (state.hasAcceptedCommand && state.context == context &&
+        now - state.acceptedAt < PLAYER_VOICE_COMMAND_DEBOUNCE_MS)
+    {
+        return false;
+    }
+
+    state.context = context;
+    state.acceptedAt = now;
+    state.hasAcceptedCommand = true;
+    return true;
+}
+}  // namespace
+
 static void __cdecl CPopulation__Update_Hook(bool generate)
 {
     if (CNetwork::m_bAuthenticated)
@@ -127,8 +183,44 @@ int16_t __fastcall CAEPedSpeechAudioEntity__AddSayEvent_Hook(CAEPedSpeechAudioEn
         return result;
     }
 
+    // Calling the native implementation first preserves stock speech selection and repeat-time suppression. All
+    // keyboard and gamepad group controls converge on this CPed::Say call site, so an accepted command is observed
+    // once without adding input-specific hooks. Direct remote playback bypasses this hook and cannot feed back.
+    if (!CNetwork::m_bAuthenticated)
+    {
+        ResetPlayerVoiceCommandDebounce();
+        return result;
+    }
+
+    const auto context = static_cast<eGlobalSpeechContexts>(gCtx);
+    if (pPed->IsPlayer())
+    {
+        if (pPed != FindPlayerPed(0))
+        {
+            return result;
+        }
+
+        const bool isPlayerCommand = Packets::Peds::IsDeliberatePlayerVoiceCommand(context);
+        if (isPlayerCommand && !Packets::Peds::HasStockPlayerVoiceCommandArguments(
+                context, startTimeDelay, overideSilence, isForceAudible, isFrontEnd))
+        {
+            return result;
+        }
+
+        if (!pPed->IsAlive())
+        {
+            ResetPlayerVoiceCommandDebounce();
+            if (isPlayerCommand)
+                return result;
+        }
+        else if (isPlayerCommand && !ShouldRelayPlayerVoiceCommand(pPed, context))
+        {
+            return result;
+        }
+    }
+
     Packets::Peds::PedSay packet{};
-    packet.phraseId = static_cast<eGlobalSpeechContexts>(gCtx);
+    packet.phraseId = context;
     packet.startTimeDelay = startTimeDelay;
     packet.overrideSilence = overideSilence;
     packet.isForceAudible = isForceAudible;
