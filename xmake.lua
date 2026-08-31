@@ -312,3 +312,30 @@ target("launcher", function ()
         set_strip("all")
     end
 end)
+
+target("playtest_launcher", function ()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
+    set_kind("binary")
+    set_languages("c++17")
+    set_arch("x86")
+    set_plat("windows")
+    set_basename("CoopAndreasPlaytest")
+    set_toolchains("msvc")
+    add_ldflags("/SUBSYSTEM:WINDOWS", {force = true})
+    add_files("playtest_launcher/src/*.cpp")
+    add_defines("NOMINMAX", "_CRT_SECURE_NO_WARNINGS")
+    add_syslinks("kernel32", "user32", "ole32", "urlmon")
+
+    if is_mode("debug") then
+        add_defines("_DEBUG")
+        set_symbols("debug")
+    else
+        add_defines("NDEBUG")
+        set_optimize("fastest")
+        set_strip("all")
+    end
+end)

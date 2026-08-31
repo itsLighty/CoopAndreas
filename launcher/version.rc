@@ -36,56 +36,6 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Dialog
-//
-
-IDD_DIALOG1 DIALOGEX 0, 0, 233, 137
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_MINIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "CoopAndreas Launcher"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    PUSHBUTTON      "Launch CoopAndreas",ID_BTNLAUNCH,7,92,219,38
-    LTEXT           "set manually from src/main.cpp",ID_LABELSERIALTUTORIAL,7,28,219,44
-    EDITTEXT        ID_TEXTSERIALPC,7,76,88,14,ES_AUTOHSCROLL | WS_DISABLED
-    PUSHBUTTON      "Copy",ID_BTNCOPYSERIAL,96,76,78,14
-    LTEXT           "Serial key:",ID_LABELSERIALSTATIC,7,9,34,8
-    EDITTEXT        ID_EDITSERIALGENERATED,43,7,183,14,ES_AUTOHSCROLL
-    CONTROL         "<a>Discord Server</a>",IDC_LINKDISCORDSERVER,"SysLink",WS_TABSTOP,176,79,49,10
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// DESIGNINFO
-//
-
-#ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
-BEGIN
-    IDD_DIALOG1, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 226
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 130
-    END
-END
-#endif    // APSTUDIO_INVOKED
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// AFX_DIALOG_LAYOUT
-//
-
-IDD_DIALOG1 AFX_DIALOG_LAYOUT
-BEGIN
-    0
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
 // Version
 //
 

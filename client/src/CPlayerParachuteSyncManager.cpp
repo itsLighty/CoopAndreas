@@ -177,7 +177,8 @@ bool CPlayerParachuteSyncManager::EnsureResourcesLoaded()
     }
 
     const int animationModelId = IFP_RESOURCE_BASE + ms_animationBlockId;
-    if (!CStreaming::IsModelLoaded(animationModelId) || !CStreaming::IsModelLoaded(MODEL_PARACHUTE))
+    if (CStreaming::ms_aInfoForModel[animationModelId].m_nLoadState != LOADSTATE_LOADED ||
+        CStreaming::ms_aInfoForModel[MODEL_PARACHUTE].m_nLoadState != LOADSTATE_LOADED)
     {
         CStreaming::RequestModel(animationModelId, GAME_REQUIRED);
         CStreaming::RequestModel(MODEL_PARACHUTE, GAME_REQUIRED);

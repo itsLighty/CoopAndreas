@@ -1,5 +1,8 @@
 name: Build on Windows
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -58,3 +61,34 @@ jobs:
         
       - name: Build launcher
         run: xmake build launcher
+
+      - name: Build one-click playtest updater
+        run: xmake build playtest_launcher
+
+      - name: Stage playtest release
+        shell: pwsh
+        run: ./scripts/stage-playtest.ps1
+
+      - name: Upload playtest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoopAndreas-playtest-${{ github.sha }}
+          path: build/playtest/release-assets
+
+      - name: Publish rolling playtest release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'itsLighty/CoopAndreas'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view playtest-latest *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete playtest-latest --cleanup-tag --yes
+          }
+          $assets = Get-ChildItem -LiteralPath 'build/playtest/release-assets' -File |
+            ForEach-Object FullName
+          gh release create playtest-latest @assets `
+            --target '${{ github.sha }}' `
+            --prerelease `
+            --title 'Latest CoopAndreas Playtest' `
+            --notes "Automated one-click playtest build from commit ${{ github.sha }}."

@@ -74,10 +74,26 @@ xmake --build launcher
 ### Running CoopAndreas
 
 1. Run `server.exe` it will start accepting client connections.
-2. Run `LaunchCoopAndreas.exe`, and follow the serial key instructions, then click "Launch CoopAndreas".
+2. Run `LaunchCoopAndreas.exe`; it starts GTA San Andreas directly in co-op mode.
 3. (in-game) press **Start Game**, enter your nickname, then provide the server IP and port.
    - If the server is running on the same machine, use `127.0.0.1`
    - Default port: `6767`
+
+### One-click playtest distribution
+
+Friends do not need Visual Studio, Xmake, or Sanny Builder. Download
+[`CoopAndreasPlaytest.exe`](https://github.com/itsLighty/CoopAndreas/releases/download/playtest-latest/CoopAndreasPlaytest.exe),
+place it beside a GTA San Andreas 1.0 US `gta_sa.exe`, and run it. The updater downloads the latest verified binaries and
+mission scripts, preserves the original `eax.dll` as `eax_orig.dll`, and offers:
+
+- **Host & Play**: starts `server.exe` locally and launches the game.
+- **Join & Play**: launches the game without starting another server.
+- **Update only**: installs the latest playtest without launching.
+
+For internet play, the host must allow/forward UDP port `6767`; joining players enter the host's IP in the in-game menu.
+The rolling release is rebuilt by GitHub Actions from `main`, and a manual
+[`CoopAndreas-playtest.zip`](https://github.com/itsLighty/CoopAndreas/releases/download/playtest-latest/CoopAndreas-playtest.zip)
+is provided alongside the updater.
 
 
 ## Building Server on GNU/Linux

@@ -45,7 +45,7 @@ bool ShouldRelayPlayerVoiceCommand(CPed* ped, eGlobalSpeechContexts context)
         state.playerId = CNetworkPlayerManager::m_nMyId;
     }
 
-    const uint32_t now = CTimer::GetTimeInMS();
+    const uint32_t now = CTimer::m_snTimeInMilliseconds;
     if (state.hasAcceptedCommand && state.context == context &&
         now - state.acceptedAt < PLAYER_VOICE_COMMAND_DEBOUNCE_MS)
     {

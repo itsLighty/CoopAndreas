@@ -9,6 +9,7 @@
 #include <CTaskComplexClimb.h>
 #include <Hooks/PedHooks.h>
 #include "CNetworkEntityStreamManager.h"
+#include "CNetworkPedGroupSyncManager.h"
 #include "CServerTime.h"
 
 namespace

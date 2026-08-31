@@ -1,5 +1,7 @@
 #pragma once
 
+struct CScreenTransform;
+
 struct CTextSegment
 {
 	std::wstring text;

@@ -98,7 +98,7 @@ NativeStuntJump* FindNativeJump(const StuntId& id)
 
 bool ReadMissionFlag()
 {
-    return CTheScripts::OnAMissionFlag != nullptr &&
+    return CTheScripts::OnAMissionFlag != 0 &&
            CTheScripts::ScriptSpace[CTheScripts::OnAMissionFlag] != 0;
 }
 
@@ -303,7 +303,7 @@ void CStuntJumpSyncManager::ApplyAwardOnce(const StuntStateEvent& state)
     m_appliedAwardSequences[state.id.slot] = state.awardSequence;
     playerInfo->m_nMoney += state.rewardAmount;
     CStats::IncrementStat(STAT_UNIQUE_JUMPS_DONE, 1.0f);
-    AudioEngine.ReportFrontendAudioEvent(AE_FRONTEND_PART_MISSION_COMPLETE);
+    AudioEngine.ReportFrontendAudioEvent(AE_FRONTEND_PART_MISSION_COMPLETE, 0.0f, 1.0f);
     if (state.allCompleted)
     {
         if (char* text = TheText.Get("USJ_ALL"))
@@ -802,8 +802,8 @@ void CStuntJumpSyncManager::ProcessOnlineJump()
     const uint32_t elapsed = GetTickCount() - m_attemptStartedAt;
     const bool invalidVehicle = jump == nullptr || playerInfo->m_nPlayerState != PLAYERSTATE_PLAYING ||
         !player->IsAlive() || !player->m_nPedFlags.bInVehicle || vehicle == nullptr ||
-        vehicle->m_pDriver != player || vehicle->GetStatus() == STATUS_WRECKED ||
-        vehicle->vehicleFlags.bIsDrowning || vehicle->physicalFlags.bSubmergedInWater;
+        vehicle->m_pDriver != player || vehicle->m_nStatus == STATUS_WRECKED ||
+        vehicle->m_nVehicleFlags.bIsDrowning || vehicle->m_nPhysicalFlags.bSubmergedInWater;
     if (invalidVehicle || MissionContextChanged() || elapsed > 20000)
     {
         FinishAttempt(false, true);

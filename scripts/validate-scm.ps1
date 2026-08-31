@@ -2,6 +2,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$SannyBuilderPath = $env:SANNY_BUILDER_PATH,
 
+    [Parameter(Mandatory = $false)]
+    [string]$OutputDirectory,
+
     [switch]$KeepTemp
 )
 
@@ -107,6 +110,23 @@ try {
         }
 
         Write-Output "SCM compilation succeeded ($($compiledFile.Length) bytes)."
+        if (-not [string]::IsNullOrWhiteSpace($OutputDirectory)) {
+            $resolvedOutputDirectory = if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
+                [System.IO.Path]::GetFullPath($OutputDirectory)
+            }
+            else {
+                [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $OutputDirectory))
+            }
+            New-Item -ItemType Directory -Path $resolvedOutputDirectory -Force | Out-Null
+            Copy-Item -LiteralPath $compiledScm -Destination (Join-Path $resolvedOutputDirectory 'main.scm') -Force
+
+            $compiledScriptImage = Join-Path $temporaryScm 'script.img'
+            if (-not (Test-Path -LiteralPath $compiledScriptImage -PathType Leaf)) {
+                throw 'Sanny Builder did not produce script.img.'
+            }
+            Copy-Item -LiteralPath $compiledScriptImage -Destination (Join-Path $resolvedOutputDirectory 'script.img') -Force
+            Write-Output "SCM artifacts copied to $resolvedOutputDirectory"
+        }
         if ($KeepTemp) {
             Write-Output "Validation artifacts: $temporaryRoot"
         }

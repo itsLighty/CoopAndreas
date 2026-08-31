@@ -359,9 +359,9 @@ class StuntJumpSyncTests(unittest.TestCase):
         process = function_body(self.client, r"CStuntJumpSyncManager::ProcessOnlineJump\(")
         for evidence in (
             "!player->IsAlive()",
-            "vehicle->GetStatus() == STATUS_WRECKED",
-            "vehicle->vehicleFlags.bIsDrowning",
-            "vehicle->physicalFlags.bSubmergedInWater",
+            "vehicle->m_nStatus == STATUS_WRECKED",
+            "vehicle->m_nVehicleFlags.bIsDrowning",
+            "vehicle->m_nPhysicalFlags.bSubmergedInWater",
             "MissionContextChanged()",
             "elapsed > 20000",
             "FinishAttempt(false, true)",

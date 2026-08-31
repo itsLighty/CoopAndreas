@@ -8,6 +8,7 @@
 #include <CNetworkCheatManager.h>
 #include <CWeatherSync.h>
 #include <CCoronas.h>
+#include <CGangWars.h>
 
 static void __cdecl CMenuManager__DrawFrontEnd_FixChat_Hook(float alpha)
 {
