@@ -25,6 +25,10 @@ constexpr uint32_t EXTINGUISH_REQUEST_TIMEOUT_MS = 1000;
 constexpr uint8_t MAX_MATERIALIZATIONS_PER_TICK = 4;
 constexpr uint8_t MAX_NEW_FIRE_INTENTS_PER_TICK = 8;
 constexpr float WORLD_FIRE_REUSE_DISTANCE = 4.0f;
+constexpr uint32_t FOLLOWER_BIRTH_RETRY_MS = 750;
+constexpr uint32_t FOLLOWER_BIRTH_TIMEOUT_MS = 5000;
+constexpr uint8_t FOLLOWER_BIRTH_MAX_ATTEMPTS = 5;
+constexpr float FOLLOWER_WORLD_ADOPTION_DISTANCE = 1.0f;
 
 float DistanceSquared(const CVector& left, const CVector& right)
 {
@@ -59,7 +63,11 @@ uint8_t CNetworkFireManager::m_remoteMutationDepth = 0;
 std::array<CNetworkFireManager::Slot, FIRE_SLOT_CAPACITY> CNetworkFireManager::m_slots{};
 std::array<int, CNetworkFireManager::NATIVE_FIRE_CAPACITY> CNetworkFireManager::m_nativeOwners{};
 std::array<uint32_t, CNetworkFireManager::NATIVE_FIRE_CAPACITY> CNetworkFireManager::m_nativeBirthEpochs{};
+std::array<int8_t, CNetworkFireManager::NATIVE_FIRE_CAPACITY>
+    CNetworkFireManager::m_nativeBirthOriginalGenerations{};
 std::array<bool, CNetworkFireManager::NATIVE_FIRE_CAPACITY> CNetworkFireManager::m_nativeBirthBaselineActive{};
+std::array<CNetworkFireManager::PendingBirth, CNetworkFireManager::NATIVE_FIRE_CAPACITY>
+    CNetworkFireManager::m_pendingBirths{};
 std::array<uint32_t, FIRE_SLOT_CAPACITY> CNetworkFireManager::m_generations{};
 int CNetworkFireManager::m_pendingNativeBirthSlot = INVALID_NATIVE_SLOT;
 
@@ -151,6 +159,14 @@ void CNetworkFireManager::EndNativeBirthObservation()
         ++m_nativeBirthEpochs[i];
         if (m_nativeBirthEpochs[i] == 0)
             ++m_nativeBirthEpochs[i];
+        CFire& fire = gFireManager.m_aFires[i];
+        m_nativeBirthOriginalGenerations[i] = fire.m_nNumGenerationsAllowed;
+        if (CNetwork::m_bAuthenticated && m_authorityPlayerId >= 0 && !m_localPlayerIsAuthority)
+        {
+            // Birth hooks run before the next CFireManager update, closing the one-frame window in which a
+            // follower's local Molotov/SCM fire could generate non-canonical spread children.
+            fire.m_nNumGenerationsAllowed = 0;
+        }
     }
     m_pendingNativeBirthSlot = INVALID_NATIVE_SLOT;
 }
@@ -172,6 +188,8 @@ void CNetworkFireManager::RemoveNative(Slot& slot, bool extinguish)
         fire.Extinguish();
         --m_remoteMutationDepth;
     }
+    if (slot.materializedByNetwork && !slot.originatedLocally)
+        fire.m_nFlags.bCreatedByScript = false; // Return StartScriptFire presentations to GTA's reusable pool.
     m_nativeOwners[nativeSlot] = INVALID_NETWORK_SLOT;
     slot.nativeSlot = INVALID_NATIVE_SLOT;
     slot.materializedByNetwork = false;
@@ -225,6 +243,8 @@ bool CNetworkFireManager::NativeIdentityMatches(const Slot& slot, const CFire& f
 void CNetworkFireManager::ResetNetworkState()
 {
     EnsureInitialized();
+    for (int nativeSlot = 0; nativeSlot < NATIVE_FIRE_CAPACITY; ++nativeSlot)
+        ClearPendingBirth(nativeSlot, true);
     for (Slot& slot : m_slots)
     {
         // Fires that originated in the authority's native simulation resume ordinary offline behaviour.
@@ -232,7 +252,15 @@ void CNetworkFireManager::ResetNetworkState()
         if (slot.materializedByNetwork && !slot.originatedLocally)
             RemoveNative(slot, true);
         else if (IsNativeIndexValid(slot.nativeSlot) && m_nativeOwners[slot.nativeSlot] == slot.id.slot)
+        {
+            if (slot.originatedLocally)
+            {
+                CFire& fire = gFireManager.m_aFires[slot.nativeSlot];
+                fire.m_nFlags.bCreatedByScript = slot.localOriginalCreatedByScript;
+                fire.m_nNumGenerationsAllowed = slot.localOriginalGenerationsAllowed;
+            }
             m_nativeOwners[slot.nativeSlot] = INVALID_NETWORK_SLOT;
+        }
         slot = {};
     }
     m_nativeOwners.fill(INVALID_NETWORK_SLOT);
@@ -250,6 +278,13 @@ void CNetworkFireManager::HandleAuthorityChanged(int authorityPlayerId, bool loc
     m_authorityPlayerId = authorityPlayerId;
     m_localPlayerIsAuthority = localPlayerIsAuthority;
     m_authoritySequence = 0;
+    if (localPlayerIsAuthority)
+    {
+        // A pending follower birth becomes ordinary native authority state after migration. Restore its
+        // original spread budget so the new host can adopt and publish it through the normal pool scan.
+        for (int nativeSlot = 0; nativeSlot < NATIVE_FIRE_CAPACITY; ++nativeSlot)
+            ClearPendingBirth(nativeSlot, true);
+    }
     for (Slot& slot : m_slots)
     {
         slot.pendingExtinguishRequest = false;
@@ -280,7 +315,18 @@ void CNetworkFireManager::HandleState(const FireStateEvent& state)
 
     Slot& slot = m_slots[state.id.slot];
     if (slot.initialized && slot.revision != 0 && !IsFireSerialNewer(state.revision, slot.revision))
+    {
+        // A follower script probe can ask the server to resend an already-canonical fire after its local SCM
+        // call replaced the presentation object. Equal revisions may only re-adopt that exact active id.
+        if (state.revision == slot.revision && state.active && slot.id == state.id &&
+            !IsNativeIndexValid(slot.nativeSlot))
+        {
+            slot.descriptor = state.descriptor;
+            slot.active = true;
+            TryAdoptPendingBirth(slot, slot.descriptor);
+        }
         return;
+    }
     if (slot.initialized && slot.id != state.id)
     {
         // A host can retire an old native occupant and publish a replacement before the old tombstone echoes
@@ -311,6 +357,8 @@ void CNetworkFireManager::HandleState(const FireStateEvent& state)
         return;
     }
     slot.active = true;
+    if (!hadMaterialization)
+        TryAdoptPendingBirth(slot, slot.descriptor);
     if (hadMaterialization &&
         (previousDescriptor.attachmentType != slot.descriptor.attachmentType ||
             previousDescriptor.attachmentId != slot.descriptor.attachmentId ||
@@ -367,11 +415,17 @@ bool CNetworkFireManager::Materialize(Slot& slot)
     CEntity* target = ResolveAttachment(slot.descriptor);
     const auto birthEpochsBefore = m_nativeBirthEpochs;
     CFire* fire = nullptr;
+    int replayScriptHandle = -1;
     ++m_remoteMutationDepth;
     if (target != nullptr)
     {
-        fire = gFireManager.StartFire(target, nullptr, slot.descriptor.strength, 1,
-            slot.descriptor.remainingLifetimeMs, 0);
+        // GTA's ordinary attached-fire overload always reports a crime for peds/vehicles and dereferences
+        // creator->AsPed(). Replaying with a null creator therefore crashes. StartScriptFire is the native
+        // replay-safe path: it installs the target's m_pFire/reference and creates following FX without
+        // crime reporting or a creator dereference. Canonical flags are restored below.
+        const int strength = std::max(1, static_cast<int>(std::ceil(slot.descriptor.strength)));
+        replayScriptHandle = gFireManager.StartScriptFire(
+            slot.descriptor.fallbackPosition, target, 0.0f, 0, 0, strength);
     }
     else
     {
@@ -379,7 +433,26 @@ bool CNetworkFireManager::Materialize(Slot& slot)
             slot.descriptor.remainingLifetimeMs, 0, 0);
     }
     --m_remoteMutationDepth;
-    if (fire == nullptr)
+    if (target != nullptr && replayScriptHandle != -1)
+    {
+        // GetNewUniqueScriptThingIndex encodes the native pool index in the low 16 bits and the fire's
+        // incremented script-reference token in the high 16 bits. Validate both plus the observed birth and
+        // target, so attached replay never guesses a replaced native slot.
+        const int nativeIndex = replayScriptHandle & 0xFFFF;
+        const int16_t scriptToken = static_cast<int16_t>(
+            static_cast<uint32_t>(replayScriptHandle) >> 16u);
+        if (IsNativeIndexValid(nativeIndex) && birthEpochsBefore[nativeIndex] != m_nativeBirthEpochs[nativeIndex])
+        {
+            CFire& candidate = gFireManager.m_aFires[nativeIndex];
+            if (candidate.m_nFlags.bActive && candidate.m_pEntityTarget == target &&
+                candidate.m_nScriptReferenceIndex == scriptToken &&
+                m_nativeOwners[nativeIndex] == INVALID_NETWORK_SLOT)
+            {
+                fire = &candidate;
+            }
+        }
+    }
+    if (fire == nullptr && target == nullptr)
     {
         // The retail attached-fire routine can create a fire without returning its address. The birth hooks
         // still identify the exact newly occupied native slot, so adoption never relies on a stale pointer.
@@ -387,6 +460,7 @@ bool CNetworkFireManager::Materialize(Slot& slot)
         {
             if (birthEpochsBefore[i] != m_nativeBirthEpochs[i] &&
                 gFireManager.m_aFires[i].m_nFlags.bActive &&
+                (target == nullptr || gFireManager.m_aFires[i].m_pEntityTarget == target) &&
                 m_nativeOwners[i] == INVALID_NETWORK_SLOT)
             {
                 fire = &gFireManager.m_aFires[i];
@@ -422,12 +496,97 @@ bool CNetworkFireManager::Materialize(Slot& slot)
         : true;
     fire->m_nFlags.bMakesNoise = slot.descriptor.makesNoise;
     fire->m_fStrength = slot.descriptor.strength;
+    fire->m_nTimeToBurn = CTimer::m_snTimeInMilliseconds + slot.descriptor.remainingLifetimeMs;
     fire->m_nNumGenerationsAllowed = m_localPlayerIsAuthority ? slot.descriptor.generationsAllowed : 0;
     fire->m_nRemovalDist = slot.descriptor.removalDistance;
     if (slot.originatedLocally && slot.scriptReferenceIndex >= 0)
         fire->m_nScriptReferenceIndex = slot.scriptReferenceIndex;
     RecordNativeIdentity(slot, *fire);
     return true;
+}
+
+void CNetworkFireManager::ClearPendingBirth(int nativeSlot, bool restoreNativeState)
+{
+    if (!IsNativeIndexValid(nativeSlot))
+        return;
+    PendingBirth& pending = m_pendingBirths[nativeSlot];
+    if (!pending.active)
+        return;
+    CFire& fire = gFireManager.m_aFires[nativeSlot];
+    if (restoreNativeState && fire.m_nFlags.bActive &&
+        pending.nativeBirthEpochToken == m_nativeBirthEpochs[nativeSlot])
+    {
+        fire.m_nNumGenerationsAllowed = pending.originalGenerationsAllowed;
+    }
+    pending = {};
+}
+
+void CNetworkFireManager::SendPendingBirthIntent(int nativeSlot, PendingBirth& pending)
+{
+    if (!pending.active || m_localPlayerIsAuthority || !CNetwork::m_bAuthenticated ||
+        !pending.descriptor.HasValidSemantics())
+    {
+        return;
+    }
+    FireStateIntent intent{};
+    // Followers reuse the existing intent shape. The server treats authoritySequence as a per-player request
+    // nonce and allocates the canonical slot/generation itself; this provisional id is never trusted.
+    intent.authoritySequence = pending.requestId;
+    intent.mutation = eFireMutation::UPSERT;
+    intent.id.slot = static_cast<uint8_t>(nativeSlot);
+    intent.id.generation = std::max(1u, pending.nativeBirthEpochToken);
+    intent.descriptor = pending.descriptor;
+    GetPacketFactory().Send(intent);
+    pending.lastSentAt = GetTickCount();
+    ++pending.attempts;
+}
+
+bool CNetworkFireManager::PendingMatchesDescriptor(
+    const PendingBirth& pending, const FireDescriptor& descriptor)
+{
+    const bool sameAttachment = pending.descriptor.attachmentType == descriptor.attachmentType &&
+        pending.descriptor.attachmentId == descriptor.attachmentId &&
+        pending.descriptor.area == descriptor.area;
+    const bool sameWorldBirth = descriptor.attachmentType == eFireAttachmentType::WORLD &&
+        DistanceSquared(pending.descriptor.fallbackPosition, descriptor.fallbackPosition) <=
+            FOLLOWER_WORLD_ADOPTION_DISTANCE * FOLLOWER_WORLD_ADOPTION_DISTANCE &&
+        std::fabs(pending.descriptor.strength - descriptor.strength) <= 0.5f;
+    return sameAttachment &&
+        (descriptor.attachmentType != eFireAttachmentType::WORLD || sameWorldBirth);
+}
+
+bool CNetworkFireManager::TryAdoptPendingBirth(Slot& slot, const FireDescriptor& descriptor)
+{
+    for (int nativeSlot = 0; nativeSlot < NATIVE_FIRE_CAPACITY; ++nativeSlot)
+    {
+        PendingBirth& pending = m_pendingBirths[nativeSlot];
+        if (!pending.active || pending.nativeBirthEpochToken != m_nativeBirthEpochs[nativeSlot])
+            continue;
+        CFire& fire = gFireManager.m_aFires[nativeSlot];
+        if (!fire.m_nFlags.bActive || m_nativeOwners[nativeSlot] != INVALID_NETWORK_SLOT)
+            continue;
+        if (!PendingMatchesDescriptor(pending, descriptor))
+            continue;
+
+        slot.nativeSlot = nativeSlot;
+        slot.originatedLocally = true;
+        slot.localOriginalCreatedByScript = fire.m_nFlags.bCreatedByScript;
+        slot.localOriginalGenerationsAllowed = pending.originalGenerationsAllowed;
+        slot.materializedByNetwork = false;
+        slot.materializedAttached = descriptor.attachmentType != eFireAttachmentType::WORLD;
+        slot.scriptReferenceIndex = pending.scriptReferenceIndex;
+        m_nativeOwners[nativeSlot] = slot.id.slot;
+        pending = {};
+
+        // Once accepted, the requester becomes a presentation peer too. Preserve the exact native object and
+        // script token, but suppress local spread/damage so the authority remains the only gameplay simulator.
+        fire.m_nFlags.bCreatedByScript = m_localPlayerIsAuthority ? descriptor.createdByScript : true;
+        fire.m_nNumGenerationsAllowed = m_localPlayerIsAuthority ? descriptor.generationsAllowed : 0;
+        fire.m_nTimeToBurn = CTimer::m_snTimeInMilliseconds + descriptor.remainingLifetimeMs;
+        RecordNativeIdentity(slot, fire);
+        return true;
+    }
+    return false;
 }
 
 void CNetworkFireManager::ProcessMaterializations()
@@ -621,7 +780,10 @@ void CNetworkFireManager::ObserveManagedSlot(int slotIndex, uint32_t now)
                 RemoveNative(slot, true);
                 return;
             }
-            fire.m_vecPosition = slot.descriptor.fallbackPosition;
+            // CFire::ProcessFire follows attached entities (including vehicle dummy offsets). Only world
+            // presentations use the canonical fallback position; overwriting attached fires pins stale FX.
+            if (slot.descriptor.attachmentType == eFireAttachmentType::WORLD)
+                fire.m_vecPosition = slot.descriptor.fallbackPosition;
             fire.m_fStrength = slot.descriptor.strength;
             fire.m_nRemovalDist = slot.descriptor.removalDistance;
             fire.m_nFlags.bMakesNoise = slot.descriptor.makesNoise;
@@ -666,12 +828,83 @@ void CNetworkFireManager::ObserveNativePool()
             continue;
         CFire& fire = gFireManager.m_aFires[nativeIndex];
         if (!fire.m_nFlags.bActive)
+        {
+            ClearPendingBirth(nativeIndex, false);
             continue;
+        }
         if (!m_localPlayerIsAuthority)
         {
-            ++m_remoteMutationDepth;
-            fire.Extinguish();
-            --m_remoteMutationDepth;
+            PendingBirth& pending = m_pendingBirths[nativeIndex];
+            if (pending.active)
+            {
+                const bool sameBirth = pending.nativeBirthEpochToken == m_nativeBirthEpochs[nativeIndex];
+                if (!sameBirth)
+                {
+                    pending = {};
+                    continue;
+                }
+                if (now - pending.firstSeenAt >= FOLLOWER_BIRTH_TIMEOUT_MS)
+                {
+                    if (pending.scriptCandidate)
+                    {
+                        // An unmatched SCM fire remains local so its script handle cannot become dangling,
+                        // but stays quarantined with zero spread and can still adopt a later host broadcast.
+                        pending.timedOut = true;
+                        continue;
+                    }
+                    ++m_remoteMutationDepth;
+                    fire.Extinguish();
+                    --m_remoteMutationDepth;
+                    pending = {};
+                }
+                else if (pending.attempts < FOLLOWER_BIRTH_MAX_ATTEMPTS &&
+                    now - pending.lastSentAt >= FOLLOWER_BIRTH_RETRY_MS)
+                {
+                    SendPendingBirthIntent(nativeIndex, pending);
+                }
+                continue;
+            }
+            FireDescriptor descriptor = CaptureDescriptor(fire);
+            if (!descriptor.HasValidSemantics())
+                continue;
+            pending.active = true;
+            pending.scriptCandidate = fire.m_nFlags.bCreatedByScript;
+            pending.originalGenerationsAllowed = m_nativeBirthEpochs[nativeIndex] != 0
+                ? m_nativeBirthOriginalGenerations[nativeIndex]
+                : fire.m_nNumGenerationsAllowed;
+            pending.scriptReferenceIndex = fire.m_nScriptReferenceIndex;
+            pending.requestId = NextRequestId();
+            pending.firstSeenAt = now;
+            pending.nativeBirthEpochToken = m_nativeBirthEpochs[nativeIndex];
+            pending.descriptor = descriptor;
+            pending.descriptor.generationsAllowed = static_cast<int8_t>(std::clamp<int>(
+                pending.originalGenerationsAllowed, 0, FIRE_MAX_GENERATIONS));
+            // Both request births and script adoption candidates are presentation-only on followers. Host SCM
+            // remains authoritative for spread while the original native object/script token stays intact.
+            fire.m_nNumGenerationsAllowed = 0;
+            bool adoptedExistingState = false;
+            for (Slot& canonicalSlot : m_slots)
+            {
+                if (!canonicalSlot.active || !PendingMatchesDescriptor(pending, canonicalSlot.descriptor))
+                    continue;
+                if (IsNativeIndexValid(canonicalSlot.nativeSlot))
+                {
+                    if (!canonicalSlot.materializedByNetwork || canonicalSlot.originatedLocally)
+                        continue;
+                    // Shared SCM may create the same world fire after its canonical presentation was replayed.
+                    // Retire only that presentation, then bind the exact script-owned native object/handle.
+                    RemoveNative(canonicalSlot, true);
+                }
+                if (TryAdoptPendingBirth(canonicalSlot, canonicalSlot.descriptor))
+                {
+                    adoptedExistingState = true;
+                    break;
+                }
+            }
+            if (!adoptedExistingState)
+                SendPendingBirthIntent(nativeIndex, pending);
+            if (++newIntents >= MAX_NEW_FIRE_INTENTS_PER_TICK)
+                break;
             continue;
         }
         const int slotIndex = FindFreeNetworkSlot();
@@ -687,6 +920,8 @@ void CNetworkFireManager::ObserveNativePool()
         slot.originatedLocally = true;
         slot.nativeSlot = nativeIndex;
         slot.materializedAttached = descriptor.attachmentType != eFireAttachmentType::WORLD;
+        slot.localOriginalCreatedByScript = fire.m_nFlags.bCreatedByScript;
+        slot.localOriginalGenerationsAllowed = fire.m_nNumGenerationsAllowed;
         slot.scriptReferenceIndex = fire.m_nScriptReferenceIndex;
         slot.id.slot = static_cast<uint8_t>(slotIndex);
         slot.id.generation = NextGeneration(slotIndex);
@@ -714,8 +949,10 @@ void CNetworkFireManager::Process()
             slot.pendingExtinguishAt = 0;
         }
     }
-    ProcessMaterializations();
     ObserveNativePool();
+    // Scan/adopt native births before replaying canonical state, so a state event racing a local Molotov or
+    // vehicle ignition cannot replace that native object or invalidate its script reference.
+    ProcessMaterializations();
 }
 
 void CNetworkFireManager::HandleExtinguishRequest(const FireExtinguishRequest& request)

@@ -35,7 +35,9 @@ private:
         bool pendingExtinguishRequest = false;
         bool forceExtinguishPublish = false;
         bool originatedLocally = false;
+        bool localOriginalCreatedByScript = false;
         int nativeSlot = INVALID_NATIVE_SLOT;
+        int8_t localOriginalGenerationsAllowed = 0;
         int16_t scriptReferenceIndex = -1;
         int16_t nativeScriptReferenceToken = -1;
         uint32_t nativeDeadlineToken = 0;
@@ -52,11 +54,31 @@ private:
         Packets::Fires::FireDescriptor lastPublishedDescriptor{};
     };
 
+    struct PendingBirth
+    {
+        bool active = false;
+        bool scriptCandidate = false;
+        bool timedOut = false;
+        uint8_t attempts = 0;
+        int8_t originalGenerationsAllowed = 0;
+        int16_t scriptReferenceIndex = -1;
+        uint32_t requestId = 0;
+        uint32_t firstSeenAt = 0;
+        uint32_t lastSentAt = 0;
+        uint32_t nativeBirthEpochToken = 0;
+        Packets::Fires::FireDescriptor descriptor{};
+    };
+
     static void EnsureInitialized();
     static void ProcessMaterializations();
     static void ObserveNativePool();
     static void ObserveManagedSlot(int slotIndex, uint32_t now);
     static bool Materialize(Slot& slot);
+    static bool PendingMatchesDescriptor(const PendingBirth& pending,
+        const Packets::Fires::FireDescriptor& descriptor);
+    static bool TryAdoptPendingBirth(Slot& slot, const Packets::Fires::FireDescriptor& descriptor);
+    static void ClearPendingBirth(int nativeSlot, bool restoreNativeState);
+    static void SendPendingBirthIntent(int nativeSlot, PendingBirth& pending);
     static void RemoveNative(Slot& slot, bool extinguish);
     static void RecordNativeIdentity(Slot& slot, const CFire& fire);
     static bool NativeIdentityMatches(const Slot& slot, const CFire& fire);
@@ -82,7 +104,9 @@ private:
     static std::array<Slot, Packets::Fires::FIRE_SLOT_CAPACITY> m_slots;
     static std::array<int, NATIVE_FIRE_CAPACITY> m_nativeOwners;
     static std::array<uint32_t, NATIVE_FIRE_CAPACITY> m_nativeBirthEpochs;
+    static std::array<int8_t, NATIVE_FIRE_CAPACITY> m_nativeBirthOriginalGenerations;
     static std::array<bool, NATIVE_FIRE_CAPACITY> m_nativeBirthBaselineActive;
+    static std::array<PendingBirth, NATIVE_FIRE_CAPACITY> m_pendingBirths;
     static std::array<uint32_t, Packets::Fires::FIRE_SLOT_CAPACITY> m_generations;
     static int m_pendingNativeBirthSlot;
 };

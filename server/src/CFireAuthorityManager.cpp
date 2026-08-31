@@ -7,7 +7,6 @@
 #include "CNetworkPlayerManager.h"
 #include "CNetworkVehicleManager.h"
 #include "CPacketFactory.h"
-#include "logger.h"
 #include "network/packets/fires.h"
 
 #include <array>
@@ -21,9 +20,15 @@ namespace
 using namespace Packets::Fires;
 
 constexpr uint32_t HOST_MUTATION_RATE_LIMIT = 96;
+constexpr uint32_t FOLLOWER_CREATION_RATE_LIMIT = 4;
 constexpr uint32_t EXTINGUISH_REQUEST_RATE_LIMIT = 12;
 constexpr uint64_t RATE_WINDOW_MS = 1000;
 constexpr uint64_t PLAYER_OBSERVATION_FRESHNESS_MS = 1500;
+constexpr float FOLLOWER_CREATION_MAX_DISTANCE = 30.0f;
+constexpr float FOLLOWER_CREATION_MAX_STRENGTH = 3.0f;
+constexpr uint32_t FOLLOWER_CREATION_MAX_LIFETIME_MS = 30000;
+constexpr int8_t FOLLOWER_CREATION_MAX_GENERATIONS = 5;
+constexpr uint8_t FOLLOWER_ACTIVE_FIRE_LIMIT = 8;
 
 struct CanonicalFire
 {
@@ -33,6 +38,8 @@ struct CanonicalFire
     FireDescriptor descriptor{};
     uint32_t revision = 0;
     uint64_t expiresAtMs = 0;
+    uint8_t originPlayerId = FIRE_INVALID_PLAYER_ID;
+    uint32_t originRequestId = 0;
 };
 
 struct RateWindow
@@ -50,10 +57,18 @@ struct PlayerObservation
     uint64_t receivedAtMs = 0;
 };
 
+struct FollowerRequestRecord
+{
+    uint32_t lastRequestId = 0;
+    FireId assignedId{};
+};
+
 std::array<CanonicalFire, FIRE_SLOT_CAPACITY> g_fires{};
 std::array<RateWindow, Config::MAX_SERVER_PLAYERS> g_mutationRates{};
+std::array<RateWindow, Config::MAX_SERVER_PLAYERS> g_followerCreationRates{};
 std::array<RateWindow, Config::MAX_SERVER_PLAYERS> g_extinguishRates{};
 std::array<PlayerObservation, Config::MAX_SERVER_PLAYERS> g_playerObservations{};
+std::array<FollowerRequestRecord, Config::MAX_SERVER_PLAYERS> g_followerRequests{};
 uint64_t g_serverRunId = 0;
 uint32_t g_revision = 0;
 uint32_t g_lastAuthoritySequence = 0;
@@ -182,6 +197,15 @@ void Broadcast(const CanonicalFire& fire)
         GetPacketFactory().SendToAll(event);
 }
 
+void SendState(const CanonicalFire& fire, CNetworkPlayer* player)
+{
+    if (player == nullptr || g_authorityPlayerId >= Config::MAX_SERVER_PLAYERS)
+        return;
+    FireStateEvent event = BuildStateEvent(fire);
+    if (event.HasValidPayload() && event.FitsSerializedBudget())
+        GetPacketFactory().Send(event, player);
+}
+
 void Publish(CanonicalFire& fire, bool active)
 {
     fire.active = active;
@@ -197,18 +221,219 @@ bool HasValidGenerationTransition(const CanonicalFire& fire, const FireId& incom
         return true;
     return IsFireSerialNewer(incoming.generation, fire.id.generation);
 }
+
+bool IsFollowerFireWeapon(const CNetworkPlayer& player)
+{
+    return player.m_eLastWeaponType == WEAPON_MOLOTOV || player.m_eLastWeaponType == WEAPON_FTHROWER;
+}
+
+bool ValidateFollowerCreation(CNetworkPlayer* player, const FireDescriptor& requested,
+    FireDescriptor& canonical)
+{
+    if (player == nullptr || requested.createdByScript || requested.strength > FOLLOWER_CREATION_MAX_STRENGTH)
+        return false;
+
+    CVector requesterPosition{};
+    uint8_t requesterArea = AREA_MAIN_MAP;
+    if (!ResolveFreshPlayerObservation(player, requesterPosition, requesterArea) ||
+        requested.area != requesterArea)
+    {
+        return false;
+    }
+
+    canonical = requested;
+    canonical.createdByScript = false;
+    canonical.strength = std::clamp(canonical.strength, 0.0f, FOLLOWER_CREATION_MAX_STRENGTH);
+    canonical.remainingLifetimeMs = std::min(canonical.remainingLifetimeMs, FOLLOWER_CREATION_MAX_LIFETIME_MS);
+    canonical.generationsAllowed = std::min(canonical.generationsAllowed, FOLLOWER_CREATION_MAX_GENERATIONS);
+    canonical.removalDistance = std::min<uint8_t>(canonical.removalDistance, 120);
+    canonical.area = requesterArea;
+
+    CVector attachmentPosition = canonical.fallbackPosition;
+    switch (canonical.attachmentType)
+    {
+    case eFireAttachmentType::WORLD:
+        if (!IsFollowerFireWeapon(*player))
+            return false;
+        break;
+    case eFireAttachmentType::PLAYER:
+        if (canonical.attachmentId != player->m_iPlayerId)
+            return false;
+        attachmentPosition = requesterPosition;
+        canonical.fallbackPosition = attachmentPosition;
+        break;
+    case eFireAttachmentType::PED:
+    {
+        CNetworkPed* ped = CNetworkPedManager::GetPed(canonical.attachmentId);
+        if (ped == nullptr || ped->m_pSyncer != player || !IsFollowerFireWeapon(*player))
+            return false;
+        attachmentPosition = ped->m_vecPos;
+        canonical.fallbackPosition = attachmentPosition;
+        break;
+    }
+    case eFireAttachmentType::VEHICLE:
+    {
+        CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(canonical.attachmentId);
+        const bool exactOccupant = vehicle != nullptr && player->m_nVehicleId == canonical.attachmentId &&
+            player->m_nSeatId >= 0 && player->m_nSeatId < 8 &&
+            vehicle->m_pPlayers[player->m_nSeatId] == player;
+        const bool authoritativeSyncer = vehicle != nullptr && vehicle->m_pSyncer == player;
+        if (!exactOccupant && !authoritativeSyncer)
+            return false;
+        attachmentPosition = vehicle->m_vecPosition;
+        canonical.fallbackPosition = attachmentPosition;
+        break;
+    }
+    default:
+        return false;
+    }
+
+    return DistanceSquared(requesterPosition, attachmentPosition) <=
+        FOLLOWER_CREATION_MAX_DISTANCE * FOLLOWER_CREATION_MAX_DISTANCE;
+}
+
+CanonicalFire* FindActiveAttachment(const FireDescriptor& descriptor)
+{
+    if (descriptor.attachmentType == eFireAttachmentType::WORLD)
+        return nullptr;
+    for (CanonicalFire& fire : g_fires)
+    {
+        if (fire.active && fire.descriptor.attachmentType == descriptor.attachmentType &&
+            fire.descriptor.attachmentId == descriptor.attachmentId && fire.descriptor.area == descriptor.area)
+        {
+            return &fire;
+        }
+    }
+    return nullptr;
+}
+
+CanonicalFire* FindMatchingAuthoritativeScript(const FireDescriptor& requested)
+{
+    for (CanonicalFire& fire : g_fires)
+    {
+        if (!fire.active || !fire.descriptor.createdByScript ||
+            fire.descriptor.area != requested.area ||
+            fire.descriptor.attachmentType != requested.attachmentType ||
+            fire.descriptor.attachmentId != requested.attachmentId ||
+            std::fabs(fire.descriptor.strength - requested.strength) > 0.5f)
+        {
+            continue;
+        }
+        if (requested.attachmentType != eFireAttachmentType::WORLD ||
+            DistanceSquared(fire.descriptor.fallbackPosition, requested.fallbackPosition) <= 1.0f)
+        {
+            return &fire;
+        }
+    }
+    return nullptr;
+}
+
+CanonicalFire* FindFire(const FireId& id)
+{
+    if (!id.IsValid())
+        return nullptr;
+    CanonicalFire& fire = g_fires[id.slot];
+    return fire.initialized && fire.id == id ? &fire : nullptr;
+}
+
+CanonicalFire* AllocateFollowerFire(uint8_t playerId, uint32_t requestId,
+    const FireDescriptor& descriptor)
+{
+    uint8_t activeForPlayer = 0;
+    for (const CanonicalFire& fire : g_fires)
+    {
+        if (fire.active && fire.originPlayerId == playerId && ++activeForPlayer >= FOLLOWER_ACTIVE_FIRE_LIMIT)
+            return nullptr;
+    }
+    for (uint8_t slot = 0; slot < FIRE_SLOT_CAPACITY; ++slot)
+    {
+        CanonicalFire& fire = g_fires[slot];
+        if (fire.active)
+            continue;
+        uint32_t generation = fire.initialized ? fire.id.generation + 1u : 1u;
+        if (generation == 0)
+            generation = 1;
+        fire = {};
+        fire.initialized = true;
+        fire.id = {slot, generation};
+        fire.descriptor = descriptor;
+        fire.expiresAtMs = NowMs() + descriptor.remainingLifetimeMs;
+        fire.originPlayerId = playerId;
+        fire.originRequestId = requestId;
+        return &fire;
+    }
+    return nullptr;
+}
+
+void HandleFollowerCreation(CNetworkPlayer* player, const FireStateIntent& intent)
+{
+    if (player == nullptr || player->m_iPlayerId < 0 || player->m_iPlayerId >= Config::MAX_SERVER_PLAYERS ||
+        intent.mutation != eFireMutation::UPSERT)
+    {
+        return;
+    }
+    FollowerRequestRecord& request = g_followerRequests[player->m_iPlayerId];
+    if (request.lastRequestId == intent.authoritySequence)
+    {
+        if (CanonicalFire* assigned = FindFire(request.assignedId))
+            SendState(*assigned, player);
+        return;
+    }
+    if (request.lastRequestId != 0 && !IsFireSerialNewer(intent.authoritySequence, request.lastRequestId))
+        return;
+    if (!ConsumeRate(g_followerCreationRates[player->m_iPlayerId], FOLLOWER_CREATION_RATE_LIMIT))
+        return;
+
+    if (intent.descriptor.createdByScript)
+    {
+        // Followers may only bind their local SCM handle to a script fire that the host already made
+        // canonical. The descriptor is a lookup key; it can never allocate or mutate authoritative state.
+        CanonicalFire* scriptFire = FindMatchingAuthoritativeScript(intent.descriptor);
+        if (scriptFire == nullptr)
+            return;
+        request.lastRequestId = intent.authoritySequence;
+        request.assignedId = scriptFire->id;
+        SendState(*scriptFire, player);
+        return;
+    }
+
+    FireDescriptor descriptor{};
+    if (!ValidateFollowerCreation(player, intent.descriptor, descriptor))
+        return;
+
+    CanonicalFire* fire = FindActiveAttachment(descriptor);
+    if (fire == nullptr)
+    {
+        fire = AllocateFollowerFire(static_cast<uint8_t>(player->m_iPlayerId),
+            intent.authoritySequence, descriptor);
+        if (fire == nullptr)
+            return;
+        Publish(*fire, true);
+    }
+    else
+    {
+        // GTA supports a single native fire pointer per attached entity. Reuse the existing canonical fire
+        // rather than creating a second slot that would replace its target reference on every client.
+        SendState(*fire, player);
+    }
+    request.lastRequestId = intent.authoritySequence;
+    request.assignedId = fire->id;
+}
 }  // namespace
 
 void CFireAuthorityManager::HandleStateIntent(CNetworkPlayer* player, const FireStateIntent& intent)
 {
     EnsureRunId();
     CNetworkPlayer* host = CNetworkPlayerManager::GetHost();
-    if (player == nullptr || player != host || !player->m_bIsHost ||
-        player->m_iPlayerId != g_authorityPlayerId || !intent.HasValidPayload())
+    if (player == nullptr || !intent.HasValidPayload())
+        return;
+    if (player != host || !player->m_bIsHost || player->m_iPlayerId != g_authorityPlayerId)
     {
-        logger::warn("Rejected a fire mutation without current host authority");
+        HandleFollowerCreation(player, intent);
         return;
     }
+    if (player->m_iPlayerId < 0 || player->m_iPlayerId >= Config::MAX_SERVER_PLAYERS)
+        return;
     if (!ConsumeRate(g_mutationRates[player->m_iPlayerId], HOST_MUTATION_RATE_LIMIT))
         return;
     if (g_lastAuthoritySequence != 0 &&
@@ -279,8 +504,10 @@ void CFireAuthorityManager::HandlePlayerDisconnected(CNetworkPlayer* player)
     if (player == nullptr || player->m_iPlayerId < 0 || player->m_iPlayerId >= Config::MAX_SERVER_PLAYERS)
         return;
     g_mutationRates[player->m_iPlayerId] = {};
+    g_followerCreationRates[player->m_iPlayerId] = {};
     g_extinguishRates[player->m_iPlayerId] = {};
     g_playerObservations[player->m_iPlayerId] = {};
+    g_followerRequests[player->m_iPlayerId] = {};
     for (CanonicalFire& fire : g_fires)
     {
         if (!fire.active || fire.descriptor.attachmentType != eFireAttachmentType::PLAYER ||

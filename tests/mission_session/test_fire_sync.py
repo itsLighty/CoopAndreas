@@ -211,6 +211,161 @@ class FireAuthorityModelTests(unittest.TestCase):
         self.assertGreater(replacement_id.generation, old_id.generation)
 
 
+class FollowerCreationModel:
+    """Executable model for follower request allocation, validation, and adoption identity."""
+
+    CAPACITY = 2
+    MAX_DISTANCE = 30.0
+
+    def __init__(self):
+        self.generations = [0] * self.CAPACITY
+        self.active: dict[int, tuple[FireId, int, int, tuple[str, int | None]]] = {}
+        self.last_request: dict[int, tuple[int, FireId]] = {}
+        self.authoritative_scripts: dict[tuple, FireId] = {}
+
+    def add_host_script(self, *, fire_position=(0.0, 0.0, 0.0), fire_area=0, attachment=("world", None)):
+        slot = next(slot for slot in range(self.CAPACITY) if slot not in self.active)
+        self.generations[slot] += 1
+        fire_id = FireId(slot, self.generations[slot])
+        self.active[slot] = (fire_id, 0, 0, attachment)
+        self.authoritative_scripts[(fire_position, fire_area, attachment)] = fire_id
+        return fire_id
+
+    def request(
+        self,
+        *,
+        player: int,
+        request_id: int,
+        player_position=(0.0, 0.0, 0.0),
+        player_area=0,
+        fire_position=(0.0, 0.0, 0.0),
+        fire_area=0,
+        attachment=("world", None),
+        weapon="molotov",
+        vehicle=None,
+        vehicle_syncer=None,
+        ped_syncer=None,
+        created_by_script=False,
+    ):
+        previous = self.last_request.get(player)
+        if previous and previous[0] == request_id:
+            return previous[1]
+        if previous and request_id <= previous[0]:
+            return None
+        if created_by_script:
+            matched = self.authoritative_scripts.get((fire_position, fire_area, attachment))
+            if matched is not None:
+                self.last_request[player] = (request_id, matched)
+            return matched
+        if fire_area != player_area:
+            return None
+        if sum((a - b) ** 2 for a, b in zip(player_position, fire_position)) > self.MAX_DISTANCE**2:
+            return None
+        kind, target = attachment
+        if kind == "world" and weapon not in {"molotov", "flamethrower"}:
+            return None
+        if kind == "player" and target != player:
+            return None
+        if kind == "vehicle" and target != vehicle and player != vehicle_syncer:
+            return None
+        if kind == "ped" and (target is None or ped_syncer != player or weapon not in {"molotov", "flamethrower"}):
+            return None
+
+        for _, (_, _, _, existing_attachment) in self.active.items():
+            if kind != "world" and existing_attachment == attachment:
+                fire_id = next(value[0] for value in self.active.values() if value[3] == attachment)
+                self.last_request[player] = (request_id, fire_id)
+                return fire_id
+        for slot in range(self.CAPACITY):
+            if slot in self.active:
+                continue
+            self.generations[slot] += 1
+            fire_id = FireId(slot, self.generations[slot])
+            self.active[slot] = (fire_id, player, request_id, attachment)
+            self.last_request[player] = (request_id, fire_id)
+            return fire_id
+        return None
+
+    def extinguish(self, fire_id):
+        if fire_id.slot in self.active and self.active[fire_id.slot][0] == fire_id:
+            del self.active[fire_id.slot]
+
+
+class FollowerCreationModelTests(unittest.TestCase):
+    def test_molotov_and_flamethrower_requests_allocate_once_and_deduplicate(self):
+        model = FollowerCreationModel()
+        molotov = model.request(player=2, request_id=10, fire_position=(5, 0, 0), weapon="molotov")
+        self.assertIsNotNone(molotov)
+        self.assertEqual(
+            model.request(player=2, request_id=10, fire_position=(99, 0, 0), weapon="pistol"),
+            molotov,
+        )
+        flame = model.request(
+            player=3,
+            request_id=1,
+            attachment=("ped", 14),
+            ped_syncer=3,
+            weapon="flamethrower",
+        )
+        self.assertIsNotNone(flame)
+
+    def test_vehicle_birth_requires_the_requesters_authoritative_vehicle(self):
+        model = FollowerCreationModel()
+        self.assertIsNone(
+            model.request(player=1, request_id=1, attachment=("vehicle", 9), vehicle=7)
+        )
+        accepted = model.request(player=1, request_id=2, attachment=("vehicle", 7), vehicle=7)
+        self.assertIsNotNone(accepted)
+        self.assertEqual(
+            model.request(player=4, request_id=1, attachment=("vehicle", 7), vehicle=7),
+            accepted,
+        )
+        synced_empty_vehicle = FollowerCreationModel().request(
+            player=3,
+            request_id=1,
+            attachment=("vehicle", 11),
+            vehicle_syncer=3,
+        )
+        self.assertIsNotNone(synced_empty_vehicle)
+
+    def test_malicious_script_distance_area_and_attachment_claims_are_rejected(self):
+        cases = (
+            dict(created_by_script=True),
+            dict(fire_position=(31, 0, 0)),
+            dict(fire_area=2),
+            dict(attachment=("player", 5)),
+            dict(attachment=("world", None), weapon="pistol"),
+            dict(attachment=("ped", 8), ped_syncer=9),
+        )
+        for index, kwargs in enumerate(cases, start=1):
+            with self.subTest(kwargs=kwargs):
+                self.assertIsNone(FollowerCreationModel().request(player=1, request_id=index, **kwargs))
+
+    def test_server_owned_slot_reuse_advances_generation(self):
+        model = FollowerCreationModel()
+        first = model.request(player=1, request_id=1)
+        self.assertIsNotNone(first)
+        model.extinguish(first)
+        replacement = model.request(player=1, request_id=2)
+        self.assertEqual(replacement.slot, first.slot)
+        self.assertGreater(replacement.generation, first.generation)
+
+    def test_script_candidate_can_only_adopt_an_existing_host_canonical_fire(self):
+        model = FollowerCreationModel()
+        self.assertIsNone(model.request(player=2, request_id=1, created_by_script=True))
+        canonical = model.add_host_script(fire_position=(12, 5, 0), fire_area=3)
+        adopted = model.request(
+            player=2,
+            request_id=2,
+            fire_position=(12, 5, 0),
+            fire_area=3,
+            player_area=3,
+            created_by_script=True,
+        )
+        self.assertEqual(adopted, canonical)
+        self.assertEqual(len(model.active), 1)
+
+
 class FireSourceContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -347,6 +502,85 @@ class FireSourceContractTests(unittest.TestCase):
         self.assertIn("if (!m_localPlayerIsAuthority)", self.client)
         self.assertIn("fire.Extinguish();", self.client)
 
+    def test_remote_attached_replay_uses_the_native_script_path_without_null_creator(self):
+        materialize = self.client.split("bool CNetworkFireManager::Materialize", 1)[1]
+        materialize = materialize.split("void CNetworkFireManager::ClearPendingBirth", 1)[0]
+        self.assertIn("StartScriptFire", materialize)
+        self.assertNotRegex(materialize, r"StartFire\s*\(\s*target\s*,\s*nullptr")
+        self.assertIn("m_pEntityTarget == target", materialize)
+        self.assertIn("replayScriptHandle & 0xFFFF", materialize)
+        self.assertIn("m_nScriptReferenceIndex == scriptToken", materialize)
+        self.assertIn("birthEpochsBefore[nativeIndex] != m_nativeBirthEpochs[nativeIndex]", materialize)
+        self.assertIn("fire->m_nTimeToBurn = CTimer::m_snTimeInMilliseconds", materialize)
+        self.assertIn("crime reporting", materialize)
+
+    def test_follower_births_are_requested_adopted_and_timed_out_without_wire_changes(self):
+        observe = self.client.split("void CNetworkFireManager::ObserveNativePool", 1)[1]
+        observe = observe.split("void CNetworkFireManager::Process()", 1)[0]
+        self.assertIn("PendingBirth& pending", observe)
+        self.assertIn("SendPendingBirthIntent", observe)
+        self.assertIn("FOLLOWER_BIRTH_TIMEOUT_MS", observe)
+        self.assertIn("fire.m_nFlags.bCreatedByScript", observe)
+        self.assertIn("continue;", observe)
+        adoption = self.client.split("bool CNetworkFireManager::TryAdoptPendingBirth", 1)[1]
+        adoption = adoption.split("void CNetworkFireManager::ProcessMaterializations", 1)[0]
+        self.assertIn("slot.nativeSlot = nativeSlot", adoption)
+        self.assertIn("slot.scriptReferenceIndex = pending.scriptReferenceIndex", adoption)
+        self.assertIn("m_nativeOwners[nativeSlot] = slot.id.slot", adoption)
+        self.assertIn("localOriginalGenerationsAllowed", adoption)
+        send = self.client.split("void CNetworkFireManager::SendPendingBirthIntent", 1)[1]
+        send = send.split("bool CNetworkFireManager::TryAdoptPendingBirth", 1)[0]
+        self.assertIn("FireStateIntent", send)
+        self.assertIn("intent.authoritySequence = pending.requestId", send)
+        self.assertIn("scriptCandidate", self.client_header)
+        self.assertIn("An unmatched SCM fire remains local", self.client)
+        self.assertIn("PendingMatchesDescriptor(pending, canonicalSlot.descriptor)", observe)
+        self.assertIn("RemoveNative(canonicalSlot, true)", observe)
+        birth = self.client.split("void CNetworkFireManager::EndNativeBirthObservation", 1)[1]
+        birth = birth.split("void CNetworkFireManager::RemoveNative", 1)[0]
+        self.assertIn("m_nativeBirthOriginalGenerations", birth)
+        self.assertIn("fire.m_nNumGenerationsAllowed = 0", birth)
+        self.assertIn("CNetwork::m_bAuthenticated", birth)
+        self.assertIn("pending.descriptor.generationsAllowed", observe)
+
+    def test_server_allocates_follower_ids_and_rejects_spoofed_births(self):
+        follower = self.server.split("void HandleFollowerCreation", 1)[1]
+        follower = follower.split("}  // namespace", 1)[0]
+        self.assertIn("ValidateFollowerCreation", follower)
+        self.assertIn("AllocateFollowerFire", follower)
+        self.assertNotIn("intent.id.slot", follower)
+        self.assertIn("g_followerRequests", self.server)
+        self.assertIn("FOLLOWER_CREATION_RATE_LIMIT", self.server)
+        self.assertIn("FOLLOWER_ACTIVE_FIRE_LIMIT", self.server)
+        validation = self.server.split("bool ValidateFollowerCreation", 1)[1]
+        validation = validation.split("CanonicalFire* FindActiveAttachment", 1)[0]
+        self.assertIn("requested.createdByScript", validation)
+        self.assertIn("ResolveFreshPlayerObservation", validation)
+        self.assertIn("requested.area != requesterArea", validation)
+        self.assertIn("WEAPON_MOLOTOV", self.server)
+        self.assertIn("WEAPON_FTHROWER", self.server)
+        self.assertIn("ped->m_pSyncer != player", validation)
+        self.assertIn("player->m_nVehicleId == canonical.attachmentId", validation)
+        self.assertIn("vehicle->m_pPlayers[player->m_nSeatId] == player", validation)
+        self.assertIn("vehicle->m_pSyncer == player", validation)
+        script_match = self.server.split("CanonicalFire* FindMatchingAuthoritativeScript", 1)[1]
+        script_match = script_match.split("CanonicalFire* FindFire", 1)[0]
+        self.assertIn("fire.descriptor.createdByScript", script_match)
+        follower = self.server.split("void HandleFollowerCreation", 1)[1]
+        follower = follower.split("}  // namespace", 1)[0]
+        script_branch = follower.split("if (intent.descriptor.createdByScript)", 1)[1]
+        script_branch = script_branch.split("FireDescriptor descriptor", 1)[0]
+        self.assertIn("FindMatchingAuthoritativeScript", script_branch)
+        self.assertNotIn("AllocateFollowerFire", script_branch)
+
+    def test_attached_follower_fire_keeps_native_target_motion(self):
+        managed = self.client.split("void CNetworkFireManager::ObserveManagedSlot", 1)[1]
+        managed = managed.split("void CNetworkFireManager::ObserveNativePool", 1)[0]
+        position_write = "fire.m_vecPosition = slot.descriptor.fallbackPosition"
+        self.assertEqual(managed.count(position_write), 1)
+        guard = managed.split(position_write, 1)[0].rsplit("if", 1)[1]
+        self.assertIn("eFireAttachmentType::WORLD", guard)
+
     def test_offline_native_behavior_and_story_fire_handles_are_preserved(self):
         process = self.client.split("void CNetworkFireManager::Process()", 1)[1]
         self.assertIn("if (!CNetwork::m_bAuthenticated)", process)
@@ -355,6 +589,19 @@ class FireSourceContractTests(unittest.TestCase):
         reset = reset.split("void CNetworkFireManager::HandleAuthorityChanged", 1)[0]
         self.assertIn("if (slot.materializedByNetwork && !slot.originatedLocally)", reset)
         self.assertIn("m_nFlags.bCreatedByScript", self.client)
+        follower_scan = self.client.split("void CNetworkFireManager::ObserveNativePool", 1)[1]
+        self.assertIn("pending.scriptCandidate = fire.m_nFlags.bCreatedByScript", follower_scan)
+        script_timeout = follower_scan.split("if (pending.scriptCandidate)", 1)[1]
+        script_timeout = script_timeout.split("++m_remoteMutationDepth", 1)[0]
+        self.assertNotIn("fire.Extinguish()", script_timeout)
+        self.assertIn("slot.scriptReferenceIndex = pending.scriptReferenceIndex", self.client)
+        reset = self.client.split("void CNetworkFireManager::ResetNetworkState()", 1)[1]
+        reset = reset.split("void CNetworkFireManager::HandleAuthorityChanged", 1)[0]
+        self.assertIn("localOriginalCreatedByScript", reset)
+        self.assertIn("localOriginalGenerationsAllowed", reset)
+        remove = self.client.split("void CNetworkFireManager::RemoveNative", 1)[1]
+        remove = remove.split("void CNetworkFireManager::RecordNativeIdentity", 1)[0]
+        self.assertIn("fire.m_nFlags.bCreatedByScript = false", remove)
 
     def test_hook_reset_authority_and_handlers_are_integrated(self):
         hook_init = (ROOT / "client/src/Hooks/CHook.cpp").read_text(encoding="utf-8")
