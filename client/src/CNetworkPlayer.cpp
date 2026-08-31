@@ -15,12 +15,6 @@
 namespace
 {
 constexpr float PLAYER_TELEPORT_DISTANCE = 30.0f;
-constexpr uint32_t CLOTHES_REBUILD_READY_DELAY_MS = 500;
-
-bool HasReachedTick(uint32_t now, uint32_t deadline)
-{
-    return static_cast<int32_t>(now - deadline) >= 0;
-}
 
 CNetworkTransformSnapshot MakePlayerOnFootTransform(
     const Packets::Players::OnFootUpdate& snapshot, int playerId, uint8_t area)
@@ -268,8 +262,6 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
     // set player immunies, he doesn't care about the pain now
     Command<Commands::SET_CHAR_PROOFS>(actorId, 0, 1, 1, 0, 0);
 
-    QueueClothesRebuild();
-
     // THIS IS AN EXPERIMENTAL SOLUTION FOR THE 0x4D68BA CRASH
     m_pPed->m_bStreamingDontDelete = true;
     m_pPed->m_nAreaCode = m_nLogicalArea;
@@ -282,40 +274,6 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
     ApplySyncedAnimation();
     ApplySyncedParachute();
     m_nLastPresentationChangeAt = GetTickCount();
-}
-
-void CNetworkPlayer::QueueClothesRebuild()
-{
-    m_bNeedsClothesRebuild = true;
-    m_nClothesRebuildReadyAt = GetTickCount() + CLOTHES_REBUILD_READY_DELAY_MS;
-}
-
-bool CNetworkPlayer::TryRebuildClothes()
-{
-    if (!m_bNeedsClothesRebuild)
-        return true;
-    if (!HasReachedTick(GetTickCount(), m_nClothesRebuildReadyAt) || !m_pPed || !m_pPed->IsVTableValid() ||
-        !m_pPed->m_pPlayerData || !m_pPed->m_pPlayerData->m_pPedClothesDesc || !m_pPed->m_pRwClump ||
-        m_pPed->m_pVehicle || m_pPed->m_nPedFlags.bInVehicle || !CTxdStore::ms_pTxdPool)
-        return false;
-
-    const int modelId = m_pPed->m_nModelIndex;
-    if (modelId < 0 || modelId > MODEL_UTILTR1 ||
-        CStreaming::ms_aInfoForModel[modelId].m_nLoadState != LOADSTATE_LOADED)
-        return false;
-    CBaseModelInfo* modelInfo = CModelInfo::ms_modelInfoPtrs[modelId];
-    if (!modelInfo || !modelInfo->m_pRwObject)
-        return false;
-
-    const int playerTxd = CTxdStore::FindTxdSlot("player");
-    TxdDef* txd = playerTxd >= 0 ? CTxdStore::ms_pTxdPool->GetAt(playerTxd) : nullptr;
-    if (!txd || !txd->m_pRwDictionary)
-        return false;
-
-    *m_pPed->m_pPlayerData->m_pPedClothesDesc = m_pPedClothesDesc;
-    CClothes::RebuildPlayer(m_pPed, true);
-    m_bNeedsClothesRebuild = false;
-    return true;
 }
 
 void CNetworkPlayer::DestroyPed()
@@ -567,7 +525,6 @@ void CNetworkPlayer::ProcessPendingPresentation()
 {
     if (!m_pPed)
         return;
-    TryRebuildClothes();
     ReconcilePendingVehiclePresentation();
     ApplyPendingTaskOnce();
     CEntryExitTransitionSync::ReplayPending(this);

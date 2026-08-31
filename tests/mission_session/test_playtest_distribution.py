@@ -11,6 +11,7 @@ class PlaytestDistributionTests(unittest.TestCase):
         cls.updater = (ROOT / "playtest_launcher/src/main.cpp").read_text(encoding="utf-8")
         cls.resources = (ROOT / "playtest_launcher/assets.rc").read_text(encoding="utf-8")
         cls.launcher = (ROOT / "launcher/src/main.cpp").read_text(encoding="utf-8")
+        cls.launcher_impl = (ROOT / "launcher/src/launcher.h").read_text(encoding="utf-8")
         cls.client_launch = (ROOT / "client/src/CLaunchManager.cpp").read_text(encoding="utf-8")
         cls.workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         cls.stage = (ROOT / "scripts/stage-playtest.ps1").read_text(encoding="utf-8")
@@ -20,10 +21,16 @@ class PlaytestDistributionTests(unittest.TestCase):
         cls.xmake = (ROOT / "xmake.lua").read_text(encoding="utf-8")
 
     def test_launcher_and_client_are_key_free(self):
-        combined = self.launcher + self.client_launch
+        combined = self.launcher + self.launcher_impl + self.client_launch
         self.assertNotIn("-serial", combined)
         self.assertNotIn("Encrypt(", combined)
         self.assertIn('"\\\"gta_sa.exe\\\" --coop"', self.launcher)
+
+    def test_launcher_always_uses_its_own_directory_as_the_game_directory(self):
+        self.assertIn("GetModuleFileNameA", self.launcher_impl)
+        self.assertIn('launcherDirectory + "\\\\gta_sa.exe"', self.launcher_impl)
+        self.assertIn("executablePath.c_str()", self.launcher_impl)
+        self.assertIn("launcherDirectory.c_str()", self.launcher_impl)
 
     def test_updater_uses_one_versioned_package_from_fixed_rolling_release(self):
         self.assertIn(

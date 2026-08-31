@@ -8,7 +8,7 @@
 
 static uint8_t packetBuffer[10 * 1024];
 
-static void BuildPacketStream(Packet& packet, serialize::WriteStream& writeStream, ePacketChannel& outPacketChannel,
+static bool BuildPacketStream(Packet& packet, serialize::WriteStream& writeStream, ePacketChannel& outPacketChannel,
     ePacketReliability& outPacketReliability)
 {
     memset(packetBuffer, 0, sizeof(packetBuffer));  // is this necessary?
@@ -29,13 +29,15 @@ static void BuildPacketStream(Packet& packet, serialize::WriteStream& writeStrea
 
     if (!packet.SerializeWrite(writeStream))
     {
-        logger::warn("SerializeWrite (packet type #%d) returned false", packetType);
-        return;
+        logger::warn("SerializeWrite (%s, packet type #%d) returned false",
+            ePacketType_ToString(packet.GetType()), packetType);
+        return false;
     }
     writeStream.Flush();
 
     outPacketChannel = packet.GetChannel();
     outPacketReliability = GetChannelReliability(outPacketChannel);
+    return true;
 }
 
 void CPacketFactory::Send(Packet& packet, CNetworkPlayer* pNetworkPlayer)
@@ -43,7 +45,10 @@ void CPacketFactory::Send(Packet& packet, CNetworkPlayer* pNetworkPlayer)
     serialize::WriteStream writeStream;
     ePacketChannel packetChannel{};
     ePacketReliability packetReliability{};
-    BuildPacketStream(packet, writeStream, packetChannel, packetReliability);
+    if (!BuildPacketStream(packet, writeStream, packetChannel, packetReliability))
+    {
+        return;
+    }
 
     CNetwork::SendPacket(
         pNetworkPlayer, writeStream.GetData(), writeStream.GetBytesProcessed(), packetChannel, packetReliability);
@@ -54,7 +59,10 @@ void CPacketFactory::SendPacketNoAuth_ENet(Packet& packet, ENetPeer* pENetPeer)
     serialize::WriteStream writeStream;
     ePacketChannel packetChannel{};
     ePacketReliability packetReliability{};
-    BuildPacketStream(packet, writeStream, packetChannel, packetReliability);
+    if (!BuildPacketStream(packet, writeStream, packetChannel, packetReliability))
+    {
+        return;
+    }
 
     CNetwork::SendPacketNoAuth_ENet(
         pENetPeer, writeStream.GetData(), writeStream.GetBytesProcessed(), packetChannel, packetReliability);
@@ -65,7 +73,10 @@ void CPacketFactory::SendToAll(Packet& packet, CNetworkPlayer* pNetworkPlayerToI
     serialize::WriteStream writeStream;
     ePacketChannel packetChannel{};
     ePacketReliability packetReliability{};
-    BuildPacketStream(packet, writeStream, packetChannel, packetReliability);
+    if (!BuildPacketStream(packet, writeStream, packetChannel, packetReliability))
+    {
+        return;
+    }
 
     CNetwork::SendPacketToAll(writeStream.GetData(), writeStream.GetBytesProcessed(), packetChannel, packetReliability,
         pNetworkPlayerToIgnore);
@@ -142,7 +153,8 @@ void CPacketFactory::Receive(const uint8_t* data, int dataSize, CNetworkPlayer* 
 
     if (!pPacket->SerializeRead(readStream))
     {
-        logger::warn("SerializeRead (packet type #%d) returned false", packetType);
+        logger::warn("SerializeRead (%s, packet type #%d) returned false",
+            ePacketType_ToString(packetType), packetType);
         return;
     }
 

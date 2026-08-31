@@ -152,8 +152,9 @@ class StuntJumpSyncTests(unittest.TestCase):
 
     def test_stable_identity_hashes_normalized_definition_not_native_address(self):
         for evidence in (
-            "HashStuntFloat",
-            "std::lround(value * 100.0f)",
+            "QuantizeStuntCoordinate",
+            "HashStuntPosition",
+            "STUNT_WIRE_POSITION_PRECISION",
             "id.fingerprint == definition.CalculateFingerprint()",
             "AccumulateCatalogHash",
             "catalogCount > 0 && catalogCount <= STUNT_JUMP_CAPACITY",

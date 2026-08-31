@@ -345,3 +345,36 @@ target("playtest_launcher", function ()
         set_strip("all")
     end
 end)
+
+target("network_soak", function ()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
+    set_kind("binary")
+    set_languages("c++17")
+    set_arch("x86")
+    set_plat("windows")
+    set_toolchains("msvc")
+
+    add_files("tests/network_soak/main.cpp")
+    add_includedirs(
+        "shared",
+        "third_party",
+        "third_party/plugin-sdk/shared",
+        "third_party/plugin-sdk/shared/game",
+        "third_party/plugin-sdk/plugin_sa",
+        "third_party/plugin-sdk/plugin_sa/game_sa"
+    )
+    add_defines(
+        "COOP_CLIENT",
+        "NOMINMAX",
+        "_CRT_SECURE_NO_WARNINGS",
+        "GTASA",
+        "PLUGIN_SGV_10US",
+        "RW"
+    )
+    add_deps("enet")
+    add_syslinks("ws2_32", "winmm")
+end)

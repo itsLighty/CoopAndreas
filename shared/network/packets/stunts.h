@@ -5,6 +5,7 @@
 #include "network/serializable_types.h"
 #include "serialize.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +17,7 @@ constexpr uint8_t STUNT_INVALID_PLAYER_ID = UINT8_MAX;
 constexpr int32_t STUNT_MAX_REWARD = 100000;
 constexpr float STUNT_MAX_BOX_EXTENT = 512.0f;
 constexpr float STUNT_MAX_REPORTED_SPEED = 8.0f;
+constexpr float STUNT_WIRE_POSITION_PRECISION = 0.001f;
 
 inline bool IsStuntRevisionNewer(uint32_t candidate, uint32_t reference)
 {
@@ -40,11 +42,22 @@ inline uint32_t HashStuntWord(uint32_t hash, uint32_t value)
     return hash;
 }
 
-inline uint32_t HashStuntFloat(uint32_t hash, float value)
+inline uint32_t QuantizeStuntCoordinate(float value, float minimum, float maximum)
 {
-    // The wire codec has millimetre precision. Centimetre quantisation makes the stable identity tolerant of
-    // the final compression round-trip while still distinguishing distinct map definitions.
-    return HashStuntWord(hash, static_cast<uint32_t>(static_cast<int32_t>(std::lround(value * 100.0f))));
+    const float range = maximum - minimum;
+    const uint32_t maximumCode =
+        static_cast<uint32_t>(std::ceil(range / STUNT_WIRE_POSITION_PRECISION));
+    const float normalized = std::clamp((value - minimum) / range, 0.0f, 1.0f);
+    return static_cast<uint32_t>(std::floor(normalized * maximumCode + 0.5f));
+}
+
+inline uint32_t HashStuntPosition(uint32_t hash, const WorldPositionCompressed& position)
+{
+    // Hash the integer codes emitted by WorldPositionCompressed, not the source floats. The latter can cross a
+    // rounding boundary after their wire round-trip and caused otherwise valid catalog entries to be rejected.
+    hash = HashStuntWord(hash, QuantizeStuntCoordinate(position.x, -3000.0f, 3000.0f));
+    hash = HashStuntWord(hash, QuantizeStuntCoordinate(position.y, -3000.0f, 3000.0f));
+    return HashStuntWord(hash, QuantizeStuntCoordinate(position.z, -120.0f, 1000.0f));
 }
 
 struct StuntBox
@@ -104,9 +117,7 @@ struct StuntDefinition
             &start.minimum, &start.maximum, &finish.minimum, &finish.maximum, &camera};
         for (const WorldPositionCompressed* position : positions)
         {
-            hash = HashStuntFloat(hash, position->x);
-            hash = HashStuntFloat(hash, position->y);
-            hash = HashStuntFloat(hash, position->z);
+            hash = HashStuntPosition(hash, *position);
         }
         hash = HashStuntWord(hash, static_cast<uint32_t>(reward));
         return hash == 0 ? 1u : hash;

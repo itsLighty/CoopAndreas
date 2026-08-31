@@ -7,14 +7,47 @@ class Launcher
 public:
     static void LaunchProcess(const std::string& cmdLine)
     {
-
         STARTUPINFO si = {sizeof(si)};
         PROCESS_INFORMATION pi = {0};
-        
+
+        char launcherPath[MAX_PATH];
+        const DWORD launcherPathLength = GetModuleFileNameA(NULL, launcherPath, MAX_PATH);
+        if (launcherPathLength == 0 || launcherPathLength >= MAX_PATH)
+        {
+            MessageBoxA(NULL,
+                        "Could not determine the CoopAndreas launcher folder.",
+                        "CoopAndreas Launcher Error",
+                        MB_ICONERROR | MB_OK);
+            return;
+        }
+
+        std::string launcherDirectory(launcherPath, launcherPathLength);
+        const size_t separator = launcherDirectory.find_last_of("\\/");
+        if (separator == std::string::npos)
+        {
+            MessageBoxA(NULL,
+                        "Could not determine the CoopAndreas launcher folder.",
+                        "CoopAndreas Launcher Error",
+                        MB_ICONERROR | MB_OK);
+            return;
+        }
+        launcherDirectory.resize(separator);
+
+        const std::string executablePath = launcherDirectory + "\\gta_sa.exe";
+
         char args[512];
         strcpy_s(args, sizeof(args), cmdLine.c_str());
 
-        BOOL success = CreateProcessA(nullptr, args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+        BOOL success = CreateProcessA(executablePath.c_str(),
+                                      args,
+                                      NULL,
+                                      NULL,
+                                      FALSE,
+                                      0,
+                                      NULL,
+                                      launcherDirectory.c_str(),
+                                      &si,
+                                      &pi);
 
         if (success)
         {
@@ -29,7 +62,7 @@ public:
             {
                 case ERROR_FILE_NOT_FOUND:
                 case ERROR_PATH_NOT_FOUND:
-                    if (GetFileAttributesA("gta-sa.exe") != INVALID_FILE_ATTRIBUTES)
+                    if (GetFileAttributesA((launcherDirectory + "\\gta-sa.exe").c_str()) != INVALID_FILE_ATTRIBUTES)
                     {
                         outErrorMessage = "Steam version of GTA San Andreas detected (gta-sa.exe)!\n\n"
                                           "This mod requires GTA:SA v1.0 US HOODLUM.\n\n"

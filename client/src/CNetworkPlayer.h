@@ -31,8 +31,6 @@ public:
 	Packets::Players::EnExTransition m_pendingEnExTransition{};
 	uint32_t m_nPendingEnExTransitionGeneration = 0;
 	uint32_t m_nAppliedEnExTransitionGeneration = 0;
-	bool m_bNeedsClothesRebuild = false;
-	uint32_t m_nClothesRebuildReadyAt = 0;
 	CNetworkTransformInterpolator m_transformInterpolator{};
 
 	Packets::Players::OnFootUpdate m_onFootSnapshotInterpolated{};
@@ -92,8 +90,6 @@ public:
 	void StreamOut();
 	void ApplyCachedPresentation();
 	void ProcessPendingPresentation();
-	void QueueClothesRebuild();
-	bool TryRebuildClothes();
 	void ReconcilePendingVehiclePresentation();
 	bool CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot);
 	bool CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot);

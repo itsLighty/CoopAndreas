@@ -21,7 +21,8 @@ void CPacketFactory::Send(Packet& packet)
 
     if (!packet.SerializeWrite(writeStream))
     {
-        logger::warn("SerializeWrite (packet type #%d) returned false", packetType);
+        logger::warn("SerializeWrite (%s, packet type #%d) returned false",
+            ePacketType_ToString(packet.GetType()), packetType);
         return;
     }
     writeStream.Flush();
@@ -72,7 +73,8 @@ void CPacketFactory::Receive(const uint8_t* data, int dataSize)
 
     if (!pProtPacket->SerializeRead(readStream))
     {
-        logger::warn("SerializeRead (packet type #%d) returned false", packetType);
+        logger::warn("SerializeRead (%s, packet type #%d) returned false",
+            ePacketType_ToString(packetType), packetType);
         return;
     }
 

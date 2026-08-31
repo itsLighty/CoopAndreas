@@ -307,8 +307,11 @@ PACKET_HANDLER(ePacketType::REBUILD_PLAYER, Packets::Players::RebuildPlayer* pRe
 
         //CStatsSync::ApplyNetworkPlayerContext(networkPlayer);
 
+        // GTA's clothes builder owns one global PLAYER model and one global previous-clothes descriptor. The
+        // native rebuild for a remote CPlayerPed mutates that shared state and can pass a null component
+        // clump to BlendGeometry. Keep the authoritative remote appearance cached until a per-ped renderer exists;
+        // the stable PLAYER instance remains visible and gameplay state continues to synchronize.
         pNetworkPlayer->m_pPedClothesDesc = pRebuildPlayer->clothesDesc;
-        pNetworkPlayer->QueueClothesRebuild();
 
         //CStatsSync::ApplyLocalContext();
     }
