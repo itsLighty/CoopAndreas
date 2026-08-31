@@ -1,5 +1,8 @@
 name: Build on Windows
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -9,33 +12,49 @@ on:
       - '**'
   workflow_dispatch:
 
+concurrency:
+  group: coopandreas-windows-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
-          xmake-version: latest
+          xmake-version: '2.9.9'
 
-      - name: Install Sanny Builder
+      - name: Install pinned Sanny Builder
         shell: pwsh
         run: |
-          $release = Invoke-RestMethod `
-            -Uri 'https://api.github.com/repos/sannybuilder/dev/releases/tags/v4.2.0'
-          $asset = $release.assets | Where-Object name -eq 'SannyBuilder-v4.2.0.zip' | Select-Object -First 1
-          if (-not $asset) {
-            throw 'The pinned Sanny Builder 4.2.0 archive was not found.'
+          $archiveUrl = 'https://github.com/sannybuilder/dev/releases/download/v4.2.0/SannyBuilder-v4.2.0.zip'
+          $expectedSha256 = '4aceb1c1e430e57bc57216fbe95a3eac1829f2bd982ba19d99bb147caa4b33e6'
+          $archive = Join-Path $env:RUNNER_TEMP 'SannyBuilder-v4.2.0.zip'
+          $extractRoot = Join-Path $env:RUNNER_TEMP 'SannyBuilder-v4.2.0'
+
+          Invoke-WebRequest `
+            -Uri $archiveUrl `
+            -OutFile $archive `
+            -Headers @{ 'User-Agent' = 'CoopAndreas-CI' } `
+            -MaximumRetryCount 3 `
+            -RetryIntervalSec 2
+          $actualSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "Sanny Builder archive hash mismatch: $actualSha256"
           }
 
-          $archive = Join-Path $env:RUNNER_TEMP 'SannyBuilder-v4.2.0.zip'
-          $installDirectory = Join-Path $env:RUNNER_TEMP 'SannyBuilder-v4.2.0'
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive
-          Expand-Archive -LiteralPath $archive -DestinationPath $installDirectory
-          "SANNY_BUILDER_PATH=$installDirectory" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Expand-Archive -LiteralPath $archive -DestinationPath $extractRoot -Force
+          $sannyExecutable = Get-ChildItem -LiteralPath $extractRoot -Filter 'sanny.exe' -File -Recurse |
+            Select-Object -First 1
+          if (-not $sannyExecutable) {
+            throw 'The verified Sanny Builder archive did not contain sanny.exe.'
+          }
+          "SANNY_BUILDER_PATH=$($sannyExecutable.Directory.FullName)" |
+            Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile main SCM
         shell: pwsh
@@ -52,9 +71,83 @@ jobs:
 
       - name: Build server
         run: xmake build server
-        
+
       - name: Build proxy
         run: xmake build proxy
-        
+
       - name: Build launcher
         run: xmake build launcher
+
+      - name: Build permanent playtest updater
+        run: xmake build playtest_launcher
+
+      - name: Stage coherent playtest release
+        shell: pwsh
+        run: ./scripts/stage-playtest.ps1 -CommitSha '${{ github.sha }}'
+
+      - name: Upload playtest build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoopAndreas-playtest-${{ github.sha }}
+          path: build/playtest/release-assets
+          if-no-files-found: error
+
+      - name: Publish rolling main playtest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'itsLighty/CoopAndreas'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $currentMain = gh api "repos/$env:GITHUB_REPOSITORY/commits/main" --jq '.sha'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the current main commit.' }
+          if ($currentMain.Trim() -ne $env:GITHUB_SHA) {
+            Write-Host "Skipping stale build $env:GITHUB_SHA; main is now $($currentMain.Trim())."
+            exit 0
+          }
+
+          $tag = 'playtest-latest'
+          $releaseAssets = 'build/playtest/release-assets'
+          $packages = @(Get-ChildItem -LiteralPath $releaseAssets -Filter 'CoopAndreas-playtest-*.zip' -File)
+          if ($packages.Count -ne 1) {
+            throw "Expected exactly one staged playtest package, found $($packages.Count)."
+          }
+          $package = $packages[0]
+          $updater = Join-Path $releaseAssets 'CoopAndreasPlaytest.exe'
+          $manifest = Join-Path $releaseAssets 'playtest-manifest.txt'
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag `
+              --repo $env:GITHUB_REPOSITORY `
+              --target $env:GITHUB_SHA `
+              --prerelease `
+              --title 'Latest CoopAndreas Playtest' `
+              --notes "Rolling playtest build from main. Current commit: $env:GITHUB_SHA"
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Could not create the rolling playtest release.'
+            }
+          }
+
+          # The package name contains its commit, so publishing it cannot mutate a package
+          # already referenced by the rolling manifest. The manifest is replaced last.
+          gh release upload $tag $package.FullName --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Could not upload the immutable playtest package.' }
+          gh release upload $tag $updater --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Could not upload the permanent updater.' }
+
+          gh release edit $tag `
+            --repo $env:GITHUB_REPOSITORY `
+            --prerelease `
+            --title 'Latest CoopAndreas Playtest' `
+            --notes "Rolling playtest build from main. Current commit: $env:GITHUB_SHA"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not update the rolling release metadata.' }
+
+          gh api `
+            --method PATCH `
+            "repos/$env:GITHUB_REPOSITORY/git/refs/tags/$tag" `
+            -f "sha=$env:GITHUB_SHA" `
+            -F 'force=true' *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not move the rolling release tag to main.' }
+
+          gh release upload $tag $manifest --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish the rolling playtest manifest.' }

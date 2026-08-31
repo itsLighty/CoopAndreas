@@ -81,16 +81,26 @@ xmake --build launcher
 
 ### One-click playtest distribution
 
-Friends do not need Visual Studio, Xmake, Sanny Builder, or an internet connection for installation. Send them the
-single `CoopAndreasPlaytest.exe` produced by `scripts/build-standalone-playtest.ps1`. They place it beside a GTA San
-Andreas 1.0 US `gta_sa.exe` and run it. The executable contains the client, proxy loader, launcher, server, and compiled
-mission scripts; it preserves the original `eax.dll` as `eax_orig.dll` and offers:
+Friends only need the permanent `CoopAndreasPlaytest.exe` once. They place it beside a GTA San Andreas 1.0 US
+`gta_sa.exe` and run it. On every launch, the updater retrieves the latest successfully built `main` package from the
+fixed [`playtest-latest`](https://github.com/itsLighty/CoopAndreas/releases/tag/playtest-latest) release, verifies its
+size and SHA-256, and installs it before starting the game. Friends therefore do not need Visual Studio, Xmake, Sanny
+Builder, or a replacement EXE, but they do need an internet connection while updating.
+
+The updater preserves the game's original `eax.dll` as `eax_orig.dll`. Runtime files are extracted and validated in a
+staging directory, existing files are backed up, and a failed installation restores the previous build. It then offers:
 
 - **Host & Play**: starts `server.exe` locally and launches the game.
 - **Join & Play**: launches the game without starting another server.
-- **Install only**: installs the embedded playtest without launching.
+- **Update only**: installs the current `main` playtest without launching.
 
 For internet play, the host must allow/forward UDP port `6767`; joining players enter the host's IP in the in-game menu.
+
+To build the permanent updater locally, run `scripts/build-playtest-updater.ps1`. The compatibility script
+`scripts/build-standalone-playtest.ps1` now produces the same updater; runtime binaries are intentionally not embedded.
+On each successful push to this fork's `main`, the Windows workflow builds the client, server, proxy, launcher, updater,
+and mission scripts. It uploads one commit-named ZIP first and replaces `playtest-manifest.txt` last, so an updater can
+never mix files from two builds.
 
 
 ## Building Server on GNU/Linux
