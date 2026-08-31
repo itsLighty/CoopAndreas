@@ -296,6 +296,11 @@ target("launcher", function ()
     add_files("launcher/src/*.cpp")
     add_headerfiles("launcher/src/*.h")
     add_files("launcher/version.rc")
+
+    after_build(function (target)
+        os.cp("launcher/LaunchCoopAndreas.exe.manifest",
+            path.join(target:targetdir(), "LaunchCoopAndreas.exe.manifest"))
+    end)
     
     add_defines(
         "_WINDOWS"

@@ -16,6 +16,7 @@ class PlaytestDistributionTests(unittest.TestCase):
         cls.stage = (ROOT / "scripts/stage-playtest.ps1").read_text(encoding="utf-8")
         cls.build_updater = (ROOT / "scripts/build-playtest-updater.ps1").read_text(encoding="utf-8")
         cls.build_compatibility = (ROOT / "scripts/build-standalone-playtest.ps1").read_text(encoding="utf-8")
+        cls.launcher_manifest = (ROOT / "launcher/LaunchCoopAndreas.exe.manifest").read_text(encoding="utf-8")
         cls.xmake = (ROOT / "xmake.lua").read_text(encoding="utf-8")
 
     def test_launcher_and_client_are_key_free(self):
@@ -80,6 +81,11 @@ class PlaytestDistributionTests(unittest.TestCase):
         self.assertIn("xmake build -r playtest_launcher", self.build_updater)
         self.assertIn("CoopAndreasPlaytest.exe", self.build_updater)
         self.assertIn("build-playtest-updater.ps1", self.build_compatibility)
+
+    def test_launcher_manifest_is_tracked_and_copied_deterministically(self):
+        self.assertIn("requestedExecutionLevel", self.launcher_manifest)
+        self.assertIn("Microsoft.Windows.Common-Controls", self.launcher_manifest)
+        self.assertIn('os.cp("launcher/LaunchCoopAndreas.exe.manifest"', self.xmake)
 
     def test_ci_uses_verified_pinned_sanny_download(self):
         self.assertIn("runs-on: windows-2022", self.workflow)
