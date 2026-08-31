@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # plugin-sdk and the 32-bit GTA client are validated against the VS 2022 x86 toolchain.
+    # Pin the image so a windows-latest migration cannot silently outrun Xmake's MSVC discovery.
+    runs-on: windows-2022
 
     steps:
       - uses: actions/checkout@v4

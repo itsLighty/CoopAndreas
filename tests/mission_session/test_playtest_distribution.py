@@ -82,6 +82,8 @@ class PlaytestDistributionTests(unittest.TestCase):
         self.assertIn("build-playtest-updater.ps1", self.build_compatibility)
 
     def test_ci_uses_verified_pinned_sanny_download(self):
+        self.assertIn("runs-on: windows-2022", self.workflow)
+        self.assertNotIn("runs-on: windows-latest", self.workflow)
         self.assertIn(
             "https://github.com/sannybuilder/dev/releases/download/v4.2.0/SannyBuilder-v4.2.0.zip",
             self.workflow,
