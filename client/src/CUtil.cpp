@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "CNetworkPickupManager.h"
 #include "CNetworkPed.h"
 
 CScreenTransform CUtil::BuildScreenTransform(float screenWidth, float screenHeight, float renderAspect)
@@ -311,7 +312,11 @@ void CUtil::SetPlayerJetpack(CNetworkPlayer* player, bool set)
 
         if (task)
         {
-            task->m_bIsFinished = true; // dont create a jetpack pickup, TODO when syncing pickups
+            // Every viewer ends the replicated remote task, but only the real owner may originate the drop.
+            // Suppress this synthetic native pickup locally; the owner's bounded creation intent will recreate
+            // one canonical jetpack pickup for every peer.
+            CNetworkPickupManager::SuppressSyntheticJetpackDrop(player->m_pPed->GetPosition());
+            task->m_bIsFinished = true;
             plugin::CallMethod<0x67B660, CTaskSimpleJetPack*>(task, player->m_pPed); // CTaskSimpleJetPack::DropJetPack
         }
     }

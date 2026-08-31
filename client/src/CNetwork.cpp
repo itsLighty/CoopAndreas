@@ -5,6 +5,7 @@
 #include "CMissionSessionClient.h"
 #include "CNetworkAnimQueue.h"
 #include "CNetworkCheckpoint.h"
+#include "CNetworkPickupManager.h"
 #include "CNetworkPedManager.h"
 #include "CNetworkPlayerManager.h"
 #include "CNetworkVehicleManager.h"
@@ -244,6 +245,7 @@ void CNetwork::ResetConnectionState()
     CStatsSync::ResetNetworkState();
     CPlayerGameplayStateSync::ResetNetworkState();
     CGangZoneWarSyncManager::ResetNetworkState();
+    CNetworkPickupManager::ResetNetworkState();
 
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();

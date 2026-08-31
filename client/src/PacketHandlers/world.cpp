@@ -32,16 +32,14 @@ PACKET_HANDLER(ePacketType::TAG_UPDATE, Packets::World::TagUpdate* pTagUpdate)
 			static_cast<int16_t>(floor(pos.y)) == pTagUpdate->payload.pos_y &&
 			static_cast<int16_t>(floor(pos.z)) == pTagUpdate->payload.pos_z)
 		{
-			CTagManager::SetAlpha(tagDesc.m_pEntity, pTagUpdate->payload.alpha);
+			// TAG_UPDATE is visual-only online. Pickup authority is the only path allowed to set completion alpha.
+			CTagManager::SetAlpha(tagDesc.m_pEntity, std::min<uint8_t>(pTagUpdate->payload.alpha, 254));
 		}
 	}
 }
 
 PACKET_HANDLER(ePacketType::UPDATE_ALL_TAGS, Packets::World::UpdateAllTags* pUpdateAllTags)
 {
-	// a hack to not draw "TAGS SPRAYED 1 of 100", look at 0x49CF4B
-	bool saved = TheCamera.m_bWideScreenOn;
-	TheCamera.m_bWideScreenOn = true;
 	for (auto& tag : pUpdateAllTags->tags)
 	{
 		for (auto& tagDesc : CTagManager::ms_tagDesc)
@@ -57,11 +55,10 @@ PACKET_HANDLER(ePacketType::UPDATE_ALL_TAGS, Packets::World::UpdateAllTags* pUpd
 				static_cast<int16_t>(floor(pos.y)) == tag.pos_y &&
 				static_cast<int16_t>(floor(pos.z)) == tag.pos_z)
 			{
-				CTagManager::SetAlpha(tagDesc.m_pEntity, tag.alpha);
+				CTagManager::SetAlpha(tagDesc.m_pEntity, std::min<uint8_t>(tag.alpha, 254));
 			}
 		}
 	}
-	TheCamera.m_bWideScreenOn = saved;
 }
 
 PACKET_HANDLER(ePacketType::UPDATE_MOON_SIZE, Packets::World::UpdateMoonSize* pUpdateMoonSize)

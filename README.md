@@ -188,7 +188,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] idle anims
   - [X] funny TAB+NUM4 (or NUM6) anim sync (did you know about this?)
 - [X] gang groups sync
-- [ ] stream in/out players, peds, vehicles, etc.
+- [X] stream in/out players, peds, vehicles, etc.
 - [X] vehicle sync
   - [X] force hydraulics sync
   - [X] trailer sync
@@ -201,7 +201,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] mouse
   - [X] widescreen
   - [X] fast load
-- [ ] Fix models loading (green polygon)  --- related to stream it/out
+- [X] Fix models loading (green polygon)  --- related to stream it/out
 - [ ] smooth interpolation
   - [ ] move
   - [ ] rotation

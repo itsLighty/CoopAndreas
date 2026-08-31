@@ -14,6 +14,7 @@
 #include "ProjectileHooks.h"
 #include "DamageHooks.h"
 #include "ShadowHooks.h"
+#include "PickupHooks.h"
 
 void CHook::Init()
 {
@@ -22,6 +23,7 @@ void CHook::Init()
     PlayerHooks::InjectHooks();
     TaskHooks::InjectHooks();
     WorldHooks::InjectHooks();
+    PickupHooks::InjectHooks();
     PedHooks::InjectHooks();
     GameHooks::InjectHooks();
     StatsHooks::InjectHooks();

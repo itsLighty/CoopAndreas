@@ -199,6 +199,10 @@ struct PickupState
     uint32_t revision = 0;
     uint8_t authorityPlayerId = PICKUP_INVALID_PLAYER_ID;
     bool active = false;
+    // Inactive completion states are retained by the server without granting anything. They either preserve a
+    // permanent collectible tombstone or carry the remaining delay for a server-scheduled static respawn.
+    bool hasCompletionState = false;
+    uint32_t respawnRemainingMs = 0;
     uint8_t creatorPlayerId = PICKUP_INVALID_PLAYER_ID;
     uint32_t sourceIntentRequestId = 0;
     PickupMetadata metadata{};
@@ -209,11 +213,22 @@ struct PickupState
         {
             return false;
         }
+        if (!active && !hasCompletionState)
+        {
+            return respawnRemainingMs == 0 && creatorPlayerId == PICKUP_INVALID_PLAYER_ID &&
+                   sourceIntentRequestId == 0;
+        }
         if (!active)
         {
-            return creatorPlayerId == PICKUP_INVALID_PLAYER_ID && sourceIntentRequestId == 0;
+            const bool permanentCollectible = IsCollectiblePickupKind(metadata.kind) &&
+                metadata.respawnsAfterMs == 0 && respawnRemainingMs == 0;
+            const bool scheduledRespawn = metadata.respawnsAfterMs > 0 && respawnRemainingMs > 0 &&
+                respawnRemainingMs <= metadata.respawnsAfterMs;
+            return creatorPlayerId == PICKUP_INVALID_PLAYER_ID && sourceIntentRequestId == 0 &&
+                   metadata.HasValidSemantics() && (permanentCollectible || scheduledRespawn);
         }
-        return creatorPlayerId < Config::MAX_SERVER_PLAYERS && metadata.HasValidSemantics();
+        return !hasCompletionState && respawnRemainingMs == 0 &&
+               creatorPlayerId < Config::MAX_SERVER_PLAYERS && metadata.HasValidSemantics();
     }
 
     template <typename Stream>
@@ -233,12 +248,30 @@ struct PickupState
             serialize_int(stream, creatorPlayerId, 0, Config::MAX_SERVER_PLAYERS - 1);
             serialize_uint32(stream, sourceIntentRequestId);
             serialize_object(stream, metadata);
+            if (Stream::IsReading)
+            {
+                hasCompletionState = false;
+                respawnRemainingMs = 0;
+            }
         }
-        else if (Stream::IsReading)
+        else
         {
-            creatorPlayerId = PICKUP_INVALID_PLAYER_ID;
-            sourceIntentRequestId = 0;
-            metadata = {};
+            serialize_bool(stream, hasCompletionState);
+            if (hasCompletionState)
+            {
+                serialize_int(stream, respawnRemainingMs, 0, MAX_PICKUP_RESPAWN_MS);
+                serialize_object(stream, metadata);
+            }
+            else if (Stream::IsReading)
+            {
+                respawnRemainingMs = 0;
+                metadata = {};
+            }
+            if (Stream::IsReading)
+            {
+                creatorPlayerId = PICKUP_INVALID_PLAYER_ID;
+                sourceIntentRequestId = 0;
+            }
         }
         return !Stream::IsReading || HasValidSemantics();
     }

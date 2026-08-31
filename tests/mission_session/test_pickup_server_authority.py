@@ -118,6 +118,46 @@ class PickupAuthorityModel:
                 state["authority"] = new_host
 
 
+class RespawnAuthorityModel:
+    """Executable server model for retained completion state and deadline replay."""
+
+    def __init__(self, host=0):
+        self.host = host
+        self.generation = 7
+        self.authority = host
+        self.active = True
+        self.completion = False
+        self.respawn_at = 0
+        self.rewards = 0
+
+    def collect(self, now: int, respawn_ms: int):
+        assert self.active
+        self.active = False
+        self.completion = True
+        self.respawn_at = now + respawn_ms if respawn_ms else 0
+        self.rewards += 1
+
+    def migrate(self, new_host: int):
+        self.host = new_host
+        if self.active or self.completion:
+            self.authority = new_host
+
+    def replay(self, now: int):
+        if self.completion and self.respawn_at and now >= self.respawn_at:
+            self.generation = (self.generation + 1) & 0xFFFF or 1
+            self.active = True
+            self.completion = False
+            self.respawn_at = 0
+        return {
+            "active": self.active,
+            "completion": self.completion,
+            "generation": self.generation,
+            "authority": self.authority,
+            "remaining": max(1, self.respawn_at - now) if self.completion and self.respawn_at else 0,
+            "award": False,
+        }
+
+
 class PickupServerAuthorityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -256,6 +296,56 @@ class PickupServerAuthorityTests(unittest.TestCase):
         self.assertIn("CPickupAuthorityManager::HandleAuthorityChange(nullptr);", self.players)
         self.assertIn("CPickupAuthorityManager::HandleAuthorityChange(player);", self.players)
         self.assertIn("replay.state.metadata.expiresAfterMs = slot.expiresAt - now", self.manager)
+
+    def test_completion_tombstones_and_server_respawns_are_retained_and_bounded(self):
+        for evidence in (
+            "hasCompletionState = false",
+            "respawnRemainingMs = 0",
+            "permanentCollectible",
+            "scheduledRespawn",
+            "respawnRemainingMs <= metadata.respawnsAfterMs",
+        ):
+            self.assertIn(evidence, self.packets)
+        for evidence in (
+            "completion.state.hasCompletionState = permanentCollectible || scheduledRespawn",
+            "slot.respawnAt = scheduledRespawn",
+            "GetPacketFactory().SendToAll(completion)",
+            "MaterializeDueRespawn(slot, host, now, dueRespawn)",
+            "std::max(1u, slot.respawnAt - now)",
+        ):
+            self.assertIn(evidence, self.manager)
+
+    def test_retained_completion_authority_is_rewritten_on_migration(self):
+        migration = self.manager[self.manager.index("void CPickupAuthorityManager::HandleAuthorityChange"):]
+        self.assertIn("!slot.active && !slot.state.hasCompletionState", migration)
+        self.assertIn("slot.state.authorityPlayerId = static_cast<uint8_t>(newHost->m_iPlayerId)", migration)
+
+    def test_late_join_at_respawn_deadline_materializes_before_remaining_time(self):
+        model = RespawnAuthorityModel(host=0)
+        model.collect(now=1000, respawn_ms=30000)
+        before = model.replay(now=30999)
+        self.assertTrue(before["completion"])
+        self.assertEqual(before["remaining"], 1)
+        at_deadline = model.replay(now=31000)
+        self.assertTrue(at_deadline["active"])
+        self.assertFalse(at_deadline["completion"])
+        self.assertEqual(at_deadline["generation"], 8)
+        self.assertEqual(at_deadline["remaining"], 0)
+        self.assertFalse(at_deadline["award"])
+
+    def test_migration_mid_respawn_preserves_deadline_and_new_authority(self):
+        model = RespawnAuthorityModel(host=0)
+        model.collect(now=500, respawn_ms=36000)
+        model.migrate(3)
+        replay = model.replay(now=12500)
+        self.assertTrue(replay["completion"])
+        self.assertEqual(replay["remaining"], 24000)
+        self.assertEqual(replay["authority"], 3)
+        self.assertEqual(model.rewards, 1)
+        respawn = model.replay(now=36500)
+        self.assertTrue(respawn["active"])
+        self.assertEqual(respawn["authority"], 3)
+        self.assertEqual(model.rewards, 1)
 
     def test_executable_model_rejects_replays_and_grants_once_per_generation(self):
         model = PickupAuthorityModel(host=0)

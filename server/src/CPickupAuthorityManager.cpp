@@ -91,6 +91,38 @@ uint32_t CPickupAuthorityManager::NextRevision(uint32_t revision)
     return revision == 0 ? 1 : revision;
 }
 
+bool CPickupAuthorityManager::MaterializeDueRespawn(PickupSlot& slot, CNetworkPlayer* host,
+    uint32_t now, PickupStateEvent& respawn)
+{
+    if (slot.active || !slot.state.hasCompletionState || slot.respawnAt == 0 ||
+        !IsExpired(now, slot.respawnAt) || !IsCurrentHost(host))
+    {
+        return false;
+    }
+
+    respawn = {};
+    respawn.state.id.slot = slot.state.id.slot;
+    respawn.state.id.generation = static_cast<uint16_t>(slot.lastGeneration + 1);
+    if (respawn.state.id.generation == 0)
+    {
+        respawn.state.id.generation = 1;
+    }
+    respawn.state.revision = 1;
+    respawn.state.authorityPlayerId = static_cast<uint8_t>(host->m_iPlayerId);
+    respawn.state.active = true;
+    respawn.state.creatorPlayerId = static_cast<uint8_t>(host->m_iPlayerId);
+    respawn.state.metadata = slot.state.metadata;
+    slot.active = true;
+    slot.lastGeneration = respawn.state.id.generation;
+    slot.lastRevision = respawn.state.revision;
+    slot.expiresAt = respawn.state.metadata.expiresAfterMs == 0
+        ? 0
+        : now + respawn.state.metadata.expiresAfterMs;
+    slot.respawnAt = 0;
+    slot.state = respawn.state;
+    return true;
+}
+
 CPickupAuthorityManager::PendingCollect* CPickupAuthorityManager::FindPendingCollect(uint32_t requestId)
 {
     for (PendingCollect& pending : m_pendingCollects)
@@ -172,6 +204,12 @@ void CPickupAuthorityManager::Update()
     CNetworkPlayer* host = CNetworkPlayerManager::GetHost();
     for (PickupSlot& slot : m_slots)
     {
+        PickupStateEvent respawn{};
+        if (MaterializeDueRespawn(slot, host, now, respawn))
+        {
+            GetPacketFactory().SendToAll(respawn);
+            continue;
+        }
         if (!slot.active || !IsExpired(now, slot.expiresAt))
         {
             continue;
@@ -187,6 +225,7 @@ void CPickupAuthorityManager::Update()
         slot.active = false;
         slot.lastRevision = removal.state.revision;
         slot.expiresAt = 0;
+        slot.respawnAt = 0;
         slot.state = removal.state;
         GetPacketFactory().SendToAll(removal);
     }
@@ -256,6 +295,7 @@ bool CPickupAuthorityManager::HandleState(CNetworkPlayer* player, const PickupSt
         slot.expiresAt = canonical.state.metadata.expiresAfterMs == 0
             ? 0
             : enet_time_get() + canonical.state.metadata.expiresAfterMs;
+        slot.respawnAt = 0;
         if (sourceIntent != nullptr)
         {
             *sourceIntent = {};
@@ -264,7 +304,8 @@ bool CPickupAuthorityManager::HandleState(CNetworkPlayer* player, const PickupSt
         return true;
     }
 
-    if (!sameGeneration || !slot.active || !IsPickupRevisionNewer(incoming.revision, slot.lastRevision))
+    if (incoming.hasCompletionState || !sameGeneration || !slot.active ||
+        !IsPickupRevisionNewer(incoming.revision, slot.lastRevision))
     {
         logger::warn("Rejected stale or unknown pickup removal");
         return false;
@@ -275,6 +316,7 @@ bool CPickupAuthorityManager::HandleState(CNetworkPlayer* player, const PickupSt
     slot.active = false;
     slot.lastRevision = canonical.state.revision;
     slot.expiresAt = 0;
+    slot.respawnAt = 0;
     slot.state = canonical.state;
     GetPacketFactory().SendToAll(canonical, player);
     return true;
@@ -365,6 +407,27 @@ bool CPickupAuthorityManager::HandleCollectDecision(CNetworkPlayer* player, cons
     slot.active = false;
     slot.collectedGeneration = slot.lastGeneration;
     slot.expiresAt = 0;
+    const bool permanentCollectible = IsCollectiblePickupKind(granted.grantedState.metadata.kind) &&
+        granted.grantedState.metadata.respawnsAfterMs == 0;
+    const bool scheduledRespawn = granted.grantedState.metadata.respawnsAfterMs > 0;
+    PickupStateEvent completion{};
+    completion.state.id = granted.grantedState.id;
+    completion.state.revision = NextRevision(slot.lastRevision);
+    completion.state.authorityPlayerId = granted.grantedState.authorityPlayerId;
+    completion.state.active = false;
+    completion.state.hasCompletionState = permanentCollectible || scheduledRespawn;
+    if (completion.state.hasCompletionState)
+    {
+        completion.state.metadata = granted.grantedState.metadata;
+        completion.state.respawnRemainingMs = scheduledRespawn
+            ? granted.grantedState.metadata.respawnsAfterMs
+            : 0;
+    }
+    slot.lastRevision = completion.state.revision;
+    slot.state = completion.state;
+    slot.respawnAt = scheduledRespawn
+        ? enet_time_get() + granted.grantedState.metadata.respawnsAfterMs
+        : 0;
     *pending = {};
 
     for (PendingCollect& competing : m_pendingCollects)
@@ -376,6 +439,10 @@ bool CPickupAuthorityManager::HandleCollectDecision(CNetworkPlayer* player, cons
         }
     }
     GetPacketFactory().SendToAll(granted);
+    if (completion.state.hasCompletionState)
+    {
+        GetPacketFactory().SendToAll(completion);
+    }
     return true;
 }
 
@@ -430,10 +497,19 @@ void CPickupAuthorityManager::SendActiveStates(CNetworkPlayer* player)
         return;
     }
 
+    CNetworkPlayer* host = CNetworkPlayerManager::GetHost();
     const uint32_t now = enet_time_get();
     for (PickupSlot& slot : m_slots)
     {
-        if (!slot.active || IsExpired(now, slot.expiresAt))
+        PickupStateEvent dueRespawn{};
+        if (MaterializeDueRespawn(slot, host, now, dueRespawn))
+        {
+            // This includes the joining player and prevents respawnAt-now from underflowing at the deadline.
+            GetPacketFactory().SendToAll(dueRespawn);
+            continue;
+        }
+        if ((!slot.active && !slot.state.hasCompletionState) ||
+            (slot.active && IsExpired(now, slot.expiresAt)))
         {
             continue;
         }
@@ -442,6 +518,12 @@ void CPickupAuthorityManager::SendActiveStates(CNetworkPlayer* player)
         if (slot.expiresAt != 0)
         {
             replay.state.metadata.expiresAfterMs = slot.expiresAt - now;
+        }
+        if (!slot.active && slot.respawnAt != 0)
+        {
+            replay.state.respawnRemainingMs = IsExpired(now, slot.respawnAt)
+                ? 1
+                : std::max(1u, slot.respawnAt - now);
         }
         GetPacketFactory().Send(replay, player);
     }
@@ -493,7 +575,7 @@ void CPickupAuthorityManager::HandleAuthorityChange(CNetworkPlayer* newHost)
 
     for (PickupSlot& slot : m_slots)
     {
-        if (!slot.active)
+        if (!slot.active && !slot.state.hasCompletionState)
         {
             continue;
         }

@@ -37,6 +37,7 @@ private:
         uint16_t collectedGeneration = 0;
         uint32_t lastRevision = 0;
         uint32_t expiresAt = 0;
+        uint32_t respawnAt = 0;
         Packets::Pickups::PickupState state{};
     };
 
@@ -80,6 +81,8 @@ private:
     static bool IsExpired(uint32_t now, uint32_t deadline);
     static uint32_t NextRequestId();
     static uint32_t NextRevision(uint32_t revision);
+    static bool MaterializeDueRespawn(PickupSlot& slot, CNetworkPlayer* host, uint32_t now,
+        Packets::Pickups::PickupStateEvent& respawn);
     static PendingCollect* FindPendingCollect(uint32_t requestId);
     static PendingCreate* FindPendingCreate(uint32_t requestId);
     static bool MetadataMatches(

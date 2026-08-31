@@ -3,6 +3,7 @@
 #include "WorldHooks.h"
 #include "CNetworkVehicle.h"
 #include "CNetworkPed.h"
+#include "CNetworkPickupManager.h"
 #include <CEntryExit.h>
 #include <CEntryExitMarkerSync.h>
 #include <CEntryExitTransitionSync.h>
@@ -157,10 +158,12 @@ static bool __fastcall CEntryExit__TransitionFinished_Hook(CEntryExit* This, SKI
 static int calls = 0;
 static int SprayPaintWorld_LastCalled = 0;
 static uint8_t LastTagAlpha = 0;
+static uint8_t LastTagPreviousAlpha = 0;
 static CEntity* LastTagEntity = nullptr;
 int CWorld__SprayPaintWorld_Hook(CVector* posn, CVector* outDir, float radius, bool processTagAlphaState)
 {
     CShotInfo* shotInfo = (CShotInfo*)((uintptr_t)posn - 0x4);
+    const bool localSprayer = FindPlayerPed(0) == shotInfo->m_pCreator;
 
     if (FindPlayerPed(0) != shotInfo->m_pCreator)
     {
@@ -172,8 +175,15 @@ int CWorld__SprayPaintWorld_Hook(CVector* posn, CVector* outDir, float radius, b
         }
     }
 
+    const float previousTagStat = CStats::GetStatValue(STAT_TAGS_SPRAYED);
+    const int32_t previousTaggedCount = CTagManager::ms_numTagged;
+    LastTagEntity = nullptr;
     int result = CWorld::SprayPaintWorld(*posn, *outDir, radius, processTagAlphaState);
-    if (result == 1 && LastTagAlpha != 255)
+    if (!CNetwork::m_bAuthenticated)
+    {
+        return result;
+    }
+    if (result == 1 && LastTagEntity != nullptr && LastTagAlpha != 255)
     {
         /*CChat::AddMessage("CWorld__SprayPaintWorld_Hook posn {%f %f %f} outDir {%f %f %f} radius %f
            processTagAlphaState %d", posn->x, posn->y, posn->y, outDir->x, outDir->y, outDir->y, radius,
@@ -186,7 +196,7 @@ int CWorld__SprayPaintWorld_Hook(CVector* posn, CVector* outDir, float radius, b
 
             Packets::World::TagUpdate packet{};
             packet.payload.bFullySprayed = false;
-            packet.payload.alpha = LastTagAlpha;
+            packet.payload.alpha = std::min<uint8_t>(LastTagAlpha, 254);
             packet.payload.pos_x = static_cast<int16_t>(floor(LastTagEntity->GetPosition().x));
             packet.payload.pos_y = static_cast<int16_t>(floor(LastTagEntity->GetPosition().y));
             packet.payload.pos_z = static_cast<int16_t>(floor(LastTagEntity->GetPosition().z));
@@ -194,22 +204,37 @@ int CWorld__SprayPaintWorld_Hook(CVector* posn, CVector* outDir, float radius, b
         }
     }
 
-    if (result == 2)
+    if (result == 2 && LastTagEntity != nullptr)
     {
-        // CChat::AddMessage("2 %d %d", ++calls, LastTagAlpha);
-        Packets::World::TagUpdate packet{};
-        packet.payload.bFullySprayed = true;
-        packet.payload.alpha = LastTagAlpha;
-        packet.payload.pos_x = static_cast<int16_t>(floor(LastTagEntity->GetPosition().x));
-        packet.payload.pos_y = static_cast<int16_t>(floor(LastTagEntity->GetPosition().y));
-        packet.payload.pos_z = static_cast<int16_t>(floor(LastTagEntity->GetPosition().z));
-        GetPacketFactory().Send(packet);
+        if (localSprayer)
+        {
+            CNetworkPickupManager::NotifyLocalTagSprayed(LastTagEntity, previousTagStat,
+                previousTaggedCount, LastTagPreviousAlpha);
+        }
+        else
+        {
+            // Remote spray animation is visual evidence only. The remote client's collection request must be
+            // validated by the host; do not let this local simulation commit alpha or stats first.
+            CTagManager::SetAlpha(LastTagEntity, std::min<uint8_t>(LastTagPreviousAlpha, 254));
+            CStats::SetStatValue(STAT_TAGS_SPRAYED, previousTagStat);
+            CTagManager::ms_numTagged = previousTaggedCount;
+        }
+        // Never send legacy bFullySprayed online: only PICKUP_COLLECT_RESULT/tombstone may complete the tag.
     }
     return result;
 }
 
 void CTagManager__SetAlpha_Hook(CEntity* entity, uint8_t alpha)
 {
+    LastTagPreviousAlpha = 0;
+    for (const tTagDesc& tagDesc : CTagManager::ms_tagDesc)
+    {
+        if (tagDesc.m_pEntity == entity)
+        {
+            LastTagPreviousAlpha = tagDesc.m_nAlpha;
+            break;
+        }
+    }
     LastTagEntity = entity;
     LastTagAlpha = alpha;
     CTagManager::SetAlpha(entity, alpha);

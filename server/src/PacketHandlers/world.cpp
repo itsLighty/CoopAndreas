@@ -22,6 +22,11 @@ PACKET_HANDLER(ePacketType::ADD_EXPLOSION, Packets::World::AddExplosion* pAddExp
 
 PACKET_HANDLER(ePacketType::TAG_UPDATE, Packets::World::TagUpdate* pTagUpdate, CNetworkPlayer* pNetworkPlayer)
 {
+	// Full completion is pickup-authority state. Legacy tag packets are visual-only partial progress.
+	if (pTagUpdate->payload.bFullySprayed || pTagUpdate->payload.alpha >= 255)
+	{
+		return;
+	}
 	GetPacketFactory().SendToAll(*pTagUpdate, pNetworkPlayer);
 }
 
@@ -29,6 +34,11 @@ PACKET_HANDLER(ePacketType::UPDATE_ALL_TAGS, Packets::World::UpdateAllTags* pUpd
 {
 	if (pNetworkPlayer->m_bIsHost)
 	{
+		for (auto& tag : pUpdateAllTags->tags)
+		{
+			tag.bFullySprayed = false;
+			tag.alpha = std::min<uint8_t>(tag.alpha, 254);
+		}
 		GetPacketFactory().SendToAll(*pUpdateAllTags, pNetworkPlayer);
 	}
 }
