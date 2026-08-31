@@ -185,7 +185,7 @@ class PickupServerAuthorityTests(unittest.TestCase):
         debug = re.search(r"static constexpr const char\* array\[\]\s*=\s*\{(.*?)\};", self.packet_types, re.S).group(1)
         debug_names = re.findall(r'"([A-Z][A-Z0-9_]*)"', debug)
         self.assertEqual(enum_names, debug_names)
-        self.assertIn('COOPANDREAS_VERSION "0.3.7-alpha"',
+        self.assertIn('COOPANDREAS_VERSION "0.3.8-alpha"',
                       (ROOT / "shared/config.h").read_text(encoding="utf-8"))
 
     def test_stable_id_closed_kinds_and_metadata_are_bounded(self):

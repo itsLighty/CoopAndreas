@@ -3,6 +3,7 @@
 #include "CPickupAuthorityManager.h"
 #include "CStuntJumpAuthorityManager.h"
 #include "CFireAuthorityManager.h"
+#include "CCheatAuthorityManager.h"
 
 std::vector<CNetworkPlayer*> CNetworkPlayerManager::m_pPlayers;
 
@@ -76,6 +77,7 @@ void CNetworkPlayerManager::AssignHostToFirstPlayer()
         CPickupAuthorityManager::HandleAuthorityChange(nullptr);
         CStuntJumpAuthorityManager::HandleAuthorityChange(nullptr);
         CFireAuthorityManager::HandleAuthorityChange(nullptr);
+        CCheatAuthorityManager::HandleAuthorityChange(nullptr);
         return;
     }
 
@@ -100,4 +102,5 @@ void CNetworkPlayerManager::AssignHostToFirstPlayer()
     CPickupAuthorityManager::HandleAuthorityChange(player);
     CStuntJumpAuthorityManager::HandleAuthorityChange(player);
     CFireAuthorityManager::HandleAuthorityChange(player);
+    CCheatAuthorityManager::HandleAuthorityChange(player);
 }

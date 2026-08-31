@@ -5,6 +5,7 @@
 #include <CCutsceneVoteManager.h>
 #include <CGangZoneWarSyncManager.h>
 #include <CStuntJumpSyncManager.h>
+#include <CNetworkCheatManager.h>
 #include <CWeatherSync.h>
 #include <CCoronas.h>
 
@@ -26,31 +27,6 @@ static void __cdecl CClock__SetGameClock_Hook(unsigned char h, unsigned char m, 
 {
     CClock::SetGameClock(h, m, d);
     CWeatherSync::SyncCurrentState();
-}
-
-static void __declspec(naked) ProcessCheat_Hook1()
-{
-    __asm
-    {
-        mov byte ptr ds : [0x969110] , bl
-
-        call CWeatherSync::SyncCurrentState
-
-        push 0x438589
-        retn
-    }
-}
-static void __declspec(naked) ProcessCheat_Hook2()
-{
-    __asm
-    {
-        mov byte ptr ds : [0x969110] , bl
-
-        call CWeatherSync::SyncCurrentState
-
-        push 0x4385A3
-        retn
-    }
 }
 
 CEntity* pEntity = nullptr;
@@ -196,8 +172,9 @@ void GameHooks::InjectHooks()
 
     patch::RedirectCall(0x47F1C7, CClock__RestoreClock_Hook);
     patch::RedirectCall(0x441534, CClock__SetGameClock_Hook);
-    patch::RedirectJump(0x438583, ProcessCheat_Hook1);
-    patch::RedirectJump(0x43859D, ProcessCheat_Hook2);
+    // Intercept only CCheat::DoCheats' keyboard call site. The retail AddToCheatString routine remains
+    // untouched for offline play, while custom debug-menu/spawner strings keep using the native buffer.
+    patch::RedirectCall(0x439B0A, CNetworkCheatManager::AddToCheatStringHook);
 
     // CRenderer::RenderEverythingBarRoads => CVisibilityPlugins::GetClumpAlpha crash fix
     patch::RedirectJump(0x5534B0, CRenderer__AddEntityToRenderList_Hook);

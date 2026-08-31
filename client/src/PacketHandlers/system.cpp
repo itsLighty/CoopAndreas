@@ -2,6 +2,7 @@
 #include "CNetworkStaticBlip.h"
 #include "CNetworkPickupManager.h"
 #include "CNetworkFireManager.h"
+#include "CNetworkCheatManager.h"
 #include "CStuntJumpSyncManager.h"
 #include "network/packet_types.h"
 #include "network/packets/system.h"
@@ -69,6 +70,7 @@ PACKET_HANDLER(ePacketType::PLAYER_HANDSHAKE, Packets::System::PlayerHandshake* 
 {
     CNetworkPlayerManager::m_nMyId = pPlayerHandshake->yourid;
     CNetwork::m_bAuthenticated = true;
+    CNetworkCheatManager::BeginNetworkSession();
     CPatch::RevertTemporaryPatches();
     logger::info("Authenticated, playerid %d", pPlayerHandshake->yourid);
 }
@@ -104,6 +106,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
         CLocalPlayer::m_bIsHost = true;
         CStuntJumpSyncManager::HandleAuthorityChanged();
         CNetworkFireManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, true);
+        CNetworkCheatManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, true);
 
         CPatch::RevertTemporaryPatchesForHost(); // TODO is this needed?
 
@@ -132,6 +135,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
     CLocalPlayer::m_bIsHost = false;
     CStuntJumpSyncManager::HandleAuthorityChanged();
     CNetworkFireManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
+    CNetworkCheatManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
     CGangZoneWarSyncManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
     CNetworkPickupManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
 }

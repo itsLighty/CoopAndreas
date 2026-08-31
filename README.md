@@ -213,7 +213,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] stamina sync
   - [X] max hp sync
 - [X] fire sync
-- [ ] cheat code sync
+- [X] cheat code sync
 - [X] anim sync
   - [X] sprunk drinking
   - [X] fast food eating

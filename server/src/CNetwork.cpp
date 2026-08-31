@@ -5,6 +5,7 @@
 #include "CPickupAuthorityManager.h"
 #include "CStuntJumpAuthorityManager.h"
 #include "CFireAuthorityManager.h"
+#include "CCheatAuthorityManager.h"
 #include "CRTTBroadcastManager.h"
 #include "CPacketFactory.h"
 #include "logger.h"
@@ -266,6 +267,7 @@ void CNetwork::HandlePlayerDisconnected(ENetEvent& event)
     CPickupAuthorityManager::HandlePlayerDisconnected(pNetworkPlayer);
     CStuntJumpAuthorityManager::HandlePlayerDisconnected(pNetworkPlayer);
     CFireAuthorityManager::HandlePlayerDisconnected(pNetworkPlayer);
+    CCheatAuthorityManager::HandlePlayerDisconnected(pNetworkPlayer);
 
     const int disconnectedPlayerId = pNetworkPlayer->m_iPlayerId;
     const auto& missionState = CMissionSessionServer::GetState();
@@ -525,6 +527,7 @@ void CNetwork::CompletePlayerConnection(
     CPickupAuthorityManager::SendActiveStates(pNewNetworkPlayer);
     CStuntJumpAuthorityManager::SendSnapshot(pNewNetworkPlayer);
     CFireAuthorityManager::SendSnapshot(pNewNetworkPlayer);
+    CCheatAuthorityManager::SendSnapshot(pNewNetworkPlayer);
 
     const bool mayReceiveCachedEnEx = !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
     if (mayReceiveCachedEnEx && Packets::Scripts::g_pLastEnExPlayerOwner)

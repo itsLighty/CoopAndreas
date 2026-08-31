@@ -36,6 +36,7 @@
 #include <UI/CChatGamepadKeyboard.h>
 #include <CPlayerAnimationSyncManager.h>
 #include <CNetworkEntityStreamManager.h>
+#include <CNetworkCheatManager.h>
 
 unsigned int lastOnFootSyncTickRate = 0;
 unsigned int lastDriverSyncTickRate = 0;
@@ -96,6 +97,7 @@ public:
             if (/*CNetwork::m_bConnected*/ CNetwork::m_bAuthenticated)
             {
                 CMissionSessionClient::Process();
+                CNetworkCheatManager::Process();
                 CNetworkEntityStreamManager::Process();
 
                 // TODO: refactor

@@ -222,7 +222,7 @@ class FireSourceContractTests(unittest.TestCase):
 
     def test_protocol_is_bumped_and_packet_ids_are_append_only(self):
         config = (ROOT / "shared/config.h").read_text(encoding="utf-8")
-        self.assertIn('COOPANDREAS_VERSION "0.3.7-alpha"', config)
+        self.assertIn('COOPANDREAS_VERSION "0.3.8-alpha"', config)
         enum = re.search(
             r"enum class ePacketType[^\{]*\{(.*?)PACKET_ID_MAX", self.packet_types, re.S
         ).group(1)
