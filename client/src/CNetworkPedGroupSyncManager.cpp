@@ -311,6 +311,25 @@ void CNetworkPedGroupSyncManager::OnPedAvailable(int pedId)
         ApplyMember(pedId);
 }
 
+void CNetworkPedGroupSyncManager::OnPedPresentationUnavailable(int pedId)
+{
+    if (pedId < 0 || pedId >= Config::MAX_SERVER_PEDS)
+        return;
+    RemoveAppliedMember(g_remoteMembers[pedId]);
+    ReleaseUnusedOrInvalidGroups();
+}
+
+bool CNetworkPedGroupSyncManager::IsPedPresentationRequired(int pedId)
+{
+    return pedId >= 0 && pedId < Config::MAX_SERVER_PEDS && g_remoteMembers[pedId].initialized &&
+           g_remoteMembers[pedId].desired.hasGroup;
+}
+
+bool CNetworkPedGroupSyncManager::IsPlayerPresentationRequired(int playerId)
+{
+    return playerId >= 0 && playerId < Config::MAX_SERVER_PLAYERS && HasDesiredFollowers(playerId);
+}
+
 void CNetworkPedGroupSyncManager::OnPedRemoved(int pedId)
 {
     if (pedId < 0 || pedId >= Config::MAX_SERVER_PEDS)

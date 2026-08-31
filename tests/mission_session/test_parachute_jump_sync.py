@@ -381,8 +381,16 @@ class ParachuteJumpSyncTests(unittest.TestCase):
         self.assertIn("pNetworkPlayer->HandleTask(*pSetPlayerTask)", handler)
         self.assertNotIn("GetPacketFactory", handler)
         handle = function_body(self.remote, r"void CNetworkPlayer::HandleTask\(")
-        self.assertLess(handle.index("packet.hasParachuteState"), handle.index("if (!m_pPed)"))
-        self.assertIn("HandleSyncedParachute(packet)", handle)
+        self.assertIn("++m_nPendingTaskGeneration", handle)
+        self.assertIn("ApplyTaskPresentation(packet)", handle)
+        replay = function_body(self.remote, r"CNetworkPlayer::ApplyPendingTaskOnce\(")
+        self.assertIn("m_nAppliedTaskGeneration == m_nPendingTaskGeneration", replay)
+        self.assertEqual(replay.count("ApplyTaskPresentation(m_pendingTask)"), 1)
+        presentation = function_body(self.remote, r"CNetworkPlayer::ApplyTaskPresentation\(")
+        self.assertLess(
+            presentation.index("packet.hasParachuteState"), presentation.index("if (!m_pPed)")
+        )
+        self.assertIn("HandleSyncedParachute(packet)", presentation)
 
 
 if __name__ == "__main__":

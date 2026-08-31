@@ -7,6 +7,29 @@ class CNetworkPlayer
 public:
 	CPlayerPed* m_pPed = nullptr;
 	int m_iPlayerId;
+	CVector m_vecLogicalPosition{};
+	uint8_t m_nLogicalArea = AREA_MAIN_MAP;
+	bool m_bHasOnFootSnapshot = false;
+	uint32_t m_nLastPresentationChangeAt = 0;
+	int m_nPendingVehicleId = -1;
+	int8_t m_nPendingVehicleSeat = -1;
+	bool m_bPendingVehiclePassenger = false;
+	bool m_bPendingVehicleForce = false;
+	bool m_bPendingVehicleConfirmed = false;
+	bool m_bHasPendingVehicleRelation = false;
+	bool m_bHasVehicleDriverSnapshot = false;
+	bool m_bHasVehiclePassengerSnapshot = false;
+	Packets::Vehicles::VehicleDriverUpdate m_vehicleDriverSnapshot{};
+	Packets::Vehicles::VehiclePassengerUpdate m_vehiclePassengerSnapshot{};
+	bool m_bHasPendingTask = false;
+	Packets::Players::SetPlayerTask m_pendingTask{};
+	uint32_t m_nPendingTaskGeneration = 0;
+	uint32_t m_nAppliedTaskGeneration = 0;
+	bool m_bHasPendingEnExTransition = false;
+	Packets::Players::EnExTransition m_pendingEnExTransition{};
+	uint32_t m_nPendingEnExTransitionGeneration = 0;
+	uint32_t m_nAppliedEnExTransitionGeneration = 0;
+	bool m_bNeedsClothesRebuild = false;
 
 	Packets::Players::OnFootUpdate m_onFootSnapshotInterpolated{};
 	
@@ -60,6 +83,17 @@ public:
 
 	void CreatePed(int id, CVector position);
 	void DestroyPed();
+	bool Materialize(CVector position);
+	void StreamOut();
+	void ApplyCachedPresentation();
+	void ProcessPendingPresentation();
+	void ReconcilePendingVehiclePresentation();
+	void CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot);
+	void CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot);
+	void CacheVehiclePassengerSnapshot(const Packets::Vehicles::VehiclePassengerUpdate& snapshot);
+	void CacheVehicleRelation(int vehicleId, int seatId, bool passenger, bool force, bool confirmed = false);
+	void ClearVehicleRelation();
+	CVector GetLogicalPosition() const;
 	void Respawn();
 	int GetInternalId();
 	std::string GetName();
@@ -69,6 +103,8 @@ public:
 	void WarpIntoVehiclePassenger(CVehicle* vehicle, int seatid);
 	void EnterVehiclePassenger(CVehicle* vehicle, int seatid);
 	void HandleTask(Packets::Players::SetPlayerTask& packet);
+	void ApplyTaskPresentation(Packets::Players::SetPlayerTask& packet);
+	void ApplyPendingTaskOnce();
 	void HandleSyncedAnimation(const Packets::Players::SetPlayerTask& packet);
 	void HandleSyncedParachute(const Packets::Players::SetPlayerTask& packet);
 	void ApplySyncedAnimation();

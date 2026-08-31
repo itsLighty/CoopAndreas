@@ -216,7 +216,15 @@ class PlayerAnimationSyncTests(unittest.TestCase):
         )
 
         task = function_body(self.remote_player, r"CNetworkPlayer::HandleTask\(")
-        self.assertLess(task.index("packet.hasAnimationState"), task.index("if (!m_pPed)"))
+        self.assertIn("++m_nPendingTaskGeneration", task)
+        self.assertIn("ApplyTaskPresentation(packet)", task)
+        replay = function_body(self.remote_player, r"CNetworkPlayer::ApplyPendingTaskOnce\(")
+        self.assertIn("m_nAppliedTaskGeneration == m_nPendingTaskGeneration", replay)
+        self.assertEqual(replay.count("ApplyTaskPresentation(m_pendingTask)"), 1)
+        presentation = function_body(self.remote_player, r"CNetworkPlayer::ApplyTaskPresentation\(")
+        self.assertLess(
+            presentation.index("packet.hasAnimationState"), presentation.index("if (!m_pPed)")
+        )
 
     def test_remote_application_uses_loaded_blocks_and_only_the_exact_installed_pair(self):
         definitions = function_body(self.remote_player, r"GetSyncedAnimationDefinition\(")

@@ -11,6 +11,13 @@ std::array<bool, Config::MAX_SERVER_PLAYERS> CNetworkPlayerManager::m_hasPending
 
 void CNetworkPlayerManager::Add(CNetworkPlayer* player)
 {
+    if (!player)
+        return;
+    if (CNetworkPlayer* existing = GetPlayer(player->m_iPlayerId))
+    {
+        Remove(existing);
+        delete existing;
+    }
     m_pPlayers.push_back(player);
 
     const int playerId = player->m_iPlayerId;

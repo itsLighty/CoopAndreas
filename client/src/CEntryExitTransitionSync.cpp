@@ -52,6 +52,8 @@ void ApplyRemoteSnapshot(CNetworkPlayer* pNetworkPlayer, const Packets::Players:
     pNetworkPlayer->m_onFootSnapshotInterpolated.vecMoveSpeed = CVector();
     pNetworkPlayer->m_onFootSnapshotInterpolated.currentRotation = packet.currentRotation;
     pNetworkPlayer->m_onFootSnapshotInterpolated.aimingRotation = packet.aimingRotation;
+    pNetworkPlayer->m_vecLogicalPosition = packet.position;
+    pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
 }
 
 void ClearRemoteTransition(CNetworkPlayer* pNetworkPlayer)
@@ -169,10 +171,30 @@ void CEntryExitTransitionSync::OnTransitionFinished(CEntryExit* pEntryExit, CPed
 void CEntryExitTransitionSync::Receive(const Packets::Players::EnExTransition& packet)
 {
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(packet.playerid);
-    if (!pNetworkPlayer || !pNetworkPlayer->m_pPed)
+    if (!pNetworkPlayer)
     {
         return;
     }
+
+    pNetworkPlayer->m_pendingEnExTransition = packet;
+    pNetworkPlayer->m_bHasPendingEnExTransition = true;
+    ++pNetworkPlayer->m_nPendingEnExTransitionGeneration;
+    if (pNetworkPlayer->m_nPendingEnExTransitionGeneration == 0)
+        ++pNetworkPlayer->m_nPendingEnExTransitionGeneration;
+    pNetworkPlayer->m_vecLogicalPosition = packet.position;
+    pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
+    ReplayPending(pNetworkPlayer);
+}
+
+void CEntryExitTransitionSync::ReplayPending(CNetworkPlayer* pNetworkPlayer)
+{
+    if (!pNetworkPlayer || !pNetworkPlayer->m_pPed || !pNetworkPlayer->m_bHasPendingEnExTransition ||
+        pNetworkPlayer->m_nAppliedEnExTransitionGeneration == pNetworkPlayer->m_nPendingEnExTransitionGeneration)
+    {
+        return;
+    }
+
+    const Packets::Players::EnExTransition& packet = pNetworkPlayer->m_pendingEnExTransition;
 
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
     CEntryExit* pEntryExit = nullptr;
@@ -192,6 +214,7 @@ void CEntryExitTransitionSync::Receive(const Packets::Players::EnExTransition& p
     {
         StartRemoteTransition(pNetworkPlayer, pEntryExit, packet.bUsesDoor);
     }
+    pNetworkPlayer->m_nAppliedEnExTransitionGeneration = pNetworkPlayer->m_nPendingEnExTransitionGeneration;
 }
 
 void CEntryExitTransitionSync::Process()

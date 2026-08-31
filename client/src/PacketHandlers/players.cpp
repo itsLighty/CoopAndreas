@@ -35,13 +35,12 @@ PACKET_HANDLER(ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate
         return;
     }
 
+    pNetworkPlayer->CacheOnFootSnapshot(*pOnFootUpdate);
+
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
 
     if (pPlayerPed == nullptr)
-    {
-        pNetworkPlayer->CreatePed(pNetworkPlayer->m_iPlayerId, pOnFootUpdate->vecPos);
-        pPlayerPed = pNetworkPlayer->m_pPed;
-    }
+        return;
 
     if (pPlayerPed->m_pVehicle != nullptr && pPlayerPed->m_nPedFlags.bInVehicle)
     {
@@ -90,6 +89,13 @@ PACKET_HANDLER(ePacketType::PLAYER_KEY_SYNC, Packets::Players::KeyPressed* pKeyP
 
     pNetworkPlayer->m_oldControllerState = pKeyPressed->keySnapshot.oldControllerState;
     pNetworkPlayer->m_newControllerState = pKeyPressed->keySnapshot.newControllerState;
+
+    if (!pNetworkPlayer->m_pPed)
+    {
+        pNetworkPlayer->m_onFootSnapshotInterpolated.currentRotation = pKeyPressed->currentRotation;
+        pNetworkPlayer->m_onFootSnapshotInterpolated.aimingRotation = pKeyPressed->aimingRotation;
+        return;
+    }
 
     pNetworkPlayer->m_pPed->m_fCurrentRotation = pKeyPressed->currentRotation.m_angle;
     pNetworkPlayer->m_pPed->m_fAimingRotation = pKeyPressed->aimingRotation.m_angle;
@@ -182,6 +188,9 @@ PACKET_HANDLER(ePacketType::PLAYER_BULLET_SHOT, Packets::Players::PlayerBulletSh
     {
         return;
     }
+
+    if (!pNetworkPlayer->m_pPed)
+        return;
 
     pNetworkPlayer->m_pPed->SetCurrentWeapon(pPlayerBulletShot->iWeaponType);
 
@@ -299,6 +308,7 @@ PACKET_HANDLER(ePacketType::REBUILD_PLAYER, Packets::Players::RebuildPlayer* pRe
         //CStatsSync::ApplyNetworkPlayerContext(networkPlayer);
 
         pNetworkPlayer->m_pPedClothesDesc = pRebuildPlayer->clothesDesc;
+		pNetworkPlayer->m_bNeedsClothesRebuild = true;
 
         if (auto pPlayerPed = pNetworkPlayer->m_pPed)
         {
@@ -306,6 +316,7 @@ PACKET_HANDLER(ePacketType::REBUILD_PLAYER, Packets::Players::RebuildPlayer* pRe
             if (pPlayerPed->m_pRwClump)
             {
                 CClothes::RebuildPlayer(pPlayerPed, false);
+				pNetworkPlayer->m_bNeedsClothesRebuild = false;
             }
         }
 

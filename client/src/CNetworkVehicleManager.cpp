@@ -307,7 +307,36 @@ void CNetworkVehicleManager::ClearVehicleRelations(CNetworkVehicle* vehicle)
 	if (!vehicle)
 		return;
 
+	// VEHICLE_REMOVE and pool reuse share the same teardown path. Detach every native occupant before the GTA
+	// vehicle is deleted so no local or remote ped retains a stale m_pVehicle/bInVehicle reference.
+	vehicle->StreamOut();
 	vehicle->DetachTrailerLinks();
+	for (auto* player : CNetworkPlayerManager::m_pPlayers)
+	{
+		if (player && player->m_bHasPendingVehicleRelation && player->m_nPendingVehicleId == vehicle->m_nVehicleId)
+		{
+			player->m_vecLogicalPosition = vehicle->GetLogicalPosition();
+			player->ClearVehicleRelation();
+		}
+	}
+	for (auto* ped : CNetworkPedManager::m_pPeds)
+	{
+		if (!ped)
+			continue;
+		const bool wasDriver = ped->m_bHasDriverSnapshot &&
+			ped->m_driverSnapshot.vehicleid == vehicle->m_nVehicleId;
+		const bool wasPassenger = ped->m_bHasPassengerSnapshot &&
+			ped->m_passengerSnapshot.vehicleid == vehicle->m_nVehicleId;
+		if (wasDriver || wasPassenger)
+		{
+			ped->m_vecLogicalPosition = vehicle->GetLogicalPosition();
+			ped->m_bHasDriverSnapshot = false;
+			ped->m_bHasPassengerSnapshot = false;
+			ped->m_presentationMode = ped->m_bHasOnFootSnapshot
+				? CNetworkPed::PresentationMode::ON_FOOT
+				: CNetworkPed::PresentationMode::SPAWN;
+		}
+	}
 	for (auto* other : m_pVehicles)
 	{
 		if (other && other != vehicle &&

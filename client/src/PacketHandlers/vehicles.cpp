@@ -55,6 +55,8 @@ PACKET_HANDLER(ePacketType::VEHICLE_IDLE_UPDATE, Packets::Vehicles::VehicleIdleU
     if (pNetworkVehicle == nullptr)
         return;
 
+    pNetworkVehicle->CacheIdleSnapshot(*pVehicleIdleUpdate);
+
     if (!pNetworkVehicle->m_pVehicle)
         return;
 
@@ -95,10 +97,16 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehicleDriverUpdate->vehicleid);
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pVehicleDriverUpdate->playerid);
 
+    if (pNetworkVehicle)
+        pNetworkVehicle->CacheDriverSnapshot(*pVehicleDriverUpdate);
+    if (pNetworkPlayer)
+        pNetworkPlayer->CacheVehicleDriverSnapshot(*pVehicleDriverUpdate);
     if (pNetworkVehicle == nullptr || pNetworkPlayer == nullptr)
         return;
 
     CVehicle* pVehicle = pNetworkVehicle->m_pVehicle;
+    if (!pVehicle || !pNetworkPlayer->m_pPed)
+        return;
     if (!pVehicle->IsVTableValid())
         return;
 
@@ -161,6 +169,8 @@ PACKET_HANDLER(ePacketType::VEHICLE_ENTER, Packets::Vehicles::VehicleEnter* pVeh
     }
 
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehicleEnter->vehicleid);
+    pNetworkPlayer->CacheVehicleRelation(pVehicleEnter->vehicleid, pVehicleEnter->seatid,
+        pVehicleEnter->bPassenger, pVehicleEnter->bForce);
     if (pNetworkVehicle == nullptr)
     {
         return;
@@ -168,6 +178,9 @@ PACKET_HANDLER(ePacketType::VEHICLE_ENTER, Packets::Vehicles::VehicleEnter* pVeh
 
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
     CVehicle* pVehicle = pNetworkVehicle->m_pVehicle;
+
+    if (!pPlayerPed || !pVehicle)
+        return;
 
     if (!pPlayerPed->IsVTableValid() || !pVehicle->IsVTableValid())
         return;
@@ -214,7 +227,11 @@ PACKET_HANDLER(ePacketType::VEHICLE_EXIT, Packets::Vehicles::VehicleExit* pVehic
         return;
     }
 
+    pNetworkPlayer->ClearVehicleRelation();
+
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
+    if (!pPlayerPed)
+        return;
     if (pPlayerPed->m_pVehicle == nullptr || !pPlayerPed->m_nPedFlags.bInVehicle)
     {
         return;
@@ -253,6 +270,7 @@ PACKET_HANDLER(ePacketType::VEHICLE_DAMAGE, Packets::Vehicles::VehicleDamage* pV
 
     if (auto pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehicleDamage->vehicleid))
     {
+        pNetworkVehicle->CacheDamageState(pVehicleDamage->damageManager);
         if (auto pVehicle = pNetworkVehicle->m_pVehicle)
         {
             if (pVehicle->IsVTableValid())
@@ -277,27 +295,14 @@ PACKET_HANDLER(ePacketType::VEHICLE_COMPONENT_ADD, Packets::Vehicles::VehicleCom
         return;
     }
 
+    pNetworkVehicle->CacheComponentAdd(pVehicleComponentAdd->componentid);
+
     CVehicle* pVehicle = pNetworkVehicle->m_pVehicle;
     if (!pVehicle || !pVehicle->IsVTableValid())
     {
         return;
     }
-
-    CStreaming::RequestModel(pVehicleComponentAdd->componentid, eStreamingFlags::GAME_REQUIRED);
-    CStreaming::LoadAllRequestedModels(false);
-    CStreaming::RequestVehicleUpgrade(pVehicleComponentAdd->componentid, eStreamingFlags::GAME_REQUIRED);
-
-    uint8_t count = 10;
-    while (!CStreaming::HasVehicleUpgradeLoaded(pVehicleComponentAdd->componentid) && count)
-    {
-        Sleep(5);
-        count--;
-    }
-
-    if (!count)
-        return;
-
-    pVehicle->AddVehicleUpgrade(pVehicleComponentAdd->componentid);
+    pNetworkVehicle->ProcessPendingPresentation();
 }
 
 PACKET_HANDLER(
@@ -309,13 +314,15 @@ PACKET_HANDLER(
         return;
     }
 
+    pNetworkVehicle->CacheComponentRemove(pVehicleComponentRemove->componentid);
+
     CVehicle* pVehicle = pNetworkVehicle->m_pVehicle;
     if (!pVehicle || !pVehicle->IsVTableValid())
     {
         return;
     }
 
-    pVehicle->RemoveVehicleUpgrade(pVehicleComponentRemove->componentid);
+    // CacheComponentRemove applies immediately when a presentation exists and preserves the desired list while out.
 }
 
 PACKET_HANDLER(
@@ -324,10 +331,10 @@ PACKET_HANDLER(
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehiclePassengerUpdate->vehicleid);
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pVehiclePassengerUpdate->playerid);
 
+    if (pNetworkPlayer)
+        pNetworkPlayer->CacheVehiclePassengerSnapshot(*pVehiclePassengerUpdate);
     if (pNetworkVehicle == nullptr || pNetworkPlayer == nullptr)
-    {
         return;
-    }
 
     CVehicle* pVehicle = pNetworkVehicle->m_pVehicle;
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;

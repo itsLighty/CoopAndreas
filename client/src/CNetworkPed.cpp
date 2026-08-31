@@ -8,6 +8,7 @@
 #include <CTaskComplexJump.h>
 #include <CTaskComplexClimb.h>
 #include <Hooks/PedHooks.h>
+#include "CNetworkEntityStreamManager.h"
 
 namespace
 {
@@ -20,72 +21,21 @@ bool IsNewerRevision(uint16_t candidate, uint16_t current)
 
 CNetworkPed::CNetworkPed(int pedid, int modelId, ePedType pedType, CVector pos, unsigned char createdBy, char specialModelName[])
 {
-    if (modelId >= 290 && modelId <= 299)
-        CStreaming::RequestSpecialModel(modelId, specialModelName, 0);
-    else
-        CStreaming::RequestModel(modelId, 0);
-
-    CStreaming::LoadAllRequestedModels(false);
-
-    if (pedType == PED_TYPE_COP)
-    {
-        switch (modelId) 
-        {
-        case MODEL_LAPDM1:
-            modelId = COP_TYPE_LAPDM1;
-            break;
-        case MODEL_CSHER:
-            modelId = COP_TYPE_CSHER;
-            break;
-        case MODEL_SWAT:
-            modelId = COP_TYPE_SWAT1;
-            break;
-        case MODEL_FBI:
-            modelId = COP_TYPE_FBI;
-            break;
-        case MODEL_ARMY:
-            modelId = COP_TYPE_ARMY;
-            break;
-        }
-    }
-
-    if (pedType == PED_TYPE_COP)
-    {
-        m_pPed = new CCopPed((eCopType)modelId);
-    }
-    else if (pedType == PED_TYPE_MEDIC || pedType == PED_TYPE_FIREMAN)
-    {
-        m_pPed = new CEmergencyPed(pedType, modelId);
-    }
-    else
-    {
-        m_pPed = new CCivilianPed(pedType, modelId);
-    }
-
-    m_pPed->m_nCreatedBy = 2;
-    m_pPed->m_pIntelligence->SetPedDecisionMakerType(-1);
-    m_pPed->m_pIntelligence->SetSeeingRange(30.0);
-    m_pPed->m_pIntelligence->SetHearingRange(30.0);
-    m_pPed->m_pIntelligence->m_fDmRadius = 0.0f;
-    m_pPed->m_pIntelligence->m_nDmNumPedsToScan = 0;
-    
-    m_pPed->SetPosn(pos);
-    m_pPed->SetOrientation(0.f, 0.f, 0.f);
-    CWorld::Add(m_pPed);
-
     m_nPedId = pedid;
+    m_nModelId = modelId;
     m_nPedType = pedType;
     m_bSyncing = false;
     m_nCreatedBy = createdBy;
-
-    // THIS IS AN EXPERIMENTAL SOLUTION FOR THE 0x4D68BA CRASH
-    m_pPed->m_bStreamingDontDelete = true;
+    m_vecLogicalPosition = pos;
+    m_nLogicalArea = static_cast<uint8_t>(CGame::currArea);
+    if (specialModelName)
+    {
+        strncpy_s(m_szSpecialModelName, specialModelName, _TRUNCATE);
+    }
 }
 
 CNetworkPed::~CNetworkPed()
 {
-    ResetRemoteSyncState(true);
-
     if (m_bSyncing)
     {
         Packets::Peds::PedRemove packet{};
@@ -94,25 +44,271 @@ CNetworkPed::~CNetworkPed()
     }
     else
     {
+        StreamOut();
+    }
+    CNetworkEntityStreamManager::Forget(this);
+}
 
-        if (m_pPed && m_pPed->m_matrix->m_pOwner)
+bool CNetworkPed::Materialize()
+{
+    if (m_pPed)
+        return true;
+
+    if (m_nModelId < MODEL_MALE01 || m_nModelId > MODEL_SPECIAL10 ||
+        CStreaming::ms_aInfoForModel[m_nModelId].m_nLoadState != LOADSTATE_LOADED)
+        return false;
+    CBaseModelInfo* modelInfo = CModelInfo::ms_modelInfoPtrs[m_nModelId];
+    if (!modelInfo || !modelInfo->m_pRwObject || modelInfo->m_nTxdIndex < 0 || !CTxdStore::ms_pTxdPool)
+        return false;
+    TxdDef* txd = CTxdStore::ms_pTxdPool->GetAt(modelInfo->m_nTxdIndex);
+    if (!txd || !txd->m_pRwDictionary)
+        return false;
+
+    int constructorModel = m_nModelId;
+    if (m_nPedType == PED_TYPE_COP)
+    {
+        switch (m_nModelId)
         {
-            if (m_nBlipHandle != -1)
-            {
-                CRadar::ClearBlipForEntity(eBlipType::BLIP_CHAR, CPools::GetPedRef(m_pPed));
-                //CChat::AddMessage("REMOVE THE FUCKING BLIP");
-            }
-
-            if (m_pPed->m_nPedFlags.bInVehicle)
-            {
-                plugin::Command<Commands::WARP_CHAR_FROM_CAR_TO_COORD>(CPools::GetPedRef(m_pPed), 0.f, 0.f, 0.f);
-            }
-
-            CWorld::Remove(m_pPed);
-            //CWorld::RemoveReferencesToDeletedObject(m_pPed);
-            m_pPed->Remove();
-            delete m_pPed;
+        case MODEL_LAPDM1: constructorModel = COP_TYPE_LAPDM1; break;
+        case MODEL_CSHER: constructorModel = COP_TYPE_CSHER; break;
+        case MODEL_SWAT: constructorModel = COP_TYPE_SWAT1; break;
+        case MODEL_FBI: constructorModel = COP_TYPE_FBI; break;
+        case MODEL_ARMY: constructorModel = COP_TYPE_ARMY; break;
         }
+    }
+
+    if (m_nPedType == PED_TYPE_COP)
+        m_pPed = new CCopPed(static_cast<eCopType>(constructorModel));
+    else if (m_nPedType == PED_TYPE_MEDIC || m_nPedType == PED_TYPE_FIREMAN)
+        m_pPed = new CEmergencyPed(m_nPedType, constructorModel);
+    else
+        m_pPed = new CCivilianPed(m_nPedType, constructorModel);
+
+    if (!m_pPed)
+        return false;
+
+    m_pPed->m_nCreatedBy = m_bSyncing ? m_nCreatedBy : 2;
+    m_pPed->m_pIntelligence->SetPedDecisionMakerType(-1);
+    m_pPed->m_pIntelligence->SetSeeingRange(30.0f);
+    m_pPed->m_pIntelligence->SetHearingRange(30.0f);
+    m_pPed->m_pIntelligence->m_fDmRadius = 0.0f;
+    m_pPed->m_pIntelligence->m_nDmNumPedsToScan = 0;
+    m_pPed->SetPosn(GetLogicalPosition());
+    m_pPed->SetOrientation(0.0f, 0.0f, 0.0f);
+    m_pPed->m_nAreaCode = m_nLogicalArea;
+    m_pPed->m_bStreamingDontDelete = true;
+    CWorld::Add(m_pPed);
+    m_nLastPresentationChangeAt = GetTickCount();
+    ApplyCachedPresentation();
+    CNetworkPedGroupSyncManager::OnPedAvailable(m_nPedId);
+    return true;
+}
+
+void CNetworkPed::StreamOut()
+{
+    if (!m_pPed || m_bSyncing)
+        return;
+
+    CNetworkPedGroupSyncManager::OnPedPresentationUnavailable(m_nPedId);
+    ResetRemoteSyncState(true);
+    if (m_nBlipHandle != -1 && IsPedPointerValid(m_pPed))
+    {
+        CRadar::ClearBlipForEntity(eBlipType::BLIP_CHAR, CPools::GetPedRef(m_pPed));
+        m_nBlipHandle = -1;
+    }
+    if (IsPedPointerValid(m_pPed) && m_pPed->IsVTableValid())
+    {
+        if (m_pPed->m_nPedFlags.bInVehicle)
+        {
+            CVehicle* oldVehicle = m_pPed->m_pVehicle;
+            plugin::Command<Commands::WARP_CHAR_FROM_CAR_TO_COORD>(CPools::GetPedRef(m_pPed),
+                m_vecLogicalPosition.x, m_vecLogicalPosition.y, m_vecLogicalPosition.z);
+            if (oldVehicle && m_pPed->m_pVehicle == oldVehicle)
+            {
+                if (oldVehicle->m_pDriver == m_pPed)
+                    oldVehicle->m_pDriver = nullptr;
+                for (CPed*& passenger : oldVehicle->m_apPassengers)
+                {
+                    if (passenger == m_pPed)
+                        passenger = nullptr;
+                }
+                m_pPed->m_pVehicle = nullptr;
+                m_pPed->m_nPedFlags.bInVehicle = false;
+            }
+        }
+        CWorld::Remove(m_pPed);
+        m_pPed->Remove();
+        delete m_pPed;
+    }
+    m_pPed = nullptr;
+    m_nLastPresentationChangeAt = GetTickCount();
+}
+
+void CNetworkPed::CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot)
+{
+    m_onFootSnapshot = snapshot;
+    m_bHasOnFootSnapshot = true;
+    m_bHasDriverSnapshot = false;
+    m_bHasPassengerSnapshot = false;
+    m_presentationMode = PresentationMode::ON_FOOT;
+    m_vecLogicalPosition = snapshot.pos;
+    m_fHealth = snapshot.healthSnapshot.iHealth;
+    m_vecVelocity = snapshot.velocity;
+    m_fCurrentRotation = snapshot.currentRotation.m_angle;
+    m_fAimingRotation = snapshot.aimingRotation.m_angle;
+    m_fLookDirection = snapshot.lookDirection.m_angle;
+    m_nMoveState = snapshot.moveState;
+}
+
+void CNetworkPed::CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot)
+{
+    m_driverSnapshot = snapshot;
+    m_bHasDriverSnapshot = true;
+    m_bHasPassengerSnapshot = false;
+    m_presentationMode = PresentationMode::DRIVER;
+    m_vecLogicalPosition = snapshot.pos;
+    m_fHealth = snapshot.pedHealth.iHealth;
+    m_vecVelocity = snapshot.velocity;
+    if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(snapshot.vehicleid))
+        m_nLogicalArea = vehicle->m_nLogicalArea;
+}
+
+void CNetworkPed::CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& snapshot)
+{
+    m_passengerSnapshot = snapshot;
+    m_bHasPassengerSnapshot = true;
+    m_bHasDriverSnapshot = false;
+    m_presentationMode = PresentationMode::PASSENGER;
+    m_fHealth = snapshot.healthSnapshot.iHealth;
+    if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(snapshot.vehicleid))
+    {
+        m_vecLogicalPosition = vehicle->GetLogicalPosition();
+        m_nLogicalArea = vehicle->m_nLogicalArea;
+    }
+}
+
+CVector CNetworkPed::GetLogicalPosition() const
+{
+    if (m_presentationMode == PresentationMode::PASSENGER)
+    {
+        if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(m_passengerSnapshot.vehicleid))
+            return vehicle->GetLogicalPosition();
+    }
+    return m_vecLogicalPosition;
+}
+
+void CNetworkPed::ApplyCachedPresentation()
+{
+    if (!m_pPed || !m_pPed->IsVTableValid())
+        return;
+
+    if (m_presentationMode == PresentationMode::DRIVER && m_bHasDriverSnapshot)
+    {
+        CNetworkVehicle* networkVehicle = CNetworkVehicleManager::GetVehicle(m_driverSnapshot.vehicleid);
+        CVehicle* vehicle = networkVehicle ? networkVehicle->m_pVehicle : nullptr;
+        if (!vehicle || !vehicle->IsVTableValid())
+            return;
+        if (!m_pPed->m_nPedFlags.bInVehicle || m_pPed->m_pVehicle != vehicle || vehicle->m_pDriver != m_pPed)
+            WarpIntoVehicleDriver(vehicle);
+        ClearRemoteAim();
+        ClearRemoteTask();
+        vehicle->m_matrix->pos = m_driverSnapshot.pos;
+        vehicle->m_matrix->right = m_driverSnapshot.roll;
+        vehicle->m_matrix->up = m_driverSnapshot.rot;
+        vehicle->m_vecMoveSpeed = m_driverSnapshot.velocity;
+        vehicle->m_vecTurnSpeed = m_driverSnapshot.turnSpeed;
+        ApplyWeaponSnapshot(m_driverSnapshot.pedWeapon);
+        m_pPed->m_fHealth = m_driverSnapshot.pedHealth.iHealth;
+        m_pPed->m_fArmour = m_driverSnapshot.pedHealth.iArmour;
+        vehicle->m_nPrimaryColor = m_driverSnapshot.color1;
+        vehicle->m_nSecondaryColor = m_driverSnapshot.color2;
+        vehicle->m_fHealth = m_driverSnapshot.health;
+        vehicle->m_eDoorLock = m_driverSnapshot.locked;
+        vehicle->m_fGasPedal = m_fGasPedal = m_driverSnapshot.gasPedal;
+        vehicle->m_fBreakPedal = m_fBreakPedal = m_driverSnapshot.breakPedal;
+        vehicle->m_fSteerAngle = m_fSteerAngle = m_driverSnapshot.steerAngle;
+        ApplyDriverSignals(vehicle, m_driverSnapshot.bHorn, m_driverSnapshot.bSiren);
+        return;
+    }
+
+    if (m_presentationMode == PresentationMode::PASSENGER && m_bHasPassengerSnapshot)
+    {
+        CNetworkVehicle* networkVehicle = CNetworkVehicleManager::GetVehicle(m_passengerSnapshot.vehicleid);
+        CVehicle* vehicle = networkVehicle ? networkVehicle->m_pVehicle : nullptr;
+        if (!vehicle || !vehicle->IsVTableValid())
+            return;
+        const int seat = m_passengerSnapshot.seatid;
+        const bool inExpectedSeat = seat >= 0 && seat < vehicle->m_nMaxPassengers &&
+            m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle == vehicle &&
+            vehicle->m_apPassengers[seat] == m_pPed;
+        if (!inExpectedSeat)
+            WarpIntoVehiclePassenger(vehicle, seat);
+        ClearDriverSignals();
+        ClearRemoteAim();
+        ClearRemoteTask();
+        ApplyWeaponSnapshot(m_passengerSnapshot.weaponSnapshot);
+        m_pPed->m_fHealth = m_passengerSnapshot.healthSnapshot.iHealth;
+        m_pPed->m_fArmour = m_passengerSnapshot.healthSnapshot.iArmour;
+        return;
+    }
+
+    if (!m_bHasOnFootSnapshot)
+        return;
+    if (m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle && m_pPed->m_pVehicle->IsVTableValid())
+        RemoveFromVehicle(m_pPed->m_pVehicle);
+    ApplyWeaponSnapshot(m_onFootSnapshot.weaponSnapshot);
+    m_pPed->SetPosn(m_onFootSnapshot.pos);
+    m_pPed->m_fCurrentRotation = m_onFootSnapshot.currentRotation.m_angle;
+    m_pPed->m_fAimingRotation = m_onFootSnapshot.aimingRotation.m_angle;
+    m_pPed->m_fLookDirection = m_onFootSnapshot.lookDirection.m_angle;
+    m_pPed->m_fHealth = m_onFootSnapshot.healthSnapshot.iHealth;
+    m_pPed->m_fArmour = m_onFootSnapshot.healthSnapshot.iArmour;
+    m_pPed->m_vecMoveSpeed = m_onFootSnapshot.velocity;
+    if (CUtil::IsDucked(m_pPed) != m_onFootSnapshot.bDucked)
+        CTaskSimpleDuckToggle(m_onFootSnapshot.bDucked).ProcessPed(m_pPed);
+    m_pPed->m_nFightingStyle = m_onFootSnapshot.fightingStyle;
+    if (m_pPed->m_fHealth <= 0.0f)
+        ResetRemoteSyncState(true);
+    else
+    {
+        ApplyAimSnapshot(m_onFootSnapshot.bAiming, m_onFootSnapshot.weaponAim);
+        ApplyTaskSnapshot(m_onFootSnapshot.task);
+    }
+}
+
+void CNetworkPed::ProcessPendingPresentation()
+{
+    if (!m_pPed || m_bSyncing || !m_pPed->IsVTableValid())
+        return;
+    if (m_presentationMode == PresentationMode::DRIVER && m_bHasDriverSnapshot)
+    {
+        CNetworkVehicle* networkVehicle = CNetworkVehicleManager::GetVehicle(m_driverSnapshot.vehicleid);
+        CVehicle* vehicle = networkVehicle ? networkVehicle->m_pVehicle : nullptr;
+        if (vehicle && vehicle->IsVTableValid() &&
+            (!m_pPed->m_nPedFlags.bInVehicle || m_pPed->m_pVehicle != vehicle || vehicle->m_pDriver != m_pPed))
+            WarpIntoVehicleDriver(vehicle);
+        if (vehicle)
+            ApplyDriverSignals(vehicle, m_driverSnapshot.bHorn, m_driverSnapshot.bSiren);
+        return;
+    }
+    if (m_presentationMode == PresentationMode::PASSENGER && m_bHasPassengerSnapshot)
+    {
+        CNetworkVehicle* networkVehicle = CNetworkVehicleManager::GetVehicle(m_passengerSnapshot.vehicleid);
+        CVehicle* vehicle = networkVehicle ? networkVehicle->m_pVehicle : nullptr;
+        if (!vehicle || !vehicle->IsVTableValid())
+            return;
+        const int seat = m_passengerSnapshot.seatid;
+        const bool inExpectedSeat = seat >= 0 && seat < vehicle->m_nMaxPassengers &&
+            m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle == vehicle &&
+            vehicle->m_apPassengers[seat] == m_pPed;
+        if (!inExpectedSeat)
+            WarpIntoVehiclePassenger(vehicle, seat);
+        return;
+    }
+    if (m_bHasOnFootSnapshot && m_pPed->m_fHealth > 0.0f)
+    {
+        ApplyAimSnapshot(m_onFootSnapshot.bAiming, m_onFootSnapshot.weaponAim);
+        ApplyTaskSnapshot(m_onFootSnapshot.task);
     }
 }
 

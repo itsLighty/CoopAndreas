@@ -12,6 +12,12 @@ PACKET_HANDLER(ePacketType::PED_SPAWN, Packets::Peds::PedSpawn* pPedSpawn)
         packet->pos.y, packet->pos.z, packet->pedType, packet->createdBy);
 #endif
 
+    if (CNetworkPed* existing = CNetworkPedManager::GetPed(pPedSpawn->pedid))
+    {
+        CNetworkPedManager::Remove(existing);
+        delete existing;
+    }
+
     CNetworkPed* pNetworkPed = new CNetworkPed(pPedSpawn->pedid, pPedSpawn->modelId, pPedSpawn->pedType, pPedSpawn->pos,
         pPedSpawn->createdBy, pPedSpawn->specialModelName);
 
@@ -113,6 +119,8 @@ PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot)
         return;
     }
 
+    pNetworkPed->CacheOnFootSnapshot(*pPedOnFoot);
+
     CPed* pPed = pNetworkPed->m_pPed;
     if (!pPed)
     {
@@ -165,20 +173,20 @@ PACKET_HANDLER(ePacketType::PED_DRIVER_UPDATE, Packets::Peds::PedDriverUpdate* p
 {
     CNetworkPedGroupSyncManager::ObserveRemoteMembership(pPedDriverUpdate->pedid, pPedDriverUpdate->group);
 
+    CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pPedDriverUpdate->pedid);
+    if (pNetworkPed == nullptr)
+        return;
+    pNetworkPed->CacheDriverSnapshot(*pPedDriverUpdate);
+
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pPedDriverUpdate->vehicleid);
     if (pNetworkVehicle == nullptr)
     {
         return;
     }
+    pNetworkVehicle->CachePedDriverSnapshot(*pPedDriverUpdate);
 
     CVehicle* pVehicle = pNetworkVehicle->m_pVehicle;
     if (pVehicle == nullptr || !pVehicle->IsVTableValid())
-    {
-        return;
-    }
-
-    CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pPedDriverUpdate->pedid);
-    if (pNetworkPed == nullptr)
     {
         return;
     }
@@ -254,7 +262,11 @@ PACKET_HANDLER(ePacketType::PED_PASSENGER_UPDATE, Packets::Peds::PedPassengerSyn
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pPedPassengerSync->vehicleid);
     CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pPedPassengerSync->pedid);
 
-    if (pNetworkVehicle == nullptr || pNetworkPed == nullptr)
+    if (pNetworkPed == nullptr)
+        return;
+
+    pNetworkPed->CachePassengerSnapshot(*pPedPassengerSync);
+    if (pNetworkVehicle == nullptr)
         return;
 
     if (pNetworkVehicle->m_pVehicle == nullptr)
@@ -313,7 +325,6 @@ PACKET_HANDLER(ePacketType::PED_SAY, Packets::Peds::PedSay* pPedSay)
     {
         return;
     }
-
     // Call the native implementation directly. Going through CPed::Say would re-enter PedHooks and echo the event.
     // The speech entity remains attached to the streamed remote player, so GTA's normal spatial audio path is used.
     plugin::CallMethodAndReturn<int16_t, 0x4E6550, CAEPedSpeechAudioEntity*, int, int16_t, uint32_t, float, bool,

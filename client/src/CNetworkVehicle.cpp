@@ -2,6 +2,7 @@
 #include "CNetworkVehicle.h"
 #include <CAEAudioHardware.h>
 #include <CAERadioTrackManager.h>
+#include "CNetworkEntityStreamManager.h"
 
 namespace
 {
@@ -43,16 +44,7 @@ CNetworkVehicle::CNetworkVehicle(int vehicleid, int modelid, CVector pos, float 
 {
     if (auto vehicle = CNetworkVehicleManager::GetVehicle(vehicleid))
     {
-        CVehicle* oldVehicle = vehicle->m_pVehicle;
         CNetworkVehicleManager::Remove(vehicle);
-        if (oldVehicle && oldVehicle->IsVTableValid())
-        {
-            CWorld::Remove(oldVehicle);
-            CWorld::RemoveReferencesToDeletedObject(oldVehicle);
-            delete oldVehicle;
-        }
-        vehicle->m_pVehicle = nullptr;
-        vehicle->m_bSyncing = false;
         delete vehicle;
     }
 
@@ -61,25 +53,28 @@ CNetworkVehicle::CNetworkVehicle(int vehicleid, int modelid, CVector pos, float 
     m_nTempId = 255;
     m_nModelId = modelid;
     m_nCreatedBy = createdBy;
-
-    if (!CreateVehicle(vehicleid, modelid, pos, rotation, color1, color2))
-        return;
-
+    m_vecLogicalPosition = pos;
+    m_fSpawnRotation = rotation;
+    m_nSpawnColor1 = color1;
+    m_nSpawnColor2 = color2;
+    m_nLogicalArea = static_cast<uint8_t>(CGame::currArea);
+    m_pendingComponents.fill(-1);
 }
 
 bool CNetworkVehicle::CreateVehicle(int vehicleid, int modelid, CVector pos, float rotation, unsigned char color1, unsigned char color2)
 {
-    unsigned char oldFlags = CStreaming::ms_aInfoForModel[modelid].m_nFlags;
-    CStreaming::RequestModel(modelid, GAME_REQUIRED);
-    CStreaming::LoadAllRequestedModels(false);
+    if (modelid < MODEL_LANDSTAL || modelid > MODEL_UTILTR1 ||
+        CStreaming::ms_aInfoForModel[modelid].m_nLoadState != LOADSTATE_LOADED)
+        return false;
 
-    if (!(oldFlags & GAME_REQUIRED))
-    {
-        CStreaming::SetModelIsDeletable(modelid);
-        CStreaming::SetModelTxdIsDeletable(modelid);
-    }
+    CBaseModelInfo* modelInfo = CModelInfo::ms_modelInfoPtrs[modelid];
+    if (!modelInfo || !modelInfo->m_pRwObject || !CTxdStore::ms_pTxdPool || modelInfo->m_nTxdIndex < 0)
+        return false;
+    TxdDef* txd = CTxdStore::ms_pTxdPool->GetAt(modelInfo->m_nTxdIndex);
+    if (!txd || !txd->m_pRwDictionary)
+        return false;
 
-    switch (((CVehicleModelInfo*)CModelInfo::ms_modelInfoPtrs[modelid])->m_nVehicleType)
+    switch (static_cast<CVehicleModelInfo*>(modelInfo)->m_nVehicleType)
     {
     case VEHICLE_MTRUCK:
         m_pVehicle = new CMonsterTruck(modelid, MISSION_VEHICLE); break;
@@ -123,6 +118,7 @@ bool CNetworkVehicle::CreateVehicle(int vehicleid, int modelid, CVector pos, flo
     m_pVehicle->m_eDoorLock = DOORLOCK_UNLOCKED;
     m_pVehicle->m_nPrimaryColor = color1;
     m_pVehicle->m_nSecondaryColor = color2;
+    m_pVehicle->m_nAreaCode = m_nLogicalArea;
     CWorld::Add(m_pVehicle);
 
     return true;
@@ -130,8 +126,6 @@ bool CNetworkVehicle::CreateVehicle(int vehicleid, int modelid, CVector pos, flo
 
 CNetworkVehicle::~CNetworkVehicle()
 {
-    DetachTrailerLinks();
-
     if (m_bSyncing)
     {
         Packets::Vehicles::VehicleRemove vehicleRemovePacket{};
@@ -140,16 +134,273 @@ CNetworkVehicle::~CNetworkVehicle()
     }
     else
     {
-        if (m_pVehicle && m_pVehicle->IsVTableValid())
+        StreamOut();
+    }
+    CNetworkEntityStreamManager::Forget(this);
+}
+
+bool CNetworkVehicle::Materialize()
+{
+    if (m_pVehicle)
+        return true;
+    if (!CreateVehicle(m_nVehicleId, m_nModelId, GetLogicalPosition(), m_fSpawnRotation,
+            m_nSpawnColor1, m_nSpawnColor2))
+        return false;
+
+    m_nLastPresentationChangeAt = GetTickCount();
+    if (m_bSyncing)
+        m_pVehicle->SetVehicleCreatedBy(m_nCreatedBy);
+    m_pendingComponentApplied.fill(false);
+    m_bPendingDamageApplied = false;
+    ApplyCachedPresentation();
+    return true;
+}
+
+void CNetworkVehicle::StreamOut()
+{
+    if (!m_pVehicle || m_bSyncing)
+        return;
+
+    CVehicle* vehicle = m_pVehicle;
+    // Vehicle deletion must never leave a ped pointing at freed vehicle memory. Iterating the native pool covers
+    // the local player, remote players, network peds, and any stock occupant that entered this presentation.
+    for (CPed* ped : CPools::ms_pPedPool)
+    {
+        if (!ped || !IsPedPointerValid(ped) || !ped->IsVTableValid() || ped->m_pVehicle != vehicle)
+            continue;
+
+        const CVector safePosition = ped->GetPosition();
+        plugin::Command<Commands::WARP_CHAR_FROM_CAR_TO_COORD>(
+            CPools::GetPedRef(ped), safePosition.x, safePosition.y, safePosition.z);
+        if (ped->m_pVehicle == vehicle)
         {
-            if (m_nBlipHandle != -1)
+            if (vehicle->m_pDriver == ped)
+                vehicle->m_pDriver = nullptr;
+            for (CPed*& passenger : vehicle->m_apPassengers)
             {
-                CRadar::ClearBlipForEntity(eBlipType::BLIP_CAR, CPools::GetVehicleRef(m_pVehicle));
+                if (passenger == ped)
+                    passenger = nullptr;
             }
-            CWorld::Remove(m_pVehicle);
-            CWorld::RemoveReferencesToDeletedObject(m_pVehicle); // ?
-            delete m_pVehicle;
+            ped->m_pVehicle = nullptr;
+            ped->m_nPedFlags.bInVehicle = false;
         }
+    }
+
+    DetachTrailerLinks();
+    if (m_nBlipHandle != -1 && vehicle->IsVTableValid())
+    {
+        CRadar::ClearBlipForEntity(eBlipType::BLIP_CAR, CPools::GetVehicleRef(vehicle));
+        m_nBlipHandle = -1;
+    }
+    if (IsVehiclePointerValid(vehicle) && vehicle->IsVTableValid())
+    {
+        CWorld::Remove(vehicle);
+        CWorld::RemoveReferencesToDeletedObject(vehicle);
+        delete vehicle;
+    }
+    m_pVehicle = nullptr;
+    m_pendingComponentApplied.fill(false);
+    m_nAppliedTrailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
+    m_nPendingTrailerId = m_lastAuxState.trailerId;
+    m_nPendingTrailerSince = 0;
+    m_nLastPresentationChangeAt = GetTickCount();
+}
+
+void CNetworkVehicle::CacheIdleSnapshot(const Packets::Vehicles::VehicleIdleUpdate& snapshot)
+{
+    m_idleSnapshot = snapshot;
+    m_bHasIdleSnapshot = true;
+    m_bHasDriverSnapshot = false;
+    m_bHasPedDriverSnapshot = false;
+    m_vecLogicalPosition = snapshot.pos;
+    m_nSpawnColor1 = snapshot.color1;
+    m_nSpawnColor2 = snapshot.color2;
+    m_nPaintJob = snapshot.paintjob;
+    m_lastAuxState = snapshot.auxState;
+}
+
+void CNetworkVehicle::CacheDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot)
+{
+    m_playerDriverSnapshot = snapshot;
+    m_bHasDriverSnapshot = true;
+    m_bHasPedDriverSnapshot = false;
+    m_vecLogicalPosition = snapshot.pos;
+    m_nSpawnColor1 = snapshot.color1;
+    m_nSpawnColor2 = snapshot.color2;
+    m_nPaintJob = snapshot.paintjob;
+    m_lastAuxState = snapshot.auxState;
+    if (CNetworkPlayer* player = CNetworkPlayerManager::GetPlayer(snapshot.playerid))
+        m_nLogicalArea = player->m_nLogicalArea;
+}
+
+void CNetworkVehicle::CachePedDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot)
+{
+    m_pedDriverSnapshot = snapshot;
+    m_bHasPedDriverSnapshot = true;
+    m_bHasDriverSnapshot = false;
+    m_bHasIdleSnapshot = false;
+    m_vecLogicalPosition = snapshot.pos;
+    m_nSpawnColor1 = snapshot.color1;
+    m_nSpawnColor2 = snapshot.color2;
+    m_nPaintJob = snapshot.paintjob;
+}
+
+void CNetworkVehicle::CacheDamageState(const CDamageManager& damage)
+{
+    m_pendingDamageState = damage;
+    m_bHasPendingDamageState = true;
+    m_bPendingDamageApplied = false;
+}
+
+void CNetworkVehicle::CacheComponentAdd(int modelId)
+{
+    for (uint8_t index = 0; index < m_nPendingComponentCount; ++index)
+    {
+        if (m_pendingComponents[index] == modelId)
+            return;
+    }
+    if (m_nPendingComponentCount < MAX_PENDING_COMPONENTS)
+    {
+        m_pendingComponents[m_nPendingComponentCount] = modelId;
+        m_pendingComponentApplied[m_nPendingComponentCount] = false;
+        ++m_nPendingComponentCount;
+    }
+}
+
+void CNetworkVehicle::CacheComponentRemove(int modelId)
+{
+    for (uint8_t index = 0; index < m_nPendingComponentCount; ++index)
+    {
+        if (m_pendingComponents[index] != modelId)
+            continue;
+        for (uint8_t next = index + 1; next < m_nPendingComponentCount; ++next)
+        {
+            m_pendingComponents[next - 1] = m_pendingComponents[next];
+            m_pendingComponentApplied[next - 1] = m_pendingComponentApplied[next];
+        }
+        --m_nPendingComponentCount;
+        m_pendingComponents[m_nPendingComponentCount] = -1;
+        m_pendingComponentApplied[m_nPendingComponentCount] = false;
+        break;
+    }
+    if (m_pVehicle && m_pVehicle->IsVTableValid())
+        m_pVehicle->RemoveVehicleUpgrade(modelId);
+}
+
+CVector CNetworkVehicle::GetLogicalPosition() const
+{
+    return m_vecLogicalPosition;
+}
+
+void CNetworkVehicle::ApplyCachedPresentation()
+{
+    if (!m_pVehicle || !m_pVehicle->IsVTableValid() || !m_pVehicle->m_matrix)
+        return;
+
+    if (m_bHasDriverSnapshot)
+    {
+        m_pVehicle->m_matrix->pos = m_playerDriverSnapshot.pos;
+        m_pVehicle->m_matrix->right = m_playerDriverSnapshot.roll;
+        m_pVehicle->m_matrix->up = m_playerDriverSnapshot.rot;
+        m_pVehicle->m_vecMoveSpeed = m_playerDriverSnapshot.velocity;
+        m_pVehicle->m_vecTurnSpeed = m_playerDriverSnapshot.turnSpeed;
+        m_pVehicle->m_nPrimaryColor = m_playerDriverSnapshot.color1;
+        m_pVehicle->m_nSecondaryColor = m_playerDriverSnapshot.color2;
+        m_pVehicle->m_fHealth = m_playerDriverSnapshot.health;
+        m_pVehicle->m_eDoorLock = m_playerDriverSnapshot.locked;
+        if (m_pVehicle->GetRemapIndex() != m_playerDriverSnapshot.paintjob)
+            m_pVehicle->SetRemap(m_playerDriverSnapshot.paintjob);
+    }
+    else if (m_bHasPedDriverSnapshot)
+    {
+        m_pVehicle->m_matrix->pos = m_pedDriverSnapshot.pos;
+        m_pVehicle->m_matrix->right = m_pedDriverSnapshot.roll;
+        m_pVehicle->m_matrix->up = m_pedDriverSnapshot.rot;
+        m_pVehicle->m_vecMoveSpeed = m_pedDriverSnapshot.velocity;
+        m_pVehicle->m_vecTurnSpeed = m_pedDriverSnapshot.turnSpeed;
+        m_pVehicle->m_nPrimaryColor = m_pedDriverSnapshot.color1;
+        m_pVehicle->m_nSecondaryColor = m_pedDriverSnapshot.color2;
+        m_pVehicle->m_fHealth = m_pedDriverSnapshot.health;
+        m_pVehicle->m_eDoorLock = m_pedDriverSnapshot.locked;
+        if (m_pVehicle->GetRemapIndex() != m_pedDriverSnapshot.paintjob)
+            m_pVehicle->SetRemap(m_pedDriverSnapshot.paintjob);
+    }
+    else if (m_bHasIdleSnapshot)
+    {
+        m_pVehicle->m_matrix->pos = m_idleSnapshot.pos;
+        m_pVehicle->m_matrix->right = m_idleSnapshot.roll;
+        m_pVehicle->m_matrix->up = m_idleSnapshot.rot;
+        m_pVehicle->m_vecMoveSpeed = m_idleSnapshot.velocity;
+        m_pVehicle->m_vecTurnSpeed = m_idleSnapshot.turnSpeed;
+        m_pVehicle->m_nPrimaryColor = m_idleSnapshot.color1;
+        m_pVehicle->m_nSecondaryColor = m_idleSnapshot.color2;
+        m_pVehicle->m_fHealth = m_idleSnapshot.health;
+        m_pVehicle->m_eDoorLock = m_idleSnapshot.locked;
+        if (m_pVehicle->GetRemapIndex() != m_idleSnapshot.paintjob)
+            m_pVehicle->SetRemap(m_idleSnapshot.paintjob);
+    }
+
+    m_pVehicle->m_nAreaCode = m_nLogicalArea;
+
+    if (m_pVehicle->m_nVehicleType == VEHICLE_AUTOMOBILE)
+    {
+        auto* automobile = static_cast<CAutomobile*>(m_pVehicle);
+        if (m_bHasDriverSnapshot)
+            automobile->m_wMiscComponentAngle = m_playerDriverSnapshot.miscComponentAngle;
+        else if (m_bHasPedDriverSnapshot)
+            automobile->m_wMiscComponentAngle = m_pedDriverSnapshot.miscComponentAngle;
+    }
+    if (m_pVehicle->m_nVehicleType == VEHICLE_BIKE)
+    {
+        auto* bike = static_cast<CBike*>(m_pVehicle);
+        if (m_bHasDriverSnapshot)
+            bike->m_rideAnimData.m_fDesiredLeanAngle = m_playerDriverSnapshot.bikeLean;
+        else if (m_bHasPedDriverSnapshot)
+            bike->m_rideAnimData.m_fDesiredLeanAngle = m_pedDriverSnapshot.bikeLean;
+    }
+    if (m_pVehicle->m_nVehicleSubType == VEHICLE_PLANE)
+    {
+        auto* plane = static_cast<CPlane*>(m_pVehicle);
+        if (m_bHasDriverSnapshot)
+            plane->m_fLandingGearStatus = m_playerDriverSnapshot.planeGearState;
+        else if (m_bHasPedDriverSnapshot)
+            plane->m_fLandingGearStatus = m_pedDriverSnapshot.planeGearState;
+        else if (m_bHasIdleSnapshot)
+            plane->m_fLandingGearStatus = m_idleSnapshot.planeGearState;
+    }
+    ProcessPendingPresentation();
+}
+
+void CNetworkVehicle::ProcessPendingPresentation()
+{
+    if (!m_pVehicle || !m_pVehicle->IsVTableValid())
+        return;
+    ApplyAuxState(m_lastAuxState);
+    if (m_bHasPendingDamageState && !m_bPendingDamageApplied && m_pVehicle->m_nVehicleType == VEHICLE_AUTOMOBILE)
+    {
+        auto* automobile = static_cast<CAutomobile*>(m_pVehicle);
+        automobile->m_damageManager = m_pendingDamageState;
+        automobile->SetupDamageAfterLoad();
+        m_oldDamageState = m_pendingDamageState;
+        m_bPendingDamageApplied = true;
+    }
+
+    // Vehicle upgrades are independently streamed. Request one missing dependency per frame and never block the
+    // packet loop; the presentation remains valid without the optional component until it is ready.
+    for (uint8_t index = 0; index < m_nPendingComponentCount; ++index)
+    {
+        if (m_pendingComponentApplied[index])
+            continue;
+        const int component = m_pendingComponents[index];
+        if (!CStreaming::HasVehicleUpgradeLoaded(component))
+        {
+            CStreaming::RequestModel(component, MISSION_REQUIRED | PRIORITY_REQUEST);
+            CStreaming::RequestVehicleUpgrade(component, MISSION_REQUIRED | PRIORITY_REQUEST);
+            break;
+        }
+        m_pVehicle->AddVehicleUpgrade(component);
+        m_pendingComponentApplied[index] = true;
+        break;
     }
 }
 

@@ -11,6 +11,7 @@
 #include "CServerTime.h"
 #include "enet/enet.h"
 #include "stdafx.h"
+#include "CNetworkEntityStreamManager.h"
 #include "CPlayerGameplayStateSync.h"
 #include "CGangZoneWarSyncManager.h"
 #include "../shared/semver.h"
@@ -247,6 +248,7 @@ void CNetwork::ResetConnectionState()
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();
     CNetworkVehicleManager::Clear();
+    CNetworkEntityStreamManager::Reset();
 
     CNetworkCheckpoint::Remove();
     CEntryExitMarkerSync::ResetNetworkState();

@@ -8,6 +8,8 @@
 #include <CPlayerParachuteSyncManager.h>
 #include <CObject.h>
 #include <CTaskSimpleRunNamedAnim.h>
+#include "CNetworkEntityStreamManager.h"
+#include "CEntryExitTransitionSync.h"
 
 namespace
 {
@@ -192,10 +194,9 @@ CNetworkPlayer::~CNetworkPlayer()
 {
     ClearSyncedParachuteState();
     ClearSyncedAnimationState();
-    if (m_pPed == nullptr)
-        return;
-
-    this->DestroyPed();
+    if (m_pPed)
+        DestroyPed();
+    CNetworkEntityStreamManager::Forget(this);
 }
 
 CNetworkPlayer::CNetworkPlayer(int id, CVector position)
@@ -206,12 +207,23 @@ CNetworkPlayer::CNetworkPlayer(int id, CVector position)
     m_pPedClothesDesc.SetTextureAndModel("JEANSDENIM", "JEANS", 2);
     m_pPedClothesDesc.SetTextureAndModel("SNEAKERBINCBLK", "SNEAKER", 3);
     m_pPedClothesDesc.SetTextureAndModel("PLAYER_FACE", "HEAD", 1);
-
-    CreatePed(id, position);
+    m_vecLogicalPosition = position;
+    m_nLogicalArea = static_cast<uint8_t>(CGame::currArea);
 }
 
 void CNetworkPlayer::CreatePed(int id, CVector position)
 {
+    if (m_pPed)
+        return;
+
+    CPlayerPed* localPlayer = FindPlayerPed(0);
+    if (!localPlayer || !localPlayer->m_pRwClump || !CTxdStore::ms_pTxdPool)
+        return;
+    const int playerTxd = CTxdStore::FindTxdSlot("player");
+    TxdDef* txd = playerTxd >= 0 ? CTxdStore::ms_pTxdPool->GetAt(playerTxd) : nullptr;
+    if (!txd || !txd->m_pRwDictionary)
+        return;
+
     unsigned int actorId = 0;
     int playerId = id + 2;
 
@@ -219,6 +231,12 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
     plugin::Command<Commands::GET_PLAYER_CHAR>(playerId, &actorId);
 
     m_pPed = (CPlayerPed*)CPools::GetPed(actorId);
+
+    if (!m_pPed || !m_pPed->m_pPlayerData)
+    {
+        m_pPed = nullptr;
+        return;
+    }
 
     m_pPed->SetOrientation(0.0f, 0.0f, 0.0f);
 
@@ -228,9 +246,11 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
     *m_pPed->m_pPlayerData->m_pPedClothesDesc = m_pPedClothesDesc;
 
     CClothes::RebuildPlayer(m_pPed, false);
+    m_bNeedsClothesRebuild = false;
 
     // THIS IS AN EXPERIMENTAL SOLUTION FOR THE 0x4D68BA CRASH
     m_pPed->m_bStreamingDontDelete = true;
+    m_pPed->m_nAreaCode = m_nLogicalArea;
 
     if (m_bHasGameplayState)
     {
@@ -239,6 +259,7 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
 
     ApplySyncedAnimation();
     ApplySyncedParachute();
+    m_nLastPresentationChangeAt = GetTickCount();
 }
 
 void CNetworkPlayer::DestroyPed()
@@ -252,7 +273,22 @@ void CNetworkPlayer::DestroyPed()
 
     if (m_pPed->m_pVehicle)
     {
-        plugin::Command<Commands::WARP_CHAR_FROM_CAR_TO_COORD>(CPools::GetPedRef(m_pPed), 0.f, 0.f, 0.f);
+        CVehicle* oldVehicle = m_pPed->m_pVehicle;
+        const CVector safePosition = m_pPed->GetPosition();
+        plugin::Command<Commands::WARP_CHAR_FROM_CAR_TO_COORD>(CPools::GetPedRef(m_pPed),
+            safePosition.x, safePosition.y, safePosition.z);
+        if (m_pPed->m_pVehicle == oldVehicle)
+        {
+            if (oldVehicle->m_pDriver == m_pPed)
+                oldVehicle->m_pDriver = nullptr;
+            for (CPed*& passenger : oldVehicle->m_apPassengers)
+            {
+                if (passenger == m_pPed)
+                    passenger = nullptr;
+            }
+            m_pPed->m_pVehicle = nullptr;
+            m_pPed->m_nPedFlags.bInVehicle = false;
+        }
     }
 
     uintptr_t pedPtr = (uintptr_t)m_pPed;
@@ -270,18 +306,205 @@ void CNetworkPlayer::DestroyPed()
         }
     }
     m_pPed = nullptr;
+    m_nAppliedTaskGeneration = 0;
+    m_nAppliedEnExTransitionGeneration = 0;
+    m_nLastPresentationChangeAt = GetTickCount();
+}
+
+bool CNetworkPlayer::Materialize(CVector position)
+{
+    if (m_pPed)
+        return true;
+    CreatePed(m_iPlayerId, position);
+    if (!m_pPed)
+        return false;
+    ApplyCachedPresentation();
+    return true;
+}
+
+void CNetworkPlayer::StreamOut()
+{
+    if (m_pPed)
+        DestroyPed();
+}
+
+void CNetworkPlayer::CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot)
+{
+    m_onFootSnapshotInterpolated = snapshot;
+    m_bHasOnFootSnapshot = true;
+    m_vecLogicalPosition = snapshot.vecPos;
+    m_oldControllerState = snapshot.keySnapshot.oldControllerState;
+    m_newControllerState = snapshot.keySnapshot.newControllerState;
+    ClearVehicleRelation();
+}
+
+void CNetworkPlayer::CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot)
+{
+    m_vehicleDriverSnapshot = snapshot;
+    m_bHasVehicleDriverSnapshot = true;
+    m_bHasVehiclePassengerSnapshot = false;
+    m_onFootSnapshotInterpolated.healthSnapshot = snapshot.playerHealth;
+    m_oldControllerState = snapshot.playerKeys.oldControllerState;
+    m_newControllerState = snapshot.playerKeys.newControllerState;
+    CacheVehicleRelation(snapshot.vehicleid, -1, false, true, true);
+    if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(snapshot.vehicleid))
+    {
+        m_vecLogicalPosition = vehicle->GetLogicalPosition();
+        m_nLogicalArea = vehicle->m_nLogicalArea;
+    }
+}
+
+void CNetworkPlayer::CacheVehiclePassengerSnapshot(const Packets::Vehicles::VehiclePassengerUpdate& snapshot)
+{
+    m_vehiclePassengerSnapshot = snapshot;
+    m_bHasVehiclePassengerSnapshot = true;
+    m_bHasVehicleDriverSnapshot = false;
+    m_onFootSnapshotInterpolated.healthSnapshot = snapshot.playerHealth;
+    m_oldControllerState = snapshot.playerKeys.oldControllerState;
+    m_newControllerState = snapshot.playerKeys.newControllerState;
+    CacheVehicleRelation(snapshot.vehicleid, snapshot.seatid, true, true, true);
+    if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(snapshot.vehicleid))
+    {
+        m_vecLogicalPosition = vehicle->GetLogicalPosition();
+        m_nLogicalArea = vehicle->m_nLogicalArea;
+    }
+}
+
+void CNetworkPlayer::CacheVehicleRelation(int vehicleId, int seatId, bool passenger, bool force, bool confirmed)
+{
+    m_nPendingVehicleId = vehicleId;
+    m_nPendingVehicleSeat = static_cast<int8_t>(seatId);
+    m_bPendingVehiclePassenger = passenger;
+    m_bPendingVehicleForce = force;
+    m_bPendingVehicleConfirmed = confirmed;
+    m_bHasPendingVehicleRelation = true;
+}
+
+void CNetworkPlayer::ClearVehicleRelation()
+{
+    m_nPendingVehicleId = -1;
+    m_nPendingVehicleSeat = -1;
+    m_bPendingVehiclePassenger = false;
+    m_bPendingVehicleForce = false;
+    m_bPendingVehicleConfirmed = false;
+    m_bHasPendingVehicleRelation = false;
+    m_bHasVehicleDriverSnapshot = false;
+    m_bHasVehiclePassengerSnapshot = false;
+}
+
+CVector CNetworkPlayer::GetLogicalPosition() const
+{
+    if (m_bHasPendingVehicleRelation)
+    {
+        if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(m_nPendingVehicleId))
+            return vehicle->GetLogicalPosition();
+    }
+    return m_vecLogicalPosition;
+}
+
+void CNetworkPlayer::ApplyCachedPresentation()
+{
+    if (!m_pPed || !m_pPed->IsVTableValid())
+        return;
+
+    m_pPed->m_nAreaCode = m_nLogicalArea;
+    if (m_bHasOnFootSnapshot && (!m_bHasPendingVehicleRelation || !m_bPendingVehicleConfirmed))
+    {
+        m_pPed->SetPosn(m_onFootSnapshotInterpolated.vecPos);
+        m_pPed->m_vecMoveSpeed = m_onFootSnapshotInterpolated.vecMoveSpeed;
+        m_pPed->m_fCurrentRotation = m_onFootSnapshotInterpolated.currentRotation.m_angle;
+        m_pPed->m_fAimingRotation = m_onFootSnapshotInterpolated.aimingRotation.m_angle;
+        m_pPed->m_fHealth = m_onFootSnapshotInterpolated.healthSnapshot.iHealth;
+        m_pPed->m_fArmour = m_onFootSnapshotInterpolated.healthSnapshot.iArmour;
+        ApplyWeaponSnapshot(m_onFootSnapshotInterpolated.weaponSnapshot);
+        if (CUtil::IsPedHasJetpack(m_pPed) != m_onFootSnapshotInterpolated.bHasJetpack)
+            CUtil::SetPlayerJetpack(this, m_onFootSnapshotInterpolated.bHasJetpack);
+        if (CUtil::IsDucked(m_pPed) != m_onFootSnapshotInterpolated.bDucking)
+        {
+            if (m_onFootSnapshotInterpolated.bDucking)
+                m_pPed->m_pIntelligence->SetTaskDuckSecondary(0);
+            else
+                m_pPed->m_pIntelligence->ClearTaskDuckSecondary();
+        }
+        m_pPed->m_nFightingStyle = m_onFootSnapshotInterpolated.iFightingStyle;
+        m_pPed->m_nAllowedAttackMoves |= 15u;
+    }
+
+    ReconcilePendingVehiclePresentation();
+
+    if (m_bHasVehicleDriverSnapshot)
+    {
+        ApplyWeaponSnapshot(m_vehicleDriverSnapshot.playerWeapon);
+        m_pPed->m_fHealth = m_vehicleDriverSnapshot.playerHealth.iHealth;
+        m_pPed->m_fArmour = m_vehicleDriverSnapshot.playerHealth.iArmour;
+    }
+    else if (m_bHasVehiclePassengerSnapshot)
+    {
+        ApplyWeaponSnapshot(m_vehiclePassengerSnapshot.playerWeapon);
+        m_pPed->m_fHealth = m_vehiclePassengerSnapshot.playerHealth.iHealth;
+        m_pPed->m_fArmour = m_vehiclePassengerSnapshot.playerHealth.iArmour;
+        if (m_vehiclePassengerSnapshot.driveby && !CDriveBy::IsPedInDriveby(m_pPed))
+            CDriveBy::StartDriveby(m_pPed);
+    }
+
+    ProcessPendingPresentation();
+    if (m_bHasGameplayState)
+        ApplyGameplayState(m_gameplayState);
+    ApplySyncedAnimation();
+    ApplySyncedParachute();
+}
+
+void CNetworkPlayer::ReconcilePendingVehiclePresentation()
+{
+    if (!m_pPed || !m_bHasPendingVehicleRelation ||
+        (!m_bPendingVehicleConfirmed && !m_bPendingVehicleForce))
+        return;
+    CNetworkVehicle* networkVehicle = CNetworkVehicleManager::GetVehicle(m_nPendingVehicleId);
+    CVehicle* vehicle = networkVehicle ? networkVehicle->m_pVehicle : nullptr;
+    if (!vehicle || !vehicle->IsVTableValid())
+        return;
+
+    if (m_bPendingVehiclePassenger)
+    {
+        const int seat = m_nPendingVehicleSeat;
+        const bool inExpectedSeat = seat >= 0 && seat < vehicle->m_nMaxPassengers &&
+            m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle == vehicle &&
+            vehicle->m_apPassengers[seat] == m_pPed;
+        if (!inExpectedSeat)
+            WarpIntoVehiclePassenger(vehicle, seat);
+    }
+    else if (!m_pPed->m_nPedFlags.bInVehicle || m_pPed->m_pVehicle != vehicle || vehicle->m_pDriver != m_pPed)
+    {
+        WarpIntoVehicleDriver(vehicle);
+    }
+}
+
+void CNetworkPlayer::ProcessPendingPresentation()
+{
+    if (!m_pPed)
+        return;
+    ReconcilePendingVehiclePresentation();
+    ApplyPendingTaskOnce();
+    CEntryExitTransitionSync::ReplayPending(this);
 }
 
 void CNetworkPlayer::Respawn()
 {
     ClearSyncedParachuteState();
     ClearSyncedAnimationState();
+    m_bHasPendingTask = false;
+    m_nPendingTaskGeneration = 0;
+    m_nAppliedTaskGeneration = 0;
+    m_bHasPendingEnExTransition = false;
+    m_nPendingEnExTransitionGeneration = 0;
+    m_nAppliedEnExTransitionGeneration = 0;
     if (m_pPed)
-    {
-        this->DestroyPed();
-    }
-
-    this->CreatePed(m_iPlayerId, m_onFootSnapshotInterpolated.vecPos);
+        DestroyPed();
+    ClearVehicleRelation();
+    m_vecLogicalPosition = m_onFootSnapshotInterpolated.vecPos;
+    m_onFootSnapshotInterpolated.healthSnapshot.iHealth = 100;
+    m_onFootSnapshotInterpolated.healthSnapshot.iArmour = 0;
+    m_bHasOnFootSnapshot = true;
 }
 
 int CNetworkPlayer::GetInternalId()  // most used for CWorld::PlayerInFocus
@@ -451,6 +674,27 @@ void CNetworkPlayer::RemoveFromVehicle(CVehicle* vehicle)
 
 void CNetworkPlayer::HandleTask(Packets::Players::SetPlayerTask& packet)
 {
+    m_pendingTask = packet;
+    m_bHasPendingTask = true;
+    ++m_nPendingTaskGeneration;
+    if (m_nPendingTaskGeneration == 0)
+        ++m_nPendingTaskGeneration;
+    ApplyTaskPresentation(packet);
+    if (m_pPed)
+        m_nAppliedTaskGeneration = m_nPendingTaskGeneration;
+}
+
+void CNetworkPlayer::ApplyPendingTaskOnce()
+{
+    if (!m_pPed || !m_bHasPendingTask || m_nAppliedTaskGeneration == m_nPendingTaskGeneration)
+        return;
+    ApplyTaskPresentation(m_pendingTask);
+    m_nAppliedTaskGeneration = m_nPendingTaskGeneration;
+}
+
+void CNetworkPlayer::ApplyTaskPresentation(Packets::Players::SetPlayerTask& packet)
+{
+
     if (packet.hasParachuteState)
     {
         HandleSyncedParachute(packet);

@@ -9,6 +9,23 @@ private:
 public:
 	int m_nPedId = -1;
 	CPed* m_pPed = nullptr;
+	int m_nModelId = MODEL_MALE01;
+	char m_szSpecialModelName[8]{};
+	CVector m_vecLogicalPosition{};
+	uint8_t m_nLogicalArea = AREA_MAIN_MAP;
+	bool m_bModelLeaseHeld = false;
+	uint32_t m_nModelRequestStartedAt = 0;
+	uint32_t m_nNextModelRequestAt = 0;
+	uint32_t m_nLastPresentationChangeAt = 0;
+	uint8_t m_nModelRequestAttempts = 0;
+	enum class PresentationMode : uint8_t { SPAWN, ON_FOOT, DRIVER, PASSENGER };
+	PresentationMode m_presentationMode = PresentationMode::SPAWN;
+	bool m_bHasOnFootSnapshot = false;
+	bool m_bHasDriverSnapshot = false;
+	bool m_bHasPassengerSnapshot = false;
+	Packets::Peds::PedOnFoot m_onFootSnapshot{};
+	Packets::Peds::PedDriverUpdate m_driverSnapshot{};
+	Packets::Peds::PedPassengerSync m_passengerSnapshot{};
 	bool m_bSyncing = false;
 	unsigned char m_nTempId = 255;
 	ePedType m_nPedType;
@@ -49,6 +66,14 @@ public:
 	void ClearDriverSignals();
 	void ResetRemoteSyncState(bool abortTasks = true);
 	void ValidateRemoteTaskTarget();
+	bool Materialize();
+	void StreamOut();
+	void ApplyCachedPresentation();
+	void ProcessPendingPresentation();
+	void CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot);
+	void CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot);
+	void CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& snapshot);
+	CVector GetLogicalPosition() const;
 
 	CNetworkPed(int pedid, int modelId, ePedType pedType, CVector pos, unsigned char createdBy, char specialModelName[]);
 	~CNetworkPed();
