@@ -76,6 +76,11 @@ CNetworkPlayer* CNetworkPlayerManager::GetPlayer(int playerid)
 
 CNetworkPlayer* CNetworkPlayerManager::GetPlayer(CEntity* entity)
 {
+    // A streamed-out or respawning network player legitimately has no native ped. Never let a null
+    // lookup identify that wrapper merely because both pointers are null.
+    if (entity == nullptr)
+        return nullptr;
+
     for (int i = 0; i != m_pPlayers.size(); i++)
     {
         if (m_pPlayers[i]->m_pPed == entity)

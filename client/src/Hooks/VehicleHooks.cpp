@@ -41,16 +41,27 @@ void __fastcall CVehicle__ProcessControl_Hook()
     else if (vtbl == 0x872370)  // CTrain
         call_addr = 0x6F86A0;
 
-    if (vehicle->m_pDriver == FindPlayerPed(0))
+    CPed* driver = vehicle->m_pDriver;
+
+    if (driver == FindPlayerPed(0))
     {
         plugin::CallMethod<0x502280, CAEVehicleAudioEntity*>(&vehicle->m_vehicleAudio);
         plugin::CallMethodDyn<CVehicle*>(call_addr, vehicle);
         return;
     }
 
-    CNetworkPlayer* player = CNetworkPlayerManager::GetPlayer(vehicle->m_pDriver);
+    // Empty vehicles are common when they stream into range. A null driver must stay an empty-vehicle
+    // case and must never resolve to a streamed-out network player whose native ped is also null.
+    if (driver == nullptr)
+    {
+        plugin::CallMethod<0x502280, CAEVehicleAudioEntity*>(&vehicle->m_vehicleAudio);
+        plugin::CallMethodDyn<CVehicle*>(call_addr, vehicle);
+        return;
+    }
 
-    if (player == nullptr)
+    CNetworkPlayer* player = CNetworkPlayerManager::GetPlayer(driver);
+
+    if (player == nullptr || player->m_pPed != driver || !driver->IsVTableValid())
     {
         plugin::CallMethod<0x502280, CAEVehicleAudioEntity*>(&vehicle->m_vehicleAudio);
         plugin::CallMethodDyn<CVehicle*>(call_addr, vehicle);

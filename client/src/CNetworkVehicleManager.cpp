@@ -26,6 +26,10 @@ CNetworkVehicle* CNetworkVehicleManager::GetVehicle(int vehicleid)
 }
 CNetworkVehicle* CNetworkVehicleManager::GetVehicle(CEntity* vehicle)
 {
+	// Streamed-out vehicles also carry a null native pointer. Null is never a valid entity identity.
+	if (vehicle == nullptr)
+		return nullptr;
+
 	for (int i = 0; i != m_pVehicles.size(); i++)
 	{
 		if (m_pVehicles[i]->m_pVehicle == vehicle)

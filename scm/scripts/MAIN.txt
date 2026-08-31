@@ -385,6 +385,19 @@ Camera.SetFadingColor(0, 0, 0)
 Camera.DoFade(0, Fade.Out)
 $game_starts_from_scratch = 0
 Coop.LaunchMissionForCoop(2) // Intro
+if
+  Coop.IsHost()
+goto_if_false @MAIN_RECOVER_PEER_STARTUP
+goto @MAIN_PEER_STARTUP_READY
+
+:MAIN_RECOVER_PEER_STARTUP
+// An authenticated guest cannot run the host-owned Intro mission, so complete the local
+// presentation work that the first three Intro commands would otherwise perform.
+Camera.DoFade(1, 1000)
+Hud.SwitchWidescreen(False)
+Player.SetControl($player1, True)
+
+:MAIN_PEER_STARTUP_READY
 $activate_mobile_phone = 1
 if 
   Player.IsPlaying($player1)

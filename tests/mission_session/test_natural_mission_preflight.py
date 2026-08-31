@@ -82,6 +82,22 @@ class NaturalMissionPreflightTests(unittest.TestCase):
             r"if \(bRejectedScmLaunch && !state\.IsActive\(\)\)\s*\{\s*RollbackScmMissionLaunch\(\);",
         )
 
+    def test_rejected_peer_bootstrap_recovers_from_main_fade_out(self):
+        main = executable_scm((ROOT / "scm/scripts/MAIN.txt").read_text(encoding="utf-8"))
+        intro_launch = main.index("Coop.LaunchMissionForCoop(2)")
+        peer_recovery = main.index(":MAIN_RECOVER_PEER_STARTUP", intro_launch)
+        recovery_done = main.index(":MAIN_PEER_STARTUP_READY", peer_recovery)
+        recovery = main[peer_recovery:recovery_done]
+
+        self.assertIn("Coop.IsHost()", main[intro_launch:peer_recovery])
+        self.assertIn("goto_if_false @MAIN_RECOVER_PEER_STARTUP", main[intro_launch:peer_recovery])
+        self.assertIn("Camera.DoFade(1, 1000)", recovery)
+        self.assertIn("Hud.SwitchWidescreen(False)", recovery)
+        self.assertIn("Player.SetControl($player1, True)", recovery)
+
+        rollback = function_body(self.client, "void CMissionSessionClient::RollbackScmMissionLaunch")
+        self.assertNotIn("TheCamera.Fade", rollback)
+
     def test_opcode_is_registered_in_native_and_sanny_definitions(self):
         registrar = (ROOT / "client/src/Commands/CCustomCommandRegistrar.h").read_text(encoding="utf-8")
         command = (ROOT / "client/src/Commands/Commands/CCommandLaunchMissionForCoop.cpp").read_text(
