@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "CGangZoneWarAuthorityManager.h"
 #include "CPickupAuthorityManager.h"
+#include "CStuntJumpAuthorityManager.h"
 
 std::vector<CNetworkPlayer*> CNetworkPlayerManager::m_pPlayers;
 
@@ -72,6 +73,7 @@ void CNetworkPlayerManager::AssignHostToFirstPlayer()
     {
         CGangZoneWarAuthorityManager::ResetForAuthorityChange();
         CPickupAuthorityManager::HandleAuthorityChange(nullptr);
+        CStuntJumpAuthorityManager::HandleAuthorityChange(nullptr);
         return;
     }
 
@@ -94,4 +96,5 @@ void CNetworkPlayerManager::AssignHostToFirstPlayer()
     playerAssignHost.playerid = player->m_iPlayerId;
     GetPacketFactory().SendToAll(playerAssignHost);
     CPickupAuthorityManager::HandleAuthorityChange(player);
+    CStuntJumpAuthorityManager::HandleAuthorityChange(player);
 }

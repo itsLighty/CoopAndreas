@@ -4,6 +4,7 @@
 #include <CCutsceneMgr.h>
 #include <CCutsceneVoteManager.h>
 #include <CGangZoneWarSyncManager.h>
+#include <CStuntJumpSyncManager.h>
 #include <CWeatherSync.h>
 #include <CCoronas.h>
 
@@ -189,6 +190,8 @@ bool __fastcall CPCKeyboard__GetJustKeyDown_Hook(int, int, uint16_t key_code, ui
 
 void GameHooks::InjectHooks()
 {
+    CStuntJumpSyncManager::InjectHook();
+
     patch::RedirectCall(0x57C2A3, CMenuManager__DrawFrontEnd_FixChat_Hook);
 
     patch::RedirectCall(0x47F1C7, CClock__RestoreClock_Hook);

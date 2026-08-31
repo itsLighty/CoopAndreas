@@ -90,6 +90,10 @@ enum class ePacketType : uint16_t
     PICKUP_COLLECT_DECISION,
     PICKUP_COLLECT_RESULT,
     PICKUP_CREATE_INTENT,
+    STUNT_DEFINITION,
+    STUNT_ATTEMPT,
+    STUNT_ATTEMPT_RESULT,
+    STUNT_STATE,
     PACKET_ID_MAX
 };
 
@@ -116,7 +120,8 @@ extern inline const char* ePacketType_ToString(ePacketType packetType)
         "PLAYER_RECONNECT_CREDENTIAL_ACK", "PLAYER_GAMEPLAY_STATE", "CUTSCENE_START_REQUEST",
         "CUTSCENE_VOTE_REQUEST", "CUTSCENE_END_REQUEST", "CUTSCENE_VOTE_STATE", "GANG_ZONE_STATE",
         "GANG_WAR_STATE", "PICKUP_STATE", "PICKUP_COLLECT_REQUEST", "PICKUP_COLLECT_DECISION",
-        "PICKUP_COLLECT_RESULT", "PICKUP_CREATE_INTENT"};
+        "PICKUP_COLLECT_RESULT", "PICKUP_CREATE_INTENT", "STUNT_DEFINITION", "STUNT_ATTEMPT",
+        "STUNT_ATTEMPT_RESULT", "STUNT_STATE"};
 
     static_assert(sizeof(array) / sizeof(array[0]) == static_cast<size_t>(ePacketType::PACKET_ID_MAX),
         "Every packet type must have exactly one debug name");

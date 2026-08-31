@@ -197,7 +197,7 @@ class GangZoneWarSyncTests(unittest.TestCase):
         debug_names = re.findall(r'"([A-Z][A-Z0-9_]+)"', debug_array)
         self.assertEqual(enum_names, debug_names)
         config = (ROOT / "shared/config.h").read_text(encoding="utf-8")
-        self.assertIn('COOPANDREAS_VERSION "0.3.5-alpha"', config)
+        self.assertIn('COOPANDREAS_VERSION "0.3.6-alpha"', config)
 
     def test_all_wire_enums_counts_indices_and_floats_are_validated(self):
         war_packet = re.search(r"class GangWarState\b.*?^};", self.world_packets, re.S | re.M).group(0)

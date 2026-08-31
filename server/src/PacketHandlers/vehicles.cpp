@@ -326,6 +326,12 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
 
         pNetworkVehicle->m_vecPosition = pVehicleDriverUpdate->pos;
         pNetworkVehicle->m_vecRotation = pVehicleDriverUpdate->rot;
+        pNetworkVehicle->m_vecVelocity = pVehicleDriverUpdate->velocity;
+        pNetworkVehicle->m_nLastDriverSnapshotAt = enet_time_get();
+        pNetworkPlayer->m_bHasOnFootSnapshot = true;
+        pNetworkPlayer->m_bIsAlive = pVehicleDriverUpdate->playerHealth.iHealth > 0;
+        pNetworkPlayer->m_eLastWeaponType =
+            static_cast<eWeaponType>(pVehicleDriverUpdate->playerWeapon.iWeaponType);
         pNetworkVehicle->m_bUsedByPed = false;
         pNetworkVehicle->ReassignSyncer(pNetworkPlayer);
         SanitizeAuxState(pNetworkVehicle, pNetworkPlayer, pVehicleDriverUpdate->auxState, true, true);
@@ -476,6 +482,10 @@ PACKET_HANDLER(ePacketType::VEHICLE_PASSENGER_UPDATE,
             return;
         }
 
+        pNetworkPlayer->m_bHasOnFootSnapshot = true;
+        pNetworkPlayer->m_bIsAlive = pVehiclePassengerUpdate->playerHealth.iHealth > 0;
+        pNetworkPlayer->m_eLastWeaponType =
+            static_cast<eWeaponType>(pVehiclePassengerUpdate->playerWeapon.iWeaponType);
         pVehiclePassengerUpdate->playerid = pNetworkPlayer->m_iPlayerId;
         GetPacketFactory().SendToAll(*pVehiclePassengerUpdate, pNetworkPlayer);
 

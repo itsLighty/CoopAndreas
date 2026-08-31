@@ -58,7 +58,7 @@ class PlayerGameplayStateSyncTests(unittest.TestCase):
         self.assertIn("serialize_int(stream, money, MIN_MONEY, MAX_MONEY)", gameplay_packet)
         self.assertIn("serialize_compressed_float(stream, breath", gameplay_packet)
         self.assertIn("serialize_compressed_float(stream, maximumHealth", gameplay_packet)
-        self.assertIn('COOPANDREAS_VERSION "0.3.5-alpha"',
+        self.assertIn('COOPANDREAS_VERSION "0.3.6-alpha"',
             (ROOT / "shared/config.h").read_text(encoding="utf-8"))
 
         client_pch = (ROOT / "client/src/stdafx.h").read_text(encoding="utf-8")

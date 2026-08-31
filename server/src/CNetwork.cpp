@@ -3,6 +3,7 @@
 #include "CCutsceneVoteManager.h"
 #include "CGangZoneWarAuthorityManager.h"
 #include "CPickupAuthorityManager.h"
+#include "CStuntJumpAuthorityManager.h"
 #include "CRTTBroadcastManager.h"
 #include "CPacketFactory.h"
 #include "logger.h"
@@ -195,6 +196,7 @@ bool CNetwork::Init(unsigned short port)
     {
         CServerTime::Update();
         CPickupAuthorityManager::Update();
+        CStuntJumpAuthorityManager::Update();
         CRTTBroadcastManager::Update();
 
         while (enet_host_service(pENetHost, &eNetEvent, 1) > 0)
@@ -260,6 +262,7 @@ void CNetwork::HandlePlayerDisconnected(ENetEvent& event)
 
     CMissionSessionServer::HandlePlayerDisconnected(pNetworkPlayer);
     CPickupAuthorityManager::HandlePlayerDisconnected(pNetworkPlayer);
+    CStuntJumpAuthorityManager::HandlePlayerDisconnected(pNetworkPlayer);
 
     const int disconnectedPlayerId = pNetworkPlayer->m_iPlayerId;
     const auto& missionState = CMissionSessionServer::GetState();
@@ -516,6 +519,7 @@ void CNetwork::CompletePlayerConnection(
     CCutsceneVoteManager::SendSnapshot(pNewNetworkPlayer);
     CGangZoneWarAuthorityManager::SendSnapshot(pNewNetworkPlayer);
     CPickupAuthorityManager::SendActiveStates(pNewNetworkPlayer);
+    CStuntJumpAuthorityManager::SendSnapshot(pNewNetworkPlayer);
 
     const bool mayReceiveCachedEnEx = !missionState.IsActive() || missionState.ContainsGameplayParticipant(freeId);
     if (mayReceiveCachedEnEx && Packets::Scripts::g_pLastEnExPlayerOwner)

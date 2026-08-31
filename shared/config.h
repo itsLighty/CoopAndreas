@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#define COOPANDREAS_VERSION "0.3.5-alpha"
+#define COOPANDREAS_VERSION "0.3.6-alpha"
 struct Config
 {
     static constexpr uint16_t DEFAULT_PORT = 6767;

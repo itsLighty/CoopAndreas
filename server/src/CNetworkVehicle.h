@@ -22,6 +22,7 @@ public:
     CVector m_vecPosition;
     CVector m_vecRotation;
     CVector m_vecVelocity;
+    uint32_t m_nLastDriverSnapshotAt = 0;
     CNetworkPlayer* m_pPlayers[8] = {nullptr};
     unsigned char m_nPrimaryColor;
     unsigned char m_nSecondaryColor;
