@@ -3,6 +3,7 @@
 #include "WorldHooks.h"
 #include "CNetworkVehicle.h"
 #include "CNetworkPed.h"
+#include "CNetworkPickupManager.h"
 #include <CEntryExit.h>
 #include <CEntryExitMarkerSync.h>
 #include <CEntryExitTransitionSync.h>
@@ -253,6 +254,12 @@ static void __declspec(naked) CGarage__Update_Hook()
 }
 void WorldHooks::InjectHooks()
 {
+    // Mask participant-side native pickups before the stock pickup pass can grant
+    // anything. The post-script pass also catches pickups created by SCM this frame.
+    Events::gameProcessEvent.before += [] { CNetworkPickupManager::PrepareForNativePickupUpdate(); };
+    Events::processScriptsEvent.after += [] { CNetworkPickupManager::PrepareForNativePickupUpdate(); };
+    Events::gameProcessEvent += [] { CNetworkPickupManager::Process(); };
+
     waypointPlaceEvent += PlaceWaypointHook;
     patch::RedirectCall(0x577582, CRadar__ClearBlip_Hook_Waypoint);
 

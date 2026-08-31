@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include "CLocalPlayer.h"
+#include "CNetwork.h"
 #include "CNetworkPed.h"
 
 CScreenTransform CUtil::BuildScreenTransform(float screenWidth, float screenHeight, float renderAspect)
@@ -311,7 +313,10 @@ void CUtil::SetPlayerJetpack(CNetworkPlayer* player, bool set)
 
         if (task)
         {
-            task->m_bIsFinished = true; // dont create a jetpack pickup, TODO when syncing pickups
+            // The authority creates the single canonical jetpack pickup. A peer still
+            // runs the stock task transition, but suppresses its duplicate native drop.
+            if (CNetwork::m_bAuthenticated && !CLocalPlayer::m_bIsHost)
+                task->m_bIsFinished = true;
             plugin::CallMethod<0x67B660, CTaskSimpleJetPack*>(task, player->m_pPed); // CTaskSimpleJetPack::DropJetPack
         }
     }

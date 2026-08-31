@@ -13,6 +13,7 @@
 #include "stdafx.h"
 #include "CPlayerGameplayStateSync.h"
 #include "CGangZoneWarSyncManager.h"
+#include "CNetworkPickupManager.h"
 #include "../shared/semver.h"
 #include <cassert>
 #include <windows.h>
@@ -243,6 +244,7 @@ void CNetwork::ResetConnectionState()
     CStatsSync::ResetNetworkState();
     CPlayerGameplayStateSync::ResetNetworkState();
     CGangZoneWarSyncManager::ResetNetworkState();
+    CNetworkPickupManager::ResetNetworkState();
 
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();

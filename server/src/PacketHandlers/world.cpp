@@ -3,6 +3,7 @@
 #include "network/packet_handler.h"
 #include "network/packets/world.h"
 #include "CGangZoneWarAuthorityManager.h"
+#include "CTagAuthorityManager.h"
 
 PACKET_HANDLER(
     ePacketType::GAME_WEATHER_TIME, Packets::World::GameWeatherTime* pGameWeatherTime, CNetworkPlayer* pNetworkPlayer)
@@ -22,15 +23,12 @@ PACKET_HANDLER(ePacketType::ADD_EXPLOSION, Packets::World::AddExplosion* pAddExp
 
 PACKET_HANDLER(ePacketType::TAG_UPDATE, Packets::World::TagUpdate* pTagUpdate, CNetworkPlayer* pNetworkPlayer)
 {
-	GetPacketFactory().SendToAll(*pTagUpdate, pNetworkPlayer);
+	CTagAuthorityManager::HandleUpdate(pNetworkPlayer, *pTagUpdate);
 }
 
 PACKET_HANDLER(ePacketType::UPDATE_ALL_TAGS, Packets::World::UpdateAllTags* pUpdateAllTags, CNetworkPlayer* pNetworkPlayer)
 {
-	if (pNetworkPlayer->m_bIsHost)
-	{
-		GetPacketFactory().SendToAll(*pUpdateAllTags, pNetworkPlayer);
-	}
+	CTagAuthorityManager::HandleSnapshot(pNetworkPlayer, *pUpdateAllTags);
 }
 
 PACKET_HANDLER(ePacketType::UPDATE_MOON_SIZE, Packets::World::UpdateMoonSize* pUpdateMoonSize, CNetworkPlayer* pNetworkPlayer)

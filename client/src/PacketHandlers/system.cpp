@@ -3,6 +3,7 @@
 #include "network/packet_types.h"
 #include "network/packets/system.h"
 #include "stdafx.h"
+#include "CNetworkPickupManager.h"
 #include <CWeatherSync.h>
 #include <CMoonSync.h>
 #include <game_sa/CTagManager.h>
@@ -106,6 +107,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
         CWeatherSync::SyncCurrentState();
         CTagSync::SyncCurrentState();
         CGangZoneWarSyncManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, true);
+        CNetworkPickupManager::HandleAuthorityChanged(static_cast<uint8_t>(pPlayerAssignHost->playerid), true);
         CChat::AddMessage("[Player] You are the host now");
         return;
     }
@@ -125,6 +127,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
 
     CLocalPlayer::m_bIsHost = false;
     CGangZoneWarSyncManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
+    CNetworkPickupManager::HandleAuthorityChanged(static_cast<uint8_t>(pPlayerAssignHost->playerid), false);
 }
 
 PACKET_HANDLER(ePacketType::PLAYER_CHAT_MESSAGE, Packets::System::ChatMessage* pChatMessage)
