@@ -212,7 +212,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] breath level bar
   - [X] stamina sync
   - [X] max hp sync
-- [ ] fire sync
+- [X] fire sync
 - [ ] cheat code sync
 - [X] anim sync
   - [X] sprunk drinking

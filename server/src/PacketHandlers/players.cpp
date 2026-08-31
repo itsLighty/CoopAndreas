@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include "network/packet_handler.h"
 #include "CMissionSessionServer.h"
+#include "CFireAuthorityManager.h"
 
 #include <algorithm>
 #include <cmath>
@@ -232,6 +233,8 @@ PACKET_HANDLER(
     pNetworkPlayer->m_bHasOnFootSnapshot = true;
     pNetworkPlayer->m_bIsAlive = pOnFootUpdate->healthSnapshot.iHealth > 0;
     pNetworkPlayer->m_eLastWeaponType = static_cast<eWeaponType>(pOnFootUpdate->weaponSnapshot.iWeaponType);
+    CFireAuthorityManager::ObservePlayerMovement(
+        pNetworkPlayer, pOnFootUpdate->vecPos, pNetworkPlayer->m_bIsAlive);
     if (pNetworkPlayer->m_bHasAuthoritativeParachuteState &&
         (!pNetworkPlayer->m_bIsAlive || pNetworkPlayer->m_eLastWeaponType != WEAPON_PARACHUTE ||
             pNetworkPlayer->m_nVehicleId >= 0))
@@ -311,6 +314,7 @@ PACKET_HANDLER(ePacketType::SET_PLAYER_TASK, Packets::Players::SetPlayerTask* pS
 PACKET_HANDLER(ePacketType::ENEX_TRANSITION, Packets::Players::EnExTransition* pEnExTransition,
     CNetworkPlayer* pNetworkPlayer)
 {
+    CFireAuthorityManager::ObservePlayerArea(pNetworkPlayer, pEnExTransition->playerAreaId);
     pEnExTransition->playerid = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pEnExTransition, pNetworkPlayer);
 }
@@ -329,6 +333,7 @@ PACKET_HANDLER(ePacketType::RESPAWN_PLAYER, Packets::Players::RespawnPlayer* pRe
     pNetworkPlayer->m_bHasOnFootSnapshot = false;
     pNetworkPlayer->m_bIsAlive = false;
     pNetworkPlayer->m_eLastWeaponType = WEAPON_UNARMED;
+    CFireAuthorityManager::MarkPlayerUnavailable(pNetworkPlayer);
     pRespawnPlayer->playerid = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pRespawnPlayer, pNetworkPlayer);
 }

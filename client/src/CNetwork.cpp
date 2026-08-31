@@ -6,6 +6,7 @@
 #include "CNetworkAnimQueue.h"
 #include "CNetworkCheckpoint.h"
 #include "CNetworkPickupManager.h"
+#include "CNetworkFireManager.h"
 #include "CStuntJumpSyncManager.h"
 #include "CNetworkPedManager.h"
 #include "CNetworkPlayerManager.h"
@@ -248,6 +249,7 @@ void CNetwork::ResetConnectionState()
     CPlayerGameplayStateSync::ResetNetworkState();
     CGangZoneWarSyncManager::ResetNetworkState();
     CNetworkPickupManager::ResetNetworkState();
+    CNetworkFireManager::ResetNetworkState();
 
     CNetworkPedManager::Clear();
     CNetworkPlayerManager::Clear();

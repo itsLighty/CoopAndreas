@@ -45,7 +45,7 @@ class CutsceneVoteSyncTests(unittest.TestCase):
         ):
             self.assertIn(packet_type, self.packet_types)
         config = (ROOT / "shared/config.h").read_text(encoding="utf-8")
-        self.assertIn('COOPANDREAS_VERSION "0.3.6-alpha"', config)
+        self.assertIn('COOPANDREAS_VERSION "0.3.7-alpha"', config)
         state = re.search(r"class CutsceneVoteState\b.*?^};", self.packets, re.S | re.M).group(0)
         self.assertIn("sessionId", state)
         self.assertIn("missionEpoch", state)

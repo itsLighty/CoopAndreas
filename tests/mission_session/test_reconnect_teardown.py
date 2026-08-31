@@ -24,7 +24,7 @@ class ReconnectCredentialAndTeardownTests(unittest.TestCase):
         self.assertIn("PLAYER_RECONNECT_REQUEST", packet_types)
         self.assertIn("PLAYER_RECONNECT_CREDENTIAL", packet_types)
         self.assertIn("PLAYER_RECONNECT_CREDENTIAL_ACK", packet_types)
-        self.assertIn('COOPANDREAS_VERSION "0.3.6-alpha"', config)
+        self.assertIn('COOPANDREAS_VERSION "0.3.7-alpha"', config)
 
     def test_server_uses_os_csprng_and_constant_time_token_validation(self):
         server = (ROOT / "server/src/CNetwork.cpp").read_text(encoding="utf-8")

@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "network/packet_handler.h"
 #include "network/packets/vehicles.h"
+#include "CFireAuthorityManager.h"
 #include <chrono>
 
 namespace
@@ -332,6 +333,8 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
         pNetworkPlayer->m_bIsAlive = pVehicleDriverUpdate->playerHealth.iHealth > 0;
         pNetworkPlayer->m_eLastWeaponType =
             static_cast<eWeaponType>(pVehicleDriverUpdate->playerWeapon.iWeaponType);
+        CFireAuthorityManager::ObservePlayerMovement(
+            pNetworkPlayer, pVehicleDriverUpdate->pos, pNetworkPlayer->m_bIsAlive);
         pNetworkVehicle->m_bUsedByPed = false;
         pNetworkVehicle->ReassignSyncer(pNetworkPlayer);
         SanitizeAuxState(pNetworkVehicle, pNetworkPlayer, pVehicleDriverUpdate->auxState, true, true);
@@ -486,6 +489,8 @@ PACKET_HANDLER(ePacketType::VEHICLE_PASSENGER_UPDATE,
         pNetworkPlayer->m_bIsAlive = pVehiclePassengerUpdate->playerHealth.iHealth > 0;
         pNetworkPlayer->m_eLastWeaponType =
             static_cast<eWeaponType>(pVehiclePassengerUpdate->playerWeapon.iWeaponType);
+        CFireAuthorityManager::ObservePlayerMovement(
+            pNetworkPlayer, pNetworkVehicle->m_vecPosition, pNetworkPlayer->m_bIsAlive);
         pVehiclePassengerUpdate->playerid = pNetworkPlayer->m_iPlayerId;
         GetPacketFactory().SendToAll(*pVehiclePassengerUpdate, pNetworkPlayer);
 

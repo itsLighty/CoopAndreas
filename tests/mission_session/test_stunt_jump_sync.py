@@ -107,7 +107,7 @@ class StuntJumpSyncTests(unittest.TestCase):
         ).group(1)
         self.assertEqual(enum_names, re.findall(r'"([A-Z][A-Z0-9_]*)"', debug))
         self.assertIn(
-            'COOPANDREAS_VERSION "0.3.6-alpha"',
+            'COOPANDREAS_VERSION "0.3.7-alpha"',
             (ROOT / "shared/config.h").read_text(encoding="utf-8"),
         )
 
