@@ -187,7 +187,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] fast food eating
   - [X] idle anims
   - [X] funny TAB+NUM4 (or NUM6) anim sync (did you know about this?)
-- [ ] gang groups sync
+- [X] gang groups sync
 - [ ] stream in/out players, peds, vehicles, etc.
 - [X] vehicle sync
   - [X] force hydraulics sync
