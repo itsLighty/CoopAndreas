@@ -234,9 +234,9 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] widescreen
   - [X] fast load
 - [X] Fix models loading (green polygon)  --- related to stream it/out
-- [ ] smooth interpolation
-  - [ ] move
-  - [ ] rotation
+- [X] smooth interpolation
+  - [X] move
+  - [X] rotation
   - [X] weapon aim interpolation
 - [X] npc sync
   - [X] pos, rot, speed
