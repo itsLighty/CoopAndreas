@@ -4,10 +4,25 @@
 
 #include <CPedGroups.h>
 
+#include <cstddef>
+
 namespace
 {
 constexpr int NATIVE_GROUP_COUNT = 8;
 constexpr int INVALID_NATIVE_GROUP = -1;
+constexpr std::size_t NATIVE_GROUP_INTELLIGENCE_OFFSET = 0x30;
+
+// plugin-sdk models m_fSeparationRange before m_groupIntelligence, placing the C++ member at +0x34.
+// GTA SA 1.0 US CPedGroup::Process (0x5FC7E0) instead passes group + 0x30 to
+// CPedGroupIntelligence::Process. Keep this assertion so a future SDK layout correction forces this shim
+// to be reviewed instead of silently shifting the native pointer again.
+static_assert(offsetof(CPedGroup, m_groupIntelligence) == 0x34, "Review the native CPedGroup layout shim");
+
+CPedGroupIntelligence* GetNativeGroupIntelligence(CPedGroup* group)
+{
+    return reinterpret_cast<CPedGroupIntelligence*>(
+        reinterpret_cast<unsigned char*>(group) + NATIVE_GROUP_INTELLIGENCE_OFFSET);
+}
 
 struct RemoteMemberState
 {
@@ -71,8 +86,9 @@ void __fastcall CPedGroup__Process_GroupSyncHook(CPedGroup* group, SKIP_EDX)
     // allocate tasks that can permanently replace the authoritative network task between revisions.
     const bool suppressRemoteIntelligence = IsManagerOwnedRemoteGroup(group);
     group->m_groupMembership.Process();
-    if (!suppressRemoteIntelligence)
-        group->m_groupIntelligence.Process();
+    CPedGroupIntelligence* groupIntelligence = GetNativeGroupIntelligence(group);
+    if (!suppressRemoteIntelligence && groupIntelligence->m_pPedGroup == group)
+        groupIntelligence->Process();
 }
 
 void EnsureGroupProcessHookInstalled()

@@ -245,9 +245,11 @@ class GangGroupSyncTests(unittest.TestCase):
             re.S,
         ).group(0)
         membership = hook.index("group->m_groupMembership.Process()")
-        intelligence = hook.index("group->m_groupIntelligence.Process()")
+        validation = hook.index("groupIntelligence->m_pPedGroup == group")
+        intelligence = hook.index("groupIntelligence->Process()")
         self.assertLess(membership, intelligence)
-        self.assertIn("if (!suppressRemoteIntelligence)", hook)
+        self.assertLess(validation, intelligence)
+        self.assertIn("if (!suppressRemoteIntelligence && groupIntelligence->m_pPedGroup == group)", hook)
         self.assertIn("const bool suppressRemoteIntelligence = IsManagerOwnedRemoteGroup(group)", hook)
         self.assertIn("!CNetwork::m_bAuthenticated || !group", self.client_manager)
         self.assertIn("group->m_groupMembership.GetLeader() == localPlayer", self.client_manager)
@@ -257,6 +259,16 @@ class GangGroupSyncTests(unittest.TestCase):
             self.client_manager.index("EnsureGroupProcessHookInstalled();"),
             self.client_manager.index("ApplyMember(pedId);", self.client_manager.index("ObserveRemoteMembership")),
         )
+
+    def test_group_intelligence_uses_native_game_offset_not_shifted_sdk_member(self):
+        self.assertIn("NATIVE_GROUP_INTELLIGENCE_OFFSET = 0x30", self.client_manager)
+        self.assertIn("offsetof(CPedGroup, m_groupIntelligence) == 0x34", self.client_manager)
+        self.assertIn("GetNativeGroupIntelligence(group)", self.client_manager)
+        self.assertIn(
+            "reinterpret_cast<unsigned char*>(group) + NATIVE_GROUP_INTELLIGENCE_OFFSET",
+            self.client_manager,
+        )
+        self.assertNotIn("group->m_groupIntelligence.Process()", self.client_manager)
 
 
 if __name__ == "__main__":
