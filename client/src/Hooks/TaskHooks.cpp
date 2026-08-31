@@ -4,6 +4,7 @@
 #include "CNetworkVehicle.h"
 #include "CNetworkPed.h"
 #include "CAimSync.h"
+#include "CLocalVehicleOccupancySync.h"
 #include <CKeySync.h>
 
 // when local player enters any vehicle
@@ -22,6 +23,9 @@ static void __fastcall CTaskComplexEnterCarAsDriver__Ctor_Hook(
     Packets::Vehicles::VehicleEnter packet{};
     packet.seatid = 0;
     packet.vehicleid = networkVehicle->m_nVehicleId;
+    // Constructor hooks describe visual intent only. The native occupancy observer sends bForce=true
+    // after GTA has actually committed the player to the driver seat.
+    packet.bForce = false;
     GetPacketFactory().Send(packet);
 
     plugin::CallMethod<0x6402F0, CTaskComplexEnterCarAsDriver*, CVehicle*>(This, vehicle);
@@ -33,6 +37,8 @@ static void __fastcall CTaskComplexLeaveCar__Ctor_Hook(CTaskComplexLeaveCar* Thi
     if (CNetwork::m_bAuthenticated)
     {
         Packets::Vehicles::VehicleExit packet{};
+        // Do not clear server occupancy until the native seat transition really completes.
+        packet.bForce = false;
         GetPacketFactory().Send(packet);
     }
 
@@ -309,6 +315,8 @@ bool __fastcall CTaskSimpleUseGun__SetPedPosition_Hook(CTaskSimpleUseGun* This, 
 
 void TaskHooks::InjectHooks()
 {
+    Events::gameProcessEvent.after += [] { CLocalVehicleOccupancySync::Process(); };
+
     patch::RedirectCall(0x570A1B, CTaskComplexEnterCarAsDriver__Ctor_Hook);
     patch::RedirectCall(0x570A94, CTaskComplexEnterCarAsDriver__Ctor_Hook);
 

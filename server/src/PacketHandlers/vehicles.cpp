@@ -7,6 +7,8 @@
 namespace
 {
 constexpr uint64_t TRAILER_PENDING_TIMEOUT_MS = 5000;
+constexpr uint64_t VEHICLE_TRANSITION_RATE_WINDOW_MS = 1000;
+constexpr uint8_t MAX_VEHICLE_TRANSITIONS_PER_WINDOW = 8;
 
 uint64_t GetSteadyTimeMs()
 {
@@ -19,6 +21,58 @@ bool IsExactOccupant(const CNetworkVehicle* vehicle, const CNetworkPlayer* playe
     return vehicle && player && seat >= 0 && seat < static_cast<int>(ARRAY_SIZE(vehicle->m_pPlayers)) &&
         vehicle->m_pPlayers[seat] == player && player->m_nVehicleId == vehicle->m_nVehicleId &&
         player->m_nSeatId == seat;
+}
+
+bool CanApplyVehicleTransition(CNetworkPlayer* player)
+{
+    const uint64_t now = GetSteadyTimeMs();
+    if (now - player->m_nVehicleTransitionWindowStartMs >= VEHICLE_TRANSITION_RATE_WINDOW_MS)
+    {
+        player->m_nVehicleTransitionWindowStartMs = now;
+        player->m_nVehicleTransitionCount = 0;
+    }
+    if (player->m_nVehicleTransitionCount >= MAX_VEHICLE_TRANSITIONS_PER_WINDOW)
+    {
+        return false;
+    }
+    ++player->m_nVehicleTransitionCount;
+    return true;
+}
+
+bool RemovePlayerFromAllVehicleSeats(CNetworkPlayer* player)
+{
+    bool removed = player->m_nVehicleId >= 0 || player->m_nSeatId >= 0;
+    for (CNetworkVehicle* vehicle : CNetworkVehicleManager::m_pVehicles)
+    {
+        if (!vehicle)
+            continue;
+        for (CNetworkPlayer*& occupant : vehicle->m_pPlayers)
+        {
+            if (occupant == player)
+            {
+                occupant = nullptr;
+                removed = true;
+            }
+        }
+    }
+    player->m_nVehicleId = -1;
+    player->m_nSeatId = -1;
+    return removed;
+}
+
+bool HasPlayerVehicleSeatReference(const CNetworkPlayer* player)
+{
+    for (const CNetworkVehicle* vehicle : CNetworkVehicleManager::m_pVehicles)
+    {
+        if (!vehicle)
+            continue;
+        for (const CNetworkPlayer* occupant : vehicle->m_pPlayers)
+        {
+            if (occupant == player)
+                return true;
+        }
+    }
+    return false;
 }
 
 bool WouldCreateTrailerCycle(const CNetworkVehicle* tractor, int trailerId)
@@ -207,6 +261,19 @@ PACKET_HANDLER(
     {
         if (vehicle->m_pSyncer == pNetworkPlayer)
         {
+            // Clear canonical seats before the vehicle object disappears. This also prevents passengers
+            // from retaining an impossible vehicle ID when the vehicle host disconnects or deletes it.
+            for (CNetworkPlayer* occupant : vehicle->m_pPlayers)
+            {
+                if (!occupant)
+                    continue;
+                RemovePlayerFromAllVehicleSeats(occupant);
+                Packets::Vehicles::VehicleExit exit{};
+                exit.playerid = occupant->m_iPlayerId;
+                exit.bForce = true;
+                GetPacketFactory().SendToAll(exit, occupant);
+            }
+
             GetPacketFactory().SendToAll(*pVehicleRemove, pNetworkPlayer);
 
             CNetworkVehicleManager::Remove(vehicle);
@@ -285,10 +352,33 @@ PACKET_HANDLER(
             return;
         }
 
-        pNetworkPlayer->RemoveFromVehicle();
-        pNetworkVehicle->SetOccupant(static_cast<int8_t>(seat), pNetworkPlayer);
-
+        // Never trust the serialized player ID or non-canonical driver/passenger seat fields.
         pVehicleEnter->playerid = pNetworkPlayer->m_iPlayerId;
+        pVehicleEnter->bPassenger = seat > 0;
+        pVehicleEnter->seatid = seat > 0 ? static_cast<int8_t>(seat - 1) : 0;
+
+        if (IsExactOccupant(pNetworkVehicle, pNetworkPlayer, seat))
+        {
+            // Bounded client retries are confirmation-only and must not replay remote entry animations.
+            return;
+        }
+        if (!CanApplyVehicleTransition(pNetworkPlayer))
+        {
+            logger::warn("%s exceeded the vehicle transition rate", pNetworkPlayer->GetName().c_str());
+            return;
+        }
+
+        if (!pVehicleEnter->bForce)
+        {
+            // Task constructors only announce a visual attempt. A canceled attempt must not reserve a seat.
+            if (pNetworkPlayer->m_nVehicleId >= 0 || pNetworkPlayer->m_nSeatId >= 0)
+                return;
+            GetPacketFactory().SendToAll(*pVehicleEnter, pNetworkPlayer);
+            return;
+        }
+
+        RemovePlayerFromAllVehicleSeats(pNetworkPlayer);
+        pNetworkVehicle->SetOccupant(static_cast<int8_t>(seat), pNetworkPlayer);
         GetPacketFactory().SendToAll(*pVehicleEnter, pNetworkPlayer);
     }
     else
@@ -299,15 +389,28 @@ PACKET_HANDLER(
 
 PACKET_HANDLER(ePacketType::VEHICLE_EXIT, Packets::Vehicles::VehicleExit* pVehicleExit, CNetworkPlayer* pNetworkPlayer)
 {
-    if (auto pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pNetworkPlayer->m_nVehicleId))
+    CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pNetworkPlayer->m_nVehicleId);
+    const bool exactOccupancy =
+        IsExactOccupant(pNetworkVehicle, pNetworkPlayer, pNetworkPlayer->m_nSeatId);
+    pVehicleExit->playerid = pNetworkPlayer->m_iPlayerId;
+
+    if (!pVehicleExit->bForce)
     {
-        if (IsExactOccupant(pNetworkVehicle, pNetworkPlayer, pNetworkPlayer->m_nSeatId))
-        {
-            pNetworkVehicle->SetOccupant(pNetworkPlayer->m_nSeatId, nullptr);
-            pVehicleExit->playerid = pNetworkPlayer->m_iPlayerId;
+        // Preserve the remote leave animation while keeping the canonical seat until native confirmation.
+        if (exactOccupancy && CanApplyVehicleTransition(pNetworkPlayer))
             GetPacketFactory().SendToAll(*pVehicleExit, pNetworkPlayer);
-        }
+        return;
     }
+
+    if (!exactOccupancy && pNetworkPlayer->m_nVehicleId < 0 && pNetworkPlayer->m_nSeatId < 0 &&
+        !HasPlayerVehicleSeatReference(pNetworkPlayer))
+        return;  // idempotent confirmation
+    if (!CanApplyVehicleTransition(pNetworkPlayer))
+        return;
+
+    // Remove every stale reference, even if the vehicle was deleted before this reliable confirmation arrived.
+    if (RemovePlayerFromAllVehicleSeats(pNetworkPlayer))
+        GetPacketFactory().SendToAll(*pVehicleExit, pNetworkPlayer);
 }
 
 PACKET_HANDLER(

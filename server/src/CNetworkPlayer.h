@@ -21,6 +21,8 @@ public:
     bool m_bIsHost = false;
     int8_t m_nSeatId = -1;
     int m_nVehicleId = -1;
+    uint64_t m_nVehicleTransitionWindowStartMs = 0;
+    uint8_t m_nVehicleTransitionCount = 0;
     bool m_bCorrectVersion = false;
     float m_afStats[Packets::Players::PLAYER_SKILL_STATS_COUNT]{};
     Packets::Players::PlayerGameplayState m_gameplayState{};
