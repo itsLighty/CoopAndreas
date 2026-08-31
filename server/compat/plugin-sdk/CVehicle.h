@@ -1,0 +1,41 @@
+#pragma once
+
+#include "CVector.h"
+#include <CDamageManager.h>
+#include <eModelID.h>
+
+enum eDoorLock : unsigned int
+{
+    DOORLOCK_NOT_USED = 0,
+    DOORLOCK_UNLOCKED,
+    DOORLOCK_LOCKED,
+    DOORLOCK_LOCKOUT_PLAYER_ONLY,
+    DOORLOCK_LOCKED_PLAYER_INSIDE,
+    DOORLOCK_COP_CAR,
+    DOORLOCK_FORCE_SHUT_DOORS,
+    DOORLOCK_SKIP_SHUT_DOORS
+};
+
+enum eVehicleType
+{
+    VEHICLE_AUTOMOBILE = 0,
+    VEHICLE_MTRUCK,
+    VEHICLE_QUAD,
+    VEHICLE_HELI,
+    VEHICLE_PLANE,
+    VEHICLE_BOAT,
+    VEHICLE_TRAIN,
+    VEHICLE_FHELI,
+    VEHICLE_FPLANE,
+    VEHICLE_BIKE,
+    VEHICLE_BMX,
+    VEHICLE_TRAILER
+};
+
+enum eVehicleCreatedBy
+{
+    RANDOM_VEHICLE = 1,
+    MISSION_VEHICLE = 2,
+    PARKED_VEHICLE = 3,
+    PERMANENT_VEHICLE = 4
+};

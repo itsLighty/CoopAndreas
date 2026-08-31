@@ -82,7 +82,39 @@ xmake --build launcher
 
 ## Building Server on GNU/Linux
 
-TODO
+The dedicated server is built as a 32-bit (`i386`) executable because it shares GTA SA/plugin-SDK data types whose
+layouts are validated against the 32-bit game. The client, proxy, and launcher remain Windows-only targets.
+
+On a 64-bit Debian or Ubuntu host, install a C++ toolchain with multilib support:
+
+```bash
+sudo apt update
+sudo apt install --yes build-essential gcc-multilib g++-multilib libc6-dev-i386 git curl ca-certificates
+```
+
+Install [Xmake](https://xmake.io/guide/quick-start.html) using its official installer, then open a new shell (or load
+the profile printed by the installer):
+
+```bash
+curl -fsSL https://xmake.io/shget.text | bash
+```
+
+From the repository root, configure an `i386` release build and build only the server target:
+
+```bash
+xmake f -c -p linux -a i386 -m release
+xmake build server
+```
+
+The executable is written to `build/linux/i386/release/server`. Start it with:
+
+```bash
+./build/linux/i386/release/server
+```
+
+On first launch, `server-config.ini` is created next to the executable. Its default UDP port is `6767`. A deployment
+host only needs the 32-bit runtime libraries (on 64-bit Debian/Ubuntu: `libc6-i386` and `lib32stdc++6`); the GTA SA
+client itself still runs on Windows.
 
 ## Donate
 

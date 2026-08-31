@@ -359,7 +359,7 @@ public:
         }
         else if (Stream::IsReading)
         {
-            laserScopeDotPosition = {};
+            laserScopeDotPosition = WorldPositionCompressed{};
             laserScopeDotSize = 0.0f;
         }
 

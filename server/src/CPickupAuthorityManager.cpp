@@ -381,7 +381,7 @@ bool CPickupAuthorityManager::HandleCollectDecision(CNetworkPlayer* player, cons
     }
 
     PendingCollect* pending = FindPendingCollect(packet.requestId);
-    if (pending == nullptr || pending->id != packet.id)
+    if (pending == nullptr || !(pending->id == packet.id))
     {
         logger::warn("Rejected spoofed, stale, or unknown pickup collection decision");
         return false;

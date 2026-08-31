@@ -46,5 +46,5 @@ public:
 
     void RemoveFromVehicle();
 
-    ~CNetworkPlayer();
+    ~CNetworkPlayer() = default;
 };

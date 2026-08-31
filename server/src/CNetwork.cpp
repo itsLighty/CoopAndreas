@@ -425,7 +425,8 @@ void CNetwork::CompletePlayerConnection(
             continue;
         }
         oldPlayerConnected.payload.playerid = pNetworkPlayer->m_iPlayerId;
-        strcpy_s(oldPlayerConnected.payload.name, pNetworkPlayer->m_Name);
+        snprintf(oldPlayerConnected.payload.name, sizeof(oldPlayerConnected.payload.name), "%s",
+            pNetworkPlayer->m_Name);
         GetPacketFactory().Send(oldPlayerConnected, pNewNetworkPlayer);
     }
 

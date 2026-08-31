@@ -1,5 +1,7 @@
 #include "ConfigManager.h"
 
+#include <fstream>
+
 void CConfigManager::Init()
 {
 	if (!HasConfigExists())

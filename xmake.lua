@@ -1,7 +1,12 @@
 set_project("CoopAndreas")
 
 set_languages("cxx17")
-set_arch("x86")
+if is_plat("linux") then
+    -- The server shares plugin-sdk structures with the 32-bit GTA SA client.
+    set_arch("i386")
+else
+    set_arch("x86")
+end
 
 add_rules("mode.debug", "mode.release")
 
@@ -14,6 +19,11 @@ if is_os("windows") then
 end
 
 target("client", function()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
     set_kind("shared")
     set_plat("windows")
 
@@ -105,7 +115,11 @@ end)
 target("server", function ()
     set_kind("binary")
 
-    set_arch("x86")
+    if is_plat("linux") then
+        set_arch("i386")
+    else
+        set_arch("x86")
+    end
     set_languages("c++17")
 
     add_files("server/src/**.cpp")
@@ -117,6 +131,7 @@ target("server", function ()
     add_headerfiles("third_party/enet/*.h")
 
     add_includedirs(
+        "server/compat/plugin-sdk",
         "server/src/",
         "third_party/plugin-sdk/shared",
         "third_party/plugin-sdk/shared/game",
@@ -126,7 +141,13 @@ target("server", function ()
 
     add_includedirs("shared", "third_party")
 
-    set_pcxxheader("server/src/stdafx.h")
+    if is_plat("windows") then
+        set_pcxxheader("server/src/stdafx.h")
+    else
+        -- Server sources historically rely on stdafx.h being injected before
+        -- their first include. Force-include it without producing a PCH object.
+        add_cxxflags("-include", "server/src/stdafx.h", {force = true})
+    end
 
 
     add_defines(
@@ -147,16 +168,22 @@ target("server", function ()
 
     add_deps("enet")
 
-    if is_os("windows") then
+    if is_plat("windows") then
         add_files("server/version.rc")
         add_defines("_CRT_SECURE_NO_WARNINGS", "WIN32", "_CONSOLE")
         add_syslinks("bcrypt")
-    elseif is_os("linux") then
-        -- TODO
+    elseif is_plat("linux") then
+        -- getrandom(2) is a GNU extension declared by <sys/random.h>.
+        add_defines("_GNU_SOURCE")
     end
 end)
 
 target("proxy", function ()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
     set_kind("shared")
 
     set_toolchains("msvc")
@@ -189,6 +216,11 @@ target("proxy", function ()
 end)
 
 target("plugin_sa", function ()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
     set_kind("static")
 
     set_toolchains("msvc")
@@ -222,13 +254,17 @@ target("enet", function ()
     
     add_headerfiles("third_party/enet/*.h")
 
-    add_includedirs("third_party/enet/")
     add_includedirs("third_party/")
 
     set_pcxxheader("third_party/enet/enet.h")
 end)
 
 target("discordrpc", function ()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
     set_kind("static")
     
     set_languages("c++17")
@@ -241,6 +277,11 @@ target("discordrpc", function ()
 end)
 
 target("launcher", function ()
+    if not is_plat("windows") then
+        set_enabled(false)
+        return
+    end
+
     set_kind("binary")
     add_ldflags("/SUBSYSTEM:WINDOWS", {force = true})
     add_rules("win.sdk.application")

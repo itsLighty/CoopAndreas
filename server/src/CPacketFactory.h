@@ -25,3 +25,8 @@ extern inline CPacketFactory& GetPacketFactory()
     static CPacketFactory factory;
     return factory;
 }
+
+inline void RegisterPacketPrototype(Packet* packet)
+{
+    GetPacketFactory().RegisterPacket(packet);
+}

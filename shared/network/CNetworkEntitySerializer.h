@@ -1,6 +1,6 @@
 #pragma once
 
-enum eNetworkEntityType : uint8_t;
+#include "network/eNetworkEntityType.h"
 
 class CNetworkEntitySerializer
 {

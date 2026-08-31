@@ -20,6 +20,9 @@ enum class ePacketChannel : uint8_t
     COUNT
 };
 
+class Packet;
+void RegisterPacketPrototype(Packet* packet);
+
 constexpr ePacketReliability aChannelReliability[static_cast<uint8_t>(ePacketChannel::COUNT)] = {
     ePacketReliability::RELIABLE,    // SYSTEM
     ePacketReliability::UNRELIABLE,  // SYNC
@@ -36,7 +39,7 @@ template <typename PacketT>
 class PacketRegistrar
 {
 public:
-    PacketRegistrar() { GetPacketFactory().RegisterPacket(new PacketT); }
+    PacketRegistrar() { RegisterPacketPrototype(new PacketT); }
 };
 
 #define DEFINE_PACKET_TYPE(packet_class, type, channel)              \

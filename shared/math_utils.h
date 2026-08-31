@@ -4,8 +4,8 @@
 #define VMAX(a, b) ((a) > (b) ? (a) : (b))
 #define VCLAMP(v, lo, hi) (VMIN(VMAX((v), (lo)), (hi)))
 
-const float PI = 3.14159265358979323846f;
-const float TWO_PI = PI * 2.0f;
+inline constexpr float PI = 3.14159265358979323846f;
+inline constexpr float TWO_PI = PI * 2.0f;
 
 // [-pi;pi]
 inline static float NormalizeRadianAngle(float angle)
