@@ -9,9 +9,45 @@
 #include <CTaskComplexClimb.h>
 #include <Hooks/PedHooks.h>
 #include "CNetworkEntityStreamManager.h"
+#include "CServerTime.h"
 
 namespace
 {
+constexpr float PED_TELEPORT_DISTANCE = 30.0f;
+
+CNetworkTransformSnapshot MakePedOnFootTransform(
+    const Packets::Peds::PedOnFoot& snapshot, int pedId, uint8_t area)
+{
+    CNetworkTransformSnapshot transform{};
+    transform.serverTime = snapshot.serverTime;
+    transform.position = snapshot.pos;
+    transform.velocity = snapshot.velocity;
+    transform.currentRotation = snapshot.currentRotation.m_angle;
+    transform.aimingRotation = snapshot.aimingRotation.m_angle;
+    transform.lookDirection = snapshot.lookDirection.m_angle;
+    transform.sourceId = static_cast<uint32_t>(std::max(pedId, 0));
+    transform.area = area;
+    transform.source = eNetworkTransformSource::PED_ON_FOOT;
+    return transform;
+}
+
+CNetworkTransformSnapshot MakePedDriverTransform(
+    const Packets::Peds::PedDriverUpdate& snapshot, uint8_t area)
+{
+    CNetworkTransformSnapshot transform{};
+    transform.serverTime = snapshot.serverTime;
+    transform.position = snapshot.pos;
+    transform.velocity = snapshot.velocity;
+    transform.turnSpeed = snapshot.turnSpeed;
+    transform.right = snapshot.roll;
+    transform.forward = snapshot.rot;
+    transform.sourceId = static_cast<uint32_t>(std::max(snapshot.vehicleid, 0));
+    transform.area = area;
+    transform.source = eNetworkTransformSource::VEHICLE_PED_DRIVER;
+    transform.hasVehicleOrientation = true;
+    return transform;
+}
+
 bool IsNewerRevision(uint16_t candidate, uint16_t current)
 {
     const uint16_t delta = static_cast<uint16_t>(candidate - current);
@@ -36,6 +72,7 @@ CNetworkPed::CNetworkPed(int pedid, int modelId, ePedType pedType, CVector pos, 
 
 CNetworkPed::~CNetworkPed()
 {
+    ResetTransformInterpolation();
     if (m_bSyncing)
     {
         Packets::Peds::PedRemove packet{};
@@ -99,6 +136,7 @@ bool CNetworkPed::Materialize()
     m_pPed->m_bStreamingDontDelete = true;
     CWorld::Add(m_pPed);
     m_nLastPresentationChangeAt = GetTickCount();
+    m_transformInterpolator.ClearSnapshots();
     ApplyCachedPresentation();
     CNetworkPedGroupSyncManager::OnPedAvailable(m_nPedId);
     return true;
@@ -108,6 +146,8 @@ void CNetworkPed::StreamOut()
 {
     if (!m_pPed || m_bSyncing)
         return;
+
+    m_transformInterpolator.ClearSnapshots();
 
     CNetworkPedGroupSyncManager::OnPedPresentationUnavailable(m_nPedId);
     ResetRemoteSyncState(true);
@@ -144,8 +184,12 @@ void CNetworkPed::StreamOut()
     m_nLastPresentationChangeAt = GetTickCount();
 }
 
-void CNetworkPed::CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot)
+bool CNetworkPed::CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot)
 {
+    const CNetworkTransformSnapshot transform = MakePedOnFootTransform(snapshot, m_nPedId, m_nLogicalArea);
+    if (!m_transformInterpolator.Push(transform, PED_TELEPORT_DISTANCE))
+        return false;
+
     m_onFootSnapshot = snapshot;
     m_bHasOnFootSnapshot = true;
     m_bHasDriverSnapshot = false;
@@ -158,10 +202,23 @@ void CNetworkPed::CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot)
     m_fAimingRotation = snapshot.aimingRotation.m_angle;
     m_fLookDirection = snapshot.lookDirection.m_angle;
     m_nMoveState = snapshot.moveState;
+    if (snapshot.healthSnapshot.iHealth == 0)
+    {
+        m_transformInterpolator.Reset();
+        m_transformInterpolator.Push(transform, PED_TELEPORT_DISTANCE);
+    }
+    return true;
 }
 
-void CNetworkPed::CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot)
+bool CNetworkPed::CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot)
 {
+    uint8_t area = m_nLogicalArea;
+    if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(snapshot.vehicleid))
+        area = vehicle->m_nLogicalArea;
+    const CNetworkTransformSnapshot transform = MakePedDriverTransform(snapshot, area);
+    if (!m_transformInterpolator.Push(transform, 100.0f))
+        return false;
+
     m_driverSnapshot = snapshot;
     m_bHasDriverSnapshot = true;
     m_bHasPassengerSnapshot = false;
@@ -171,10 +228,17 @@ void CNetworkPed::CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snap
     m_vecVelocity = snapshot.velocity;
     if (CNetworkVehicle* vehicle = CNetworkVehicleManager::GetVehicle(snapshot.vehicleid))
         m_nLogicalArea = vehicle->m_nLogicalArea;
+    return true;
 }
 
-void CNetworkPed::CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& snapshot)
+bool CNetworkPed::CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& snapshot)
 {
+    if (m_bHasPassengerSnapshot && snapshot.serverTime != 0 && m_passengerSnapshot.serverTime != 0 &&
+        static_cast<int32_t>(snapshot.serverTime - m_passengerSnapshot.serverTime) <= 0)
+        return false;
+    if (!ResetTransformInterpolation(snapshot.serverTime))
+        return false;
+
     m_passengerSnapshot = snapshot;
     m_bHasPassengerSnapshot = true;
     m_bHasDriverSnapshot = false;
@@ -185,6 +249,7 @@ void CNetworkPed::CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& 
         m_vecLogicalPosition = vehicle->GetLogicalPosition();
         m_nLogicalArea = vehicle->m_nLogicalArea;
     }
+    return true;
 }
 
 CVector CNetworkPed::GetLogicalPosition() const
@@ -212,11 +277,6 @@ void CNetworkPed::ApplyCachedPresentation()
             WarpIntoVehicleDriver(vehicle);
         ClearRemoteAim();
         ClearRemoteTask();
-        vehicle->m_matrix->pos = m_driverSnapshot.pos;
-        vehicle->m_matrix->right = m_driverSnapshot.roll;
-        vehicle->m_matrix->up = m_driverSnapshot.rot;
-        vehicle->m_vecMoveSpeed = m_driverSnapshot.velocity;
-        vehicle->m_vecTurnSpeed = m_driverSnapshot.turnSpeed;
         ApplyWeaponSnapshot(m_driverSnapshot.pedWeapon);
         m_pPed->m_fHealth = m_driverSnapshot.pedHealth.iHealth;
         m_pPed->m_fArmour = m_driverSnapshot.pedHealth.iArmour;
@@ -307,9 +367,35 @@ void CNetworkPed::ProcessPendingPresentation()
     }
     if (m_bHasOnFootSnapshot && m_pPed->m_fHealth > 0.0f)
     {
+        ProcessTransformInterpolation();
         ApplyAimSnapshot(m_onFootSnapshot.bAiming, m_onFootSnapshot.weaponAim);
         ApplyTaskSnapshot(m_onFootSnapshot.task);
     }
+}
+
+void CNetworkPed::ProcessTransformInterpolation()
+{
+    if (!m_pPed || !m_pPed->IsVTableValid() || m_bSyncing ||
+        m_presentationMode != PresentationMode::ON_FOOT || m_pPed->m_nPedFlags.bInVehicle)
+        return;
+    CNetworkTransformSample sample{};
+    if (!m_transformInterpolator.Sample(g_serverTime, 0, sample))
+        return;
+    m_pPed->SetPosn(sample.position);
+    m_pPed->m_vecMoveSpeed = sample.velocity;
+    m_pPed->m_fCurrentRotation = m_fCurrentRotation = sample.currentRotation;
+    m_pPed->m_fAimingRotation = m_fAimingRotation = sample.aimingRotation;
+    m_pPed->m_fLookDirection = m_fLookDirection = sample.lookDirection;
+}
+
+bool CNetworkPed::ResetTransformInterpolation(server_time_t boundaryTime)
+{
+    if (boundaryTime == 0)
+    {
+        m_transformInterpolator.Reset();
+        return true;
+    }
+    return m_transformInterpolator.ResetAt(boundaryTime);
 }
 
 CNetworkPed* CNetworkPed::CreateHosted(CPed* ped)

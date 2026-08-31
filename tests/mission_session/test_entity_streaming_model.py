@@ -235,9 +235,11 @@ class EntityStreamingSourceContractTests(unittest.TestCase):
             self.vehicle_handler,
             r"PACKET_HANDLER\(ePacketType::VEHICLE_REMOVE\s*,",
         )
-        self.assertIn("CNetworkVehicleManager::Remove(pNetworkVehicle)", remove)
+        self.assertIn(
+            "CNetworkVehicleManager::Remove(pNetworkVehicle, pVehicleRemove->serverTime)", remove
+        )
         manager_remove = function_body(self.vehicle_manager, r"CNetworkVehicleManager::Remove\(")
-        self.assertIn("ClearVehicleRelations(vehicle)", manager_remove)
+        self.assertIn("ClearVehicleRelations(vehicle, boundaryTime)", manager_remove)
         clear = function_body(self.vehicle_manager, r"CNetworkVehicleManager::ClearVehicleRelations\(")
         self.assertIn("vehicle->StreamOut()", clear)
 

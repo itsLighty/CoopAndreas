@@ -10,9 +10,27 @@
 #include <CTaskSimpleRunNamedAnim.h>
 #include "CNetworkEntityStreamManager.h"
 #include "CEntryExitTransitionSync.h"
+#include "CServerTime.h"
 
 namespace
 {
+constexpr float PLAYER_TELEPORT_DISTANCE = 30.0f;
+
+CNetworkTransformSnapshot MakePlayerOnFootTransform(
+    const Packets::Players::OnFootUpdate& snapshot, int playerId, uint8_t area)
+{
+    CNetworkTransformSnapshot transform{};
+    transform.serverTime = snapshot.serverTime;
+    transform.position = snapshot.vecPos;
+    transform.velocity = snapshot.vecMoveSpeed;
+    transform.currentRotation = snapshot.currentRotation.m_angle;
+    transform.aimingRotation = snapshot.aimingRotation.m_angle;
+    transform.sourceId = static_cast<uint32_t>(std::max(playerId, 0));
+    transform.area = area;
+    transform.source = eNetworkTransformSource::PLAYER_ON_FOOT;
+    return transform;
+}
+
 struct SyncedAnimationDefinition
 {
     int groupId;
@@ -192,6 +210,7 @@ void CorrectParachuteAnimationProgress(CAnimBlendAssociation* association, uint8
 
 CNetworkPlayer::~CNetworkPlayer()
 {
+    ResetTransformInterpolation();
     ClearSyncedParachuteState();
     ClearSyncedAnimationState();
     if (m_pPed)
@@ -318,28 +337,42 @@ bool CNetworkPlayer::Materialize(CVector position)
     CreatePed(m_iPlayerId, position);
     if (!m_pPed)
         return false;
+    m_transformInterpolator.ClearSnapshots();
     ApplyCachedPresentation();
     return true;
 }
 
 void CNetworkPlayer::StreamOut()
 {
+    m_transformInterpolator.ClearSnapshots();
     if (m_pPed)
         DestroyPed();
 }
 
-void CNetworkPlayer::CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot)
+bool CNetworkPlayer::CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot)
 {
+    const CNetworkTransformSnapshot transform = MakePlayerOnFootTransform(snapshot, m_iPlayerId, m_nLogicalArea);
+    if (!m_transformInterpolator.Push(transform, PLAYER_TELEPORT_DISTANCE))
+        return false;
+
     m_onFootSnapshotInterpolated = snapshot;
     m_bHasOnFootSnapshot = true;
     m_vecLogicalPosition = snapshot.vecPos;
     m_oldControllerState = snapshot.keySnapshot.oldControllerState;
     m_newControllerState = snapshot.keySnapshot.newControllerState;
-    ClearVehicleRelation();
+    ClearVehicleRelation(false);
+    if (snapshot.healthSnapshot.iHealth == 0)
+    {
+        m_transformInterpolator.Reset();
+        m_transformInterpolator.Push(transform, PLAYER_TELEPORT_DISTANCE);
+    }
+    return true;
 }
 
-void CNetworkPlayer::CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot)
+bool CNetworkPlayer::CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot)
 {
+    if (!ResetTransformInterpolation(snapshot.serverTime))
+        return false;
     m_vehicleDriverSnapshot = snapshot;
     m_bHasVehicleDriverSnapshot = true;
     m_bHasVehiclePassengerSnapshot = false;
@@ -352,10 +385,13 @@ void CNetworkPlayer::CacheVehicleDriverSnapshot(const Packets::Vehicles::Vehicle
         m_vecLogicalPosition = vehicle->GetLogicalPosition();
         m_nLogicalArea = vehicle->m_nLogicalArea;
     }
+    return true;
 }
 
-void CNetworkPlayer::CacheVehiclePassengerSnapshot(const Packets::Vehicles::VehiclePassengerUpdate& snapshot)
+bool CNetworkPlayer::CacheVehiclePassengerSnapshot(const Packets::Vehicles::VehiclePassengerUpdate& snapshot)
 {
+    if (!ResetTransformInterpolation(snapshot.serverTime))
+        return false;
     m_vehiclePassengerSnapshot = snapshot;
     m_bHasVehiclePassengerSnapshot = true;
     m_bHasVehicleDriverSnapshot = false;
@@ -368,6 +404,14 @@ void CNetworkPlayer::CacheVehiclePassengerSnapshot(const Packets::Vehicles::Vehi
         m_vecLogicalPosition = vehicle->GetLogicalPosition();
         m_nLogicalArea = vehicle->m_nLogicalArea;
     }
+    return true;
+}
+
+void CNetworkPlayer::CacheOnFootRotation(server_time_t serverTime, float currentRotation, float aimingRotation)
+{
+    m_onFootSnapshotInterpolated.currentRotation = currentRotation;
+    m_onFootSnapshotInterpolated.aimingRotation = aimingRotation;
+    m_transformInterpolator.UpdateNewestAngles(serverTime, currentRotation, aimingRotation);
 }
 
 void CNetworkPlayer::CacheVehicleRelation(int vehicleId, int seatId, bool passenger, bool force, bool confirmed)
@@ -380,8 +424,9 @@ void CNetworkPlayer::CacheVehicleRelation(int vehicleId, int seatId, bool passen
     m_bHasPendingVehicleRelation = true;
 }
 
-void CNetworkPlayer::ClearVehicleRelation()
+void CNetworkPlayer::ClearVehicleRelation(bool resetInterpolation)
 {
+    const bool changed = m_bHasPendingVehicleRelation || m_bHasVehicleDriverSnapshot || m_bHasVehiclePassengerSnapshot;
     m_nPendingVehicleId = -1;
     m_nPendingVehicleSeat = -1;
     m_bPendingVehiclePassenger = false;
@@ -390,6 +435,8 @@ void CNetworkPlayer::ClearVehicleRelation()
     m_bHasPendingVehicleRelation = false;
     m_bHasVehicleDriverSnapshot = false;
     m_bHasVehiclePassengerSnapshot = false;
+    if (changed && resetInterpolation)
+        ResetTransformInterpolation();
 }
 
 CVector CNetworkPlayer::GetLogicalPosition() const
@@ -486,10 +533,58 @@ void CNetworkPlayer::ProcessPendingPresentation()
     ReconcilePendingVehiclePresentation();
     ApplyPendingTaskOnce();
     CEntryExitTransitionSync::ReplayPending(this);
+    ProcessTransformInterpolation();
 }
 
-void CNetworkPlayer::Respawn()
+void CNetworkPlayer::ProcessTransformInterpolation()
 {
+    if (!m_pPed || !m_pPed->IsVTableValid() || m_iPlayerId == CNetworkPlayerManager::m_nMyId ||
+        m_bHasPendingVehicleRelation || m_pPed->m_nPedFlags.bInVehicle)
+        return;
+
+    CNetworkTransformSample sample{};
+    if (!m_transformInterpolator.Sample(g_serverTime, m_nRTT, sample))
+        return;
+    m_pPed->SetPosn(sample.position);
+    m_pPed->m_vecMoveSpeed = sample.velocity;
+    m_pPed->m_fCurrentRotation = sample.currentRotation;
+    m_pPed->m_fAimingRotation = sample.aimingRotation;
+}
+
+bool CNetworkPlayer::ResetTransformInterpolation(server_time_t boundaryTime)
+{
+    if (boundaryTime == 0)
+    {
+        m_transformInterpolator.Reset();
+        return true;
+    }
+    return m_transformInterpolator.ResetAt(boundaryTime);
+}
+
+bool CNetworkPlayer::SnapOnFootTransform(
+    CVector position, float currentRotation, float aimingRotation, server_time_t boundaryTime)
+{
+    if (!ResetTransformInterpolation(boundaryTime))
+        return false;
+    m_vecLogicalPosition = position;
+    m_onFootSnapshotInterpolated.vecPos = position;
+    m_onFootSnapshotInterpolated.vecMoveSpeed = CVector{};
+    m_onFootSnapshotInterpolated.currentRotation = currentRotation;
+    m_onFootSnapshotInterpolated.aimingRotation = aimingRotation;
+    if (m_pPed && m_pPed->IsVTableValid())
+    {
+        m_pPed->SetPosn(position);
+        m_pPed->m_vecMoveSpeed = CVector{};
+        m_pPed->m_fCurrentRotation = currentRotation;
+        m_pPed->m_fAimingRotation = aimingRotation;
+    }
+    return true;
+}
+
+void CNetworkPlayer::Respawn(server_time_t boundaryTime)
+{
+    if (!ResetTransformInterpolation(boundaryTime))
+        return;
     ClearSyncedParachuteState();
     ClearSyncedAnimationState();
     m_bHasPendingTask = false;
@@ -500,7 +595,7 @@ void CNetworkPlayer::Respawn()
     m_nAppliedEnExTransitionGeneration = 0;
     if (m_pPed)
         DestroyPed();
-    ClearVehicleRelation();
+    ClearVehicleRelation(false);
     m_vecLogicalPosition = m_onFootSnapshotInterpolated.vecPos;
     m_onFootSnapshotInterpolated.healthSnapshot.iHealth = 100;
     m_onFootSnapshotInterpolated.healthSnapshot.iArmour = 0;
@@ -716,9 +811,9 @@ void CNetworkPlayer::ApplyTaskPresentation(Packets::Players::SetPlayerTask& pack
     CChat::AddMessage("HandleTask %d toggle %d", packet.taskType, packet.toggle);
 #endif
 
-    m_pPed->SetPosn(packet.vecPos);
-    m_pPed->m_fCurrentRotation = packet.currentRotation.m_angle;
-    m_pPed->m_fAimingRotation = packet.aimingRotation.m_angle;
+    if (!SnapOnFootTransform(
+            packet.vecPos, packet.currentRotation.m_angle, packet.aimingRotation.m_angle, packet.serverTime))
+        return;
 
     CTask* activeTask = m_pPed->m_pIntelligence->m_TaskMgr.GetActiveTask();
     eTaskType activeTaskType = activeTask ? activeTask->GetTaskType() : TASK_NONE;

@@ -25,7 +25,7 @@ PACKET_HANDLER(ePacketType::VEHICLE_REMOVE, Packets::Vehicles::VehicleRemove* pV
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehicleRemove->vehicleid);
     if (pNetworkVehicle)
     {
-        CNetworkVehicleManager::Remove(pNetworkVehicle);
+        CNetworkVehicleManager::Remove(pNetworkVehicle, pVehicleRemove->serverTime);
         delete pNetworkVehicle;
     }
 }
@@ -55,24 +55,14 @@ PACKET_HANDLER(ePacketType::VEHICLE_IDLE_UPDATE, Packets::Vehicles::VehicleIdleU
     if (pNetworkVehicle == nullptr)
         return;
 
-    pNetworkVehicle->CacheIdleSnapshot(*pVehicleIdleUpdate);
+    if (!pNetworkVehicle->CacheIdleSnapshot(*pVehicleIdleUpdate))
+        return;
 
     if (!pNetworkVehicle->m_pVehicle)
         return;
 
     if (pNetworkVehicle->m_pVehicle->m_matrix == nullptr)
         return;
-
-    pNetworkVehicle->m_pVehicle->m_matrix->pos = pVehicleIdleUpdate->pos;
-
-    // if (CUtil::IsPositionUpdateNeeded(pNetworkVehicle->m_pVehicle->m_matrix->right, pVehicleIdleUpdate->roll, 1))
-    pNetworkVehicle->m_pVehicle->m_matrix->right = pVehicleIdleUpdate->roll;
-
-    // if (CUtil::IsPositionUpdateNeeded(pNetworkVehicle->m_pVehicle->m_matrix->up, pVehicleIdleUpdate->rot, 1))
-    pNetworkVehicle->m_pVehicle->m_matrix->up = pVehicleIdleUpdate->rot;
-
-    pNetworkVehicle->m_pVehicle->m_vecMoveSpeed = pVehicleIdleUpdate->velocity;
-    pNetworkVehicle->m_pVehicle->m_vecTurnSpeed = pVehicleIdleUpdate->turnSpeed;
 
     pNetworkVehicle->m_pVehicle->m_nPrimaryColor = pVehicleIdleUpdate->color1;
     pNetworkVehicle->m_pVehicle->m_nSecondaryColor = pVehicleIdleUpdate->color2;
@@ -97,10 +87,10 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehicleDriverUpdate->vehicleid);
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pVehicleDriverUpdate->playerid);
 
-    if (pNetworkVehicle)
-        pNetworkVehicle->CacheDriverSnapshot(*pVehicleDriverUpdate);
-    if (pNetworkPlayer)
-        pNetworkPlayer->CacheVehicleDriverSnapshot(*pVehicleDriverUpdate);
+    if (pNetworkVehicle && !pNetworkVehicle->CacheDriverSnapshot(*pVehicleDriverUpdate))
+        return;
+    if (pNetworkPlayer && !pNetworkPlayer->CacheVehicleDriverSnapshot(*pVehicleDriverUpdate))
+        return;
     if (pNetworkVehicle == nullptr || pNetworkPlayer == nullptr)
         return;
 
@@ -114,12 +104,6 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
     {
         pNetworkPlayer->WarpIntoVehicleDriver(pVehicle);
     }
-
-    pVehicle->m_matrix->pos = pVehicleDriverUpdate->pos;
-    pVehicle->m_matrix->right = pVehicleDriverUpdate->roll;
-    pVehicle->m_matrix->up = pVehicleDriverUpdate->rot;
-    pVehicle->m_vecMoveSpeed = pVehicleDriverUpdate->velocity;
-    pVehicle->m_vecTurnSpeed = pVehicleDriverUpdate->turnSpeed;
 
     pNetworkPlayer->ApplyWeaponSnapshot(pVehicleDriverUpdate->playerWeapon);
     pNetworkPlayer->m_onFootSnapshotInterpolated.healthSnapshot = pVehicleDriverUpdate->playerHealth;
@@ -157,7 +141,6 @@ PACKET_HANDLER(ePacketType::VEHICLE_DRIVER_UPDATE, Packets::Vehicles::VehicleDri
 
     pNetworkVehicle->m_pVehicle->m_eDoorLock = pVehicleDriverUpdate->locked;
     pNetworkVehicle->ApplyAuxState(pVehicleDriverUpdate->auxState);
-    pNetworkVehicle->m_playerDriverSnapshot = *pVehicleDriverUpdate;
 }
 
 PACKET_HANDLER(ePacketType::VEHICLE_ENTER, Packets::Vehicles::VehicleEnter* pVehicleEnter)
@@ -169,6 +152,10 @@ PACKET_HANDLER(ePacketType::VEHICLE_ENTER, Packets::Vehicles::VehicleEnter* pVeh
     }
 
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehicleEnter->vehicleid);
+    if (!pNetworkPlayer->ResetTransformInterpolation(pVehicleEnter->serverTime))
+        return;
+    if (pNetworkVehicle && !pNetworkVehicle->ResetTransformInterpolation(pVehicleEnter->serverTime))
+        return;
     pNetworkPlayer->CacheVehicleRelation(pVehicleEnter->vehicleid, pVehicleEnter->seatid,
         pVehicleEnter->bPassenger, pVehicleEnter->bForce);
     if (pNetworkVehicle == nullptr)
@@ -227,7 +214,18 @@ PACKET_HANDLER(ePacketType::VEHICLE_EXIT, Packets::Vehicles::VehicleExit* pVehic
         return;
     }
 
-    pNetworkPlayer->ClearVehicleRelation();
+    if (!pNetworkPlayer->ResetTransformInterpolation(pVehicleExit->serverTime))
+        return;
+    if (pNetworkPlayer->m_bHasPendingVehicleRelation)
+    {
+        if (CNetworkVehicle* networkVehicle =
+                CNetworkVehicleManager::GetVehicle(pNetworkPlayer->m_nPendingVehicleId))
+        {
+            if (!networkVehicle->ResetTransformInterpolation(pVehicleExit->serverTime))
+                return;
+        }
+    }
+    pNetworkPlayer->ClearVehicleRelation(false);
 
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
     if (!pPlayerPed)
@@ -331,8 +329,8 @@ PACKET_HANDLER(
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pVehiclePassengerUpdate->vehicleid);
     CNetworkPlayer* pNetworkPlayer = CNetworkPlayerManager::GetPlayer(pVehiclePassengerUpdate->playerid);
 
-    if (pNetworkPlayer)
-        pNetworkPlayer->CacheVehiclePassengerSnapshot(*pVehiclePassengerUpdate);
+    if (pNetworkPlayer && !pNetworkPlayer->CacheVehiclePassengerSnapshot(*pVehiclePassengerUpdate))
+        return;
     if (pNetworkVehicle == nullptr || pNetworkPlayer == nullptr)
         return;
 
@@ -390,6 +388,8 @@ PACKET_HANDLER(ePacketType::ASSIGN_VEHICLE, Packets::Vehicles::AssignVehicleSync
 #ifdef PACKET_DEBUG_MESSAGES
         CChat::AddMessage("NOT SYNCING VEHICLE %d ANYMORE", pAssignVehicleSyncer->vehicleid);
 #endif
+        if (!pNetworkVehicle->ResetTransformInterpolation(pAssignVehicleSyncer->serverTime))
+            return;
         pNetworkVehicle->m_bSyncing = false;
 
         if (auto pVehicle = pNetworkVehicle->m_pVehicle)
@@ -402,6 +402,8 @@ PACKET_HANDLER(ePacketType::ASSIGN_VEHICLE, Packets::Vehicles::AssignVehicleSync
 #ifdef PACKET_DEBUG_MESSAGES
         CChat::AddMessage("SYNCING VEHICLE %d", pAssignVehicleSyncer->vehicleid);
 #endif
+        if (!pNetworkVehicle->ResetTransformInterpolation(pAssignVehicleSyncer->serverTime))
+            return;
         pNetworkVehicle->m_bSyncing = true;
 
         if (auto pVehicle = pNetworkVehicle->m_pVehicle)

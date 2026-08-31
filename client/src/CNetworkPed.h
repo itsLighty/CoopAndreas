@@ -1,4 +1,5 @@
 #pragma once
+#include "CNetworkTransformInterpolator.h"
 class CTask;
 class CTaskSimpleUseGun;
 
@@ -48,6 +49,7 @@ public:
 	CTask* m_pRemotePrimaryTask = nullptr;
 	CTaskSimpleUseGun* m_pRemoteAimTask = nullptr;
 	CVehicle* m_pRemoteSignalVehicle = nullptr;
+	CNetworkTransformInterpolator m_transformInterpolator{};
 
 	static CNetworkPed* CreateHosted(CPed* ped);
 	void WarpIntoVehicleDriver(CVehicle* vehicle);
@@ -70,9 +72,11 @@ public:
 	void StreamOut();
 	void ApplyCachedPresentation();
 	void ProcessPendingPresentation();
-	void CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot);
-	void CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot);
-	void CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& snapshot);
+	bool CacheOnFootSnapshot(const Packets::Peds::PedOnFoot& snapshot);
+	bool CacheDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot);
+	bool CachePassengerSnapshot(const Packets::Peds::PedPassengerSync& snapshot);
+	void ProcessTransformInterpolation();
+	bool ResetTransformInterpolation(server_time_t boundaryTime = 0);
 	CVector GetLogicalPosition() const;
 
 	CNetworkPed(int pedid, int modelId, ePedType pedType, CVector pos, unsigned char createdBy, char specialModelName[]);

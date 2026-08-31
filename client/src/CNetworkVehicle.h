@@ -1,4 +1,5 @@
 #pragma once
+#include "CNetworkTransformInterpolator.h"
 class CNetworkVehicle
 {
 private:
@@ -41,6 +42,7 @@ public:
 	int m_nAppliedTrailerId = Packets::Vehicles::VEHICLE_TRAILER_NONE;
 	Packets::Vehicles::VehicleAuxState m_lastAuxState{};
 	uint32_t m_nLastRadioCorrectionAt = 0;
+	CNetworkTransformInterpolator m_transformInterpolator{};
 
 	~CNetworkVehicle();
 	CNetworkVehicle(int vehicleid, int modelid, CVector pos, float rotation, unsigned char color1, unsigned char color2, unsigned char createdBy);
@@ -49,9 +51,11 @@ public:
 	void StreamOut();
 	void ApplyCachedPresentation();
 	void ProcessPendingPresentation();
-	void CacheIdleSnapshot(const Packets::Vehicles::VehicleIdleUpdate& snapshot);
-	void CacheDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot);
-	void CachePedDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot);
+	bool CacheIdleSnapshot(const Packets::Vehicles::VehicleIdleUpdate& snapshot);
+	bool CacheDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot);
+	bool CachePedDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot);
+	void ProcessTransformInterpolation();
+	bool ResetTransformInterpolation(server_time_t boundaryTime = 0);
 	void CacheDamageState(const CDamageManager& damage);
 	void CacheComponentAdd(int modelId);
 	void CacheComponentRemove(int modelId);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "CNetworkTransformInterpolator.h"
+
 class CObject;
 
 class CNetworkPlayer
@@ -30,6 +32,7 @@ public:
 	uint32_t m_nPendingEnExTransitionGeneration = 0;
 	uint32_t m_nAppliedEnExTransitionGeneration = 0;
 	bool m_bNeedsClothesRebuild = false;
+	CNetworkTransformInterpolator m_transformInterpolator{};
 
 	Packets::Players::OnFootUpdate m_onFootSnapshotInterpolated{};
 	
@@ -88,13 +91,18 @@ public:
 	void ApplyCachedPresentation();
 	void ProcessPendingPresentation();
 	void ReconcilePendingVehiclePresentation();
-	void CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot);
-	void CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot);
-	void CacheVehiclePassengerSnapshot(const Packets::Vehicles::VehiclePassengerUpdate& snapshot);
+	bool CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& snapshot);
+	bool CacheVehicleDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot);
+	bool CacheVehiclePassengerSnapshot(const Packets::Vehicles::VehiclePassengerUpdate& snapshot);
+	void CacheOnFootRotation(server_time_t serverTime, float currentRotation, float aimingRotation);
 	void CacheVehicleRelation(int vehicleId, int seatId, bool passenger, bool force, bool confirmed = false);
-	void ClearVehicleRelation();
+	void ClearVehicleRelation(bool resetInterpolation = true);
+	void ProcessTransformInterpolation();
+	bool ResetTransformInterpolation(server_time_t boundaryTime = 0);
+	bool SnapOnFootTransform(CVector position, float currentRotation, float aimingRotation,
+		server_time_t boundaryTime = 0);
 	CVector GetLogicalPosition() const;
-	void Respawn();
+	void Respawn(server_time_t boundaryTime = 0);
 	int GetInternalId();
 	std::string GetName();
 	char GetWeaponSkill(eWeaponType weaponType);

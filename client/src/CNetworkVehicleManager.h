@@ -8,7 +8,7 @@ public:
     static CNetworkVehicle* GetVehicle(int vehicleid);
     static CNetworkVehicle* GetVehicle(CEntity* vehicle);
     static void Add(CNetworkVehicle* vehicle);
-    static void Remove(CNetworkVehicle* vehicle);
+    static void Remove(CNetworkVehicle* vehicle, server_time_t boundaryTime = 0);
     static void Clear();
     static void UpdateDriver(CVehicle* pVehicle);
     static void UpdateIdle();
@@ -18,6 +18,6 @@ public:
     static void UpdateDamageSync();
     static Packets::Vehicles::VehicleAuxState CaptureAuxState(CNetworkVehicle* networkVehicle);
     static void ResolvePendingVehicleState();
-    static void ClearVehicleRelations(CNetworkVehicle* vehicle);
+    static void ClearVehicleRelations(CNetworkVehicle* vehicle, server_time_t boundaryTime = 0);
 };
 

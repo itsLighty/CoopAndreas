@@ -40,19 +40,15 @@ void ApplyRemoteSnapshot(CNetworkPlayer* pNetworkPlayer, const Packets::Players:
     {
         pPlayerPed->SetPosn(packet.position);
     }
-    pPlayerPed->m_fCurrentRotation = packet.currentRotation.m_angle;
-    pPlayerPed->m_fAimingRotation = packet.aimingRotation.m_angle;
+    if (!pNetworkPlayer->SnapOnFootTransform(
+            packet.position, packet.currentRotation.m_angle, packet.aimingRotation.m_angle, packet.serverTime))
+        return;
     pPlayerPed->SetHeading(packet.currentRotation.m_angle);
     pPlayerPed->m_nAreaCode = packet.playerAreaId;
     pPlayerPed->UpdateRwMatrix();
     pPlayerPed->m_pEnex = nullptr;
     pPlayerPed->m_vecMoveSpeed = CVector{};
 
-    pNetworkPlayer->m_onFootSnapshotInterpolated.vecPos = packet.position;
-    pNetworkPlayer->m_onFootSnapshotInterpolated.vecMoveSpeed = CVector();
-    pNetworkPlayer->m_onFootSnapshotInterpolated.currentRotation = packet.currentRotation;
-    pNetworkPlayer->m_onFootSnapshotInterpolated.aimingRotation = packet.aimingRotation;
-    pNetworkPlayer->m_vecLogicalPosition = packet.position;
     pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
 }
 
@@ -181,6 +177,8 @@ void CEntryExitTransitionSync::Receive(const Packets::Players::EnExTransition& p
     ++pNetworkPlayer->m_nPendingEnExTransitionGeneration;
     if (pNetworkPlayer->m_nPendingEnExTransitionGeneration == 0)
         ++pNetworkPlayer->m_nPendingEnExTransitionGeneration;
+    if (!pNetworkPlayer->ResetTransformInterpolation(packet.serverTime))
+        return;
     pNetworkPlayer->m_vecLogicalPosition = packet.position;
     pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
     ReplayPending(pNetworkPlayer);

@@ -3,13 +3,33 @@
 #include <CAEAudioHardware.h>
 #include <CAERadioTrackManager.h>
 #include "CNetworkEntityStreamManager.h"
+#include "CServerTime.h"
 
 namespace
 {
+constexpr float VEHICLE_TELEPORT_DISTANCE = 100.0f;
 constexpr uint32_t TRAILER_STREAM_TIMEOUT_MS = 5000;
 constexpr uint32_t RADIO_CORRECTION_INTERVAL_MS = 500;
 constexpr int RADIO_DRIFT_TOLERANCE_MS = 2000;
 constexpr int RADIO_USER_TRACKS_ID = 12;
+
+CNetworkTransformSnapshot MakeVehicleTransform(server_time_t serverTime, const CVector& position,
+    const CVector& velocity, const CVector& turnSpeed, const CVector& right, const CVector& forward,
+    eNetworkTransformSource source, uint32_t sourceId, uint8_t area)
+{
+    CNetworkTransformSnapshot transform{};
+    transform.serverTime = serverTime;
+    transform.position = position;
+    transform.velocity = velocity;
+    transform.turnSpeed = turnSpeed;
+    transform.right = right;
+    transform.forward = forward;
+    transform.source = source;
+    transform.sourceId = sourceId;
+    transform.area = area;
+    transform.hasVehicleOrientation = true;
+    return transform;
+}
 
 int GetRadioTrackPlayTime()
 {
@@ -126,6 +146,7 @@ bool CNetworkVehicle::CreateVehicle(int vehicleid, int modelid, CVector pos, flo
 
 CNetworkVehicle::~CNetworkVehicle()
 {
+    ResetTransformInterpolation();
     if (m_bSyncing)
     {
         Packets::Vehicles::VehicleRemove vehicleRemovePacket{};
@@ -152,6 +173,7 @@ bool CNetworkVehicle::Materialize()
         m_pVehicle->SetVehicleCreatedBy(m_nCreatedBy);
     m_pendingComponentApplied.fill(false);
     m_bPendingDamageApplied = false;
+    m_transformInterpolator.ClearSnapshots();
     ApplyCachedPresentation();
     return true;
 }
@@ -160,6 +182,8 @@ void CNetworkVehicle::StreamOut()
 {
     if (!m_pVehicle || m_bSyncing)
         return;
+
+    m_transformInterpolator.ClearSnapshots();
 
     CVehicle* vehicle = m_pVehicle;
     // Vehicle deletion must never leave a ped pointing at freed vehicle memory. Iterating the native pool covers
@@ -206,8 +230,13 @@ void CNetworkVehicle::StreamOut()
     m_nLastPresentationChangeAt = GetTickCount();
 }
 
-void CNetworkVehicle::CacheIdleSnapshot(const Packets::Vehicles::VehicleIdleUpdate& snapshot)
+bool CNetworkVehicle::CacheIdleSnapshot(const Packets::Vehicles::VehicleIdleUpdate& snapshot)
 {
+    const CNetworkTransformSnapshot transform = MakeVehicleTransform(snapshot.serverTime, snapshot.pos,
+        snapshot.velocity, snapshot.turnSpeed, snapshot.roll, snapshot.rot,
+        eNetworkTransformSource::VEHICLE_IDLE, static_cast<uint32_t>(std::max(m_nVehicleId, 0)), m_nLogicalArea);
+    if (!m_transformInterpolator.Push(transform, VEHICLE_TELEPORT_DISTANCE))
+        return false;
     m_idleSnapshot = snapshot;
     m_bHasIdleSnapshot = true;
     m_bHasDriverSnapshot = false;
@@ -217,10 +246,20 @@ void CNetworkVehicle::CacheIdleSnapshot(const Packets::Vehicles::VehicleIdleUpda
     m_nSpawnColor2 = snapshot.color2;
     m_nPaintJob = snapshot.paintjob;
     m_lastAuxState = snapshot.auxState;
+    return true;
 }
 
-void CNetworkVehicle::CacheDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot)
+bool CNetworkVehicle::CacheDriverSnapshot(const Packets::Vehicles::VehicleDriverUpdate& snapshot)
 {
+    uint8_t area = m_nLogicalArea;
+    if (CNetworkPlayer* player = CNetworkPlayerManager::GetPlayer(snapshot.playerid))
+        area = player->m_nLogicalArea;
+    const CNetworkTransformSnapshot transform = MakeVehicleTransform(snapshot.serverTime, snapshot.pos,
+        snapshot.velocity, snapshot.turnSpeed, snapshot.roll, snapshot.rot,
+        eNetworkTransformSource::VEHICLE_PLAYER_DRIVER,
+        static_cast<uint32_t>(std::max(snapshot.playerid.value, 0)), area);
+    if (!m_transformInterpolator.Push(transform, VEHICLE_TELEPORT_DISTANCE))
+        return false;
     m_playerDriverSnapshot = snapshot;
     m_bHasDriverSnapshot = true;
     m_bHasPedDriverSnapshot = false;
@@ -231,10 +270,20 @@ void CNetworkVehicle::CacheDriverSnapshot(const Packets::Vehicles::VehicleDriver
     m_lastAuxState = snapshot.auxState;
     if (CNetworkPlayer* player = CNetworkPlayerManager::GetPlayer(snapshot.playerid))
         m_nLogicalArea = player->m_nLogicalArea;
+    return true;
 }
 
-void CNetworkVehicle::CachePedDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot)
+bool CNetworkVehicle::CachePedDriverSnapshot(const Packets::Peds::PedDriverUpdate& snapshot)
 {
+    uint8_t area = m_nLogicalArea;
+    if (CNetworkPed* ped = CNetworkPedManager::GetPed(snapshot.pedid))
+        area = ped->m_nLogicalArea;
+    const CNetworkTransformSnapshot transform = MakeVehicleTransform(snapshot.serverTime, snapshot.pos,
+        snapshot.velocity, snapshot.turnSpeed, snapshot.roll, snapshot.rot,
+        eNetworkTransformSource::VEHICLE_PED_DRIVER,
+        static_cast<uint32_t>(std::max(snapshot.pedid, 0)), area);
+    if (!m_transformInterpolator.Push(transform, VEHICLE_TELEPORT_DISTANCE))
+        return false;
     m_pedDriverSnapshot = snapshot;
     m_bHasPedDriverSnapshot = true;
     m_bHasDriverSnapshot = false;
@@ -243,6 +292,8 @@ void CNetworkVehicle::CachePedDriverSnapshot(const Packets::Peds::PedDriverUpdat
     m_nSpawnColor1 = snapshot.color1;
     m_nSpawnColor2 = snapshot.color2;
     m_nPaintJob = snapshot.paintjob;
+    m_nLogicalArea = area;
+    return true;
 }
 
 void CNetworkVehicle::CacheDamageState(const CDamageManager& damage)
@@ -302,6 +353,7 @@ void CNetworkVehicle::ApplyCachedPresentation()
         m_pVehicle->m_matrix->pos = m_playerDriverSnapshot.pos;
         m_pVehicle->m_matrix->right = m_playerDriverSnapshot.roll;
         m_pVehicle->m_matrix->up = m_playerDriverSnapshot.rot;
+        m_pVehicle->m_matrix->Reorthogonalise();
         m_pVehicle->m_vecMoveSpeed = m_playerDriverSnapshot.velocity;
         m_pVehicle->m_vecTurnSpeed = m_playerDriverSnapshot.turnSpeed;
         m_pVehicle->m_nPrimaryColor = m_playerDriverSnapshot.color1;
@@ -316,6 +368,7 @@ void CNetworkVehicle::ApplyCachedPresentation()
         m_pVehicle->m_matrix->pos = m_pedDriverSnapshot.pos;
         m_pVehicle->m_matrix->right = m_pedDriverSnapshot.roll;
         m_pVehicle->m_matrix->up = m_pedDriverSnapshot.rot;
+        m_pVehicle->m_matrix->Reorthogonalise();
         m_pVehicle->m_vecMoveSpeed = m_pedDriverSnapshot.velocity;
         m_pVehicle->m_vecTurnSpeed = m_pedDriverSnapshot.turnSpeed;
         m_pVehicle->m_nPrimaryColor = m_pedDriverSnapshot.color1;
@@ -330,6 +383,7 @@ void CNetworkVehicle::ApplyCachedPresentation()
         m_pVehicle->m_matrix->pos = m_idleSnapshot.pos;
         m_pVehicle->m_matrix->right = m_idleSnapshot.roll;
         m_pVehicle->m_matrix->up = m_idleSnapshot.rot;
+        m_pVehicle->m_matrix->Reorthogonalise();
         m_pVehicle->m_vecMoveSpeed = m_idleSnapshot.velocity;
         m_pVehicle->m_vecTurnSpeed = m_idleSnapshot.turnSpeed;
         m_pVehicle->m_nPrimaryColor = m_idleSnapshot.color1;
@@ -375,6 +429,7 @@ void CNetworkVehicle::ProcessPendingPresentation()
 {
     if (!m_pVehicle || !m_pVehicle->IsVTableValid())
         return;
+    ProcessTransformInterpolation();
     ApplyAuxState(m_lastAuxState);
     if (m_bHasPendingDamageState && !m_bPendingDamageApplied && m_pVehicle->m_nVehicleType == VEHICLE_AUTOMOBILE)
     {
@@ -402,6 +457,42 @@ void CNetworkVehicle::ProcessPendingPresentation()
         m_pendingComponentApplied[index] = true;
         break;
     }
+}
+
+void CNetworkVehicle::ProcessTransformInterpolation()
+{
+    if (!m_pVehicle || !m_pVehicle->IsVTableValid() || !m_pVehicle->m_matrix || m_bSyncing)
+        return;
+
+    uint32_t sourceRtt = 0;
+    if (m_bHasDriverSnapshot)
+    {
+        if (CNetworkPlayer* player = CNetworkPlayerManager::GetPlayer(m_playerDriverSnapshot.playerid))
+            sourceRtt = player->m_nRTT;
+    }
+
+    CNetworkTransformSample sample{};
+    if (!m_transformInterpolator.Sample(g_serverTime, sourceRtt, sample))
+        return;
+    m_pVehicle->m_matrix->pos = sample.position;
+    if (sample.hasVehicleOrientation)
+    {
+        m_pVehicle->m_matrix->right = sample.right;
+        m_pVehicle->m_matrix->up = sample.forward;
+        m_pVehicle->m_matrix->at = sample.up;
+    }
+    m_pVehicle->m_vecMoveSpeed = sample.velocity;
+    m_pVehicle->m_vecTurnSpeed = sample.turnSpeed;
+}
+
+bool CNetworkVehicle::ResetTransformInterpolation(server_time_t boundaryTime)
+{
+    if (boundaryTime == 0)
+    {
+        m_transformInterpolator.Reset();
+        return true;
+    }
+    return m_transformInterpolator.ResetAt(boundaryTime);
 }
 
 bool CNetworkVehicle::HasDriver()

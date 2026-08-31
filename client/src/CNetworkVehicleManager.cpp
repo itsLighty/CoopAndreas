@@ -43,9 +43,9 @@ void CNetworkVehicleManager::Add(CNetworkVehicle* vehicle)
 	ResolvePendingVehicleState();
 }
 
-void CNetworkVehicleManager::Remove(CNetworkVehicle* vehicle)
+void CNetworkVehicleManager::Remove(CNetworkVehicle* vehicle, server_time_t boundaryTime)
 {
-	ClearVehicleRelations(vehicle);
+	ClearVehicleRelations(vehicle, boundaryTime);
 
 	auto it = std::find(m_pVehicles.begin(), m_pVehicles.end(), vehicle);
 	if (it != m_pVehicles.end())
@@ -302,7 +302,7 @@ void CNetworkVehicleManager::ResolvePendingVehicleState()
 	}
 }
 
-void CNetworkVehicleManager::ClearVehicleRelations(CNetworkVehicle* vehicle)
+void CNetworkVehicleManager::ClearVehicleRelations(CNetworkVehicle* vehicle, server_time_t boundaryTime)
 {
 	if (!vehicle)
 		return;
@@ -315,8 +315,9 @@ void CNetworkVehicleManager::ClearVehicleRelations(CNetworkVehicle* vehicle)
 	{
 		if (player && player->m_bHasPendingVehicleRelation && player->m_nPendingVehicleId == vehicle->m_nVehicleId)
 		{
+			player->ResetTransformInterpolation(boundaryTime);
 			player->m_vecLogicalPosition = vehicle->GetLogicalPosition();
-			player->ClearVehicleRelation();
+			player->ClearVehicleRelation(false);
 		}
 	}
 	for (auto* ped : CNetworkPedManager::m_pPeds)
@@ -329,6 +330,7 @@ void CNetworkVehicleManager::ClearVehicleRelations(CNetworkVehicle* vehicle)
 			ped->m_passengerSnapshot.vehicleid == vehicle->m_nVehicleId;
 		if (wasDriver || wasPassenger)
 		{
+			ped->ResetTransformInterpolation(boundaryTime);
 			ped->m_vecLogicalPosition = vehicle->GetLogicalPosition();
 			ped->m_bHasDriverSnapshot = false;
 			ped->m_bHasPassengerSnapshot = false;

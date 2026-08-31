@@ -35,7 +35,8 @@ PACKET_HANDLER(ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate
         return;
     }
 
-    pNetworkPlayer->CacheOnFootSnapshot(*pOnFootUpdate);
+    if (!pNetworkPlayer->CacheOnFootSnapshot(*pOnFootUpdate))
+        return;
 
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
 
@@ -47,13 +48,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate
         pNetworkPlayer->RemoveFromVehicle(pPlayerPed->m_pVehicle);
     }
 
-    pNetworkPlayer->m_pPed->SetPosn(pOnFootUpdate->vecPos);
-    pNetworkPlayer->m_pPed->m_vecMoveSpeed = pOnFootUpdate->vecMoveSpeed;
-
     pNetworkPlayer->ApplyWeaponSnapshot(pOnFootUpdate->weaponSnapshot);
-
-    pNetworkPlayer->m_pPed->m_fCurrentRotation = pOnFootUpdate->currentRotation.m_angle;
-    pNetworkPlayer->m_pPed->m_fAimingRotation = pOnFootUpdate->aimingRotation.m_angle;
 
     CUtil::SetPlayerJetpack(pNetworkPlayer, pOnFootUpdate->bHasJetpack);
 
@@ -76,7 +71,6 @@ PACKET_HANDLER(ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate
     pNetworkPlayer->m_oldControllerState = pOnFootUpdate->keySnapshot.oldControllerState;
     pNetworkPlayer->m_newControllerState = pOnFootUpdate->keySnapshot.newControllerState;
 
-    pNetworkPlayer->m_onFootSnapshotInterpolated = *pOnFootUpdate;
 }
 
 PACKET_HANDLER(ePacketType::PLAYER_KEY_SYNC, Packets::Players::KeyPressed* pKeyPressed)
@@ -90,18 +84,8 @@ PACKET_HANDLER(ePacketType::PLAYER_KEY_SYNC, Packets::Players::KeyPressed* pKeyP
     pNetworkPlayer->m_oldControllerState = pKeyPressed->keySnapshot.oldControllerState;
     pNetworkPlayer->m_newControllerState = pKeyPressed->keySnapshot.newControllerState;
 
-    if (!pNetworkPlayer->m_pPed)
-    {
-        pNetworkPlayer->m_onFootSnapshotInterpolated.currentRotation = pKeyPressed->currentRotation;
-        pNetworkPlayer->m_onFootSnapshotInterpolated.aimingRotation = pKeyPressed->aimingRotation;
-        return;
-    }
-
-    pNetworkPlayer->m_pPed->m_fCurrentRotation = pKeyPressed->currentRotation.m_angle;
-    pNetworkPlayer->m_pPed->m_fAimingRotation = pKeyPressed->aimingRotation.m_angle;
-
-    pNetworkPlayer->m_onFootSnapshotInterpolated.currentRotation = pKeyPressed->currentRotation;
-    pNetworkPlayer->m_onFootSnapshotInterpolated.aimingRotation = pKeyPressed->aimingRotation;
+    pNetworkPlayer->CacheOnFootRotation(
+        pKeyPressed->serverTime, pKeyPressed->currentRotation.m_angle, pKeyPressed->aimingRotation.m_angle);
 }
 
 PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSync* pPlayerCameraSync)
@@ -178,7 +162,7 @@ PACKET_HANDLER(ePacketType::RESPAWN_PLAYER, Packets::Players::RespawnPlayer* pRe
         return;
     }
 
-    pNetworkPlayer->Respawn();
+    pNetworkPlayer->Respawn(pRespawnPlayer->serverTime);
 }
 
 PACKET_HANDLER(ePacketType::PLAYER_BULLET_SHOT, Packets::Players::PlayerBulletShot* pPlayerBulletShot)
