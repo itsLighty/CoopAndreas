@@ -300,13 +300,14 @@ bool __fastcall CTaskSimpleUseGun__SetPedPosition_Hook(CTaskSimpleUseGun* This, 
         return plugin::CallMethodAndReturn<bool, 0x624ED0>(This, pPed);
     }
 
+    const int previousPlayerInFocus = CWorld::PlayerInFocus;
     CWorld::PlayerInFocus = playerNum;
     CKeySync::ApplyNetworkPlayerContext(pNetworkPlayer);
     CAimSync::ApplyNetworkPlayerContext(pNetworkPlayer);
 
     bool result = plugin::CallMethodAndReturn<bool, 0x624ED0>(This, pPed);
 
-    CWorld::PlayerInFocus = 0;
+    CWorld::PlayerInFocus = previousPlayerInFocus;
     CKeySync::ApplyLocalContext();
     CAimSync::ApplyLocalContext();
 

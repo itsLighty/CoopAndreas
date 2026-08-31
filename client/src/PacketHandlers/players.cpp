@@ -101,6 +101,21 @@ PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSy
         return;
     }
 
+    if (!pNetworkPlayer->m_bHasCameraSnapshot)
+    {
+        // A partial update omits FOV/source/up/look-pitch. Wait for a complete baseline instead of feeding
+        // zero-initialized camera data into GTA while the joining player is first being processed.
+        if (pPlayerCameraSync->bFullUpdate)
+        {
+            pNetworkPlayer->m_startedInterpolatingCameraAt = GetTickCount();
+            pNetworkPlayer->m_cameraSnapshotOld = *pPlayerCameraSync;
+            pNetworkPlayer->m_cameraSnapshot = *pPlayerCameraSync;
+            pNetworkPlayer->m_bHasCameraSnapshot = true;
+        }
+        CLaserScopeDotSync::HandleRemoteState(pNetworkPlayer, *pPlayerCameraSync);
+        return;
+    }
+
     pNetworkPlayer->m_startedInterpolatingCameraAt = GetTickCount();
     pNetworkPlayer->m_cameraSnapshotOld = pNetworkPlayer->m_cameraSnapshot;
     if (pPlayerCameraSync->bFullUpdate)
@@ -109,6 +124,7 @@ PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSy
     }
     else
     {
+        pNetworkPlayer->m_cameraSnapshot.serverTime = pPlayerCameraSync->serverTime;
         pNetworkPlayer->m_cameraSnapshot.cameraMode = pPlayerCameraSync->cameraMode;
         pNetworkPlayer->m_cameraSnapshot.orientation = pPlayerCameraSync->orientation;
         pNetworkPlayer->m_cameraSnapshot.front.x = pPlayerCameraSync->front.x;

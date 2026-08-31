@@ -38,6 +38,7 @@ public:
 	Packets::Players::OnFootUpdate m_onFootSnapshotInterpolated{};
 	
 	uint32_t m_startedInterpolatingCameraAt = 0;
+	bool m_bHasCameraSnapshot = false;
 	Packets::Players::PlayerCameraSync m_cameraSnapshotOld{};
 	Packets::Players::PlayerCameraSync m_cameraSnapshot{};
 	uint32_t m_nLaserScopeDotReceivedAt = 0;

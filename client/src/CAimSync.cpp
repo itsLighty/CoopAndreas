@@ -4,8 +4,27 @@
 #include <CPacketBuffer.h>
 #include <CServerTime.h>
 
-Packets::Players::PlayerCameraSync storedCameraState{};
-eCamMode savedPlayerWeaponCamMode;
+static constexpr size_t MAX_CAMERA_CONTEXT_DEPTH = 16;
+static constexpr uint32_t FULL_CAMERA_KEYFRAME_INTERVAL_MS = 1000;
+
+struct CameraContextFrame
+{
+    Packets::Players::PlayerCameraSync cameraState{};
+    CPlayerPed* previousContextPlayer = nullptr;
+    eCamMode previousWeaponCamMode = MODE_NONE;
+    bool previousContextWasRemote = false;
+    bool didApplyRemoteState = false;
+};
+
+std::array<CameraContextFrame, MAX_CAMERA_CONTEXT_DEPTH> cameraContextStack{};
+size_t cameraContextDepth = 0;
+size_t skippedCameraContextDepth = 0;
+CPlayerPed* activeCameraContextPlayer = nullptr;
+bool activeCameraContextIsRemote = false;
+uint32_t lastPlayerCameraSyncTick = 0;
+uint32_t lastFullCameraSyncTick = 0;
+Packets::Players::PlayerCameraSync lastSentCameraState{};
+bool hasSentInitialCameraState = false;
 
 bool Is1stPersonMode(uint16_t camMode)
 {
@@ -19,12 +38,17 @@ bool IsWeaponRelatedCamMode(uint16_t camMode)
            Is1stPersonMode(camMode);
 }
 
-void CollectState(Packets::Players::PlayerCameraSync* pOut)
+bool CollectState(Packets::Players::PlayerCameraSync* pOut, CPlayerPed* contextPlayer)
 {
+    if (pOut == nullptr || contextPlayer == nullptr || !contextPlayer->IsVTableValid() ||
+        contextPlayer->m_pPlayerData == nullptr)
+    {
+        return false;
+    }
+
     const CCam& cam = TheCamera.m_aCams[TheCamera.m_nActiveCam];
 
     pOut->cameraMode = cam.m_nMode;
-    savedPlayerWeaponCamMode = (eCamMode)TheCamera.m_PlayerWeaponMode.m_nMode;
     pOut->cameraFov = cam.m_fFOV;
     pOut->front = cam.m_vecFront;
     pOut->source = cam.m_vecSource;
@@ -36,23 +60,35 @@ void CollectState(Packets::Players::PlayerCameraSync* pOut)
     }
     else
     {
-        pOut->lookPitch = FindPlayerPed(0)->m_pPlayerData->m_fLookPitch;
+        pOut->lookPitch = contextPlayer->m_pPlayerData->m_fLookPitch;
     }
 
     pOut->orientation = TheCamera.m_fOrientation;
     CLaserScopeDotSync::AppendLocalState(*pOut);
+    return true;
 }
 
-void ApplyPacketToGame(const Packets::Players::PlayerCameraSync& packet)
+bool ApplyPacketToGame(const Packets::Players::PlayerCameraSync& packet, CPlayerPed* contextPlayer,
+    bool isRemoteContext, eCamMode restoredWeaponCamMode = MODE_NONE, bool allowMissingContextPlayer = false)
 {
+    // Remote players use CoopAndreas-only player slots. GTA's player lookup indexes the stock player-info
+    // table through CWorld::PlayerInFocus, which can return null for those slots during ProcessControl.
+    // Validate and use the authoritative network-player ped before changing any global camera state.
+    const bool hasValidContextPlayer = contextPlayer != nullptr && contextPlayer->IsVTableValid() &&
+                                       contextPlayer->m_pPlayerData != nullptr;
+    if (!hasValidContextPlayer && !allowMissingContextPlayer)
+    {
+        return false;
+    }
+
     CCam& cam = TheCamera.m_aCams[TheCamera.m_nActiveCam];
 
     cam.m_fFOV = packet.cameraFov;
     cam.m_nMode = (eCamMode)packet.cameraMode;
 
-    if (CWorld::PlayerInFocus == 0)
+    if (!isRemoteContext)
     {
-        TheCamera.m_PlayerWeaponMode.m_nMode = savedPlayerWeaponCamMode;
+        TheCamera.m_PlayerWeaponMode.m_nMode = restoredWeaponCamMode;
     }
     else
     {
@@ -78,13 +114,23 @@ void ApplyPacketToGame(const Packets::Players::PlayerCameraSync& packet)
     cam.m_vecFront = packet.front;
     cam.m_vecSource = packet.source;
     cam.m_vecUp = packet.up;
-    FindPlayerPed()->m_pPlayerData->m_fLookPitch = packet.lookPitch;
+    if (hasValidContextPlayer)
+    {
+        contextPlayer->m_pPlayerData->m_fLookPitch = packet.lookPitch;
+    }
     TheCamera.m_fOrientation = packet.orientation.m_angle;
+    return true;
 }
 
-void ApplyPacketInterpolated(CNetworkPlayer* pNetworkPlayer, const Packets::Players::PlayerCameraSync& packetA,
+bool ApplyPacketInterpolated(CNetworkPlayer* pNetworkPlayer, const Packets::Players::PlayerCameraSync& packetA,
     const Packets::Players::PlayerCameraSync& packetB)
 {
+    if (pNetworkPlayer == nullptr || pNetworkPlayer->m_pPed == nullptr ||
+        !pNetworkPlayer->m_pPed->IsVTableValid() || pNetworkPlayer->m_pPed->m_pPlayerData == nullptr)
+    {
+        return false;
+    }
+
     Packets::Players::PlayerCameraSync interp{};
 
     if (packetB.serverTime == packetA.serverTime)
@@ -119,7 +165,7 @@ void ApplyPacketInterpolated(CNetworkPlayer* pNetworkPlayer, const Packets::Play
         // 0x522C37
         eWeaponType weaponType = WEAPON_UNARMED;
         CWeaponInfo* pWeaponInfo = nullptr;
-        if (pPed->m_pIntelligence->GetTaskUseGun())
+        if (pPed->m_pIntelligence && pPed->m_pIntelligence->GetTaskUseGun())
         {
             pWeaponInfo = pPed->m_pIntelligence->GetTaskUseGun()->m_pWeaponInfo;
         }
@@ -153,14 +199,39 @@ void ApplyPacketInterpolated(CNetworkPlayer* pNetworkPlayer, const Packets::Play
         }
     }
 
-    ApplyPacketToGame(interp);
+    return ApplyPacketToGame(interp, pNetworkPlayer->m_pPed, true);
 }
 
 void CAimSync::ApplyNetworkPlayerContext(CNetworkPlayer* player)
 {
-    CollectState(&storedCameraState);
-    //ApplyPacketToGame(player->m_cameraSnapshot);
-    ApplyPacketInterpolated(player, player->m_cameraSnapshotOld, player->m_cameraSnapshot);
+    if (skippedCameraContextDepth > 0 || cameraContextDepth >= cameraContextStack.size())
+    {
+        ++skippedCameraContextDepth;
+        return;
+    }
+
+    CameraContextFrame& frame = cameraContextStack[cameraContextDepth++];
+    frame = {};
+    frame.previousContextPlayer =
+        activeCameraContextIsRemote ? activeCameraContextPlayer : FindPlayerPed(0);
+    frame.previousContextWasRemote = activeCameraContextIsRemote;
+    frame.previousWeaponCamMode = (eCamMode)TheCamera.m_PlayerWeaponMode.m_nMode;
+
+    if (!CollectState(&frame.cameraState, frame.previousContextPlayer) || player == nullptr ||
+        !player->m_bHasCameraSnapshot)
+    {
+        return;
+    }
+
+    frame.didApplyRemoteState =
+        ApplyPacketInterpolated(player, player->m_cameraSnapshotOld, player->m_cameraSnapshot);
+    if (!frame.didApplyRemoteState)
+    {
+        return;
+    }
+
+    activeCameraContextPlayer = player->m_pPed;
+    activeCameraContextIsRemote = true;
     if (TheCamera.m_PlayerWeaponMode.m_nMode == MODE_FOLLOWPED/* || TheCamera.m_PlayerWeaponMode.m_nMode ==
      MODE_SNIPER*/)
     {
@@ -195,7 +266,27 @@ void CAimSync::ApplyLocalContext()
     // patch::SetRaw(0x50BFF0, (void*)"\x66\x8B\x81", 3, false);  // CCamera::Using1stPersonWeaponMode
     // patch::SetUChar(0x609C80, 0x57, false);                    // CPlayerPed::ClearWeaponTarget
 
-    ApplyPacketToGame(storedCameraState);
+    if (skippedCameraContextDepth > 0)
+    {
+        --skippedCameraContextDepth;
+        return;
+    }
+    if (cameraContextDepth == 0)
+    {
+        return;
+    }
+
+    const CameraContextFrame frame = cameraContextStack[--cameraContextDepth];
+    if (frame.didApplyRemoteState)
+    {
+        // Camera globals must still be restored if the local ped is temporarily unavailable. In that case only
+        // the per-ped pitch write is skipped; the next native player update will repopulate it.
+        ApplyPacketToGame(frame.cameraState, frame.previousContextPlayer, frame.previousContextWasRemote,
+            frame.previousWeaponCamMode, true);
+    }
+
+    activeCameraContextPlayer = frame.previousContextWasRemote ? frame.previousContextPlayer : nullptr;
+    activeCameraContextIsRemote = frame.previousContextWasRemote;
 }
 
 void GetCameraResyncRate(uint32_t& nResyncRate)
@@ -242,13 +333,14 @@ void GetCameraResyncRate(uint32_t& nResyncRate)
 
 void CAimSync::ProcessSyncing()
 {
-    static uint32_t lastPlayerCameraSyncTick = 0;
-    static Packets::Players::PlayerCameraSync lastSentState{};
-
     CLaserScopeDotSync::Process();
 
     uint32_t tickCount = CTimer::m_snTimeInMilliseconds;
     CPlayerPed* pPlayerPed = FindPlayerPed(0);
+    if (pPlayerPed == nullptr || !pPlayerPed->IsVTableValid() || pPlayerPed->m_pPlayerData == nullptr)
+    {
+        return;
+    }
 
     uint32_t nResyncRate;
     GetCameraResyncRate(nResyncRate);
@@ -266,19 +358,42 @@ void CAimSync::ProcessSyncing()
             requireFullUpdate = true;
         }
 
-        Packets::Players::PlayerCameraSync cameraState;
-        CollectState(&cameraState);
+        Packets::Players::PlayerCameraSync cameraState{};
+        if (!CollectState(&cameraState, pPlayerPed))
+        {
+            return;
+        }
         // MODE_SNIPER_RUNABOUT is not part of the generic first-person camera list, but the native laser path
         // still supports it. Active laser state always carries the full camera payload required by its semantic
         // contract; the following inactive state remains a distinct packet and therefore emits a stop update.
-        cameraState.bFullUpdate = requireFullUpdate || cameraState.bLaserScopeDotActive;
+        const bool fullKeyframeDue = !hasSentInitialCameraState ||
+                                     tickCount - lastFullCameraSyncTick >= FULL_CAMERA_KEYFRAME_INTERVAL_MS;
+        cameraState.bFullUpdate = fullKeyframeDue || requireFullUpdate || cameraState.bLaserScopeDotActive;
 
-        if (cameraState != lastSentState ||
+        if (fullKeyframeDue || cameraState != lastSentCameraState ||
             CLaserScopeDotSync::ShouldSendHeartbeat(cameraState, tickCount, lastPlayerCameraSyncTick))
         {
             GetPacketFactory().Send(cameraState);
-            lastSentState = cameraState;
+            lastSentCameraState = cameraState;
             lastPlayerCameraSyncTick = tickCount;
+            hasSentInitialCameraState = true;
+            if (cameraState.bFullUpdate)
+            {
+                lastFullCameraSyncTick = tickCount;
+            }
         }
     }
+}
+
+void CAimSync::ResetNetworkState()
+{
+    cameraContextStack = {};
+    cameraContextDepth = 0;
+    skippedCameraContextDepth = 0;
+    activeCameraContextPlayer = nullptr;
+    activeCameraContextIsRemote = false;
+    lastPlayerCameraSyncTick = 0;
+    lastFullCameraSyncTick = 0;
+    lastSentCameraState = {};
+    hasSentInitialCameraState = false;
 }

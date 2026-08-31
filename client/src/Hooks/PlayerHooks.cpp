@@ -36,6 +36,7 @@ static void __fastcall CPlayerPed__ProcessControl_Hook(CPlayerPed* This)
         return;
     }
 
+    const int previousPlayerInFocus = CWorld::PlayerInFocus;
     CWorld::PlayerInFocus = playerNum;
 
     CKeySync::ApplyNetworkPlayerContext(player);
@@ -66,7 +67,7 @@ static void __fastcall CPlayerPed__ProcessControl_Hook(CPlayerPed* This)
 
     // player->m_pPed->m_fAimingRotation = player->m_onFootSnapshotInterpolated.aimingRotation.m_angle;
 
-    CWorld::PlayerInFocus = 0;
+    CWorld::PlayerInFocus = previousPlayerInFocus;
 
     CKeySync::ApplyLocalContext();
     CAimSync::ApplyLocalContext();

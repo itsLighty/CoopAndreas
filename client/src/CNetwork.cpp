@@ -1,5 +1,6 @@
 #include "CPacketFactory.h"
 #include "CPacketBuffer.h"
+#include "CAimSync.h"
 #include "CEntryExitMarkerSync.h"
 #include "CEntryExitTransitionSync.h"
 #include "CMissionSessionClient.h"
@@ -248,6 +249,7 @@ void CNetwork::ResetConnectionState()
     CMissionSessionClient::Reset();
     CStatsSync::ResetNetworkState();
     CPlayerGameplayStateSync::ResetNetworkState();
+    CAimSync::ResetNetworkState();
     CGangZoneWarSyncManager::ResetNetworkState();
     CNetworkPickupManager::ResetNetworkState();
     CNetworkFireManager::ResetNetworkState();

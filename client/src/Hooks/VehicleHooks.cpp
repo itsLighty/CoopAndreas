@@ -75,6 +75,7 @@ void __fastcall CVehicle__ProcessControl_Hook()
         return;
     }
 
+    const int previousPlayerInFocus = CWorld::PlayerInFocus;
     CWorld::PlayerInFocus = playerNum;
 
     CKeySync::ApplyNetworkPlayerContext(player);
@@ -97,7 +98,7 @@ void __fastcall CVehicle__ProcessControl_Hook()
 
     plugin::CallMethodDyn<CVehicle*>(call_addr, vehicle);
 
-    CWorld::PlayerInFocus = 0;
+    CWorld::PlayerInFocus = previousPlayerInFocus;
 
     CKeySync::ApplyLocalContext();
     CAimSync::ApplyLocalContext();

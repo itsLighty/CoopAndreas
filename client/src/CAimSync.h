@@ -6,5 +6,6 @@ public:
 	static void ApplyLocalContext();
 
 	static void ProcessSyncing();
+	static void ResetNetworkState();
 };
 

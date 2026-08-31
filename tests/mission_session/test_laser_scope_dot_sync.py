@@ -115,11 +115,11 @@ class LaserScopeDotSyncTests(unittest.TestCase):
 
     def test_first_active_update_is_forced_full_heartbeats_and_stop_is_distinct(self):
         process = function_body(self.aim, r"void CAimSync::ProcessSyncing\(")
-        collect = process.index("CollectState(&cameraState)")
+        collect = process.index("CollectState(&cameraState, pPlayerPed)")
         force_full = process.index(
-            "cameraState.bFullUpdate = requireFullUpdate || cameraState.bLaserScopeDotActive"
+            "fullKeyframeDue || requireFullUpdate || cameraState.bLaserScopeDotActive"
         )
-        compare = process.index("cameraState != lastSentState")
+        compare = process.index("cameraState != lastSentCameraState")
         self.assertLess(collect, force_full)
         self.assertLess(force_full, compare)
         self.assertIn("ShouldSendHeartbeat(cameraState, tickCount, lastPlayerCameraSyncTick)", process)

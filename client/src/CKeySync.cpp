@@ -2,58 +2,73 @@
 #include "CKeySync.h"
 #include "UI/CChat.h"
 
-CControllerState storedOldState{};
-CControllerState storedNewState{};
+static constexpr size_t MAX_KEY_CONTEXT_DEPTH = 16;
 
-bool bNightVision;
-bool bInfraredVision;
+struct KeyContextFrame
+{
+    CControllerState oldState{};
+    CControllerState newState{};
+    uint16_t disablePlayerControls = 0;
+    char disableKeys[8]{};
+    bool nightVision = false;
+    bool infraredVision = false;
+};
 
-uint16_t storedDisablePlayerControls;
-char storedDisableKeys[8];
-
-bool bAppliedNetworkCtx = false;
+std::array<KeyContextFrame, MAX_KEY_CONTEXT_DEPTH> keyContextStack{};
+size_t keyContextDepth = 0;
+size_t skippedKeyContextDepth = 0;
 
 void CKeySync::ApplyNetworkPlayerContext(CNetworkPlayer* player)
 {
-    assert(!bAppliedNetworkCtx);
+    if (player == nullptr || skippedKeyContextDepth > 0 || keyContextDepth >= keyContextStack.size())
+    {
+        ++skippedKeyContextDepth;
+        return;
+    }
 
-    bAppliedNetworkCtx = true;
-
-    // store local key state
     CPad* pad = CPad::GetPad(0);
+    KeyContextFrame& frame = keyContextStack[keyContextDepth++];
 
-    storedOldState = pad->OldState;
-    storedNewState = pad->NewState;
-    storedDisablePlayerControls = pad->DisablePlayerControls;
-    memcpy(storedDisableKeys, &pad->bApplyBrakes, 8);
+    // Save the currently active context, which can itself be a remote player when a gun task is processed
+    // recursively from inside that player's ProcessControl hook.
+    frame.oldState = pad->OldState;
+    frame.newState = pad->NewState;
+    frame.disablePlayerControls = pad->DisablePlayerControls;
+    memcpy(frame.disableKeys, &pad->bApplyBrakes, sizeof(frame.disableKeys));
 
     pad->OldState = player->m_oldControllerState;
     pad->NewState = player->m_newControllerState;
     pad->DisablePlayerControls = 0;
     memset(&pad->bApplyBrakes, 0, 8);
 
-    bNightVision = patch::GetUChar(0xC402B8, false);
+    frame.nightVision = patch::GetUChar(0xC402B8, false);
     patch::SetUChar(0xC402B8, false, false);
-    bInfraredVision = patch::GetUChar(0xC402B9, false);
+    frame.infraredVision = patch::GetUChar(0xC402B9, false);
     patch::SetUChar(0xC402B9, false, false);
 }
 
 void CKeySync::ApplyLocalContext()
 {
-    assert(bAppliedNetworkCtx);
+    if (skippedKeyContextDepth > 0)
+    {
+        --skippedKeyContextDepth;
+        return;
+    }
+    if (keyContextDepth == 0)
+    {
+        return;
+    }
 
-    bAppliedNetworkCtx = false;
-
-    // restore local key state
     CPad* pad = CPad::GetPad(0);
+    const KeyContextFrame& frame = keyContextStack[--keyContextDepth];
 
-    pad->OldState = storedOldState;
-    pad->NewState = storedNewState;
-    pad->DisablePlayerControls = storedDisablePlayerControls;
-    memcpy(&pad->bApplyBrakes, storedDisableKeys, 8);
+    pad->OldState = frame.oldState;
+    pad->NewState = frame.newState;
+    pad->DisablePlayerControls = frame.disablePlayerControls;
+    memcpy(&pad->bApplyBrakes, frame.disableKeys, sizeof(frame.disableKeys));
 
-    patch::SetUChar(0xC402B8, bNightVision, false);
-    patch::SetUChar(0xC402B9, bInfraredVision, false);
+    patch::SetUChar(0xC402B8, frame.nightVision, false);
+    patch::SetUChar(0xC402B9, frame.infraredVision, false);
 }
 
 void CKeySync::CollectState(Packets::Players::SKeySnapshot& keySnapshot)
