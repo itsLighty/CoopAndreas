@@ -1,29 +1,38 @@
 #include <windows.h>
 #include <tlhelp32.h>
-#include <urlmon.h>
 
 #include <array>
+#include <cwchar>
 #include <string>
 
 namespace
 {
-constexpr wchar_t RELEASE_BASE_URL[] =
-    L"https://github.com/itsLighty/CoopAndreas/releases/download/playtest-latest/";
+enum ResourceId
+{
+    IDR_EAX = 201,
+    IDR_CLIENT,
+    IDR_LAUNCHER,
+    IDR_LAUNCHER_MANIFEST,
+    IDR_SERVER,
+    IDR_MAIN_SCM,
+    IDR_SCRIPT_IMG,
+};
 
 struct Asset
 {
+    int resourceId;
     const wchar_t* name;
     const wchar_t* destination;
 };
 
 constexpr std::array<Asset, 7> ASSETS{{
-    {L"eax.dll", L"eax.dll"},
-    {L"CoopAndreasSA.dll", L"CoopAndreasSA.dll"},
-    {L"LaunchCoopAndreas.exe", L"LaunchCoopAndreas.exe"},
-    {L"LaunchCoopAndreas.exe.manifest", L"LaunchCoopAndreas.exe.manifest"},
-    {L"server.exe", L"server.exe"},
-    {L"main.scm", L"CoopAndreas\\main.scm"},
-    {L"script.img", L"CoopAndreas\\script.img"},
+    {IDR_EAX, L"eax.dll", L"eax.dll"},
+    {IDR_CLIENT, L"CoopAndreasSA.dll", L"CoopAndreasSA.dll"},
+    {IDR_LAUNCHER, L"LaunchCoopAndreas.exe", L"LaunchCoopAndreas.exe"},
+    {IDR_LAUNCHER_MANIFEST, L"LaunchCoopAndreas.exe.manifest", L"LaunchCoopAndreas.exe.manifest"},
+    {IDR_SERVER, L"server.exe", L"server.exe"},
+    {IDR_MAIN_SCM, L"main.scm", L"CoopAndreas\\main.scm"},
+    {IDR_SCRIPT_IMG, L"script.img", L"CoopAndreas\\script.img"},
 }};
 
 std::wstring JoinPath(const std::wstring& left, const std::wstring& right)
@@ -37,7 +46,6 @@ std::wstring GetExecutableDirectory()
     const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
     if (length == 0 || length == MAX_PATH)
         return {};
-
     std::wstring directory(path, length);
     const size_t separator = directory.find_last_of(L"\\/");
     return separator == std::wstring::npos ? std::wstring{} : directory.substr(0, separator);
@@ -65,7 +73,6 @@ bool IsProcessRunning(const wchar_t* executableName)
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE)
         return false;
-
     PROCESSENTRY32W entry{};
     entry.dwSize = sizeof(entry);
     bool found = false;
@@ -101,35 +108,33 @@ void SetProgress(HWND window, const std::wstring& message)
     PumpMessages();
 }
 
-bool HasContent(const std::wstring& path)
+bool ExtractAsset(HINSTANCE instance, const Asset& asset, const std::wstring& path, std::wstring& error)
 {
-    WIN32_FILE_ATTRIBUTE_DATA attributes{};
-    if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attributes))
-        return false;
-    return attributes.nFileSizeHigh != 0 || attributes.nFileSizeLow != 0;
-}
-
-bool DownloadAssets(HWND progressWindow, const std::wstring& stagingDirectory, std::wstring& error)
-{
-    for (size_t index = 0; index < ASSETS.size(); ++index)
+    HRSRC resource = FindResourceW(instance, MAKEINTRESOURCEW(asset.resourceId), MAKEINTRESOURCEW(10));
+    HGLOBAL loaded = resource ? LoadResource(instance, resource) : nullptr;
+    const void* bytes = loaded ? LockResource(loaded) : nullptr;
+    const DWORD size = resource ? SizeofResource(instance, resource) : 0;
+    if (!resource || !loaded || !bytes || size == 0)
     {
-        const Asset& asset = ASSETS[index];
-        SetProgress(progressWindow,
-            L"CoopAndreas playtest update - downloading " + std::to_wstring(index + 1) + L"/" +
-                std::to_wstring(ASSETS.size()) + L": " + asset.name);
-
-        const std::wstring destination = JoinPath(stagingDirectory, asset.name);
-        DeleteFileW(destination.c_str());
-        const std::wstring url = std::wstring(RELEASE_BASE_URL) + asset.name;
-        const HRESULT result = URLDownloadToFileW(nullptr, url.c_str(), destination.c_str(), 0, nullptr);
-        if (FAILED(result) || !HasContent(destination))
-        {
-            error = L"Could not download " + std::wstring(asset.name) +
-                    L" from the latest GitHub playtest release.\n\nHRESULT: " + std::to_wstring(result);
-            return false;
-        }
+        error = L"The embedded " + std::wstring(asset.name) + L" payload is missing.";
+        return false;
     }
-    return true;
+
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        error = L"Could not stage " + std::wstring(asset.name) + L". Windows error: " + std::to_wstring(GetLastError());
+        return false;
+    }
+    DWORD written = 0;
+    const bool success = WriteFile(file, bytes, size, &written, nullptr) != FALSE && written == size;
+    CloseHandle(file);
+    if (!success)
+    {
+        DeleteFileW(path.c_str());
+        error = L"Could not extract " + std::wstring(asset.name) + L". Windows error: " + std::to_wstring(GetLastError());
+    }
+    return success;
 }
 
 bool PrepareEaxProxy(const std::wstring& gameDirectory, std::wstring& error)
@@ -140,43 +145,47 @@ bool PrepareEaxProxy(const std::wstring& gameDirectory, std::wstring& error)
         return true;
     if (!FileExists(eax))
     {
-        error = L"The original eax.dll was not found beside gta_sa.exe.\n\n"
-                L"Restore a clean GTA San Andreas 1.0 US installation before installing CoopAndreas.";
+        error = L"The original eax.dll was not found beside gta_sa.exe.";
         return false;
     }
     if (!MoveFileExW(eax.c_str(), original.c_str(), MOVEFILE_WRITE_THROUGH))
     {
-        error = L"Could not preserve eax.dll as eax_orig.dll.\n\nWindows error: " +
-                std::to_wstring(GetLastError());
+        error = L"Could not preserve eax.dll as eax_orig.dll. Windows error: " + std::to_wstring(GetLastError());
         return false;
     }
     return true;
 }
 
-bool DeployAssets(
-    HWND progressWindow, const std::wstring& gameDirectory, const std::wstring& stagingDirectory, std::wstring& error)
+bool InstallEmbeddedBuild(
+    HINSTANCE instance, HWND progressWindow, const std::wstring& gameDirectory, std::wstring& error)
 {
-    if (!EnsureDirectory(JoinPath(gameDirectory, L"CoopAndreas")))
+    const std::wstring stagingDirectory = JoinPath(gameDirectory, L"CoopAndreas.install");
+    if (!EnsureDirectory(stagingDirectory) || !EnsureDirectory(JoinPath(gameDirectory, L"CoopAndreas")))
     {
-        error = L"Could not create the CoopAndreas data directory.\n\nWindows error: " +
-                std::to_wstring(GetLastError());
+        error = L"Could not create the CoopAndreas installation directories.";
         return false;
     }
-    if (!PrepareEaxProxy(gameDirectory, error))
-        return false;
 
     for (size_t index = 0; index < ASSETS.size(); ++index)
     {
         const Asset& asset = ASSETS[index];
-        SetProgress(progressWindow,
-            L"CoopAndreas playtest update - installing " + std::to_wstring(index + 1) + L"/" +
+        SetProgress(progressWindow, L"Installing CoopAndreas " + std::to_wstring(index + 1) + L"/" +
                 std::to_wstring(ASSETS.size()) + L": " + asset.name);
-        const std::wstring source = JoinPath(stagingDirectory, asset.name);
+        const std::wstring staged = JoinPath(stagingDirectory, asset.name);
+        if (!ExtractAsset(instance, asset, staged, error))
+            return false;
+    }
+    if (!PrepareEaxProxy(gameDirectory, error))
+        return false;
+
+    for (const Asset& asset : ASSETS)
+    {
+        const std::wstring staged = JoinPath(stagingDirectory, asset.name);
         const std::wstring destination = JoinPath(gameDirectory, asset.destination);
-        if (!MoveFileExW(source.c_str(), destination.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        if (!MoveFileExW(staged.c_str(), destination.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
         {
             error = L"Could not install " + std::wstring(asset.destination) +
-                    L". Close GTA San Andreas and try again.\n\nWindows error: " + std::to_wstring(GetLastError());
+                    L". Close GTA San Andreas and try again. Windows error: " + std::to_wstring(GetLastError());
             return false;
         }
     }
@@ -200,10 +209,12 @@ bool Launch(const std::wstring& executable, const std::wstring& workingDirectory
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int)
 {
-    const HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\CoopAndreasPlaytestUpdater");
+    const bool installOnly = std::wcsstr(GetCommandLineW(), L"--install-only") != nullptr;
+    const HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\CoopAndreasStandalonePlaytest");
     if (mutex == nullptr || GetLastError() == ERROR_ALREADY_EXISTS)
     {
-        MessageBoxW(nullptr, L"The CoopAndreas updater is already running.", L"CoopAndreas Playtest", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(nullptr, L"The CoopAndreas installer is already running.", L"CoopAndreas Playtest",
+            MB_OK | MB_ICONINFORMATION);
         if (mutex)
             CloseHandle(mutex);
         return 1;
@@ -212,72 +223,62 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int)
     const std::wstring gameDirectory = GetExecutableDirectory();
     if (gameDirectory.empty() || !FileExists(JoinPath(gameDirectory, L"gta_sa.exe")))
     {
-        MessageBoxW(nullptr, L"Place CoopAndreasPlaytest.exe beside gta_sa.exe and run it again.",
-            L"CoopAndreas Playtest", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Place this EXE beside gta_sa.exe and run it again.", L"CoopAndreas Playtest",
+            MB_OK | MB_ICONERROR);
         CloseHandle(mutex);
         return 1;
     }
     if (IsProcessRunning(L"gta_sa.exe"))
     {
-        MessageBoxW(nullptr, L"Close GTA San Andreas before updating CoopAndreas.", L"CoopAndreas Playtest",
+        MessageBoxW(nullptr, L"Close GTA San Andreas before installing CoopAndreas.", L"CoopAndreas Playtest",
             MB_OK | MB_ICONWARNING);
         CloseHandle(mutex);
         return 1;
     }
 
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    const HWND progressWindow = CreateWindowExW(WS_EX_APPWINDOW, L"STATIC",
-        L"CoopAndreas playtest update - preparing...", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | SS_CENTER,
-        CW_USEDEFAULT, CW_USEDEFAULT, 620, 110, nullptr, nullptr, instance, nullptr);
+    const HWND progressWindow = CreateWindowExW(WS_EX_APPWINDOW, L"STATIC", L"Installing CoopAndreas...",
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | SS_CENTER, CW_USEDEFAULT, CW_USEDEFAULT, 620, 110, nullptr, nullptr,
+        instance, nullptr);
     if (progressWindow)
     {
         ShowWindow(progressWindow, SW_SHOW);
         UpdateWindow(progressWindow);
     }
 
-    const std::wstring stagingDirectory = JoinPath(gameDirectory, L"CoopAndreas.update");
     std::wstring error;
-    bool success = EnsureDirectory(stagingDirectory);
-    if (!success)
-        error = L"Could not create the update staging directory.\n\nWindows error: " + std::to_wstring(GetLastError());
-    if (success)
-        success = DownloadAssets(progressWindow, stagingDirectory, error);
-    if (success)
-        success = DeployAssets(progressWindow, gameDirectory, stagingDirectory, error);
-
+    const bool success = InstallEmbeddedBuild(instance, progressWindow, gameDirectory, error);
     if (progressWindow)
         DestroyWindow(progressWindow);
-    CoUninitialize();
-
     if (!success)
     {
-        MessageBoxW(nullptr, error.c_str(), L"CoopAndreas Playtest Update Failed", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, error.c_str(), L"CoopAndreas Installation Failed", MB_OK | MB_ICONERROR);
         CloseHandle(mutex);
         return 1;
     }
 
-    const int choice = MessageBoxW(nullptr,
-        L"CoopAndreas is up to date.\n\nYes: Host & Play (starts the local server)\n"
-        L"No: Join & Play\nCancel: Update only",
-        L"CoopAndreas Playtest", MB_YESNOCANCEL | MB_ICONINFORMATION);
-
-    if (choice == IDYES && !IsProcessRunning(L"server.exe"))
+    if (installOnly)
     {
-        if (!Launch(JoinPath(gameDirectory, L"server.exe"), gameDirectory, CREATE_NO_WINDOW))
-        {
-            MessageBoxW(nullptr, L"The server could not be started.", L"CoopAndreas Playtest", MB_OK | MB_ICONERROR);
-            CloseHandle(mutex);
-            return 1;
-        }
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
+        return 0;
     }
-    if (choice == IDYES || choice == IDNO)
+
+    const int choice = MessageBoxW(nullptr,
+        L"CoopAndreas is installed.\n\nYes: Host & Play\nNo: Join & Play\nCancel: Install only",
+        L"CoopAndreas Playtest", MB_YESNOCANCEL | MB_ICONINFORMATION);
+    if (choice == IDYES && !IsProcessRunning(L"server.exe") &&
+        !Launch(JoinPath(gameDirectory, L"server.exe"), gameDirectory, CREATE_NO_WINDOW))
     {
-        if (!Launch(JoinPath(gameDirectory, L"LaunchCoopAndreas.exe"), gameDirectory, 0))
-        {
-            MessageBoxW(nullptr, L"GTA San Andreas could not be started.", L"CoopAndreas Playtest", MB_OK | MB_ICONERROR);
-            CloseHandle(mutex);
-            return 1;
-        }
+        MessageBoxW(nullptr, L"The server could not be started.", L"CoopAndreas Playtest", MB_OK | MB_ICONERROR);
+        CloseHandle(mutex);
+        return 1;
+    }
+    if ((choice == IDYES || choice == IDNO) &&
+        !Launch(JoinPath(gameDirectory, L"LaunchCoopAndreas.exe"), gameDirectory, 0))
+    {
+        MessageBoxW(nullptr, L"GTA San Andreas could not be started.", L"CoopAndreas Playtest", MB_OK | MB_ICONERROR);
+        CloseHandle(mutex);
+        return 1;
     }
 
     ReleaseMutex(mutex);

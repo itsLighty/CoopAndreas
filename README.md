@@ -81,19 +81,16 @@ xmake --build launcher
 
 ### One-click playtest distribution
 
-Friends do not need Visual Studio, Xmake, or Sanny Builder. Download
-[`CoopAndreasPlaytest.exe`](https://github.com/itsLighty/CoopAndreas/releases/download/playtest-latest/CoopAndreasPlaytest.exe),
-place it beside a GTA San Andreas 1.0 US `gta_sa.exe`, and run it. The updater downloads the latest verified binaries and
-mission scripts, preserves the original `eax.dll` as `eax_orig.dll`, and offers:
+Friends do not need Visual Studio, Xmake, Sanny Builder, or an internet connection for installation. Send them the
+single `CoopAndreasPlaytest.exe` produced by `scripts/build-standalone-playtest.ps1`. They place it beside a GTA San
+Andreas 1.0 US `gta_sa.exe` and run it. The executable contains the client, proxy loader, launcher, server, and compiled
+mission scripts; it preserves the original `eax.dll` as `eax_orig.dll` and offers:
 
 - **Host & Play**: starts `server.exe` locally and launches the game.
 - **Join & Play**: launches the game without starting another server.
-- **Update only**: installs the latest playtest without launching.
+- **Install only**: installs the embedded playtest without launching.
 
 For internet play, the host must allow/forward UDP port `6767`; joining players enter the host's IP in the in-game menu.
-The rolling release is rebuilt by GitHub Actions from `main`, and a manual
-[`CoopAndreas-playtest.zip`](https://github.com/itsLighty/CoopAndreas/releases/download/playtest-latest/CoopAndreas-playtest.zip)
-is provided alongside the updater.
 
 
 ## Building Server on GNU/Linux

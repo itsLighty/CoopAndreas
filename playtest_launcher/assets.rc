@@ -1,0 +1,7 @@
+201 RCDATA "build\\windows\\x86\\release\\proxy.dll"
+202 RCDATA "build\\windows\\x86\\release\\CoopAndreasSA.dll"
+203 RCDATA "build\\windows\\x86\\release\\LaunchCoopAndreas.exe"
+204 RCDATA "build\\windows\\x86\\release\\LaunchCoopAndreas.exe.manifest"
+205 RCDATA "build\\windows\\x86\\release\\server.exe"
+206 RCDATA "build\\playtest\\standalone-assets\\main.scm"
+207 RCDATA "build\\playtest\\standalone-assets\\script.img"

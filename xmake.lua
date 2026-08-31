@@ -327,8 +327,9 @@ target("playtest_launcher", function ()
     set_toolchains("msvc")
     add_ldflags("/SUBSYSTEM:WINDOWS", {force = true})
     add_files("playtest_launcher/src/*.cpp")
+    add_files("playtest_launcher/assets.rc")
     add_defines("NOMINMAX", "_CRT_SECURE_NO_WARNINGS")
-    add_syslinks("kernel32", "user32", "ole32", "urlmon")
+    add_syslinks("kernel32", "user32")
 
     if is_mode("debug") then
         add_defines("_DEBUG")

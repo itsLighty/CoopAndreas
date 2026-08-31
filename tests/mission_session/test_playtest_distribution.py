@@ -8,11 +8,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 class PlaytestDistributionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.updater = (ROOT / "playtest_launcher/src/main.cpp").read_text(encoding="utf-8")
+        cls.installer = (ROOT / "playtest_launcher/src/main.cpp").read_text(encoding="utf-8")
+        cls.resources = (ROOT / "playtest_launcher/assets.rc").read_text(encoding="utf-8")
         cls.launcher = (ROOT / "launcher/src/main.cpp").read_text(encoding="utf-8")
         cls.client_launch = (ROOT / "client/src/CLaunchManager.cpp").read_text(encoding="utf-8")
-        cls.workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        cls.stage = (ROOT / "scripts/stage-playtest.ps1").read_text(encoding="utf-8")
+        cls.build_script = (ROOT / "scripts/build-standalone-playtest.ps1").read_text(encoding="utf-8")
         cls.xmake = (ROOT / "xmake.lua").read_text(encoding="utf-8")
 
     def test_launcher_and_client_are_key_free(self):
@@ -21,13 +21,9 @@ class PlaytestDistributionTests(unittest.TestCase):
         self.assertNotIn("Encrypt(", combined)
         self.assertIn('"\\\"gta_sa.exe\\\" --coop"', self.launcher)
 
-    def test_updater_targets_public_rolling_release(self):
-        self.assertIn(
-            "https://github.com/itsLighty/CoopAndreas/releases/download/playtest-latest/",
-            self.updater,
-        )
+    def test_installer_embeds_every_runtime_asset(self):
         for asset in (
-            "eax.dll",
+            "proxy.dll",
             "CoopAndreasSA.dll",
             "LaunchCoopAndreas.exe",
             "LaunchCoopAndreas.exe.manifest",
@@ -35,31 +31,28 @@ class PlaytestDistributionTests(unittest.TestCase):
             "main.scm",
             "script.img",
         ):
-            self.assertIn(f'L"{asset}"', self.updater)
+            self.assertIn(asset, self.resources)
+        self.assertIn("FindResourceW", self.installer)
+        self.assertNotIn("URLDownloadToFileW", self.installer)
 
-    def test_updater_preserves_original_loader_and_requires_game_to_be_closed(self):
-        self.assertIn('MoveFileExW(eax.c_str(), original.c_str()', self.updater)
-        self.assertIn('L"eax_orig.dll"', self.updater)
-        self.assertIn('IsProcessRunning(L"gta_sa.exe")', self.updater)
+    def test_installer_preserves_original_loader_and_requires_game_to_be_closed(self):
+        self.assertIn("MoveFileExW(eax.c_str(), original.c_str()", self.installer)
+        self.assertIn('L"eax_orig.dll"', self.installer)
+        self.assertIn('IsProcessRunning(L"gta_sa.exe")', self.installer)
 
-    def test_updater_supports_host_join_and_update_only(self):
-        self.assertIn("Host & Play", self.updater)
-        self.assertIn("Join & Play", self.updater)
-        self.assertIn("Update only", self.updater)
-        self.assertIn('Launch(JoinPath(gameDirectory, L"server.exe")', self.updater)
-        self.assertIn('Launch(JoinPath(gameDirectory, L"LaunchCoopAndreas.exe")', self.updater)
+    def test_installer_supports_host_join_and_install_only(self):
+        self.assertIn("Host & Play", self.installer)
+        self.assertIn("Join & Play", self.installer)
+        self.assertIn("Install only", self.installer)
+        self.assertIn("--install-only", self.installer)
+        self.assertIn('Launch(JoinPath(gameDirectory, L"server.exe")', self.installer)
+        self.assertIn('Launch(JoinPath(gameDirectory, L"LaunchCoopAndreas.exe")', self.installer)
 
-    def test_build_and_stage_include_updater(self):
+    def test_local_build_produces_one_standalone_executable(self):
         self.assertIn('target("playtest_launcher"', self.xmake)
-        self.assertIn("CoopAndreasPlaytest.exe", self.stage)
-        self.assertIn("CoopAndreas-playtest.zip", self.stage)
-        self.assertIn("SHA256SUMS.txt", self.stage)
-
-    def test_ci_uploads_artifact_and_publishes_main(self):
-        self.assertIn("actions/upload-artifact@v4", self.workflow)
-        self.assertIn("gh release create playtest-latest", self.workflow)
-        self.assertIn("github.ref == 'refs/heads/main'", self.workflow)
-        self.assertIn("github.repository == 'itsLighty/CoopAndreas'", self.workflow)
+        self.assertIn('add_files("playtest_launcher/assets.rc")', self.xmake)
+        self.assertIn("CoopAndreasPlaytest.exe", self.build_script)
+        self.assertIn("validate-scm.ps1", self.build_script)
 
 
 if __name__ == "__main__":
