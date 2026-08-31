@@ -19,6 +19,78 @@ bool HasValidTaskTarget(const CNetworkPed* owner, const Packets::Peds::SPedTaskS
     return false;
 }
 
+bool CanAcceptGroupMembership(const CNetworkPed* member, const CNetworkPlayer* owner,
+    const Packets::Peds::SPedGroupMembershipSnapshot& group, uint8_t memberHealth)
+{
+    if (!group.hasGroup)
+        return true;
+
+    if (!member || !owner || memberHealth == 0 || member->m_pSyncer != owner || !owner->m_pPeer ||
+        CNetworkPlayerManager::GetPlayer(owner->m_iPlayerId) != owner ||
+        group.leaderPlayerId.value != owner->m_iPlayerId ||
+        group.followerSlot >= Packets::Peds::SPedGroupMembershipSnapshot::MAX_FOLLOWERS ||
+        group.followerSlot == Packets::Peds::SPedGroupMembershipSnapshot::LEADER_MEMBER_SLOT)
+    {
+        return false;
+    }
+
+    size_t followerCount = 0;
+    for (const CNetworkPed* other : CNetworkPedManager::m_pPeds)
+    {
+        if (other == member || !other->m_bGroupSnapshotInitialized || !other->m_groupSnapshot.hasGroup ||
+            other->m_groupSnapshot.leaderPlayerId.value != owner->m_iPlayerId)
+        {
+            continue;
+        }
+
+        // A transferred ped can never silently remain in the old owner's group.
+        if (other->m_pSyncer != owner || other->m_groupSnapshot.followerSlot == group.followerSlot)
+            return false;
+
+        ++followerCount;
+    }
+
+    return followerCount < Packets::Peds::SPedGroupMembershipSnapshot::MAX_FOLLOWERS;
+}
+
+bool CanonicalizeGroupSnapshot(CNetworkPed* ped, CNetworkPlayer* owner,
+    Packets::Peds::SPedGroupMembershipSnapshot& incoming, uint8_t memberHealth)
+{
+    incoming.revision = 0;
+    if (memberHealth == 0)
+    {
+        incoming.hasGroup = false;
+        incoming.leaderPlayerId.value = 0;
+        incoming.followerSlot = 0;
+    }
+    else if (incoming.hasGroup)
+    {
+        // The C2S wire omits leaderPlayerId. Membership is always bound to the authenticated ped owner.
+        incoming.leaderPlayerId.value = owner->m_iPlayerId;
+    }
+    else
+    {
+        incoming.leaderPlayerId.value = 0;
+        incoming.followerSlot = 0;
+    }
+
+    if (!CanAcceptGroupMembership(ped, owner, incoming, memberHealth))
+        return false;
+
+    if (!ped->m_bGroupSnapshotInitialized || !incoming.HasSameMembership(ped->m_groupSnapshot))
+    {
+        incoming.revision = CNetworkPedManager::AdvanceGroupRevision(ped);
+        ped->m_groupSnapshot = incoming;
+        ped->m_bGroupSnapshotInitialized = true;
+    }
+    else
+    {
+        incoming.revision = ped->m_nGroupRevision;
+    }
+
+    return true;
+}
+
 void CanonicalizeTaskSnapshot(CNetworkPed* ped, Packets::Peds::SPedTaskSnapshot& incoming)
 {
     incoming.revision = 0;
@@ -115,6 +187,7 @@ PACKET_HANDLER(ePacketType::PED_REMOVE, Packets::Peds::PedRemove* pPedRemove, CN
         if (std::find(p->m_vPedClaims.begin(), p->m_vPedClaims.end(), pNetworkPed) != p->m_vPedClaims.end())
         {
             // assign ped's syncer to this player
+            CNetworkPedManager::ClearGroupMembership(pNetworkPed);
             pNetworkPed->m_pSyncer = p;
 
             if (auto* vehicle = CNetworkVehicleManager::GetVehicle(pNetworkPed->m_nVehicleId))
@@ -165,7 +238,8 @@ PACKET_HANDLER(ePacketType::PED_REMOVE, Packets::Peds::PedRemove* pPedRemove, CN
 
 PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot, CNetworkPlayer* pNetworkPlayer)
 {
-    if (!pPedOnFoot->HasValidAimState() || !pPedOnFoot->task.HasValidSemantics() ||
+    if (!pPedOnFoot->HasValidAimState() || !pPedOnFoot->group.HasValidSemantics() ||
+        !pPedOnFoot->group.FitsSerializedBudget() || !pPedOnFoot->task.HasValidSemantics() ||
         !pPedOnFoot->task.FitsSerializedBudget())
     {
         logger::warn("%s sent invalid ped aim/task state", pNetworkPlayer->GetName().c_str());
@@ -184,6 +258,14 @@ PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot, CN
         if (!HasValidTaskTarget(pPed, pPedOnFoot->task))
         {
             logger::warn("%s sent a missing or self-referential ped task target",
+                pNetworkPlayer->GetName().c_str());
+            return;
+        }
+
+        if (!CanonicalizeGroupSnapshot(
+                pPed, pNetworkPlayer, pPedOnFoot->group, pPedOnFoot->healthSnapshot.iHealth))
+        {
+            logger::warn("%s sent invalid, duplicate, oversized, or cross-owner ped group membership",
                 pNetworkPlayer->GetName().c_str());
             return;
         }
@@ -229,6 +311,13 @@ PACKET_HANDLER(
         return;
     }
 
+    if (!CanonicalizeGroupSnapshot(
+            pNetworkPed, pNetworkPlayer, pPedDriverUpdate->group, pPedDriverUpdate->pedHealth.iHealth))
+    {
+        logger::warn("%s sent invalid ped-driver group membership", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
     if (pNetworkPed->m_nVehicleId != pNetworkVehicle->m_nVehicleId)
         CNetworkPedManager::ReleaseVehicleUsage(pNetworkPed);
 
@@ -259,6 +348,13 @@ PACKET_HANDLER(ePacketType::PED_PASSENGER_UPDATE, Packets::Peds::PedPassengerSyn
     if (!pNetworkVehicle)
     {
         logger::warn("%s sent a ped passenger update for an invalid vehicle", pNetworkPlayer->GetName().c_str());
+        return;
+    }
+
+    if (!CanonicalizeGroupSnapshot(
+            pNetworkPed, pNetworkPlayer, pPedPassengerSync->group, pPedPassengerSync->healthSnapshot.iHealth))
+    {
+        logger::warn("%s sent invalid ped-passenger group membership", pNetworkPlayer->GetName().c_str());
         return;
     }
 
@@ -345,6 +441,8 @@ PACKET_HANDLER(ePacketType::PED_RESET_ALL_CLAIMS, Packets::Peds::PedResetAllClai
             {
                 // here was a bug that i have not understood yet
 
+                CNetworkPedManager::ClearGroupMembership(pNetworkPed);
+
                 Packets::Peds::AssignPedSyncer assignPedPacket{};
                 assignPedPacket.pedid = pPedResetAllClaims->pedid;
                 GetPacketFactory().Send(assignPedPacket, pNetworkPlayer);
@@ -376,6 +474,8 @@ PACKET_HANDLER(ePacketType::PED_TAKE_HOST, Packets::Peds::PedTakeHost* pPedTakeH
     {
         if (pNetworkPed->m_pSyncer != pNetworkPlayer && pNetworkPlayer->m_bIsHost)
         {
+            CNetworkPedManager::ClearGroupMembership(pNetworkPed);
+
             Packets::Peds::AssignPedSyncer assignPedPacket{};
             assignPedPacket.pedid = pPedTakeHost->pedid;
             GetPacketFactory().Send(assignPedPacket, pNetworkPlayer);

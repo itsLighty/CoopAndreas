@@ -2,9 +2,12 @@
 #include <network/packets/peds.h>
 
 std::vector<CNetworkPed*> CNetworkPedManager::m_pPeds;
+std::array<uint16_t, Config::MAX_SERVER_PEDS> CNetworkPedManager::m_anGroupRevisions{};
 
 void CNetworkPedManager::Add(CNetworkPed* ped)
 {
+    if (ped && ped->m_nPedId >= 0 && ped->m_nPedId < Config::MAX_SERVER_PEDS)
+        ped->m_nGroupRevision = m_anGroupRevisions[ped->m_nPedId];
     m_pPeds.push_back(ped);
 }
 
@@ -65,6 +68,7 @@ void CNetworkPedManager::RemoveAllHostedAndNotify(CNetworkPlayer* player)
 
             if (replacement)
             {
+                ClearGroupMembership(ped);
                 ped->m_pSyncer = replacement;
                 Packets::Peds::AssignPedSyncer assign{};
                 assign.pedid = ped->m_nPedId;
@@ -108,4 +112,34 @@ void CNetworkPedManager::ReleaseVehicleUsage(CNetworkPed* ped)
     if (auto* vehicle = CNetworkVehicleManager::GetVehicle(ped->m_nVehicleId))
         vehicle->m_bUsedByPed = false;
     ped->m_nVehicleId = -1;
+}
+
+void CNetworkPedManager::ClearGroupMembership(CNetworkPed* ped)
+{
+    if (!ped || !ped->m_bGroupSnapshotInitialized || !ped->m_groupSnapshot.hasGroup)
+        return;
+
+    ped->m_groupSnapshot = {};
+    ped->m_groupSnapshot.revision = AdvanceGroupRevision(ped);
+
+    // This is an existing reliable ped event in a group-only mode. It avoids forging an on-foot transform when
+    // ownership changes while the follower is driving or riding in a vehicle.
+    Packets::Peds::AssignPedSyncer clear{};
+    clear.pedid = ped->m_nPedId;
+    clear.toggleOwnership = false;
+    clear.group = ped->m_groupSnapshot;
+    GetPacketFactory().SendToAll(clear);
+}
+
+uint16_t CNetworkPedManager::AdvanceGroupRevision(CNetworkPed* ped)
+{
+    if (!ped || ped->m_nPedId < 0 || ped->m_nPedId >= Config::MAX_SERVER_PEDS)
+        return 0;
+
+    uint16_t& revision = m_anGroupRevisions[ped->m_nPedId];
+    ++revision;
+    if (revision == 0)
+        ++revision;
+    ped->m_nGroupRevision = revision;
+    return revision;
 }

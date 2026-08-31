@@ -1,5 +1,6 @@
 #include "network/packets/peds.h"
 #include "network/packet_types.h"
+#include "CNetworkPedGroupSyncManager.h"
 #include "stdafx.h"
 #include <CCarEnterExit.h>
 #include <CTaskSimpleCarSetPedInAsPassenger.h>
@@ -51,12 +52,20 @@ PACKET_HANDLER(ePacketType::PED_REMOVE, Packets::Peds::PedRemove* pPedRemove)
 
 PACKET_HANDLER(ePacketType::ASSIGN_PED, Packets::Peds::AssignPedSyncer* pAssignPedSyncer)
 {
+    if (!pAssignPedSyncer->toggleOwnership)
+    {
+        CNetworkPedGroupSyncManager::ObserveRemoteMembership(pAssignPedSyncer->pedid, pAssignPedSyncer->group);
+        return;
+    }
+
     CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pAssignPedSyncer->pedid);
 
     if (!pNetworkPed)
     {
         return;
     }
+
+    CNetworkPedGroupSyncManager::OnPedRemoved(pAssignPedSyncer->pedid);
 
     if (pNetworkPed->m_bSyncing)
     {
@@ -89,8 +98,13 @@ PACKET_HANDLER(ePacketType::ASSIGN_PED, Packets::Peds::AssignPedSyncer* pAssignP
 
 PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot)
 {
-    if (!pPedOnFoot->HasValidAimState() || !pPedOnFoot->task.HasValidSemantics())
+    if (!pPedOnFoot->HasValidAimState() || !pPedOnFoot->group.HasValidSemantics() ||
+        !pPedOnFoot->group.FitsSerializedBudget() || !pPedOnFoot->task.HasValidSemantics())
         return;
+
+    // Cache membership before resolving the ped. PED_SPAWN and PED_ONFOOT use different ENet channels, so a
+    // valid canonical update can arrive first and must remain pending until both member and leader stream in.
+    CNetworkPedGroupSyncManager::ObserveRemoteMembership(pPedOnFoot->pedid, pPedOnFoot->group);
 
     CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pPedOnFoot->pedid);
 
@@ -149,6 +163,8 @@ PACKET_HANDLER(ePacketType::PED_ONFOOT, Packets::Peds::PedOnFoot* pPedOnFoot)
 
 PACKET_HANDLER(ePacketType::PED_DRIVER_UPDATE, Packets::Peds::PedDriverUpdate* pPedDriverUpdate)
 {
+    CNetworkPedGroupSyncManager::ObserveRemoteMembership(pPedDriverUpdate->pedid, pPedDriverUpdate->group);
+
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pPedDriverUpdate->vehicleid);
     if (pNetworkVehicle == nullptr)
     {
@@ -233,6 +249,8 @@ PACKET_HANDLER(ePacketType::PED_DRIVER_UPDATE, Packets::Peds::PedDriverUpdate* p
 
 PACKET_HANDLER(ePacketType::PED_PASSENGER_UPDATE, Packets::Peds::PedPassengerSync* pPedPassengerSync)
 {
+    CNetworkPedGroupSyncManager::ObserveRemoteMembership(pPedPassengerSync->pedid, pPedPassengerSync->group);
+
     CNetworkVehicle* pNetworkVehicle = CNetworkVehicleManager::GetVehicle(pPedPassengerSync->vehicleid);
     CNetworkPed* pNetworkPed = CNetworkPedManager::GetPed(pPedPassengerSync->pedid);
 

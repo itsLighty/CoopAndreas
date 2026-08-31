@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "CNetworkVehicle.h"
 #include "CNetworkPed.h"
+#include "CNetworkPedGroupSyncManager.h"
 
 std::vector<CNetworkPed*> CNetworkPedManager::m_pPeds;
 CNetworkPed* CNetworkPedManager::m_apTempPeds[255];
@@ -36,10 +37,13 @@ CNetworkPed* CNetworkPedManager::GetPed(CEntity* entity)
 void CNetworkPedManager::Add(CNetworkPed* ped)
 {
     CNetworkPedManager::m_pPeds.push_back(ped);
+    CNetworkPedGroupSyncManager::OnPedAvailable(ped->m_nPedId);
 }
 
 void CNetworkPedManager::Remove(CNetworkPed* ped)
 {
+    if (ped)
+        CNetworkPedGroupSyncManager::OnPedRemoved(ped->m_nPedId);
     auto it = std::find(m_pPeds.begin(), m_pPeds.end(), ped);
     if (it != m_pPeds.end())
     {
@@ -49,6 +53,7 @@ void CNetworkPedManager::Remove(CNetworkPed* ped)
 
 void CNetworkPedManager::Clear()
 {
+    CNetworkPedGroupSyncManager::Reset();
     while (!m_pPeds.empty())
     {
         CNetworkPed* ped = m_pPeds.back();
@@ -135,6 +140,7 @@ void CNetworkPedManager::Update()
                 packet.bHorn = pPed->m_fHealth > 0.0f && pVehicle->m_nHornCounter != 0;
                 packet.bSiren = pPed->m_fHealth > 0.0f && pVehicle->UsesSiren() &&
                                 pVehicle->m_nVehicleFlags.bSirenOrAlarm;
+                CNetworkPedGroupSyncManager::CaptureLocalMembership(pNetworkPed, packet.group);
 
                 GetPacketFactory().Send(packet);
             }
@@ -160,6 +166,7 @@ void CNetworkPedManager::Update()
                         break;
                     }
                 }
+                CNetworkPedGroupSyncManager::CaptureLocalMembership(pNetworkPed, packet.group);
                 GetPacketFactory().Send(packet);
             }
         }
@@ -197,6 +204,7 @@ void CNetworkPedManager::Update()
             }
 
             packet.fightingStyle = pPed->m_nFightingStyle;
+            CNetworkPedGroupSyncManager::CaptureLocalMembership(pNetworkPed, packet.group);
             pNetworkPed->CaptureTaskSnapshot(packet.task);
 
             GetPacketFactory().Send(packet);
@@ -244,6 +252,8 @@ void CNetworkPedManager::Process()
             networkPed->ClearRemoteTask();
         }
     }
+
+    CNetworkPedGroupSyncManager::Process();
 }
 
 void CNetworkPedManager::AssignHost()

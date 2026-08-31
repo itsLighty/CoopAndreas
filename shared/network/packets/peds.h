@@ -189,6 +189,71 @@ struct SPedTaskSnapshot
 
 static_assert(SPedTaskSnapshot::MAX_SERIALIZED_BYTES <= 64, "NPC task snapshots must remain bounded for SYNC packets");
 
+struct SPedGroupMembershipSnapshot
+{
+    static constexpr uint8_t MAX_FOLLOWERS = 7;
+    static constexpr uint8_t LEADER_MEMBER_SLOT = 7;
+    static constexpr size_t MAX_GROUP_SERIALIZED_BYTES = 4;
+
+    uint16_t revision = 0;
+    bool hasGroup = false;
+    SenderPlayerId leaderPlayerId{};
+    uint8_t followerSlot = 0;
+
+    bool HasSameMembership(const SPedGroupMembershipSnapshot& other) const
+    {
+        return hasGroup == other.hasGroup &&
+               (!hasGroup || (leaderPlayerId.value == other.leaderPlayerId.value && followerSlot == other.followerSlot));
+    }
+
+    bool HasValidSemantics() const
+    {
+        return !hasGroup || (leaderPlayerId.value >= 0 && leaderPlayerId.value < Config::MAX_SERVER_PLAYERS &&
+                                followerSlot < MAX_FOLLOWERS && followerSlot != LEADER_MEMBER_SLOT);
+    }
+
+    size_t MeasureSerializedBytes() const
+    {
+        SPedGroupMembershipSnapshot measured = *this;
+        serialize::MeasureStream stream;
+        if (!measured.Serialize(stream))
+            return 0;
+        return stream.GetBytesProcessed();
+    }
+
+    bool FitsSerializedBudget() const
+    {
+        const size_t measuredBytes = MeasureSerializedBytes();
+        return measuredBytes > 0 && measuredBytes <= MAX_GROUP_SERIALIZED_BYTES;
+    }
+
+    template <typename Stream>
+    bool Serialize(Stream& stream)
+    {
+        serialize_uint16(stream, revision);
+        serialize_bool(stream, hasGroup);
+        if (hasGroup)
+        {
+            // SenderPlayerId deliberately omits this field C2S. The server binds every membership to the
+            // authenticated owner, then includes the canonical player ID when relaying S2C.
+            serialize_object(stream, leaderPlayerId);
+            serialize_int(stream, followerSlot, 0, MAX_FOLLOWERS - 1);
+        }
+        else if (Stream::IsReading)
+        {
+            leaderPlayerId.value = 0;
+            followerSlot = 0;
+        }
+
+        return !Stream::IsReading || HasValidSemantics();
+    }
+};
+
+static_assert(SPedGroupMembershipSnapshot::MAX_FOLLOWERS + 1 == 8,
+    "GTA SA groups contain seven followers and one leader");
+static_assert(SPedGroupMembershipSnapshot::MAX_GROUP_SERIALIZED_BYTES <= 4,
+    "Ped group membership must remain a tiny addition to PED_ONFOOT");
+
 class PedSpawn : public Packet
 {
     DEFINE_PACKET_TYPE(PedSpawn, ePacketType::PED_SPAWN, ePacketChannel::EVENT);
@@ -257,14 +322,20 @@ class AssignPedSyncer : public Packet
     DEFINE_PACKET_TYPE(AssignPedSyncer, ePacketType::ASSIGN_PED, ePacketChannel::EVENT);
 
 public:
-    int pedid;
+    int pedid = 0;
+    bool toggleOwnership = true;
+    SPedGroupMembershipSnapshot group{};
 
 private:
     template <typename Stream>
     bool Serialize(Stream& stream)
     {
         serialize_int(stream, pedid, 0, Config::MAX_SERVER_PEDS - 1);
-        return true;
+        serialize_bool(stream, toggleOwnership);
+        if (!toggleOwnership)
+            serialize_object(stream, group);
+        return toggleOwnership || !Stream::IsReading ||
+            (group.revision != 0 && group.HasValidSemantics() && group.FitsSerializedBudget());
     }
 };
 
@@ -286,6 +357,7 @@ public:
     bool bAiming = false;
     uint8_t fightingStyle = 4;
     WorldPositionCompressed weaponAim{};
+    SPedGroupMembershipSnapshot group{};
     SPedTaskSnapshot task{};
 
     bool HasValidAimState() const
@@ -314,8 +386,10 @@ private:
         {
             serialize_object(stream, weaponAim);
         }
+        serialize_object(stream, group);
         serialize_object(stream, task);
-        return !Stream::IsReading || (HasValidAimState() && task.HasValidSemantics() && task.FitsSerializedBudget() &&
+        return !Stream::IsReading || (HasValidAimState() && group.HasValidSemantics() && group.FitsSerializedBudget() &&
+                                         task.HasValidSemantics() && task.FitsSerializedBudget() &&
                                          (healthSnapshot.iHealth > 0 || task.type == ePedTaskSyncType::NONE));
     }
 };
@@ -356,6 +430,7 @@ public:
     uint16_t miscComponentAngle{};  // automobile/mtruck/plane
     bool bHorn = false;
     bool bSiren = false;
+    SPedGroupMembershipSnapshot group{};
 
 private:
     template <typename Stream>
@@ -476,8 +551,10 @@ private:
 
         serialize_bool(stream, bHorn);
         serialize_bool(stream, bSiren);
+        serialize_object(stream, group);
 
-        return !Stream::IsReading || pedHealth.iHealth > 0 || (!bHorn && !bSiren);
+        return !Stream::IsReading ||
+            ((pedHealth.iHealth > 0 || (!bHorn && !bSiren)) && group.HasValidSemantics() && group.FitsSerializedBudget());
     }
 };
 
@@ -493,6 +570,7 @@ public:
     Packets::Players::SWeaponSnapshot weaponSnapshot{};
 
     int8_t seatid;
+    SPedGroupMembershipSnapshot group{};
 
 private:
     template <typename Stream>
@@ -503,7 +581,8 @@ private:
         serialize_object(stream, healthSnapshot);
         serialize_object(stream, weaponSnapshot);
         serialize_int(stream, seatid, -1, 7);  // TODO test properly TODO(v0.3.1-alpha): limits
-        return true;
+        serialize_object(stream, group);
+        return !Stream::IsReading || (group.HasValidSemantics() && group.FitsSerializedBudget());
     }
 };
 
