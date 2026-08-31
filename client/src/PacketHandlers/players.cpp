@@ -292,17 +292,7 @@ PACKET_HANDLER(ePacketType::REBUILD_PLAYER, Packets::Players::RebuildPlayer* pRe
         //CStatsSync::ApplyNetworkPlayerContext(networkPlayer);
 
         pNetworkPlayer->m_pPedClothesDesc = pRebuildPlayer->clothesDesc;
-		pNetworkPlayer->m_bNeedsClothesRebuild = true;
-
-        if (auto pPlayerPed = pNetworkPlayer->m_pPed)
-        {
-            *pPlayerPed->m_pPlayerData->m_pPedClothesDesc = pRebuildPlayer->clothesDesc;
-            if (pPlayerPed->m_pRwClump)
-            {
-                CClothes::RebuildPlayer(pPlayerPed, false);
-				pNetworkPlayer->m_bNeedsClothesRebuild = false;
-            }
-        }
+        pNetworkPlayer->QueueClothesRebuild();
 
         //CStatsSync::ApplyLocalContext();
     }
