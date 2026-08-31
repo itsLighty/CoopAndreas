@@ -10,6 +10,8 @@ public:
 	static void BuildTaskPacket(eTaskType type, bool toggle = true);
 	static void BuildAnimationTaskPacket(Packets::Players::ePlayerAnimationState state, uint16_t sequence,
 		uint8_t progress);
+	static void BuildParachuteTaskPacket(Packets::Players::ePlayerParachuteState state, uint16_t sequence,
+		uint8_t progress, float pitch, float roll);
 
 	static bool GetIsHostingEntity(CEntity* pEntity);
 };

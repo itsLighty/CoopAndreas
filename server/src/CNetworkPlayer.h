@@ -29,6 +29,10 @@ public:
     bool m_bHasOnFootSnapshot = false;
     bool m_bIsAlive = false;
     eWeaponType m_eLastWeaponType = WEAPON_UNARMED;
+    Packets::Players::ePlayerParachuteState m_eParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+    uint16_t m_nParachuteSequence = 0;
+    bool m_bHasParachuteSequence = false;
+    bool m_bHasAuthoritativeParachuteState = false;
 
     struct
     {

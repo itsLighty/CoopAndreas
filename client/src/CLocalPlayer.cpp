@@ -38,6 +38,34 @@ void CLocalPlayer::BuildAnimationTaskPacket(Packets::Players::ePlayerAnimationSt
 	GetPacketFactory().Send(packet);
 }
 
+void CLocalPlayer::BuildParachuteTaskPacket(Packets::Players::ePlayerParachuteState state, uint16_t sequence,
+	uint8_t progress, float pitch, float roll)
+{
+	if (!CNetwork::m_bAuthenticated)
+	{
+		return;
+	}
+
+	CPlayerPed* pPlayerPed = FindPlayerPed(0);
+	if (!pPlayerPed)
+	{
+		return;
+	}
+
+	Packets::Players::SetPlayerTask packet{};
+	packet.taskType = TASK_SIMPLE_PLAYER_ON_FOOT;
+	packet.vecPos = pPlayerPed->GetPosition();
+	packet.currentRotation = pPlayerPed->m_fCurrentRotation;
+	packet.aimingRotation = pPlayerPed->m_fAimingRotation;
+	packet.hasParachuteState = true;
+	packet.parachuteState = state;
+	packet.parachuteSequence = sequence;
+	packet.parachuteProgress = progress;
+	packet.parachutePitch = pitch;
+	packet.parachuteRoll = roll;
+	GetPacketFactory().Send(packet);
+}
+
 bool CLocalPlayer::GetIsHostingEntity(CEntity* pEntity)
 {
     if (pEntity->m_nType == ENTITY_TYPE_PED)

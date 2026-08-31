@@ -1,5 +1,7 @@
 #pragma once
 
+class CObject;
+
 class CNetworkPlayer
 {
 public:
@@ -38,6 +40,18 @@ public:
 	uint8_t m_nSyncedAnimationProgress = 0;
 	uint32_t m_nSyncedAnimationReceivedAt = 0;
 	bool m_bHasSyncedAnimationSequence = false;
+	int m_nSyncedParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+	int m_nAppliedParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+	uint16_t m_nSyncedParachuteSequence = 0;
+	uint8_t m_nSyncedParachuteProgress = 0;
+	float m_fSyncedParachutePitch = 0.0f;
+	float m_fSyncedParachuteRoll = 0.0f;
+	float m_fSyncedParachuteHeading = 0.0f;
+	uint32_t m_nSyncedParachuteReceivedAt = 0;
+	bool m_bHasSyncedParachuteSequence = false;
+	bool m_bParachuteResourcesAcquired = false;
+	bool m_bParachuteCanopyAttached = false;
+	CObject* m_pSyncedParachuteCanopy = nullptr;
 
 	bool m_bIsHost = false;
 
@@ -56,9 +70,14 @@ public:
 	void EnterVehiclePassenger(CVehicle* vehicle, int seatid);
 	void HandleTask(Packets::Players::SetPlayerTask& packet);
 	void HandleSyncedAnimation(const Packets::Players::SetPlayerTask& packet);
+	void HandleSyncedParachute(const Packets::Players::SetPlayerTask& packet);
 	void ApplySyncedAnimation();
+	void ProcessSyncedParachute();
+	void ApplySyncedParachute();
 	void FadeSyncedAnimation();
 	void ClearSyncedAnimationState();
+	void ClearSyncedParachuteState();
+	void DestroySyncedParachutePresentation();
 	void ClearLaserScopeDotState();
 	void ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weaponSnapshot);
 	void ApplyGameplayState(const Packets::Players::PlayerGameplayState& gameplayState);

@@ -38,6 +38,24 @@ enum ePlayerAnimationState : int
     PLAYER_ANIMATION_COUNT
 };
 
+enum ePlayerParachuteState : int
+{
+    PLAYER_PARACHUTE_NONE = 0,
+    PLAYER_PARACHUTE_FREEFALL,
+    PLAYER_PARACHUTE_FREEFALL_LEFT,
+    PLAYER_PARACHUTE_FREEFALL_RIGHT,
+    PLAYER_PARACHUTE_FREEFALL_ACCEL,
+    PLAYER_PARACHUTE_OPENING,
+    PLAYER_PARACHUTE_DEPLOYED,
+    PLAYER_PARACHUTE_DEPLOYED_LEFT,
+    PLAYER_PARACHUTE_DEPLOYED_RIGHT,
+    PLAYER_PARACHUTE_DEPLOYED_FLARE,
+    PLAYER_PARACHUTE_COLLAPSED,
+    PLAYER_PARACHUTE_LANDING,
+    PLAYER_PARACHUTE_LANDING_WATER,
+    PLAYER_PARACHUTE_COUNT
+};
+
 struct SKeySnapshot
 {
 public:
@@ -374,6 +392,14 @@ public:
     int animationState = PLAYER_ANIMATION_NONE;
     uint16_t animationSequence = 0;
     uint8_t animationProgress = 0;
+    bool hasParachuteState = false;
+    int parachuteState = PLAYER_PARACHUTE_NONE;
+    uint16_t parachuteSequence = 0;
+    uint8_t parachuteProgress = 0;
+    float parachutePitch = 0.0f;
+    float parachuteRoll = 0.0f;
+
+    static constexpr float PARACHUTE_TILT_LIMIT = PI / 2.0f;
 
     bool IsAnimationStateSemanticallyValid() const
     {
@@ -385,6 +411,23 @@ public:
         return taskType == TASK_SIMPLE_PLAYER_ON_FOOT && !toggle && animationState >= PLAYER_ANIMATION_NONE &&
                animationState < PLAYER_ANIMATION_COUNT &&
                (animationState != PLAYER_ANIMATION_NONE || animationProgress == 0);
+    }
+
+    bool IsParachuteStateSemanticallyValid() const
+    {
+        if (!hasParachuteState)
+        {
+            return true;
+        }
+
+        const bool stoppedStateIsCanonical = parachuteState != PLAYER_PARACHUTE_NONE ||
+            (parachuteProgress == 0 && parachutePitch == 0.0f && parachuteRoll == 0.0f);
+        return taskType == TASK_SIMPLE_PLAYER_ON_FOOT && !toggle && !hasAnimationState &&
+               parachuteState >= PLAYER_PARACHUTE_NONE && parachuteState < PLAYER_PARACHUTE_COUNT &&
+               std::isfinite(parachutePitch) && std::isfinite(parachuteRoll) &&
+               parachutePitch >= -PARACHUTE_TILT_LIMIT && parachutePitch <= PARACHUTE_TILT_LIMIT &&
+               parachuteRoll >= -PARACHUTE_TILT_LIMIT && parachuteRoll <= PARACHUTE_TILT_LIMIT &&
+               stoppedStateIsCanonical;
     }
 
     template <typename Stream>
@@ -410,6 +453,27 @@ public:
             serialize_uint16(stream, animationSequence);
             serialize_uint8(stream, animationProgress);
             if (Stream::IsReading && !IsAnimationStateSemanticallyValid())
+            {
+                return false;
+            }
+        }
+
+        serialize_bool(stream, hasParachuteState);
+        if (hasParachuteState)
+        {
+            if (Stream::IsWriting && !IsParachuteStateSemanticallyValid())
+            {
+                return false;
+            }
+
+            serialize_int(stream, parachuteState, PLAYER_PARACHUTE_NONE, PLAYER_PARACHUTE_COUNT - 1);
+            serialize_uint16(stream, parachuteSequence);
+            serialize_uint8(stream, parachuteProgress);
+            serialize_compressed_float(
+                stream, parachutePitch, -PARACHUTE_TILT_LIMIT, PARACHUTE_TILT_LIMIT, 0.01f);
+            serialize_compressed_float(
+                stream, parachuteRoll, -PARACHUTE_TILT_LIMIT, PARACHUTE_TILT_LIMIT, 0.01f);
+            if (Stream::IsReading && !IsParachuteStateSemanticallyValid())
             {
                 return false;
             }

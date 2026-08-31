@@ -13,6 +13,8 @@ constexpr uint32_t ANIMATION_RATE_WINDOW_MS = 1000;
 constexpr uint16_t MAX_ANIMATION_EVENTS_PER_WINDOW = 20;
 constexpr uint32_t LASER_DOT_RATE_WINDOW_MS = 1000;
 constexpr uint16_t MAX_LASER_DOT_UPDATES_PER_WINDOW = 30;
+constexpr uint32_t PARACHUTE_RATE_WINDOW_MS = 1000;
+constexpr uint16_t MAX_PARACHUTE_UPDATES_PER_WINDOW = 12;
 
 struct AnimationRateSlot
 {
@@ -33,6 +35,16 @@ struct LaserDotRateSlot
 };
 
 LaserDotRateSlot g_laserDotRateSlots[Config::MAX_SERVER_PLAYERS]{};
+
+struct ParachuteRateSlot
+{
+    CNetworkPlayer* owner = nullptr;
+    uint32_t connectId = 0;
+    uint32_t windowStartedAt = 0;
+    uint16_t updateCount = 0;
+};
+
+ParachuteRateSlot g_parachuteRateSlots[Config::MAX_SERVER_PLAYERS]{};
 
 bool CanRelayAnimationEvent(CNetworkPlayer* player)
 {
@@ -92,6 +104,109 @@ bool CanRelayLaserScopeDotUpdate(CNetworkPlayer* player)
     return true;
 }
 
+bool CanRelayParachuteUpdate(CNetworkPlayer* player)
+{
+    if (!player || player->m_iPlayerId < 0 || player->m_iPlayerId >= Config::MAX_SERVER_PLAYERS ||
+        !player->m_pPeer)
+    {
+        return false;
+    }
+
+    ParachuteRateSlot& slot = g_parachuteRateSlots[player->m_iPlayerId];
+    const uint32_t now = enet_time_get();
+    const uint32_t connectId = player->m_pPeer->connectID;
+    if (slot.owner != player || slot.connectId != connectId ||
+        now - slot.windowStartedAt >= PARACHUTE_RATE_WINDOW_MS)
+    {
+        slot.owner = player;
+        slot.connectId = connectId;
+        slot.windowStartedAt = now;
+        slot.updateCount = 0;
+    }
+
+    if (slot.updateCount >= MAX_PARACHUTE_UPDATES_PER_WINDOW)
+    {
+        return false;
+    }
+
+    ++slot.updateCount;
+    return true;
+}
+
+bool IsParachuteSequenceNewer(uint16_t incoming, uint16_t previous)
+{
+    return static_cast<int16_t>(incoming - previous) > 0;
+}
+
+bool IsFreefallState(Packets::Players::ePlayerParachuteState state)
+{
+    return state >= Packets::Players::PLAYER_PARACHUTE_FREEFALL &&
+           state <= Packets::Players::PLAYER_PARACHUTE_FREEFALL_ACCEL;
+}
+
+bool IsDeployedState(Packets::Players::ePlayerParachuteState state)
+{
+    return state >= Packets::Players::PLAYER_PARACHUTE_DEPLOYED &&
+           state <= Packets::Players::PLAYER_PARACHUTE_DEPLOYED_FLARE;
+}
+
+bool IsValidParachuteTransition(Packets::Players::ePlayerParachuteState previous,
+    Packets::Players::ePlayerParachuteState incoming)
+{
+    if (incoming == Packets::Players::PLAYER_PARACHUTE_NONE || incoming == previous ||
+        previous == Packets::Players::PLAYER_PARACHUTE_NONE)
+    {
+        return true;
+    }
+    if (IsFreefallState(previous))
+    {
+        return IsFreefallState(incoming) || incoming == Packets::Players::PLAYER_PARACHUTE_OPENING ||
+               incoming == Packets::Players::PLAYER_PARACHUTE_COLLAPSED;
+    }
+    if (previous == Packets::Players::PLAYER_PARACHUTE_OPENING)
+    {
+        return incoming == Packets::Players::PLAYER_PARACHUTE_OPENING || IsDeployedState(incoming) ||
+               incoming == Packets::Players::PLAYER_PARACHUTE_COLLAPSED ||
+               incoming == Packets::Players::PLAYER_PARACHUTE_LANDING ||
+               incoming == Packets::Players::PLAYER_PARACHUTE_LANDING_WATER;
+    }
+    if (IsDeployedState(previous))
+    {
+        return IsDeployedState(incoming) || incoming == Packets::Players::PLAYER_PARACHUTE_COLLAPSED ||
+               incoming == Packets::Players::PLAYER_PARACHUTE_LANDING ||
+               incoming == Packets::Players::PLAYER_PARACHUTE_LANDING_WATER;
+    }
+    if (previous == Packets::Players::PLAYER_PARACHUTE_COLLAPSED)
+    {
+        return incoming == Packets::Players::PLAYER_PARACHUTE_COLLAPSED;
+    }
+    return (previous == Packets::Players::PLAYER_PARACHUTE_LANDING &&
+               incoming == Packets::Players::PLAYER_PARACHUTE_LANDING) ||
+           (previous == Packets::Players::PLAYER_PARACHUTE_LANDING_WATER &&
+               incoming == Packets::Players::PLAYER_PARACHUTE_LANDING_WATER);
+}
+
+void RelayAuthoritativeParachuteStop(CNetworkPlayer* player)
+{
+    if (!player || !player->m_bHasAuthoritativeParachuteState)
+    {
+        return;
+    }
+
+    Packets::Players::SetPlayerTask stop{};
+    stop.playerid = player->m_iPlayerId;
+    stop.taskType = TASK_SIMPLE_PLAYER_ON_FOOT;
+    stop.hasParachuteState = true;
+    stop.parachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+    stop.parachuteSequence = static_cast<uint16_t>(player->m_nParachuteSequence + 1);
+    GetPacketFactory().SendToAll(stop, player);
+
+    player->m_eParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+    player->m_nParachuteSequence = stop.parachuteSequence;
+    player->m_bHasParachuteSequence = true;
+    player->m_bHasAuthoritativeParachuteState = false;
+}
+
 template <typename PacketT>
 void RelayPlayerGameplayState(PacketT& packet, CNetworkPlayer* pSourcePlayer)
 {
@@ -117,6 +232,12 @@ PACKET_HANDLER(
     pNetworkPlayer->m_bHasOnFootSnapshot = true;
     pNetworkPlayer->m_bIsAlive = pOnFootUpdate->healthSnapshot.iHealth > 0;
     pNetworkPlayer->m_eLastWeaponType = static_cast<eWeaponType>(pOnFootUpdate->weaponSnapshot.iWeaponType);
+    if (pNetworkPlayer->m_bHasAuthoritativeParachuteState &&
+        (!pNetworkPlayer->m_bIsAlive || pNetworkPlayer->m_eLastWeaponType != WEAPON_PARACHUTE ||
+            pNetworkPlayer->m_nVehicleId >= 0))
+    {
+        RelayAuthoritativeParachuteStop(pNetworkPlayer);
+    }
     pOnFootUpdate->playerid.value = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pOnFootUpdate, pNetworkPlayer);
 }
@@ -147,13 +268,40 @@ PACKET_HANDLER(ePacketType::PLAYER_CAMERA_SYNC, Packets::Players::PlayerCameraSy
 
 PACKET_HANDLER(ePacketType::SET_PLAYER_TASK, Packets::Players::SetPlayerTask* pSetPlayerTask, CNetworkPlayer* pNetworkPlayer)
 {
-    if (!pSetPlayerTask->IsAnimationStateSemanticallyValid())
+    if (!pSetPlayerTask->IsAnimationStateSemanticallyValid() ||
+        !pSetPlayerTask->IsParachuteStateSemanticallyValid())
     {
         return;
     }
     if (pSetPlayerTask->hasAnimationState && !CanRelayAnimationEvent(pNetworkPlayer))
     {
         return;
+    }
+    if (pSetPlayerTask->hasParachuteState)
+    {
+        const auto incoming = static_cast<Packets::Players::ePlayerParachuteState>(
+            pSetPlayerTask->parachuteState);
+        if (!CanRelayParachuteUpdate(pNetworkPlayer) ||
+            (pNetworkPlayer->m_bHasParachuteSequence &&
+                !IsParachuteSequenceNewer(
+                    pSetPlayerTask->parachuteSequence, pNetworkPlayer->m_nParachuteSequence)) ||
+            !IsValidParachuteTransition(pNetworkPlayer->m_eParachuteState, incoming))
+        {
+            return;
+        }
+
+        if (incoming != Packets::Players::PLAYER_PARACHUTE_NONE &&
+            (!pNetworkPlayer->m_bHasOnFootSnapshot || !pNetworkPlayer->m_bIsAlive ||
+                pNetworkPlayer->m_eLastWeaponType != WEAPON_PARACHUTE || pNetworkPlayer->m_nVehicleId >= 0))
+        {
+            return;
+        }
+
+        pNetworkPlayer->m_eParachuteState = incoming;
+        pNetworkPlayer->m_nParachuteSequence = pSetPlayerTask->parachuteSequence;
+        pNetworkPlayer->m_bHasParachuteSequence = true;
+        pNetworkPlayer->m_bHasAuthoritativeParachuteState =
+            incoming != Packets::Players::PLAYER_PARACHUTE_NONE;
     }
 
     pSetPlayerTask->playerid = pNetworkPlayer->m_iPlayerId;
@@ -177,6 +325,7 @@ PACKET_HANDLER(ePacketType::PLAYER_PLACE_WAYPOINT, Packets::Players::PlayerPlace
 
 PACKET_HANDLER(ePacketType::RESPAWN_PLAYER, Packets::Players::RespawnPlayer* pRespawnPlayer, CNetworkPlayer* pNetworkPlayer)
 {
+    RelayAuthoritativeParachuteStop(pNetworkPlayer);
     pNetworkPlayer->m_bHasOnFootSnapshot = false;
     pNetworkPlayer->m_bIsAlive = false;
     pNetworkPlayer->m_eLastWeaponType = WEAPON_UNARMED;

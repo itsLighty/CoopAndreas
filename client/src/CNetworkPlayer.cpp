@@ -5,6 +5,9 @@
 #include <CTaskComplexEnterCarAsPassenger.h>
 #include <CAnimBlendHierarchy.h>
 #include <CPlayerAnimationSyncManager.h>
+#include <CPlayerParachuteSyncManager.h>
+#include <CObject.h>
+#include <CTaskSimpleRunNamedAnim.h>
 
 namespace
 {
@@ -72,10 +75,122 @@ bool IsSequenceNewer(uint16_t incoming, uint16_t previous)
 {
     return static_cast<int16_t>(incoming - previous) > 0;
 }
+
+struct SyncedParachuteDefinition
+{
+    const char* pedAnimation;
+    const char* canopyAnimation;
+    float blendDelta;
+    float canopySpeed;
+    bool looped;
+    bool showCanopy;
+    bool detachCanopy;
+};
+
+bool GetSyncedParachuteDefinition(int state, SyncedParachuteDefinition& definition)
+{
+    switch (state)
+    {
+        case Packets::Players::PLAYER_PARACHUTE_FREEFALL:
+            definition = { "FALL_SKYDIVE", nullptr, 1.0f, 0.0f, true, false, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_FREEFALL_LEFT:
+            definition = { "FALL_SKYDIVE_L", nullptr, 1.0f, 0.0f, true, false, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_FREEFALL_RIGHT:
+            definition = { "FALL_SKYDIVE_R", nullptr, 1.0f, 0.0f, true, false, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_FREEFALL_ACCEL:
+            definition = { "FALL_SKYDIVE_ACCEL", nullptr, 1.0f, 0.0f, true, false, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_OPENING:
+            definition = { "PARA_OPEN", "PARA_OPEN_O", 8.0f, 1000.0f, false, true, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_DEPLOYED:
+            definition = { "PARA_FLOAT", "PARA_FLOAT_O", 2.0f, 2.0f, true, true, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_DEPLOYED_LEFT:
+            definition = { "PARA_STEERL", "PARA_STEERL_O", 1.0f, 1.0f, true, true, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_DEPLOYED_RIGHT:
+            definition = { "PARA_STEERR", "PARA_STEERR_O", 1.0f, 1.0f, true, true, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_DEPLOYED_FLARE:
+            definition = { "PARA_DECEL", "PARA_DECEL_O", 1.0f, 1.0f, true, true, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_COLLAPSED:
+            definition = { nullptr, "PARA_RIP_LOOP_O", 8.0f, 8.0f, true, true, false };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_LANDING:
+            definition = { "PARA_LAND", "PARA_LAND_O", 8.0f, 1000.0f, false, true, true };
+            return true;
+        case Packets::Players::PLAYER_PARACHUTE_LANDING_WATER:
+            definition = { "PARA_LAND_WATER", "PARA_LAND_WATER_O", 8.0f, 1000.0f, false, true, false };
+            return true;
+        default:
+            return false;
+    }
+}
+
+CAnimBlendAssociation* FindNamedParachuteAssociation(RpClump* clump, const char* animationName)
+{
+    if (!clump || !animationName)
+    {
+        return nullptr;
+    }
+
+    const int blockId = CAnimManager::GetAnimationBlockIndex("PARACHUTE");
+    const uint32_t animationHash = CKeyGen::GetUppercaseKey(animationName);
+    for (CAnimBlendAssociation* association = RpAnimBlendClumpGetFirstAssociation(clump); association;
+         association = RpAnimBlendGetNextAssociation(association))
+    {
+        if (association->m_pHierarchy && association->m_pHierarchy->m_nAnimBlockId == blockId &&
+            association->m_pHierarchy->m_hashKey == animationHash)
+        {
+            return association;
+        }
+    }
+    return nullptr;
+}
+
+void CorrectParachuteAnimationProgress(CAnimBlendAssociation* association, uint8_t progress,
+    uint32_t receivedAt, bool looped)
+{
+    if (!association || !association->m_pHierarchy || association->m_pHierarchy->m_fTotalTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float totalTime = association->m_pHierarchy->m_fTotalTime;
+    float targetTime = totalTime * (static_cast<float>(progress) / 255.0f);
+    targetTime += static_cast<float>(GetTickCount() - receivedAt) / 1000.0f * association->m_fSpeed;
+    if (looped)
+    {
+        while (targetTime >= totalTime)
+        {
+            targetTime -= totalTime;
+        }
+    }
+    else
+    {
+        targetTime = std::min(targetTime, totalTime);
+    }
+
+    float drift = fabsf(association->m_fCurrentTime - targetTime);
+    if (looped && drift > totalTime * 0.5f)
+    {
+        drift = totalTime - drift;
+    }
+    if (drift > 0.15f)
+    {
+        association->SetCurrentTime(targetTime);
+    }
+}
 }
 
 CNetworkPlayer::~CNetworkPlayer()
 {
+    ClearSyncedParachuteState();
     ClearSyncedAnimationState();
     if (m_pPed == nullptr)
         return;
@@ -123,11 +238,13 @@ void CNetworkPlayer::CreatePed(int id, CVector position)
     }
 
     ApplySyncedAnimation();
+    ApplySyncedParachute();
 }
 
 void CNetworkPlayer::DestroyPed()
 {
     ClearLaserScopeDotState();
+    DestroySyncedParachutePresentation();
     if (!m_pPed)
     {
         return;
@@ -157,6 +274,7 @@ void CNetworkPlayer::DestroyPed()
 
 void CNetworkPlayer::Respawn()
 {
+    ClearSyncedParachuteState();
     ClearSyncedAnimationState();
     if (m_pPed)
     {
@@ -246,6 +364,8 @@ void CNetworkPlayer::WarpIntoVehicleDriver(CVehicle* vehicle)
         return;
     }
 
+    ClearSyncedParachuteState();
+
     if (m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle)
     {
         RemoveFromVehicle(m_pPed->m_pVehicle);
@@ -268,6 +388,8 @@ void CNetworkPlayer::WarpIntoVehiclePassenger(CVehicle* vehicle, int seatid)
     {
         return;
     }
+
+    ClearSyncedParachuteState();
 
     if (m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle)
     {
@@ -292,6 +414,8 @@ void CNetworkPlayer::EnterVehiclePassenger(CVehicle* vehicle, int seatid)
     {
         return;
     }
+
+    ClearSyncedParachuteState();
 
     if (m_pPed->m_nPedFlags.bInVehicle && m_pPed->m_pVehicle)
     {
@@ -327,6 +451,12 @@ void CNetworkPlayer::RemoveFromVehicle(CVehicle* vehicle)
 
 void CNetworkPlayer::HandleTask(Packets::Players::SetPlayerTask& packet)
 {
+    if (packet.hasParachuteState)
+    {
+        HandleSyncedParachute(packet);
+        return;
+    }
+
     if (packet.hasAnimationState)
     {
         HandleSyncedAnimation(packet);
@@ -388,6 +518,178 @@ void CNetworkPlayer::HandleTask(Packets::Players::SetPlayerTask& packet)
             break;
         }
     }
+}
+
+void CNetworkPlayer::HandleSyncedParachute(const Packets::Players::SetPlayerTask& packet)
+{
+    if (!packet.IsParachuteStateSemanticallyValid() ||
+        (m_bHasSyncedParachuteSequence &&
+            !IsSequenceNewer(packet.parachuteSequence, m_nSyncedParachuteSequence)))
+    {
+        return;
+    }
+
+    m_bHasSyncedParachuteSequence = true;
+    m_nSyncedParachuteSequence = packet.parachuteSequence;
+    m_nSyncedParachuteProgress = packet.parachuteProgress;
+    m_fSyncedParachutePitch = packet.parachutePitch;
+    m_fSyncedParachuteRoll = packet.parachuteRoll;
+    m_fSyncedParachuteHeading = packet.currentRotation.m_angle;
+    m_nSyncedParachuteReceivedAt = GetTickCount();
+
+    if (packet.parachuteState == Packets::Players::PLAYER_PARACHUTE_NONE)
+    {
+        ClearSyncedParachuteState();
+        return;
+    }
+
+    if (!m_bParachuteResourcesAcquired)
+    {
+        CPlayerParachuteSyncManager::AcquireResources();
+        m_bParachuteResourcesAcquired = true;
+    }
+    m_nSyncedParachuteState = packet.parachuteState;
+    ApplySyncedParachute();
+}
+
+void CNetworkPlayer::ProcessSyncedParachute()
+{
+    if (m_nSyncedParachuteState == Packets::Players::PLAYER_PARACHUTE_NONE)
+    {
+        return;
+    }
+    if (!m_pPed || !m_pPed->IsAlive() || m_pPed->m_nPedFlags.bInVehicle || m_pPed->m_pVehicle)
+    {
+        ClearSyncedParachuteState();
+        return;
+    }
+    if (GetTickCount() - m_nSyncedParachuteReceivedAt > CPlayerParachuteSyncManager::STALE_TIMEOUT_MS)
+    {
+        ClearSyncedParachuteState();
+        return;
+    }
+    ApplySyncedParachute();
+}
+
+void CNetworkPlayer::ApplySyncedParachute()
+{
+    if (!m_pPed || !m_pPed->IsAlive() || m_pPed->m_nPedFlags.bInVehicle || m_pPed->m_pVehicle ||
+        m_nSyncedParachuteState == Packets::Players::PLAYER_PARACHUTE_NONE)
+    {
+        DestroySyncedParachutePresentation();
+        return;
+    }
+
+    SyncedParachuteDefinition definition{};
+    if (!GetSyncedParachuteDefinition(m_nSyncedParachuteState, definition))
+    {
+        ClearSyncedParachuteState();
+        return;
+    }
+    if (!CPlayerParachuteSyncManager::EnsureResourcesLoaded())
+    {
+        return;
+    }
+
+    const bool stateChanged = m_nAppliedParachuteState != m_nSyncedParachuteState;
+    const bool missingPedAnimation = definition.pedAnimation &&
+        !FindNamedParachuteAssociation(m_pPed->m_pRwClump, definition.pedAnimation);
+    if (definition.pedAnimation && (stateChanged || missingPedAnimation))
+    {
+        Command<Commands::TASK_PLAY_ANIM_NON_INTERRUPTABLE>(m_pPed, definition.pedAnimation, "PARACHUTE",
+            definition.blendDelta, definition.looped, false, false, !definition.looped, -2);
+    }
+
+    if (definition.showCanopy && !m_pSyncedParachuteCanopy)
+    {
+        const CVector position = m_pPed->GetPosition();
+        Command<Commands::CREATE_OBJECT>(MODEL_PARACHUTE, position.x, position.y, position.z,
+            &m_pSyncedParachuteCanopy);
+        if (m_pSyncedParachuteCanopy)
+        {
+            Command<Commands::ATTACH_OBJECT_TO_CHAR>(m_pSyncedParachuteCanopy, m_pPed,
+                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+            m_bParachuteCanopyAttached = true;
+        }
+    }
+
+    if (m_pSyncedParachuteCanopy)
+    {
+        Command<Commands::SET_OBJECT_VISIBLE>(m_pSyncedParachuteCanopy, definition.showCanopy);
+        if (stateChanged && definition.canopyAnimation)
+        {
+            Command<Commands::PLAY_OBJECT_ANIM>(m_pSyncedParachuteCanopy, definition.canopyAnimation,
+                "PARACHUTE", definition.canopySpeed, definition.looped, true);
+        }
+        if (definition.detachCanopy && m_bParachuteCanopyAttached)
+        {
+            Command<Commands::DETACH_OBJECT>(m_pSyncedParachuteCanopy, 0.0f, 0.0f, 0.0f, false);
+            m_bParachuteCanopyAttached = false;
+        }
+    }
+
+    m_nAppliedParachuteState = m_nSyncedParachuteState;
+    m_pPed->SetOrientation(m_fSyncedParachutePitch, m_fSyncedParachuteRoll, m_fSyncedParachuteHeading);
+
+    CorrectParachuteAnimationProgress(
+        FindNamedParachuteAssociation(m_pPed->m_pRwClump, definition.pedAnimation),
+        m_nSyncedParachuteProgress, m_nSyncedParachuteReceivedAt, definition.looped);
+    if (m_pSyncedParachuteCanopy)
+    {
+        CorrectParachuteAnimationProgress(
+            FindNamedParachuteAssociation(m_pSyncedParachuteCanopy->m_pRwClump, definition.canopyAnimation),
+            m_nSyncedParachuteProgress, m_nSyncedParachuteReceivedAt, definition.looped);
+    }
+}
+
+void CNetworkPlayer::DestroySyncedParachutePresentation()
+{
+    if (m_pPed && m_pPed->m_pIntelligence)
+    {
+        CTask* namedTask = m_pPed->m_pIntelligence->m_TaskMgr.FindActiveTaskByType(TASK_SIMPLE_NAMED_ANIM);
+        CTaskSimpleRunNamedAnim* parachuteTask = static_cast<CTaskSimpleRunNamedAnim*>(namedTask);
+        if (parachuteTask && _stricmp(parachuteTask->m_animGroupName, "PARACHUTE") == 0)
+        {
+            m_pPed->m_pIntelligence->m_TaskMgr.SetTask(nullptr, TASK_PRIMARY_PRIMARY, false);
+        }
+
+        const int blockId = CAnimManager::GetAnimationBlockIndex("PARACHUTE");
+        if (m_pPed->m_pRwClump && blockId >= 0)
+        {
+            for (CAnimBlendAssociation* association = RpAnimBlendClumpGetFirstAssociation(m_pPed->m_pRwClump);
+                 association; association = RpAnimBlendGetNextAssociation(association))
+            {
+                if (association->m_pHierarchy && association->m_pHierarchy->m_nAnimBlockId == blockId)
+                {
+                    association->m_fBlendDelta = -8.0f;
+                }
+            }
+        }
+    }
+
+    if (m_pSyncedParachuteCanopy)
+    {
+        Command<Commands::DELETE_OBJECT>(m_pSyncedParachuteCanopy);
+        m_pSyncedParachuteCanopy = nullptr;
+    }
+    m_bParachuteCanopyAttached = false;
+    m_nAppliedParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+}
+
+void CNetworkPlayer::ClearSyncedParachuteState()
+{
+    DestroySyncedParachutePresentation();
+    if (m_bParachuteResourcesAcquired)
+    {
+        CPlayerParachuteSyncManager::ReleaseResources();
+        m_bParachuteResourcesAcquired = false;
+    }
+    m_nSyncedParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;
+    m_nSyncedParachuteProgress = 0;
+    m_fSyncedParachutePitch = 0.0f;
+    m_fSyncedParachuteRoll = 0.0f;
+    m_fSyncedParachuteHeading = 0.0f;
+    m_nSyncedParachuteReceivedAt = 0;
 }
 
 void CNetworkPlayer::HandleSyncedAnimation(const Packets::Players::SetPlayerTask& packet)
@@ -552,6 +854,10 @@ void CNetworkPlayer::ApplyWeaponSnapshot(Packets::Players::SWeaponSnapshot& weap
     if (weaponSnapshot.iWeaponType != WEAPON_SNIPERRIFLE)
     {
         ClearLaserScopeDotState();
+    }
+    if (weaponSnapshot.iWeaponType != WEAPON_PARACHUTE)
+    {
+        ClearSyncedParachuteState();
     }
     // TODO refactor CUtil
     CUtil::GiveWeaponByPacket(this, weaponSnapshot.iWeaponType, weaponSnapshot.nAmmo);

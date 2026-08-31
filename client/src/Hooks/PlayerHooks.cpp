@@ -5,6 +5,7 @@
 #include <game_sa/CPedDamageResponseInfo.h>
 #include <CPacketBuffer.h>
 #include <CServerTime.h>
+#include <CPlayerParachuteSyncManager.h>
 
 static void __fastcall CPlayerPed__ProcessControl_Hook(CPlayerPed* This)
 {
@@ -15,6 +16,7 @@ static void __fastcall CPlayerPed__ProcessControl_Hook(CPlayerPed* This)
         patch::SetRaw(0x6884C4, (void*)"\xD9\x96\x5C\x05\x00\x00", 6, false);
         plugin::CallMethod<0x60EA90, CPlayerPed*>(This);
         patch::Nop(0x6884C4, 6, false);
+        CPlayerParachuteSyncManager::ProcessLocal();
         return;
     }
 
@@ -57,6 +59,10 @@ static void __fastcall CPlayerPed__ProcessControl_Hook(CPlayerPed* This)
     }*/
 
     plugin::CallMethod<0x60EA90, CPlayerPed*>(This);
+
+    // The stock player-on-foot task is still allowed to update the remote player, then the authenticated
+    // parachute presentation is re-applied so local AI cannot replace it between network heartbeats.
+    player->ProcessSyncedParachute();
 
     // player->m_pPed->m_fAimingRotation = player->m_onFootSnapshotInterpolated.aimingRotation.m_angle;
 
