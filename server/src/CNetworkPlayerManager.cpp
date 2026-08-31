@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "CGangZoneWarAuthorityManager.h"
+#include "CPickupAuthorityManager.h"
 
 std::vector<CNetworkPlayer*> CNetworkPlayerManager::m_pPlayers;
 
@@ -70,6 +71,7 @@ void CNetworkPlayerManager::AssignHostToFirstPlayer()
     if (CNetworkPlayerManager::m_pPlayers.size() <= 0)
     {
         CGangZoneWarAuthorityManager::ResetForAuthorityChange();
+        CPickupAuthorityManager::HandleAuthorityChange(nullptr);
         return;
     }
 
@@ -91,4 +93,5 @@ void CNetworkPlayerManager::AssignHostToFirstPlayer()
     Packets::System::PlayerAssignHost playerAssignHost{};
     playerAssignHost.playerid = player->m_iPlayerId;
     GetPacketFactory().SendToAll(playerAssignHost);
+    CPickupAuthorityManager::HandleAuthorityChange(player);
 }
