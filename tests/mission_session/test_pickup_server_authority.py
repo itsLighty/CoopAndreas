@@ -149,6 +149,7 @@ class PickupServerAuthorityTests(unittest.TestCase):
                       (ROOT / "shared/config.h").read_text(encoding="utf-8"))
 
     def test_stable_id_closed_kinds_and_metadata_are_bounded(self):
+        self.assertRegex(self.packets, r'(?m)^#include "eWeaponType\.h"$')
         self.assertIn("PICKUP_POOL_CAPACITY = 620", self.packets)
         self.assertIn("slot < PICKUP_POOL_CAPACITY && generation != 0", self.packets)
         enum = re.search(r"enum class ePickupKind.*?\{(.*?)COUNT", self.packets, re.S).group(1)
