@@ -377,7 +377,7 @@ class FireSourceContractTests(unittest.TestCase):
 
     def test_protocol_is_bumped_and_packet_ids_are_append_only(self):
         config = (ROOT / "shared/config.h").read_text(encoding="utf-8")
-        self.assertIn('COOPANDREAS_VERSION "0.3.9-alpha"', config)
+        self.assertIn('COOPANDREAS_VERSION "0.3.10-alpha"', config)
         enum = re.search(
             r"enum class ePacketType[^\{]*\{(.*?)PACKET_ID_MAX", self.packet_types, re.S
         ).group(1)
@@ -482,10 +482,16 @@ class FireSourceContractTests(unittest.TestCase):
         self.assertIn("reinterpret_cast<uintptr_t>(fire.m_pFxSystem)", self.client)
         self.assertIn("slot.nativeBirthEpochToken != m_nativeBirthEpochs[slot.nativeSlot]", self.client)
         fire_hooks = (ROOT / "client/src/Hooks/FireHooks.cpp").read_text(encoding="utf-8")
-        for address in ("0x539F00", "0x53A050", "0x53A270"):
-            self.assertIn(address, fire_hooks)
-        self.assertGreaterEqual(fire_hooks.count("BeginNativeBirthObservation"), 3)
-        self.assertGreaterEqual(fire_hooks.count("EndNativeBirthObservation"), 3)
+        self.assertNotIn("ThiscallEvent", fire_hooks)
+        self.assertNotIn("0x53A270", fire_hooks)
+        self.assertIn("gameProcessEvent.before", fire_hooks)
+        self.assertIn("gameProcessEvent.after", fire_hooks)
+        self.assertIn("BeginNativeBirthObservation(nullptr, true)", fire_hooks)
+        self.assertIn("EndNativeBirthObservation()", fire_hooks)
+        materialize = self.client.split("bool CNetworkFireManager::Materialize", 1)[1]
+        materialize = materialize.split("void CNetworkFireManager::ClearPendingBirth", 1)[0]
+        self.assertIn("BeginNativeBirthObservation(target, true)", materialize)
+        self.assertIn("EndNativeBirthObservation()", materialize)
         reuse = self.client.split("if (!NativeIdentityMatches(slot, fire))", 1)[1]
         reuse = reuse.split("if (!m_localPlayerIsAuthority)", 1)[0]
         self.assertIn("eFireMutation::EXTINGUISH", reuse)

@@ -35,6 +35,11 @@ class InteriorMissionProjectileRegressionTests(unittest.TestCase):
         cls.blip_packets = (ROOT / "shared/network/packets/blips.h").read_text(encoding="utf-8")
         cls.server_blips = (ROOT / "server/src/PacketHandlers/blips.cpp").read_text(encoding="utf-8")
         cls.server_network = (ROOT / "server/src/CNetwork.cpp").read_text(encoding="utf-8")
+        cls.server_player_header = (ROOT / "server/src/CNetworkPlayer.h").read_text(encoding="utf-8")
+        cls.static_blips = (ROOT / "client/src/CNetworkStaticBlip.cpp").read_text(encoding="utf-8")
+        cls.opcode_sync = (ROOT / "client/src/COpCodeSync.cpp").read_text(encoding="utf-8")
+        cls.cutscene_votes = (ROOT / "client/src/CCutsceneVoteManager.cpp").read_text(encoding="utf-8")
+        cls.enex_sync = (ROOT / "client/src/CEntryExitTransitionSync.cpp").read_text(encoding="utf-8")
 
     def test_onfoot_snapshots_carry_authoritative_area_continuously(self):
         packet = re.search(r"class OnFootUpdate\b.*?^};", self.player_packets, re.S | re.M).group(0)
@@ -50,11 +55,24 @@ class InteriorMissionProjectileRegressionTests(unittest.TestCase):
 
     def test_player_map_pin_survives_cross_interior_stream_out(self):
         process = function_body(self.map_pins, "void CNetworkPlayerMapPin::Process(")
-        self.assertIn("player->GetLogicalPosition()", process)
+        self.assertIn("player->GetMapPosition()", process)
         self.assertNotIn("player->m_pPed == nullptr", process)
         marker = function_body(self.map_pins, "bool GetPlayerMarkerPosition(")
         self.assertIn("worldPosition.x", marker)
         self.assertNotIn("FindPlayerCoors", marker)
+        map_position = function_body(self.client_player, "CVector CNetworkPlayer::GetMapPosition() const")
+        self.assertIn("m_nLogicalArea == AREA_MAIN_MAP", map_position)
+        self.assertIn("m_vecMapPosition", map_position)
+        onfoot = function_body(self.client_player, "bool CNetworkPlayer::CacheOnFootSnapshot(")
+        self.assertIn("m_vecMapPosition = snapshot.vecPos", onfoot)
+        self.assertIn("pNetworkPlayer->m_vecMapPosition = packet.position", self.enex_sync)
+
+    def test_late_joiner_receives_existing_host_authority_and_presentation(self):
+        self.assertIn("m_lastOnFootSnapshot", self.server_player_header)
+        relay = function_body(self.server_players, "ePacketType::PLAYER_ONFOOT_UPDATE")
+        self.assertIn("m_lastOnFootSnapshot = *pOnFootUpdate", relay)
+        self.assertIn("GetPacketFactory().Send(onFootSnapshot, pNewNetworkPlayer)", self.server_network)
+        self.assertIn("GetPacketFactory().Send(playerAssignHost, pNewNetworkPlayer)", self.server_network)
 
     def test_entity_mission_blips_are_retained_until_native_entity_materializes(self):
         update = function_body(self.blips, "void CNetworkEntityBlip::UpdateEntityBlip(")
@@ -74,6 +92,20 @@ class InteriorMissionProjectileRegressionTests(unittest.TestCase):
         self.assertIn("g_pLastStaticBlipsOwner = pNetworkPlayer", handler)
         self.assertIn("GetPacketFactory().Send(Packets::Blips::g_lastStaticBlipsData, pNewNetworkPlayer)",
                       self.server_network)
+        self.assertIn("CNetworkStaticBlip::Process();", self.client_main)
+        self.assertIn("HOST_SNAPSHOT_INTERVAL_MS", self.static_blips)
+        self.assertIn("SnapshotMatchesRadar", self.static_blips)
+        self.assertIn("ApplySnapshot(ms_lastAuthoritativeSnapshot)", self.static_blips)
+
+    def test_cutscenes_are_never_played_and_black_frame_is_restored(self):
+        self.assertIn("CCutsceneVoteManager::Process();", self.client_main)
+        self.assertIn("header.opcode == 0x02E4", self.opcode_sync)
+        self.assertIn("CCutsceneVoteManager::BeginDisabledCutscene();", self.opcode_sync)
+        self.assertIn("CCutsceneVoteManager::EndDisabledCutscene();", self.opcode_sync)
+        self.assertIn("TheCamera.SetWideScreenOff()", self.cutscene_votes)
+        self.assertIn("TheCamera.RestoreWithJumpCut()", self.cutscene_votes)
+        self.assertIn("CDraw::FadeValue = 0", self.cutscene_votes)
+        self.assertIn("CCutsceneMgr::FinishCutscene()", self.cutscene_votes)
 
     def test_projectile_optional_direction_is_not_inverted(self):
         packet = re.search(r"class AddProjectile\b.*?^};", self.player_packets, re.S | re.M).group(0)

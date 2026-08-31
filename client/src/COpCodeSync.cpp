@@ -466,7 +466,11 @@ void BuildAndSendOpcode()
 
     // The opcode remains the sole cutscene playback signal. These callbacks only establish/retire the
     // authoritative vote epoch after the host has synchronized the corresponding SCM command.
-    if (lastOpCodeProcessed == 0x02E7) // start_cutscene
+    if (lastOpCodeProcessed == 0x02E4) // load_cutscene
+    {
+        CCutsceneVoteManager::BeginDisabledCutscene();
+    }
+    else if (lastOpCodeProcessed == 0x02E7) // start_cutscene
     {
         CCutsceneVoteManager::NotifySynchronizedCutsceneStarted();
         CCutsceneVoteManager::SkipCurrentCutsceneImmediately();
@@ -474,6 +478,7 @@ void BuildAndSendOpcode()
     else if (lastOpCodeProcessed == 0x02EA) // clear_cutscene
     {
         CCutsceneVoteManager::NotifySynchronizedCutsceneEnded();
+        CCutsceneVoteManager::EndDisabledCutscene();
     }
 
     ResetCollectedOpcodeParameters();
@@ -740,6 +745,25 @@ void COpCodeSync::HandlePacket(const uint8_t* buffer, int bufferSize)
     script.m_pBaseIP = script.m_pCurrentIP = (uint8_t*)&header.opcode;
 
     lastOpCodeProcessed = header.opcode;
+
+    // Cinematics are disabled for this playtest build. Guests must not execute the stock load/start/clear
+    // commands because their local mission script does not own the host cutscene lifecycle. The host still
+    // executes the commands normally, then immediately restores gameplay in BuildAndSendOpcode above.
+    if (header.opcode == 0x02E4) // load_cutscene
+    {
+        CCutsceneVoteManager::BeginDisabledCutscene();
+        return;
+    }
+    if (header.opcode == 0x02E7) // start_cutscene
+    {
+        CCutsceneVoteManager::SkipCurrentCutsceneImmediately();
+        return;
+    }
+    if (header.opcode == 0x02EA) // clear_cutscene
+    {
+        CCutsceneVoteManager::EndDisabledCutscene();
+        return;
+    }
     
     //if (header.opcode == 0x0605 || header.opcode == 0x04ed || header.opcode == 0x04ef)
     //{
@@ -751,23 +775,6 @@ void COpCodeSync::HandlePacket(const uint8_t* buffer, int bufferSize)
     {
         CHud::m_BigMessage[1][0] = 0;
     }
-    else if (lastOpCodeProcessed == 0x02E7) // start_cutscene
-    {
-        if(CCutsceneMgr::ms_cutsceneLoadStatus != 2)
-        {
-            const uint64_t sessionId = CMissionSessionClient::GetState().sessionId;
-            if (!CMissionSessionClient::IsDeferredMediaSessionCurrent(sessionId))
-            {
-                return;
-            }
-            COpCodeSync::ms_bLoadingCutscene = true;
-            COpCodeSync::ms_nLoadingCutsceneSessionId = sessionId;
-            return; // dont process opcode
-        }
-    }
-
-
-
     switch (header.opcode)
     {
     case COMMAND_TASK_PLAY_ANIM:
@@ -822,10 +829,6 @@ void COpCodeSync::HandlePacket(const uint8_t* buffer, int bufferSize)
     patch::SetRaw(0x463D50, (void*)"\x8B\x41\x14\x83\xEC\x08", 6, false);
     bProcessingNetworkOpcode = false;
 
-    if (header.opcode == 0x02E7) // start_cutscene
-    {
-        CCutsceneVoteManager::SkipCurrentCutsceneImmediately();
-    }
 }
 
 void __declspec(naked) FinishedOpcodeProcessing_Hook()

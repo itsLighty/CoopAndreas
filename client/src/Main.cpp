@@ -98,8 +98,10 @@ public:
             if (/*CNetwork::m_bConnected*/ CNetwork::m_bAuthenticated)
             {
                 CMissionSessionClient::Process();
+                CCutsceneVoteManager::Process();
                 CNetworkCheatManager::Process();
                 CNetworkEntityStreamManager::Process();
+                CNetworkStaticBlip::Process();
 
                 // TODO: refactor
                 bool bHasStaleDeferredMedia = COpCodeSync::ms_bLoadingCutscene &&
@@ -268,12 +270,6 @@ public:
                 CEntryExitMarkerSync::Send();
                 CEntryExitMarkerSync::ms_bUpdateAfterProcessingThisFrame = false;
                 CEntryExitMarkerSync::ms_nLastUpdate = GetTickCount();
-            }
-
-            if (CNetworkStaticBlip::ms_bNeedToSendAfterThisFrame && CLocalPlayer::m_bIsHost)
-            {
-                CNetworkStaticBlip::Send();
-                CNetworkStaticBlip::ms_bNeedToSendAfterThisFrame = false;
             }
 
             /*if (GetAsyncKeyState(VK_F11) && CLocalPlayer::m_bIsHost)

@@ -540,6 +540,12 @@ int Run(const Options& options)
                alpha.HasSeen(bravo.Name()) && bravo.HasSeen(alpha.Name());
     }, 10000, pump), "initial two-client authentication/roster exchange timed out");
     Require(alpha.Id() != bravo.Id(), "server assigned duplicate player IDs");
+    Require(alpha.HostId() == alpha.Id(), "first client did not receive its host assignment");
+    Require(bravo.HostId() == alpha.Id(), "late joiner did not receive the existing host assignment");
+    Require(WaitUntil([&] {
+        return bravo.OnFootCount() > 0 && bravo.LastOnFootPlayerId() == alpha.Id() &&
+               bravo.LastOnFootArea() == AREA_MAIN_MAP;
+    }, 5000, pump), "late joiner did not receive the host's cached presentation snapshot");
 
     alpha.SendGameplayFrame(0.0f);
     bravo.SendGameplayFrame(1.0f);
@@ -583,7 +589,8 @@ int Run(const Options& options)
         bravo.Connect(options.host, options.port, true);
         Require(WaitUntil([&] {
             return bravo.IsAuthenticated() && bravo.HasCredential() &&
-                   alpha.HasSeen(bravo.Name()) && bravo.HasSeen(alpha.Name());
+                   alpha.HasSeen(bravo.Name()) && bravo.HasSeen(alpha.Name()) &&
+                   bravo.HostId() == alpha.Id();
         }, 10000, pump), "reconnect/roster exchange timed out at cycle " + std::to_string(cycle));
 
         const size_t alphaOnFootBefore = alpha.OnFootCount();

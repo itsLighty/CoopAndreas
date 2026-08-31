@@ -16,6 +16,20 @@ bool CCutsceneVoteManager::m_bSkipApplied = false;
 bool CCutsceneVoteManager::m_bEndRequestSent = false;
 bool CCutsceneVoteManager::m_bEndWhenAcknowledged = false;
 bool CCutsceneVoteManager::m_bObservedCutsceneRunning = false;
+bool CCutsceneVoteManager::m_bDisabledCutscenePending = false;
+
+void CCutsceneVoteManager::BeginDisabledCutscene()
+{
+    m_bDisabledCutscenePending = true;
+    RestoreGameplayPresentation();
+}
+
+void CCutsceneVoteManager::EndDisabledCutscene()
+{
+    SkipCurrentCutsceneImmediately();
+    m_bDisabledCutscenePending = false;
+    RestoreGameplayPresentation();
+}
 
 void CCutsceneVoteManager::NotifySynchronizedCutsceneStarted()
 {
@@ -67,12 +81,15 @@ void CCutsceneVoteManager::NotifySynchronizedCutsceneEnded()
 
 void CCutsceneVoteManager::SkipCurrentCutsceneImmediately()
 {
+    m_bDisabledCutscenePending = true;
     CHud::m_BigMessage[1][0] = 0;
     CCutsceneMgr::ms_wasCutsceneSkipped = true;
     if (CCutsceneMgr::ms_running)
     {
+        m_bObservedCutsceneRunning = true;
         CCutsceneMgr::FinishCutscene();
     }
+    RestoreGameplayPresentation();
 }
 
 bool CCutsceneVoteManager::HandleSkipButton(bool bPressed)
@@ -182,6 +199,12 @@ void CCutsceneVoteManager::Process()
     {
         SkipCurrentCutsceneImmediately();
     }
+    else if (m_bDisabledCutscenePending)
+    {
+        // LOAD_CUTSCENE may fade the host before START_CUTSCENE is reached. Keep the presentation playable
+        // while the stock mission script advances to CLEAR_CUTSCENE.
+        RestoreGameplayPresentation();
+    }
 
     if (!CNetwork::m_bAuthenticated)
     {
@@ -223,6 +246,7 @@ void CCutsceneVoteManager::HandleMissionSessionReset()
     m_bEndRequestSent = false;
     m_bEndWhenAcknowledged = false;
     m_bObservedCutsceneRunning = false;
+    m_bDisabledCutscenePending = false;
 }
 
 void CCutsceneVoteManager::Reset()
@@ -306,4 +330,26 @@ void CCutsceneVoteManager::ClearActiveState()
     m_bEndRequestSent = false;
     m_bEndWhenAcknowledged = false;
     m_bObservedCutsceneRunning = false;
+}
+
+void CCutsceneVoteManager::RestoreGameplayPresentation()
+{
+    TheCamera.SetWideScreenOff();
+    TheCamera.RestoreWithJumpCut();
+    TheCamera.SetCameraDirectlyBehindForFollowPed_CamOnAString();
+
+    if (CPad* pad = CPad::GetPad(0))
+    {
+        pad->SetDrunkInputDelay(0);
+        pad->DisablePlayerControls = 0;
+        pad->bApplyBrakes = 0;
+        pad->bDisablePlayerEnterCar = 0;
+        pad->bDisablePlayerDuck = 0;
+        pad->bDisablePlayerFireWeapon = 0;
+        pad->bDisablePlayerFireWeaponWithL1 = 0;
+        pad->bDisablePlayerCycleWeapon = 0;
+        pad->bDisablePlayerJump = 0;
+        pad->bDisablePlayerDisplayVitalStats = 0;
+    }
+    CDraw::FadeValue = 0;
 }

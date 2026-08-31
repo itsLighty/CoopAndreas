@@ -5,6 +5,8 @@
 class CCutsceneVoteManager
 {
 public:
+    static void BeginDisabledCutscene();
+    static void EndDisabledCutscene();
     static void NotifySynchronizedCutsceneStarted();
     static void NotifySynchronizedCutsceneEnded();
     static void SkipCurrentCutsceneImmediately();
@@ -27,6 +29,7 @@ private:
     static bool m_bEndRequestSent;
     static bool m_bEndWhenAcknowledged;
     static bool m_bObservedCutsceneRunning;
+    static bool m_bDisabledCutscenePending;
 
     static uint32_t NextStartRequestId();
     static bool IsStateForCurrentMission(const Packets::Scripts::CutsceneVoteState& state);
@@ -35,4 +38,5 @@ private:
     static void ApplyAuthoritativeSkip();
     static void RememberCurrentEpoch();
     static void ClearActiveState();
+    static void RestoreGameplayPresentation();
 };

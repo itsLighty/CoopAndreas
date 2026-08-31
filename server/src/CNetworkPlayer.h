@@ -29,6 +29,7 @@ public:
     Packets::Players::PlayerPlaceWaypoint m_waypointState{};
     CPedClothesDesc m_pPedClothesDesc{};
     bool m_bHasOnFootSnapshot = false;
+    Packets::Players::OnFootUpdate m_lastOnFootSnapshot{};
     bool m_bIsAlive = false;
     eWeaponType m_eLastWeaponType = WEAPON_UNARMED;
     Packets::Players::ePlayerParachuteState m_eParachuteState = Packets::Players::PLAYER_PARACHUTE_NONE;

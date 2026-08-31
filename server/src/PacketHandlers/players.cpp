@@ -230,7 +230,10 @@ void RelayPlayerGameplayState(PacketT& packet, CNetworkPlayer* pSourcePlayer)
 PACKET_HANDLER(
     ePacketType::PLAYER_ONFOOT_UPDATE, Packets::Players::OnFootUpdate* pOnFootUpdate, CNetworkPlayer* pNetworkPlayer)
 {
+    pOnFootUpdate->playerid.value = pNetworkPlayer->m_iPlayerId;
     pNetworkPlayer->m_bHasOnFootSnapshot = true;
+    pNetworkPlayer->m_lastOnFootSnapshot = *pOnFootUpdate;
+    pNetworkPlayer->m_lastOnFootSnapshot.serverTime = 0;
     pNetworkPlayer->m_bIsAlive = pOnFootUpdate->healthSnapshot.iHealth > 0;
     pNetworkPlayer->m_eLastWeaponType = static_cast<eWeaponType>(pOnFootUpdate->weaponSnapshot.iWeaponType);
     CFireAuthorityManager::ObservePlayerMovement(
@@ -242,7 +245,6 @@ PACKET_HANDLER(
     {
         RelayAuthoritativeParachuteStop(pNetworkPlayer);
     }
-    pOnFootUpdate->playerid.value = pNetworkPlayer->m_iPlayerId;
     GetPacketFactory().SendToAll(*pOnFootUpdate, pNetworkPlayer);
 }
 

@@ -1,13 +1,21 @@
 #pragma once
 
+#include "network/packets/blips.h"
+
 class CNetworkStaticBlip
 {
 public:
 	//static inline std::vector<SMissionMarker> ms_vMissionMarkers;
 	static inline bool ms_bNeedToSendAfterThisFrame = true;
+	static inline bool ms_bHasAuthoritativeSnapshot = false;
+	static inline uint32_t ms_nLastHostSyncAt = 0;
+	static inline uint32_t ms_nLastValidationAt = 0;
+	static inline Packets::Blips::StaticBlipsSnapshot ms_lastAuthoritativeSnapshot{};
 
 	static void Create(const Packets::Blips::StaticBlipsSnapshot& packet);
 	static void Send();
+	static void Process();
+	static void Reset();
 
 	static inline bool IsAllowedSyncingRadarSprite(eRadarSprite sprite)
 	{

@@ -449,6 +449,14 @@ void CNetwork::CompletePlayerConnection(
         if (i->m_iPlayerId == freeId)
             continue;
 
+        if (i->m_bHasOnFootSnapshot)
+        {
+            Packets::Players::OnFootUpdate onFootSnapshot = i->m_lastOnFootSnapshot;
+            onFootSnapshot.playerid.value = i->m_iPlayerId;
+            onFootSnapshot.serverTime = 0;
+            GetPacketFactory().Send(onFootSnapshot, pNewNetworkPlayer);
+        }
+
         const bool sourceMayPublishGameplayState =
             !missionState.IsActive() || missionState.ContainsGameplayParticipant(i->m_iPlayerId);
 
@@ -554,6 +562,16 @@ void CNetwork::CompletePlayerConnection(
     }
 
     CNetworkPlayerManager::AssignHostToFirstPlayer();
+
+    // AssignHostToFirstPlayer intentionally emits only when authority changes. A late joiner still needs the
+    // current assignment so its stream manager keeps the host presentation alive regardless of distance.
+    if (CNetworkPlayer* pCurrentHost = CNetworkPlayerManager::GetHost();
+        pCurrentHost != nullptr && pCurrentHost != pNewNetworkPlayer)
+    {
+        Packets::System::PlayerAssignHost playerAssignHost{};
+        playerAssignHost.playerid = pCurrentHost->m_iPlayerId;
+        GetPacketFactory().Send(playerAssignHost, pNewNetworkPlayer);
+    }
 }
 
 void CNetwork::ConfirmReconnectCredential(

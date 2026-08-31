@@ -181,7 +181,11 @@ void CEntryExitTransitionSync::Receive(const Packets::Players::EnExTransition& p
     const bool applyTransform =
         pNetworkPlayer->ResetTransformInterpolationForCrossChannelBoundary(packet.serverTime);
     if (applyTransform)
+    {
         pNetworkPlayer->m_vecLogicalPosition = packet.position;
+        if (packet.playerAreaId == AREA_MAIN_MAP)
+            pNetworkPlayer->m_vecMapPosition = packet.position;
+    }
     pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
     if (pNetworkPlayer->m_pPed && pNetworkPlayer->m_pPed->IsVTableValid())
     {

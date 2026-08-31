@@ -61,7 +61,7 @@ void CNetworkPlayerMapPin::Process()
 			!player->m_bHasVehiclePassengerSnapshot))
 			continue;
 		CVector2D pos{};
-		if (!GetPlayerMarkerPosition(player->GetLogicalPosition(), pos))
+		if (!GetPlayerMarkerPosition(player->GetMapPosition(), pos))
 			continue;
 
 		float angle = CalculateMarkerAngle(player);

@@ -10,7 +10,7 @@ class MapPinLayoutTests(unittest.TestCase):
         source = (
             ROOT / "client/src/UI/CNetworkPlayerMapPin.cpp"
         ).read_text(encoding="utf-8")
-        self.assertIn("player->GetLogicalPosition()", source)
+        self.assertIn("player->GetMapPosition()", source)
         self.assertNotIn("CWorld::PlayerInFocus =", source)
         process = source[source.index("void CNetworkPlayerMapPin::Process()") :]
         self.assertNotIn("|| player->m_pPed == nullptr", process)

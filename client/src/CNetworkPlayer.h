@@ -10,6 +10,7 @@ public:
 	CPlayerPed* m_pPed = nullptr;
 	int m_iPlayerId;
 	CVector m_vecLogicalPosition{};
+	CVector m_vecMapPosition{};
 	uint8_t m_nLogicalArea = AREA_MAIN_MAP;
 	bool m_bHasOnFootSnapshot = false;
 	uint32_t m_nLastPresentationChangeAt = 0;
@@ -103,6 +104,7 @@ public:
 	bool SnapOnFootTransform(CVector position, float currentRotation, float aimingRotation,
 		server_time_t boundaryTime = 0);
 	CVector GetLogicalPosition() const;
+	CVector GetMapPosition() const;
 	void Respawn(server_time_t boundaryTime = 0);
 	int GetInternalId();
 	std::string GetName();

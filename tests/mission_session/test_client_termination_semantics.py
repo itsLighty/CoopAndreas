@@ -82,10 +82,13 @@ class ClientTerminationSemanticsTests(unittest.TestCase):
         self.assertIn("ms_nLoadingCutsceneSessionId = 0", cleanup)
         self.assertGreaterEqual(self.session.count("CancelPendingMissionMedia();"), 2)
 
-    def test_deferred_playback_requires_the_same_active_session(self):
+    def test_deferred_audio_is_session_scoped_and_cutscene_playback_is_disabled(self):
         self.assertIn("ms_anLoadingMissionAudioSessionIds", self.script_packets)
         self.assertIn("missionSession.sessionId", self.script_packets)
-        self.assertIn("ms_nLoadingCutsceneSessionId = sessionId", self.opcodes)
+        self.assertNotIn("ms_nLoadingCutsceneSessionId = sessionId", self.opcodes)
+        self.assertIn("CCutsceneVoteManager::BeginDisabledCutscene();", self.opcodes)
+        self.assertIn("CCutsceneVoteManager::SkipCurrentCutsceneImmediately();", self.opcodes)
+        self.assertIn("CCutsceneVoteManager::EndDisabledCutscene();", self.opcodes)
         self.assertIn("IsDeferredMediaSessionCurrent", self.main)
         self.assertLess(
             self.main.index("CMissionSessionClient::Process();"),

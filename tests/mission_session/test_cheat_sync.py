@@ -313,7 +313,7 @@ class CheatSourceContractTests(unittest.TestCase):
 
     def test_protocol_is_append_only_and_bumped_to_038(self):
         config = (ROOT / "shared/config.h").read_text(encoding="utf-8")
-        self.assertIn('COOPANDREAS_VERSION "0.3.9-alpha"', config)
+        self.assertIn('COOPANDREAS_VERSION "0.3.10-alpha"', config)
         enum = re.search(
             r"enum class ePacketType[^\{]*\{(.*?)PACKET_ID_MAX",
             self.packet_types,
@@ -445,10 +445,10 @@ class CheatSourceContractTests(unittest.TestCase):
         ):
             with self.subTest(relative=relative):
                 contents = (ROOT / relative).read_text(encoding="utf-8")
-                self.assertIn("FILEVERSION 0,3,9,0", contents)
-                self.assertIn("PRODUCTVERSION 0,3,9,0", contents)
-                self.assertIn('VALUE "FileVersion", "0.3.9-alpha"', contents)
-                self.assertIn('VALUE "ProductVersion", "0.3.9-alpha"', contents)
+                self.assertIn("FILEVERSION 0,3,10,0", contents)
+                self.assertIn("PRODUCTVERSION 0,3,10,0", contents)
+                self.assertIn('VALUE "FileVersion", "0.3.10-alpha"', contents)
+                self.assertIn('VALUE "ProductVersion", "0.3.10-alpha"', contents)
 
     def test_readme_marks_only_proven_cheat_sync_complete(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

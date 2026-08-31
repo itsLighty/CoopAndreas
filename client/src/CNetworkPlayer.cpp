@@ -227,6 +227,7 @@ CNetworkPlayer::CNetworkPlayer(int id, CVector position)
     m_pPedClothesDesc.SetTextureAndModel("SNEAKERBINCBLK", "SNEAKER", 3);
     m_pPedClothesDesc.SetTextureAndModel("PLAYER_FACE", "HEAD", 1);
     m_vecLogicalPosition = position;
+    m_vecMapPosition = position;
     m_nLogicalArea = AREA_MAIN_MAP;
 }
 
@@ -358,6 +359,8 @@ bool CNetworkPlayer::CacheOnFootSnapshot(const Packets::Players::OnFootUpdate& s
     m_onFootSnapshotInterpolated = snapshot;
     m_bHasOnFootSnapshot = true;
     m_vecLogicalPosition = snapshot.vecPos;
+    if (m_nLogicalArea == AREA_MAIN_MAP)
+        m_vecMapPosition = snapshot.vecPos;
     m_oldControllerState = snapshot.keySnapshot.oldControllerState;
     m_newControllerState = snapshot.keySnapshot.newControllerState;
     if (m_pPed && m_pPed->IsVTableValid() && m_pPed->m_nAreaCode != m_nLogicalArea)
@@ -389,6 +392,8 @@ bool CNetworkPlayer::CacheVehicleDriverSnapshot(const Packets::Vehicles::Vehicle
     {
         m_vecLogicalPosition = vehicle->GetLogicalPosition();
         m_nLogicalArea = vehicle->m_nLogicalArea;
+        if (m_nLogicalArea == AREA_MAIN_MAP)
+            m_vecMapPosition = m_vecLogicalPosition;
     }
     return true;
 }
@@ -408,6 +413,8 @@ bool CNetworkPlayer::CacheVehiclePassengerSnapshot(const Packets::Vehicles::Vehi
     {
         m_vecLogicalPosition = vehicle->GetLogicalPosition();
         m_nLogicalArea = vehicle->m_nLogicalArea;
+        if (m_nLogicalArea == AREA_MAIN_MAP)
+            m_vecMapPosition = m_vecLogicalPosition;
     }
     return true;
 }
@@ -452,6 +459,11 @@ CVector CNetworkPlayer::GetLogicalPosition() const
             return vehicle->GetLogicalPosition();
     }
     return m_vecLogicalPosition;
+}
+
+CVector CNetworkPlayer::GetMapPosition() const
+{
+    return m_nLogicalArea == AREA_MAIN_MAP ? GetLogicalPosition() : m_vecMapPosition;
 }
 
 void CNetworkPlayer::ApplyCachedPresentation()
@@ -577,6 +589,8 @@ bool CNetworkPlayer::SnapOnFootTransform(
     if (!ResetTransformInterpolation(boundaryTime))
         return false;
     m_vecLogicalPosition = position;
+    if (m_nLogicalArea == AREA_MAIN_MAP)
+        m_vecMapPosition = position;
     m_onFootSnapshotInterpolated.vecPos = position;
     m_onFootSnapshotInterpolated.vecMoveSpeed = CVector{};
     m_onFootSnapshotInterpolated.currentRotation = currentRotation;

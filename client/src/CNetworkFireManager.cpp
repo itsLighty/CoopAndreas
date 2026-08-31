@@ -417,6 +417,7 @@ bool CNetworkFireManager::Materialize(Slot& slot)
     CFire* fire = nullptr;
     int replayScriptHandle = -1;
     ++m_remoteMutationDepth;
+    BeginNativeBirthObservation(target, true);
     if (target != nullptr)
     {
         // GTA's ordinary attached-fire overload always reports a crime for peds/vehicles and dereferences
@@ -432,6 +433,7 @@ bool CNetworkFireManager::Materialize(Slot& slot)
         fire = gFireManager.StartFire(slot.descriptor.fallbackPosition, slot.descriptor.strength, 1, nullptr,
             slot.descriptor.remainingLifetimeMs, 0, 0);
     }
+    EndNativeBirthObservation();
     --m_remoteMutationDepth;
     if (target != nullptr && replayScriptHandle != -1)
     {
