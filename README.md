@@ -223,7 +223,7 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
   - [X] task sync (good luck, warrior!)
   - [X] radar icon?
   - [X] speech sync
-- [ ] player voice commands
+- [X] player voice commands
 - [X] chat reactions (see LD_CHAT.txd)
 - [X] gang wars sync
 - [ ] parachute jump sync
