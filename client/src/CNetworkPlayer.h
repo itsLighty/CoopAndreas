@@ -99,6 +99,7 @@ public:
 	void ClearVehicleRelation(bool resetInterpolation = true);
 	void ProcessTransformInterpolation();
 	bool ResetTransformInterpolation(server_time_t boundaryTime = 0);
+	bool ResetTransformInterpolationForCrossChannelBoundary(server_time_t boundaryTime);
 	bool SnapOnFootTransform(CVector position, float currentRotation, float aimingRotation,
 		server_time_t boundaryTime = 0);
 	CVector GetLogicalPosition() const;

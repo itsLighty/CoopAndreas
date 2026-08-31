@@ -370,6 +370,28 @@ bool CNetworkTransformInterpolator::ResetAt(server_time_t boundaryTime)
     return true;
 }
 
+bool CNetworkTransformInterpolator::ResetForCrossChannelBoundary(server_time_t boundaryTime)
+{
+    if (boundaryTime == 0)
+    {
+        Reset();
+        return true;
+    }
+
+    if (m_hasAcceptedServerTime && TimeDelta(boundaryTime, m_lastAcceptedServerTime) < 0)
+    {
+        // A reliable lifecycle event may cross an unreliable transform update in transit. The
+        // event still invalidates the buffered presentation, but its older pose must not move
+        // the authoritative transform watermark backwards.
+        m_snapshots.clear();
+        m_lastReceiveServerTime = g_serverTime;
+        ++m_rejectedStaleCount;
+        return false;
+    }
+
+    return ResetAt(boundaryTime);
+}
+
 void CNetworkTransformInterpolator::ClearSnapshots()
 {
     m_snapshots.clear();

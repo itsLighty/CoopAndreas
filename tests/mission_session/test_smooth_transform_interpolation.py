@@ -61,6 +61,13 @@ class TransformBufferModel:
         self.last_time = boundary_time
         return True
 
+    def reset_cross_channel_boundary(self, boundary_time: int) -> bool:
+        if self.last_time is not None and time_delta(boundary_time, self.last_time) < 0:
+            self.snapshots.clear()
+            self.rejected_stale += 1
+            return False
+        return self.reset_at(boundary_time)
+
     def push(self, snapshot: Snapshot, teleport_distance: float = 30.0) -> bool:
         accepted_delta = time_delta(snapshot.server_time, self.last_time) if self.last_time is not None else 1
         if self.last_time is not None and (accepted_delta < 0 or
@@ -161,6 +168,89 @@ class SmoothInterpolationModelTests(unittest.TestCase):
         self.assertEqual([], buffer.snapshots)
         self.assertTrue(buffer.push(Snapshot(1300, 4.0)))
 
+    def test_cross_channel_boundary_clears_history_without_rewinding_watermark(self) -> None:
+        buffer = TransformBufferModel()
+        buffer.push(Snapshot(1200, 12.0, angle=1.25))
+        self.assertFalse(buffer.reset_cross_channel_boundary(1100))
+        self.assertEqual([], buffer.snapshots)
+        self.assertEqual(1200, buffer.last_time)
+        self.assertTrue(buffer.push(Snapshot(1250, 13.0, angle=1.5)))
+
+
+class EnExArrivalModel:
+    def __init__(self) -> None:
+        self.buffer = TransformBufferModel()
+        self.position = 0.0
+        self.rotation = 0.0
+        self.logical_area = 0
+        self.native_area = 0
+        self.pending_generation = 0
+        self.applied_generation = 0
+        self.presentation_count = 0
+        self.pending: tuple[int, float, float, int] | None = None
+
+    def receive_on_foot(self, server_time: int, position: float, rotation: float) -> None:
+        if self.buffer.push(Snapshot(server_time, position, angle=rotation,
+                                     area=self.logical_area)):
+            self.position = position
+            self.rotation = rotation
+
+    def receive_enex(self, server_time: int, position: float, rotation: float, area: int) -> None:
+        self.pending_generation = (self.pending_generation + 1) & 0xFFFFFFFF
+        if self.pending_generation == 0:
+            self.pending_generation = 1
+        self.pending = (server_time, position, rotation, area)
+        transform_is_current = self.buffer.reset_cross_channel_boundary(server_time)
+        if transform_is_current:
+            self.position = position
+            self.rotation = rotation
+        self.logical_area = area
+        self.native_area = area
+        self.replay_pending()
+
+    def replay_pending(self) -> None:
+        if self.pending is None or self.applied_generation == self.pending_generation:
+            return
+        server_time, position, rotation, area = self.pending
+        transform_is_current = self.buffer.reset_cross_channel_boundary(server_time)
+        if transform_is_current:
+            self.position = position
+            self.rotation = rotation
+        self.logical_area = area
+        self.native_area = area
+        self.applied_generation = self.pending_generation
+        self.presentation_count += 1
+
+
+class EnExCrossChannelOrderingModelTests(unittest.TestCase):
+    def test_enex_then_newer_movement_applies_each_in_timestamp_order(self) -> None:
+        model = EnExArrivalModel()
+        model.receive_enex(1100, 20.0, 0.5, 1)
+        model.receive_on_foot(1200, 24.0, 0.75)
+        self.assertEqual((24.0, 0.75), (model.position, model.rotation))
+        self.assertEqual((1, 1), (model.logical_area, model.native_area))
+
+    def test_newer_movement_then_older_enex_updates_area_without_pose_rewind(self) -> None:
+        model = EnExArrivalModel()
+        model.receive_on_foot(1200, 24.0, 0.75)
+        model.receive_enex(1100, 20.0, 0.5, 1)
+        self.assertEqual((24.0, 0.75), (model.position, model.rotation))
+        self.assertEqual((1, 1), (model.logical_area, model.native_area))
+        self.assertEqual([], model.buffer.snapshots)
+        self.assertEqual(1200, model.buffer.last_time)
+
+    def test_pending_generation_replay_is_idempotent(self) -> None:
+        model = EnExArrivalModel()
+        model.receive_enex(1100, 20.0, 0.5, 1)
+        model.replay_pending()
+        model.replay_pending()
+        self.assertEqual(1, model.presentation_count)
+        model.receive_enex(1200, 30.0, 1.0, 2)
+        model.replay_pending()
+        self.assertEqual(2, model.presentation_count)
+        self.assertEqual((30.0, 1.0, 2, 2),
+                         (model.position, model.rotation, model.logical_area, model.native_area))
+
 
 class SmoothInterpolationSourceContractTests(unittest.TestCase):
     @classmethod
@@ -234,7 +324,13 @@ class SmoothInterpolationSourceContractTests(unittest.TestCase):
         self.assertIn("void CNetworkPlayer::Respawn(server_time_t boundaryTime)\n{\n"
                       "    if (!ResetTransformInterpolation(boundaryTime))", self.player_cpp)
         self.assertIn("SnapOnFootTransform(\n            packet.vecPos", self.player_cpp)
-        self.assertIn("!pNetworkPlayer->ResetTransformInterpolation(packet.serverTime)", self.enex)
+        self.assertIn("ResetTransformInterpolationForCrossChannelBoundary", self.enex)
+        self.assertIn("ResetForCrossChannelBoundary", self.interpolator_cpp)
+        self.assertIn("m_snapshots.clear();\n        m_lastReceiveServerTime = g_serverTime;",
+                      self.interpolator_cpp)
+        self.assertIn("pNetworkPlayer->m_nLogicalArea = packet.playerAreaId", self.enex)
+        self.assertIn("pNetworkPlayer->m_pPed->m_nAreaCode = packet.playerAreaId", self.enex)
+        self.assertIn("!packet.bFinished && applyTransitionPresentation", self.enex)
         self.assertIn("pNetworkVehicle->ResetTransformInterpolation(pVehicleEnter->serverTime)",
                       self.vehicle_handler)
         self.assertIn("pNetworkPed->ResetTransformInterpolation(pAssignPedSyncer->serverTime)",

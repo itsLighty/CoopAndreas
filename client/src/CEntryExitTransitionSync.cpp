@@ -28,28 +28,28 @@ void SetRemotePrimaryTask(CPlayerPed* pPlayerPed, CTask* pTask)
     pPad->DisablePlayerControls = localDisablePlayerControls;
 }
 
-void ApplyRemoteSnapshot(CNetworkPlayer* pNetworkPlayer, const Packets::Players::EnExTransition& packet)
+bool ApplyRemoteSnapshot(CNetworkPlayer* pNetworkPlayer, const Packets::Players::EnExTransition& packet)
 {
     CPlayerPed* pPlayerPed = pNetworkPlayer->m_pPed;
+    const bool applyTransform =
+        pNetworkPlayer->ResetTransformInterpolationForCrossChannelBoundary(packet.serverTime);
 
-    if (packet.bFinished)
-    {
-        pPlayerPed->Teleport(packet.position, false);
-    }
-    else
-    {
-        pPlayerPed->SetPosn(packet.position);
-    }
-    if (!pNetworkPlayer->SnapOnFootTransform(
+    if (applyTransform && pNetworkPlayer->SnapOnFootTransform(
             packet.position, packet.currentRotation.m_angle, packet.aimingRotation.m_angle, packet.serverTime))
-        return;
-    pPlayerPed->SetHeading(packet.currentRotation.m_angle);
+    {
+        if (packet.bFinished)
+            pPlayerPed->Teleport(packet.position, false);
+        pPlayerPed->SetHeading(packet.currentRotation.m_angle);
+        pPlayerPed->m_vecMoveSpeed = CVector{};
+    }
+
+    // EnEx is a reliable lifecycle event on a different channel from movement. Its area is
+    // authoritative even when a newer movement snapshot already owns the remote transform.
     pPlayerPed->m_nAreaCode = packet.playerAreaId;
     pPlayerPed->UpdateRwMatrix();
     pPlayerPed->m_pEnex = nullptr;
-    pPlayerPed->m_vecMoveSpeed = CVector{};
-
     pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
+    return applyTransform;
 }
 
 void ClearRemoteTransition(CNetworkPlayer* pNetworkPlayer)
@@ -177,10 +177,17 @@ void CEntryExitTransitionSync::Receive(const Packets::Players::EnExTransition& p
     ++pNetworkPlayer->m_nPendingEnExTransitionGeneration;
     if (pNetworkPlayer->m_nPendingEnExTransitionGeneration == 0)
         ++pNetworkPlayer->m_nPendingEnExTransitionGeneration;
-    if (!pNetworkPlayer->ResetTransformInterpolation(packet.serverTime))
-        return;
-    pNetworkPlayer->m_vecLogicalPosition = packet.position;
+
+    const bool applyTransform =
+        pNetworkPlayer->ResetTransformInterpolationForCrossChannelBoundary(packet.serverTime);
+    if (applyTransform)
+        pNetworkPlayer->m_vecLogicalPosition = packet.position;
     pNetworkPlayer->m_nLogicalArea = packet.playerAreaId;
+    if (pNetworkPlayer->m_pPed && pNetworkPlayer->m_pPed->IsVTableValid())
+    {
+        pNetworkPlayer->m_pPed->m_nAreaCode = packet.playerAreaId;
+        pNetworkPlayer->m_pPed->UpdateRwMatrix();
+    }
     ReplayPending(pNetworkPlayer);
 }
 
@@ -206,9 +213,9 @@ void CEntryExitTransitionSync::ReplayPending(CNetworkPlayer* pNetworkPlayer)
     }
 
     ClearRemoteTransition(pNetworkPlayer);
-    ApplyRemoteSnapshot(pNetworkPlayer, packet);
+    const bool applyTransitionPresentation = ApplyRemoteSnapshot(pNetworkPlayer, packet);
 
-    if (!packet.bFinished)
+    if (!packet.bFinished && applyTransitionPresentation)
     {
         StartRemoteTransition(pNetworkPlayer, pEntryExit, packet.bUsesDoor);
     }

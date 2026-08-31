@@ -58,6 +58,7 @@ public:
     bool UpdateNewestAngles(server_time_t serverTime, float currentRotation, float aimingRotation);
     void Reset();
     bool ResetAt(server_time_t boundaryTime);
+    bool ResetForCrossChannelBoundary(server_time_t boundaryTime);
     void ClearSnapshots();
 
     bool Empty() const { return m_snapshots.empty(); }

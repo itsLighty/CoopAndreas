@@ -561,6 +561,11 @@ bool CNetworkPlayer::ResetTransformInterpolation(server_time_t boundaryTime)
     return m_transformInterpolator.ResetAt(boundaryTime);
 }
 
+bool CNetworkPlayer::ResetTransformInterpolationForCrossChannelBoundary(server_time_t boundaryTime)
+{
+    return m_transformInterpolator.ResetForCrossChannelBoundary(boundaryTime);
+}
+
 bool CNetworkPlayer::SnapOnFootTransform(
     CVector position, float currentRotation, float aimingRotation, server_time_t boundaryTime)
 {
