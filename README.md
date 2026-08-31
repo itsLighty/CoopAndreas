@@ -151,16 +151,16 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [X] mission markers sync
   
 ### Current Tasks
-- [ ] pickups
-  - [ ] graffities, horseshoes, snapshots, oysters
-  - [ ] static weapons, armours
-  - [ ] static bribes
-  - [ ] drop
-    - [ ] money
-    - [ ] weapons
-- [ ] jetpack sync
+- [X] pickups
+  - [X] graffities, horseshoes, snapshots, oysters
+  - [X] static weapons, armours
+  - [X] static bribes
+  - [X] drop
+    - [X] money
+    - [X] weapons
+- [X] jetpack sync
   - [X] flight 
-  - [ ] pickup (related to task above) 
+  - [X] pickup (related to task above) 
 - [X] cutscenes
   - [X] cutscenes
   - [X] vote to skip
@@ -227,9 +227,9 @@ monobank: https://send.monobank.ua/jar/8wPrs73MBa
 - [X] chat reactions (see LD_CHAT.txd)
 - [X] gang wars sync
 - [X] parachute jump sync
-- [ ] stunt
-  - [ ] collecting
-  - [ ] for-player slow motion
+- [X] stunt
+  - [X] collecting
+  - [X] for-player slow motion
 - [X] chat gamepad support with on-screen keyboard
 ### Minor tasks and ideas
 - [X] Sync laser sniper rifle red dot with all players

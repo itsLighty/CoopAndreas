@@ -82,6 +82,8 @@ class StuntJumpSyncTests(unittest.TestCase):
         cls.client = (ROOT / "client/src/CStuntJumpSyncManager.cpp").read_text(encoding="utf-8")
         cls.client_header = (ROOT / "client/src/CStuntJumpSyncManager.h").read_text(encoding="utf-8")
         cls.client_handler = (ROOT / "client/src/PacketHandlers/stunts.cpp").read_text(encoding="utf-8")
+        cls.client_network = (ROOT / "client/src/CNetwork.cpp").read_text(encoding="utf-8")
+        cls.client_system = (ROOT / "client/src/PacketHandlers/system.cpp").read_text(encoding="utf-8")
         cls.game_hooks = (ROOT / "client/src/Hooks/GameHooks.cpp").read_text(encoding="utf-8")
         cls.patch = (ROOT / "client/src/CPatch.cpp").read_text(encoding="utf-8")
         cls.server = (ROOT / "server/src/CStuntJumpAuthorityManager.cpp").read_text(encoding="utf-8")
@@ -350,6 +352,8 @@ class StuntJumpSyncTests(unittest.TestCase):
         self.assertIn("m_appliedAwardSequences = {}", function_body(self.client, r"BeginServerRun\("))
         self.assertIn("CStuntJumpAuthorityManager::SendSnapshot(pNewNetworkPlayer);", self.server_network)
         self.assertIn("CStuntJumpAuthorityManager::HandleAuthorityChange(player);", self.server_players)
+        self.assertIn("CStuntJumpSyncManager::ResetNetworkState();", self.client_network)
+        self.assertEqual(self.client_system.count("CStuntJumpSyncManager::HandleAuthorityChanged();"), 2)
 
     def test_cancel_death_disconnect_and_mission_transition_restore_presentation(self):
         process = function_body(self.client, r"CStuntJumpSyncManager::ProcessOnlineJump\(")

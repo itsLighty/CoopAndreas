@@ -6,6 +6,7 @@
 #include "CNetworkAnimQueue.h"
 #include "CNetworkCheckpoint.h"
 #include "CNetworkPickupManager.h"
+#include "CStuntJumpSyncManager.h"
 #include "CNetworkPedManager.h"
 #include "CNetworkPlayerManager.h"
 #include "CNetworkVehicleManager.h"
@@ -239,6 +240,7 @@ void CNetwork::ResetConnectionState()
 
     // Cancel work that points at remote entities before deleting those entities.
     CEntryExitTransitionSync::Reset();
+    CStuntJumpSyncManager::ResetNetworkState();
     GetPacketBuffer().Clear();
     CNetworkAnimQueue::Clear();
     CMissionSessionClient::Reset();

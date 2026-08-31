@@ -1,6 +1,7 @@
 #include "CEntryExitMarkerSync.h"
 #include "CNetworkStaticBlip.h"
 #include "CNetworkPickupManager.h"
+#include "CStuntJumpSyncManager.h"
 #include "network/packet_types.h"
 #include "network/packets/system.h"
 #include "stdafx.h"
@@ -100,6 +101,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
     if (pPlayerAssignHost->playerid == CNetworkPlayerManager::m_nMyId)
     {
         CLocalPlayer::m_bIsHost = true;
+        CStuntJumpSyncManager::HandleAuthorityChanged();
 
         CPatch::RevertTemporaryPatchesForHost(); // TODO is this needed?
 
@@ -126,6 +128,7 @@ PACKET_HANDLER(ePacketType::PLAYER_ASSIGN_HOST, Packets::System::PlayerAssignHos
     }
 
     CLocalPlayer::m_bIsHost = false;
+    CStuntJumpSyncManager::HandleAuthorityChanged();
     CGangZoneWarSyncManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
     CNetworkPickupManager::HandleAuthorityChanged(pPlayerAssignHost->playerid, false);
 }
